@@ -9,7 +9,7 @@ import { Trophy, Target, Zap, TrendingUp } from 'lucide-react';
 
 const Profile = () => {
   const userProjects = mockProjects.filter(p =>
-    p.participants.some(u => u.id === currentUser.id)
+    p.participantIds?.includes(currentUser.id) || p.participants?.some(u => u.id === currentUser.id)
   );
 
   const stats = [
@@ -23,7 +23,7 @@ const Profile = () => {
     {
       icon: Target,
       label: 'Completed',
-      value: currentUser.stats.totalCompleted,
+      value: currentUser.stats.totalCompletedTasks,
       color: 'text-success',
       bgColor: 'bg-success/10'
     },
@@ -137,11 +137,13 @@ const Profile = () => {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{project.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {project.completedTasks}/{project.totalTasksPlanned} tasks completed
+                      {project.completedTasks || 0}/{project.totalTasksPlanned || 0} tasks completed
                     </div>
                   </div>
                   <div className="text-sm font-medium text-muted-foreground">
-                    {Math.round((project.completedTasks / project.totalTasksPlanned) * 100)}%
+                    {project.totalTasksPlanned > 0 
+                      ? `${Math.round(((project.completedTasks || 0) / project.totalTasksPlanned) * 100)}%`
+                      : '0%'}
                   </div>
                 </div>
               ))}

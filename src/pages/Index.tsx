@@ -1,17 +1,20 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TaskCard } from '@/components/tasks/TaskCard';
-import { getTodayTasks, mockTasks } from '@/lib/mockData';
+import { TaskForm } from '@/components/tasks/TaskForm';
+import { getTodayTasks, mockTasks, mockProjects, mockUsers, currentUser, mapTaskStatusForUI } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Calendar, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Task, Project } from '@/types';
 
 const Index = () => {
-  const navigate = useNavigate();
-  const [tasks, setTasks] = useState(mockTasks);
-  const todayTasks = getTodayTasks();
+  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  // Get today's tasks for current user
+  const todayTasks = getTodayTasks(currentUser.id);
 
   const handleAccept = (taskId: string) => {
     setTasks(prev =>
@@ -53,25 +56,104 @@ const Index = () => {
     });
   };
 
-  const myTasks = todayTasks.filter(t => {
-    const task = tasks.find(mt => mt.id === t.id);
-    return task && (task.creatorId === '1' || task.assigneeId === '1');
+  // myTasks should use the tasks from state (which includes newly created ones)
+  // Filter to show tasks where current user is creator or assignee
+  const myTasks = tasks.filter(task => {
+    // Check if task is due today
+    const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+    if (!dueDate) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    const isToday = dueDate.getTime() === today.getTime();
+    
+    if (!isToday) return false;
+    
+    // Check if current user is creator or assignee
+    return task.creatorId === currentUser.id || task.assigneeId === currentUser.id;
   });
 
-  const pendingTasks = myTasks.filter(t => {
-    const task = tasks.find(mt => mt.id === t.id);
-    return task?.status === 'pending';
+  const pendingTasks = myTasks.filter(task => {
+    const uiStatus = mapTaskStatusForUI(task.status);
+    return uiStatus === 'pending';
   });
   
-  const activeTasks = myTasks.filter(t => {
-    const task = tasks.find(mt => mt.id === t.id);
-    return task?.status === 'accepted';
+  const activeTasks = myTasks.filter(task => {
+    const uiStatus = mapTaskStatusForUI(task.status);
+    return uiStatus === 'accepted';
   });
   
-  const completedTasks = myTasks.filter(t => {
-    const task = tasks.find(mt => mt.id === t.id);
-    return task?.status === 'completed';
+  const completedTasks = myTasks.filter(task => {
+    const uiStatus = mapTaskStatusForUI(task.status);
+    return uiStatus === 'completed';
   });
+
+  const handleCreateProject = (projectData: {
+    name: string;
+    description: string;
+    participants: string[];
+    color: string;
+  }): Project => {
+    const participantUsers = [currentUser, ...projectData.participants.map(id => mockUsers.find(u => u.id === id)!).filter(Boolean)];
+    
+    const newProject: Project = {
+      id: `p${Date.now()}`,
+      name: projectData.name,
+      description: projectData.description,
+      ownerId: currentUser.id,
+      participantIds: [currentUser.id, ...projectData.participants],
+      totalTasksPlanned: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      color: projectData.color,
+      // Populated for UI
+      participants: participantUsers,
+      completedTasks: 0,
+      progress: 0
+    };
+
+    setProjects(prev => [newProject, ...prev]);
+    toast.success('Project created! 🎉');
+    return newProject;
+  };
+
+  const handleCreateTask = (taskData: {
+    title: string;
+    description: string;
+    assigneeId: string;
+    projectId: string;
+    type: 'one_off' | 'recurring';
+    recurrencePattern?: 'daily' | 'weekly' | 'custom';
+    dueDate?: Date;
+  }) => {
+    const newTask: Task = {
+      id: `t${Date.now()}`,
+      projectId: taskData.projectId,
+      creatorId: currentUser.id,
+      assigneeId: taskData.assigneeId,
+      type: taskData.type,
+      recurrencePattern: taskData.recurrencePattern,
+      title: taskData.title,
+      description: taskData.description,
+      status: 'pending_acceptance', // New status system
+      initiatedAt: new Date(),
+      dueDate: taskData.dueDate,
+      initiatedByUserId: currentUser.id,
+      isMirrorCompletionVisible: true,
+      createdAt: new Date(), // Legacy support
+      completions: {
+        [currentUser.id]: { completed: false },
+        [taskData.assigneeId]: { completed: false }
+      }
+    };
+
+    setTasks(prev => [newTask, ...prev]);
+    toast.success('Task initiated! 🚀', {
+      description: 'Waiting for your friend to accept'
+    });
+    setShowTaskForm(false);
+  };
 
   return (
     <AppLayout>
@@ -102,7 +184,7 @@ const Index = () => {
           </div>
 
           <Button
-            onClick={() => navigate('/projects')}
+            onClick={() => setShowTaskForm(true)}
             className="gradient-primary text-white hover:opacity-90"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -157,17 +239,14 @@ const Index = () => {
               <h2 className="text-xl font-semibold">Needs Your Action</h2>
             </div>
             <div className="space-y-3">
-              {pendingTasks.map((task) => {
-                const fullTask = tasks.find(t => t.id === task.id);
-                return fullTask ? (
-                  <TaskCard
-                    key={task.id}
-                    task={fullTask}
-                    onAccept={handleAccept}
-                    onDecline={handleDecline}
-                  />
-                ) : null;
-              })}
+              {pendingTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onAccept={handleAccept}
+                  onDecline={handleDecline}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -177,16 +256,13 @@ const Index = () => {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">In Progress</h2>
             <div className="space-y-3">
-              {activeTasks.map((task) => {
-                const fullTask = tasks.find(t => t.id === task.id);
-                return fullTask ? (
-                  <TaskCard
-                    key={task.id}
-                    task={fullTask}
-                    onComplete={handleComplete}
-                  />
-                ) : null;
-              })}
+              {activeTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onComplete={handleComplete}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -196,10 +272,9 @@ const Index = () => {
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Completed</h2>
             <div className="space-y-3 opacity-60">
-              {completedTasks.map((task) => {
-                const fullTask = tasks.find(t => t.id === task.id);
-                return fullTask ? <TaskCard key={task.id} task={fullTask} /> : null;
-              })}
+              {completedTasks.map((task) => (
+                <TaskCard key={task.id} task={task} />
+              ))}
             </div>
           </div>
         )}
@@ -219,7 +294,7 @@ const Index = () => {
               Start a new task or check out your projects
             </p>
             <Button
-              onClick={() => navigate('/projects')}
+              onClick={() => setShowTaskForm(true)}
               className="gradient-primary text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -228,6 +303,15 @@ const Index = () => {
           </motion.div>
         )}
       </div>
+
+      <TaskForm
+        open={showTaskForm}
+        onOpenChange={setShowTaskForm}
+        onSubmit={handleCreateTask}
+        projects={projects}
+        allowProjectSelection={true}
+        onCreateProject={handleCreateProject}
+      />
     </AppLayout>
   );
 };

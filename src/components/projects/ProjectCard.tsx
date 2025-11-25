@@ -12,7 +12,9 @@ interface ProjectCardProps {
 
 export const ProjectCard = ({ project }: ProjectCardProps) => {
   const navigate = useNavigate();
-  const progress = (project.completedTasks / project.totalTasksPlanned) * 100;
+  const progress = project.totalTasksPlanned > 0 
+    ? ((project.completedTasks || 0) / project.totalTasksPlanned) * 100 
+    : 0;
 
   return (
     <motion.div
@@ -47,7 +49,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Progress</span>
               <span className="font-medium text-foreground">
-                {project.completedTasks}/{project.totalTasksPlanned} tasks
+                {project.completedTasks || 0}/{project.totalTasksPlanned || 0} tasks
               </span>
             </div>
             <Progress value={progress} className="h-2" />

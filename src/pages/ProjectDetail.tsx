@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskForm } from '@/components/tasks/TaskForm';
@@ -9,16 +9,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getProjectById, mockTasks, currentUser } from '@/lib/mockData';
+import { getProjectById, mockTasks, currentUser, mockProjects, mapTaskStatusForUI } from '@/lib/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Users, TrendingUp, Clock, CheckCircle2, Sparkles, Repeat } from 'lucide-react';
-import { Task } from '@/types';
+import { Task, Project } from '@/types';
 import { toast } from 'sonner';
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const project = getProjectById(id || '');
+  const location = useLocation();
+  // Check if project was passed via location state (from Projects page)
+  const projectFromState = location.state?.project as Project | undefined;
+  const projectFromData = getProjectById(id || '');
+  const project = projectFromState || projectFromData;
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [tasks, setTasks] = useState(mockTasks);
 
@@ -34,11 +38,11 @@ const ProjectDetail = () => {
   }
 
   const projectTasks = tasks.filter(t => t.projectId === project.id);
-  const progress = (project.completedTasks / project.totalTasksPlanned) * 100;
+  const progress = project.progress !== undefined ? project.progress * 100 : (project.completedTasks || 0) / (project.totalTasksPlanned || 1) * 100;
 
-  const pendingTasks = projectTasks.filter(t => t.status === 'pending');
-  const activeTasks = projectTasks.filter(t => t.status === 'accepted');
-  const completedTasks = projectTasks.filter(t => t.status === 'completed');
+  const pendingTasks = projectTasks.filter(t => mapTaskStatusForUI(t.status) === 'pending');
+  const activeTasks = projectTasks.filter(t => mapTaskStatusForUI(t.status) === 'accepted');
+  const completedTasks = projectTasks.filter(t => mapTaskStatusForUI(t.status) === 'completed');
   const recurringTasks = projectTasks.filter(t => t.type === 'recurring');
 
   const handleAccept = (taskId: string) => {
@@ -85,22 +89,26 @@ const ProjectDetail = () => {
     title: string;
     description: string;
     assigneeId: string;
+    projectId: string;
     type: 'one_off' | 'recurring';
     recurrencePattern?: 'daily' | 'weekly' | 'custom';
     dueDate?: Date;
   }) => {
     const newTask: Task = {
       id: `t${Date.now()}`,
-      projectId: project.id,
+      projectId: taskData.projectId,
       creatorId: currentUser.id,
       assigneeId: taskData.assigneeId,
       type: taskData.type,
       recurrencePattern: taskData.recurrencePattern,
       title: taskData.title,
       description: taskData.description,
-      status: 'pending',
-      createdAt: new Date(),
+      status: 'pending_acceptance',
+      initiatedAt: new Date(),
       dueDate: taskData.dueDate,
+      initiatedByUserId: currentUser.id,
+      isMirrorCompletionVisible: true,
+      createdAt: new Date(), // Legacy support
       completions: {
         [currentUser.id]: { completed: false },
         [taskData.assigneeId]: { completed: false }
@@ -162,7 +170,7 @@ const ProjectDetail = () => {
               </div>
               <Progress value={progress} className="h-3" />
               <div className="text-xs text-muted-foreground">
-                {project.completedTasks} of {project.totalTasksPlanned} tasks completed
+                {project.completedTasks || 0} of {project.totalTasksPlanned || 0} tasks completed
               </div>
             </div>
 

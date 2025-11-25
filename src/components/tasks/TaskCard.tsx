@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CheckCircle2, Circle, Clock, Repeat, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getUserById, getProjectById, currentUser } from '@/lib/mockData';
+import { getUserById, getProjectById, currentUser, mapTaskStatusForUI } from '@/lib/mockData';
 import { useState } from 'react';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 
@@ -25,11 +25,13 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
   const myCompletion = task.completions[currentUser.id];
   const partnerCompletion = task.completions[task.creatorId === currentUser.id ? task.assigneeId : task.creatorId];
 
-  const canComplete = task.status === 'accepted' && !myCompletion?.completed;
-  const needsAcceptance = task.status === 'pending' && task.assigneeId === currentUser.id;
+  // Map status to UI-friendly status
+  const uiStatus = mapTaskStatusForUI(task.status);
+  const canComplete = uiStatus === 'accepted' && !myCompletion?.completed;
+  const needsAcceptance = (uiStatus === 'pending' || task.status === 'pending_acceptance') && task.assigneeId === currentUser.id;
 
   const getStatusBadgeVariant = () => {
-    switch (task.status) {
+    switch (uiStatus) {
       case 'pending':
         return 'outline';
       case 'accepted':
@@ -42,7 +44,7 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
   };
 
   const getStatusColor = () => {
-    switch (task.status) {
+    switch (uiStatus) {
       case 'pending':
         return 'text-status-pending';
       case 'accepted':
@@ -111,8 +113,20 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
                 )}
               </div>
 
-              <Badge variant={getStatusBadgeVariant()} className={`${getStatusColor()} capitalize shrink-0`}>
-                {task.status}
+              <Badge 
+                variant={uiStatus === 'completed' ? 'outline' : getStatusBadgeVariant()} 
+                className={`${getStatusColor()} capitalize shrink-0 font-bold ${
+                  uiStatus === 'completed' 
+                    ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold' 
+                    : ''
+                }`}
+                style={uiStatus === 'completed' ? {
+                  borderColor: 'hsl(var(--status-completed) / 0.4)',
+                  backgroundColor: 'hsl(var(--status-completed) / 0.15)',
+                  color: 'hsl(var(--status-completed))'
+                } : undefined}
+              >
+                {uiStatus}
               </Badge>
             </div>
 
@@ -207,7 +221,7 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
                 </motion.div>
               )}
 
-              {task.status === 'completed' && myCompletion?.difficultyRating && (
+              {uiStatus === 'completed' && myCompletion?.difficultyRating && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -215,7 +229,7 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
                 >
                   <Sparkles className="w-4 h-4 text-accent" />
                   <span className="text-sm text-muted-foreground">
-                    Difficulty: {myCompletion.difficultyRating}/5
+                    Difficulty: {myCompletion.difficultyRating}/10
                   </span>
                 </motion.div>
               )}

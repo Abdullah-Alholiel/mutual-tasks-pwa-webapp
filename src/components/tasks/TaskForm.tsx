@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Project, User, TaskType, RecurrencePattern } from '@/types';
 import { mockUsers, currentUser } from '@/lib/mockData';
 import { motion } from 'framer-motion';
-import { CalendarIcon, Repeat, Sparkles, Users } from 'lucide-react';
+import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { ProjectForm } from '@/components/projects/ProjectForm';
+import { toast } from 'sonner';
 
 interface TaskFormProps {
   open: boolean;
@@ -24,29 +26,107 @@ interface TaskFormProps {
     title: string;
     description: string;
     assigneeId: string;
+    projectId: string;
     type: TaskType;
     recurrencePattern?: RecurrencePattern;
     dueDate?: Date;
   }) => void;
-  project: Project;
+  project?: Project;
+  projects?: Project[]; // Actual projects list (includes newly created ones)
+  allowProjectSelection?: boolean;
+  onCreateProject?: (project: {
+    name: string;
+    description: string;
+    participants: string[];
+    color: string;
+  }) => Project;
 }
 
-export const TaskForm = ({ open, onOpenChange, onSubmit, project }: TaskFormProps) => {
+export const TaskForm = ({ 
+  open, 
+  onOpenChange, 
+  onSubmit, 
+  project: initialProject,
+  projects = [], // Default to empty array if not provided
+  allowProjectSelection = false,
+  onCreateProject
+}: TaskFormProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProject?.id || '');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('daily');
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
+  const [showProjectForm, setShowProjectForm] = useState(false);
 
-  const availableUsers = mockUsers.filter(u => 
-    u.id !== currentUser.id && project.participants.some(p => p.id === u.id)
-  );
+  // Use provided projects list, or fall back to initialProject
+  const project = initialProject || (selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined);
+  const availableProjects = allowProjectSelection ? projects : [];
+  
+  // Get available users - must be participants in the selected project
+  const availableUsers = project 
+    ? mockUsers.filter(u => {
+        if (u.id === currentUser.id) return false;
+        // Check participantIds first (normalized), then participants array (for backward compatibility)
+        return project.participantIds?.includes(u.id) || project.participants?.some(p => p.id === u.id);
+      })
+    : mockUsers.filter(u => u.id !== currentUser.id);
+
+  // Reset assignee when project changes
+  useEffect(() => {
+    if (project && assigneeId) {
+      const isAssigneeValid = availableUsers.some(u => u.id === assigneeId);
+      if (!isAssigneeValid) {
+        setAssigneeId('');
+      }
+    }
+  }, [project, assigneeId, availableUsers]);
+
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setTitle('');
+      setDescription('');
+      setAssigneeId('');
+      setIsRecurring(false);
+      setRecurrencePattern('daily');
+      setDueDate(new Date());
+      if (!initialProject) {
+        setSelectedProjectId('');
+      }
+    }
+  }, [open, initialProject]);
+
+  const handleCreateProject = (projectData: {
+    name: string;
+    description: string;
+    participants: string[];
+    color: string;
+  }) => {
+    if (onCreateProject) {
+      const newProject = onCreateProject(projectData);
+      setSelectedProjectId(newProject.id);
+      setShowProjectForm(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title.trim() || !assigneeId) {
+    if (!title.trim() || !assigneeId || !project) {
+      return;
+    }
+
+    // Validate that assignee is a participant in the selected project
+    // Check both participantIds (normalized) and participants array (for backward compatibility)
+    const isInParticipantIds = project.participantIds?.includes(assigneeId) ?? false;
+    const isInParticipants = project.participants?.some(p => p.id === assigneeId) ?? false;
+    
+    if (!isInParticipantIds && !isInParticipants) {
+      toast.error('Invalid assignee', {
+        description: 'The selected friend must be a participant in this project'
+      });
       return;
     }
 
@@ -54,6 +134,7 @@ export const TaskForm = ({ open, onOpenChange, onSubmit, project }: TaskFormProp
       title: title.trim(),
       description: description.trim(),
       assigneeId,
+      projectId: project.id,
       type: isRecurring ? 'recurring' : 'one_off',
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       dueDate
@@ -66,6 +147,9 @@ export const TaskForm = ({ open, onOpenChange, onSubmit, project }: TaskFormProp
     setIsRecurring(false);
     setRecurrencePattern('daily');
     setDueDate(new Date());
+    if (!initialProject) {
+      setSelectedProjectId('');
+    }
     onOpenChange(false);
   };
 
@@ -78,11 +162,62 @@ export const TaskForm = ({ open, onOpenChange, onSubmit, project }: TaskFormProp
             <DialogTitle>Initiate New Task</DialogTitle>
           </div>
           <DialogDescription>
-            Create a task in <span className="font-medium" style={{ color: project.color }}>{project.name}</span>
+            {project 
+              ? `Create a task in ${project.name}`
+              : 'Create a new collaborative task'
+            }
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          {/* Project Selection (if allowed) */}
+          {allowProjectSelection && (
+            <div className="space-y-2">
+              <Label>Project *</Label>
+              <div className="space-y-2">
+                <Select 
+                  value={selectedProjectId} 
+                  onValueChange={setSelectedProjectId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableProjects.map((proj) => (
+                      <SelectItem key={proj.id} value={proj.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: proj.color }}
+                          />
+                          <span>{proj.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowProjectForm(true)}
+                  className="w-full"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create New Project
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {project && (
+            <div className="bg-muted/50 rounded-xl p-3 flex items-center gap-2">
+              <FolderKanban className="w-4 h-4" style={{ color: project.color }} />
+              <span className="text-sm font-medium" style={{ color: project.color }}>
+                {project.name}
+              </span>
+            </div>
+          )}
+
           {/* Task Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Task Title *</Label>
@@ -252,7 +387,7 @@ export const TaskForm = ({ open, onOpenChange, onSubmit, project }: TaskFormProp
             </Button>
             <Button
               type="submit"
-              disabled={!title.trim() || !assigneeId}
+              disabled={!title.trim() || !assigneeId || !project}
               className="flex-1 gradient-primary text-white"
             >
               Initiate Task
@@ -260,6 +395,14 @@ export const TaskForm = ({ open, onOpenChange, onSubmit, project }: TaskFormProp
           </div>
         </form>
       </DialogContent>
+
+      {allowProjectSelection && onCreateProject && (
+        <ProjectForm
+          open={showProjectForm}
+          onOpenChange={setShowProjectForm}
+          onSubmit={handleCreateProject}
+        />
+      )}
     </Dialog>
   );
 };
