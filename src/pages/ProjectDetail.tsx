@@ -263,6 +263,7 @@ const ProjectDetail = () => {
           } else if (frequency === 'weeks') {
             if (daysOfWeek.length > 0) {
               // Find next occurrence on specified days
+              const searchStartDate = new Date(currentDate);
               let found = false;
               let attempts = 0;
               while (!found && attempts < 14) {
@@ -273,9 +274,10 @@ const ProjectDetail = () => {
                 }
                 attempts++;
               }
-              // If no matching day found in 2 weeks, advance by interval weeks
+              // If no matching day found in 2 weeks, advance by interval weeks from search start
               if (!found) {
-                currentDate.setDate(currentDate.getDate() + (interval * 7) - attempts);
+                currentDate = new Date(searchStartDate);
+                currentDate.setDate(currentDate.getDate() + (interval * 7));
               }
             } else {
               currentDate.setDate(currentDate.getDate() + (interval * 7));

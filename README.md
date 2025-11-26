@@ -1,73 +1,107 @@
-# Welcome to your Lovable project
+# Mutual Tasks PWA
 
-## Project info
+A progressive web app that helps two or more friends keep each other accountable by co-owning tasks, logging completions, and celebrating streaks. The UI is powered by mock data that mirrors the future database so you can keep building the product experience today while the remote backend is still in progress.
 
-**URL**: https://lovable.dev/projects/75b243ea-f4b3-452e-aef7-aa76548011ff
+## Why this repo exists
+- Keep design, product copy, and implementation details in one source of truth.
+- Give newcomers (even if they have not coded for a while) a clear map of what lives where.
+- Prepare the front-end for an eventual hosted PostgreSQL (or compatible) database without blocking feature work right now.
 
-## How can I edit this code?
+## Feature highlights
+- **Shared projects** – create public or private projects with color tags, expected task counts, and participant chips.
+- **Two-sided tasks** – every task tracks creator, assignee, due dates, and individual completion states.
+- **Full status flow** – `draft → initiated → pending_acceptance → time_proposed → accepted → completed` so people can renegotiate times without losing context.
+- **Completion streaks & difficulty** – difficulty ratings are stored per user per task to fuel score and streak math.
+- **Notifications inbox** – mock notifications mirror the messaging you will eventually push via email or in-app to keep everyone engaged.
+- **PWA-ready shell** – offline manifest, icons, and a service worker are already configured via `vite-plugin-pwa`.
 
-There are several ways of editing your application.
+## Tech stack in plain English
+| Tool | Why we use it |
+| --- | --- |
+| Vite + React 18 | Fast dev server, modern JSX, TypeScript-first. |
+| shadcn/ui + Tailwind CSS | Pre-built accessible components with utility-first styling. |
+| React Hook Form + Zod | Typesafe forms and validation for project/task flows. |
+| React Query | Handles asynchronous data (currently mock data, later real API). |
+| Vite PWA plugin | Generates the manifest, service worker, and offline assets. |
+| ESLint + TypeScript | Prevents bugs by enforcing consistent patterns. |
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/75b243ea-f4b3-452e-aef7-aa76548011ff) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## Repository layout
+```
+mutual-tasks-pwa-webapp/
+├── public/                  # Static assets copied as-is into the build
+├── src/
+│   ├── main.tsx             # App bootstrap (React + router + providers)
+│   ├── App.tsx              # Route map and app-wide providers
+│   ├── pages/               # Top-level screens (Today dashboard, Projects, etc.)
+│   ├── components/
+│   │   ├── layout/          # Shell (navigation, responsive chrome)
+│   │   ├── tasks/, projects/, profile/, notifications/ etc.
+│   │   └── ui/              # shadcn primitives (button, dialog, calendar…)
+│   ├── hooks/               # Reusable hooks (mobile detection, toasts)
+│   ├── lib/
+│   │   ├── mockData.ts      # Single source of truth for fake DB records
+│   │   ├── utils.ts, notificationService.ts, emailTemplates.ts
+│   └── types/               # Database-aligned TypeScript interfaces
+├── EMAIL_INTEGRATION.md     # Notes on hooking email + notifications
+├── DATABASE_FOUNDATION.md   # Entity relationship + migration plan
+├── package.json             # Scripts and dependency list
+└── dist/                    # Auto-generated production build output
 ```
 
-**Edit a file directly in GitHub**
+> Tip: if you want to peek at realistic sample data, `src/lib/mockData.ts` mirrors the schema declared in `src/types/index.ts`. Swap those mocks out with API calls once the remote database goes live.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Data & state model
+- UI components consume `User`, `Project`, `Task`, `CompletionLog`, and `Notification` interfaces defined in `src/types/index.ts`.
+- React Query is configured, even though the current data source is synchronous mock data. When the backend is ready, you only need to replace the functions inside `src/lib` with API calls and keep the rest of the app untouched.
+- Statuses include the new `time_proposed` step so people can renegotiate deadlines. The helper `mapTaskStatusForUI` converts database statuses to the simplified UI badges.
 
-**Use GitHub Codespaces**
+## Getting started (even if you have not coded recently)
+1. **Install Node.js 20+** – the easiest path is [nvm](https://github.com/nvm-sh/nvm). Run `nvm install 20 && nvm use 20`.
+2. **Clone the repo** (or download the ZIP if you prefer)  
+   ```sh
+   git clone <YOUR_GIT_URL>
+   cd mutual-tasks-pwa-webapp
+   ```
+3. **Install dependencies**  
+   ```sh
+   npm install
+   ```
+4. **Start a dev server**  
+   ```sh
+   npm run dev
+   ```  
+   Vite will print a local URL (usually http://localhost:5173). Open it in your browser; changes save automatically.
+5. **Edit content** – all UI copy and flows live in `src/pages` and `src/components`. Tailwind classes describe styling inline so you can tweak spacing/typography without hunting for CSS files.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Common npm scripts
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Launches the Vite dev server with fast refresh. |
+| `npm run build` | Creates an optimized production bundle in `dist/`. |
+| `npm run build:dev` | Same as build but keeps development mode flags (useful for debugging). |
+| `npm run preview` | Serves the `dist/` build locally to sanity-check before deploying. |
+| `npm run lint` | Runs ESLint across the project; fix warnings before committing if possible. |
 
-## What technologies are used for this project?
+## Deploying / publishing
+- Running `npm run build` generates everything you need inside `dist/` (HTML, JS, CSS, manifest, icons).
+- You can host `dist/` on any static host (Netlify, Vercel, S3) or publish directly through [Lovable](https://lovable.dev/projects/75b243ea-f4b3-452e-aef7-aa76548011ff) via Share → Publish.
+- Because this is a PWA, ensure your host serves HTTPS so install prompts work on mobile.
 
-This project is built with:
+## Working toward the remote database
+While we wait for the hosted database:
+- Keep schema changes synchronized between `src/types/index.ts`, `src/lib/mockData.ts`, and `DATABASE_FOUNDATION.md`.
+- Use `DATABASE_FOUNDATION.md` as the contract for whoever builds the backend (tables, enums, indexes, API checklist).
+- When the API is ready, replace the helper functions in `src/lib/mockData.ts` with `fetch`/React Query hooks and remove the mock arrays.
+- Notifications already include fields like `emailSent` so the same objects can be persisted and used for transactional email later.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Troubleshooting quick answers
+- **Blank screen?** Make sure you are running Node 20+ and no other process is using port 5173.
+- **Styling looks off?** Run `npm install` again to ensure Tailwind and shadcn component dependencies are installed.
+- **Icons or manifest missing?** Check `vite.config.ts` for the PWA plugin configuration—the assets in `public/` feed the build.
 
-## How can I deploy this project?
+## Further reading
+- `DATABASE_FOUNDATION.md` – full ER diagram, status flow, and backend checklist.
+- `EMAIL_INTEGRATION.md` – how notification templates map to future email providers.
+- `src/components/layout/AppLayout.tsx` – best place to start if you want to restyle the shell or navigation.
 
-Simply open [Lovable](https://lovable.dev/projects/75b243ea-f4b3-452e-aef7-aa76548011ff) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Have fun experimenting! The current setup lets you iterate quickly on user experience today and wire it up to the remote database the moment it is ready.

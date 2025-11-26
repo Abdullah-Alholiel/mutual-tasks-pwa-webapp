@@ -92,6 +92,7 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
 
   const isTimeProposed = task.status === 'time_proposed';
   const canRespondToProposal = isTimeProposed && task.proposedByUserId !== currentUser.id;
+  const isProposer = isTimeProposed && task.proposedByUserId === currentUser.id;
 
   return (
     <>
@@ -305,6 +306,21 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
                     <Calendar className="w-4 h-4 mr-1" />
                     Propose Time
                   </Button>
+                </motion.div>
+              )}
+
+              {isProposer && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="pt-2 border-t border-border/50"
+                >
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-muted-foreground text-center">
+                    <ClockIcon className="w-4 h-4 mx-auto mb-1 text-primary" />
+                    <p className="font-medium text-foreground">Waiting for response</p>
+                    <p className="text-xs mt-1">Your time proposal is pending approval</p>
+                  </div>
                 </motion.div>
               )}
 

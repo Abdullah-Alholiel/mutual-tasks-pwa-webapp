@@ -280,6 +280,7 @@ const Index = () => {
           } else if (frequency === 'weeks') {
             if (daysOfWeek.length > 0) {
               // Find next occurrence on specified days
+              const searchStartDate = new Date(currentDate);
               let found = false;
               let attempts = 0;
               while (!found && attempts < 14) {
@@ -290,9 +291,10 @@ const Index = () => {
                 }
                 attempts++;
               }
-              // If no matching day found in 2 weeks, advance by interval weeks
+              // If no matching day found in 2 weeks, advance by interval weeks from search start
               if (!found) {
-                currentDate.setDate(currentDate.getDate() + (interval * 7) - attempts);
+                currentDate = new Date(searchStartDate);
+                currentDate.setDate(currentDate.getDate() + (interval * 7));
               }
             } else {
               currentDate.setDate(currentDate.getDate() + (interval * 7));
@@ -337,31 +339,35 @@ const Index = () => {
       newTasks.push(newTask);
     }
 
-    setTasks(prev => [...newTasks, ...prev]);
-    
-    // Update project progress
-    if (taskData.projectId) {
-      setProjects(prev =>
-        prev.map(project => {
-          if (project.id === taskData.projectId) {
-            const currentTasks = tasks.filter(t => t.projectId === project.id);
-            const newTotalTasks = currentTasks.length + newTasks.length;
-            const completedCount = currentTasks.filter(t => {
-              const uiStatus = mapTaskStatusForUI(t.status);
-              return uiStatus === 'completed';
-            }).length;
-            
-            return {
-              ...project,
-              totalTasksPlanned: newTotalTasks,
-              completedTasks: completedCount,
-              progress: newTotalTasks > 0 ? completedCount / newTotalTasks : 0
-            };
-          }
-          return project;
-        })
-      );
-    }
+    setTasks(prev => {
+      const updatedTasks = [...newTasks, ...prev];
+      
+      // Update project progress using the updated tasks
+      if (taskData.projectId) {
+        setProjects(projectPrev =>
+          projectPrev.map(project => {
+            if (project.id === taskData.projectId) {
+              const currentTasks = updatedTasks.filter(t => t.projectId === project.id);
+              const newTotalTasks = currentTasks.length;
+              const completedCount = currentTasks.filter(t => {
+                const uiStatus = mapTaskStatusForUI(t.status);
+                return uiStatus === 'completed';
+              }).length;
+              
+              return {
+                ...project,
+                totalTasksPlanned: newTotalTasks,
+                completedTasks: completedCount,
+                progress: newTotalTasks > 0 ? completedCount / newTotalTasks : 0
+              };
+            }
+            return project;
+          })
+        );
+      }
+      
+      return updatedTasks;
+    });
     
     toast.success(
       newTasks.length > 1 

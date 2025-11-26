@@ -18,7 +18,7 @@ export const StreakCalendar = () => {
     // Generate 49 days (7 weeks)
     for (let i = 0; i < 49; i++) {
       const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
+      date.setDate(date.getDate() + i);
       
       // Mock completion intensity (0-4)
       const intensity = Math.random() > 0.3 ? Math.floor(Math.random() * 4) + 1 : 0;
