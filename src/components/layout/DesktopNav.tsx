@@ -2,7 +2,18 @@ import { Home, FolderKanban, User } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { currentUser } from '@/lib/mockData';
+import { currentUser, mockNotifications } from '@/lib/mockData';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { LogOut } from 'lucide-react';
+import { toast } from 'sonner';
+import { Inbox } from '@/components/notifications/Inbox';
+import { useState } from 'react';
+import { Notification } from '@/types';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Today' },
@@ -11,6 +22,34 @@ const navItems = [
 ];
 
 export const DesktopNav = () => {
+  const [notifications, setNotifications] = useState<Notification[]>(
+    mockNotifications.filter(n => n.userId === currentUser.id)
+  );
+
+  const handleLogout = () => {
+    toast.success('Logged out successfully', {
+      description: 'See you soon!'
+    });
+    // In a real app, this would clear auth state
+    // Redirect to auth page
+    window.location.href = '/auth';
+  };
+
+  const handleMarkAsRead = (notificationId: string) => {
+    setNotifications(prev =>
+      prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+    );
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    toast.success('All notifications marked as read');
+  };
+
+  const handleDismiss = (notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  };
+
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0 }}
@@ -43,14 +82,31 @@ export const DesktopNav = () => {
             
             <div className="h-8 w-px bg-border ml-2" />
             
-            <NavLink to="/profile" className="ml-2">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Avatar className="w-8 h-8 ring-2 ring-border">
-                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                  <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-              </motion.div>
-            </NavLink>
+            <Inbox
+              notifications={notifications}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onDismiss={handleDismiss}
+            />
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="ml-2">
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Avatar className="w-8 h-8 ring-2 ring-border hover:ring-primary transition-all">
+                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                      <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </motion.div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>

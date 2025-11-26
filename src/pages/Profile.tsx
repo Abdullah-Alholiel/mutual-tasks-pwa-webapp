@@ -5,18 +5,42 @@ import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Target, Zap, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 
 const Profile = () => {
   const userProjects = mockProjects.filter(p =>
     p.participantIds?.includes(currentUser.id) || p.participants?.some(u => u.id === currentUser.id)
   );
 
+  // Calculate overall total score from all projects
+  const overallTotalScore = userProjects.reduce((sum, project) => {
+    // Calculate project score (completed tasks * average difficulty or just completed tasks)
+    const projectScore = project.completedTasks || 0;
+    return sum + projectScore;
+  }, 0) + currentUser.stats.score;
+
+  const handleLogout = () => {
+    toast.success('Logged out successfully', {
+      description: 'See you soon!'
+    });
+    // In a real app, this would clear auth state
+    // Redirect to auth page
+    window.location.href = '/auth';
+  };
+
   const stats = [
     {
       icon: Trophy,
-      label: 'Total Score',
-      value: currentUser.stats.score,
+      label: 'Overall Score',
+      value: overallTotalScore,
       color: 'text-accent',
       bgColor: 'bg-accent/10'
     },
@@ -53,12 +77,24 @@ const Profile = () => {
         >
           <Card className="p-6">
             <div className="flex items-start gap-6">
-              <Avatar className="w-24 h-24 ring-4 ring-border">
-                <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                <AvatarFallback className="text-2xl">
-                  {currentUser.name.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="cursor-pointer">
+                    <Avatar className="w-24 h-24 ring-4 ring-border hover:ring-primary transition-all">
+                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                      <AvatarFallback className="text-2xl">
+                        {currentUser.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <div className="flex-1">
                 <h1 className="text-2xl font-bold mb-1">{currentUser.name}</h1>
@@ -67,7 +103,7 @@ const Profile = () => {
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <Trophy className="w-3 h-3" />
-                    Level {Math.floor(currentUser.stats.score / 50) + 1}
+                    Level {Math.floor(overallTotalScore / 50) + 1}
                   </Badge>
                   <Badge variant="outline">
                     {userProjects.length} active projects

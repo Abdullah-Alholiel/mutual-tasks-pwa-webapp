@@ -62,6 +62,7 @@ export const mockProjects: Project[] = [
     ownerId: '1',
     participantIds: ['1', '2'],
     totalTasksPlanned: 45,
+    isPublic: true,
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-15'),
     color: 'hsl(199, 89%, 48%)',
@@ -77,6 +78,7 @@ export const mockProjects: Project[] = [
     ownerId: '1',
     participantIds: ['1', '2', '3'],
     totalTasksPlanned: 60,
+    isPublic: true,
     createdAt: new Date('2024-01-10'),
     updatedAt: new Date('2024-01-10'),
     color: 'hsl(142, 76%, 36%)',
@@ -91,6 +93,7 @@ export const mockProjects: Project[] = [
     ownerId: '1',
     participantIds: ['1', '3'],
     totalTasksPlanned: 30,
+    isPublic: false,
     createdAt: new Date('2024-02-01'),
     updatedAt: new Date('2024-02-01'),
     color: 'hsl(32, 95%, 58%)',
@@ -276,7 +279,13 @@ export const mockCompletionLogs: CompletionLog[] = [
   }
 ];
 
-// Mock notifications
+// Mock notifications - using recent dates
+const getRecentDate = (hoursAgo: number) => {
+  const date = new Date();
+  date.setHours(date.getHours() - hoursAgo);
+  return date;
+};
+
 export const mockNotifications: Notification[] = [
   {
     id: 'n1',
@@ -286,7 +295,7 @@ export const mockNotifications: Notification[] = [
     taskId: 't4',
     projectId: 'p3',
     isRead: false,
-    createdAt: new Date('2024-11-25T09:00:00')
+    createdAt: getRecentDate(2) // 2 hours ago
   },
   {
     id: 'n2',
@@ -296,7 +305,7 @@ export const mockNotifications: Notification[] = [
     taskId: 't2',
     projectId: 'p2',
     isRead: false,
-    createdAt: new Date('2024-11-25T06:00:00')
+    createdAt: getRecentDate(5) // 5 hours ago
   },
   {
     id: 'n3',
@@ -304,7 +313,7 @@ export const mockNotifications: Notification[] = [
     type: 'streak_reminder',
     message: 'Complete your tasks today to maintain your 12-day streak!',
     isRead: true,
-    createdAt: new Date('2024-11-25T07:00:00')
+    createdAt: getRecentDate(1) // 1 hour ago
   }
 ];
 
@@ -336,6 +345,7 @@ export const mapTaskStatusForUI = (status: Task['status']): 'pending' | 'accepte
     case 'pending_acceptance':
     case 'initiated':
     case 'draft':
+    case 'time_proposed':
       return 'pending';
     case 'accepted':
       return 'accepted';

@@ -28,7 +28,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
           {/* Header */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg text-foreground truncate mb-1">
+              <h3 className="font-semibold text-lg text-foreground break-words mb-1">
                 {project.name}
               </h3>
               <p className="text-sm text-muted-foreground line-clamp-2">
@@ -60,28 +60,30 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {project.participants.length} members
+                {project.participants?.length || project.participantIds?.length || 0} members
               </span>
             </div>
             
-            <div className="flex -space-x-2">
-              {project.participants.slice(0, 3).map((participant) => (
-                <Avatar
-                  key={participant.id}
-                  className="w-8 h-8 ring-2 ring-background border border-border"
-                >
-                  <AvatarImage src={participant.avatar} alt={participant.name} />
-                  <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-              ))}
-              {project.participants.length > 3 && (
-                <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    +{project.participants.length - 3}
-                  </span>
-                </div>
-              )}
-            </div>
+            {project.participants && project.participants.length > 0 && (
+              <div className="flex -space-x-2">
+                {project.participants.slice(0, 3).map((participant) => (
+                  <Avatar
+                    key={participant.id}
+                    className="w-8 h-8 ring-2 ring-background border border-border"
+                  >
+                    <AvatarImage src={participant.avatar} alt={participant.name} />
+                    <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                ))}
+                {project.participants.length > 3 && (
+                  <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      +{project.participants.length - 3}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </Card>

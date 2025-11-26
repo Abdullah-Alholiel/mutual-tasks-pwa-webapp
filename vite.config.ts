@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Mutual Task & Habit Tracker',
+        name: 'Momentum - Collaborative Tasks',
         short_name: 'Momentum',
         description: 'Collaborative habit and task tracking with friends',
         theme_color: '#0EA5E9',

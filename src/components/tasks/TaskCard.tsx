@@ -3,21 +3,32 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle2, Circle, Clock, Repeat, Sparkles } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Repeat, Sparkles, Calendar, Clock as ClockIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getUserById, getProjectById, currentUser, mapTaskStatusForUI } from '@/lib/mockData';
 import { useState } from 'react';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface TaskCardProps {
   task: Task;
   onAccept?: (taskId: string) => void;
   onDecline?: (taskId: string) => void;
-  onComplete?: (taskId: string) => void;
+  onComplete?: (taskId: string, difficultyRating?: number) => void;
+  onProposeTime?: (taskId: string, proposedDate: Date) => void;
 }
 
-export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProps) => {
+export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime }: TaskCardProps) => {
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showProposeModal, setShowProposeModal] = useState(false);
+  const [proposedDate, setProposedDate] = useState<Date | undefined>(task.dueDate ? new Date(task.dueDate) : new Date());
+  const [proposedTime, setProposedTime] = useState<string>('09:00');
   const creator = getUserById(task.creatorId);
   const assignee = getUserById(task.assigneeId);
   const project = getProjectById(task.projectId);
@@ -64,11 +75,23 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
 
   const handleRatingSubmit = (rating: number) => {
     if (onComplete) {
-      onComplete(task.id);
-      // In a real app, we'd pass the rating here
+      onComplete(task.id, rating);
     }
     setShowRatingModal(false);
   };
+
+  const handleProposeTime = () => {
+    if (proposedDate && onProposeTime) {
+      const finalDate = new Date(proposedDate);
+      const [hours, minutes] = proposedTime.split(':').map(Number);
+      finalDate.setHours(hours || 9, minutes || 0, 0, 0);
+      onProposeTime(task.id, finalDate);
+      setShowProposeModal(false);
+    }
+  };
+
+  const isTimeProposed = task.status === 'time_proposed';
+  const canRespondToProposal = isTimeProposed && task.proposedByUserId !== currentUser.id;
 
   return (
     <>
@@ -168,17 +191,56 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
                 )}
               </div>
 
-              {task.dueDate && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Today</span>
-                </div>
-              )}
+              {task.dueDate && (() => {
+                const dueDate = new Date(task.dueDate);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const dueDateOnly = new Date(dueDate);
+                dueDateOnly.setHours(0, 0, 0, 0);
+                const isToday = dueDateOnly.getTime() === today.getTime();
+                const isTomorrow = dueDateOnly.getTime() === today.getTime() + 86400000;
+                
+                let dateLabel = '';
+                if (isToday) {
+                  dateLabel = 'Today';
+                } else if (isTomorrow) {
+                  dateLabel = 'Tomorrow';
+                } else {
+                  dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
+                
+                // Format time
+                const timeLabel = dueDate.toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit',
+                  hour12: true 
+                });
+                
+                return (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{dateLabel} {timeLabel}</span>
+                  </div>
+                );
+              })()}
             </div>
+
+            {/* Show proposed time info */}
+            {isTimeProposed && task.proposedDueDate && (
+              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
+                <div className="flex items-center gap-2 mb-1">
+                  <ClockIcon className="w-4 h-4 text-primary" />
+                  <span className="font-medium">New time proposed:</span>
+                </div>
+                <div className="text-muted-foreground">
+                  {format(new Date(task.proposedDueDate), "PPP 'at' p")}
+                </div>
+              </div>
+            )}
 
             {/* Actions */}
             <AnimatePresence mode="wait">
-              {needsAcceptance && (
+              {needsAcceptance && !isTimeProposed && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -199,6 +261,49 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
                     size="sm"
                   >
                     Decline
+                  </Button>
+                  <Button
+                    onClick={() => setShowProposeModal(true)}
+                    variant="outline"
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Calendar className="w-4 h-4 mr-1" />
+                    Propose Time
+                  </Button>
+                </motion.div>
+              )}
+
+              {canRespondToProposal && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex gap-2 pt-2 border-t border-border/50"
+                >
+                  <Button
+                    onClick={() => onAccept?.(task.id)}
+                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                    size="sm"
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    onClick={() => onDecline?.(task.id)}
+                    variant="outline"
+                    className="flex-1"
+                    size="sm"
+                  >
+                    Decline
+                  </Button>
+                  <Button
+                    onClick={() => setShowProposeModal(true)}
+                    variant="outline"
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Calendar className="w-4 h-4 mr-1" />
+                    Propose Time
                   </Button>
                 </motion.div>
               )}
@@ -244,6 +349,72 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete }: TaskCardProp
         onSubmit={handleRatingSubmit}
         taskTitle={task.title}
       />
+
+      {/* Propose New Time Modal */}
+      <Dialog open={showProposeModal} onOpenChange={setShowProposeModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Propose New Time</DialogTitle>
+            <DialogDescription>
+              Suggest a different date and time for this task
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>New Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !proposedDate && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {proposedDate ? format(proposedDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={proposedDate}
+                    onSelect={setProposedDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>New Time</Label>
+              <Input
+                type="time"
+                value={proposedTime}
+                onChange={(e) => setProposedTime(e.target.value)}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowProposeModal(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleProposeTime}
+                disabled={!proposedDate}
+                className="flex-1 gradient-primary text-white"
+              >
+                Propose Time
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

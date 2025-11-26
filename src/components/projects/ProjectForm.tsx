@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Project, User } from '@/types';
 import { mockUsers, currentUser } from '@/lib/mockData';
 import { motion } from 'framer-motion';
-import { FolderKanban, Users, Sparkles } from 'lucide-react';
+import { FolderKanban, Users, Sparkles, Globe, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 const PROJECT_COLORS = [
   { name: 'Blue', value: 'hsl(199, 89%, 48%)' },
@@ -29,6 +30,7 @@ interface ProjectFormProps {
     description: string;
     participants: string[];
     color: string;
+    isPublic: boolean;
   }) => void;
 }
 
@@ -37,6 +39,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
   const [description, setDescription] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [selectedColor, setSelectedColor] = useState(PROJECT_COLORS[0].value);
+  const [isPublic, setIsPublic] = useState(true);
 
   const availableFriends = mockUsers.filter(u => u.id !== currentUser.id);
 
@@ -59,7 +62,8 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
       name: name.trim(),
       description: description.trim(),
       participants: selectedParticipants,
-      color: selectedColor
+      color: selectedColor,
+      isPublic
     });
 
     // Reset form
@@ -67,6 +71,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
     setDescription('');
     setSelectedParticipants([]);
     setSelectedColor(PROJECT_COLORS[0].value);
+    setIsPublic(true);
     onOpenChange(false);
   };
 
@@ -106,6 +111,32 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="min-h-[100px] text-base resize-none"
+            />
+          </div>
+
+          {/* Public/Private Toggle */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                {isPublic ? (
+                  <Globe className="w-5 h-5 text-primary" />
+                ) : (
+                  <Lock className="w-5 h-5 text-primary" />
+                )}
+              </div>
+              <div>
+                <Label htmlFor="isPublic" className="cursor-pointer">
+                  {isPublic ? 'Public Project' : 'Private Project'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isPublic ? 'Anyone can view this project' : 'Only members can view this project'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="isPublic"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
             />
           </div>
 

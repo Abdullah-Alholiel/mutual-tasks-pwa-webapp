@@ -2,7 +2,7 @@
 // Database Entity Types (matches ERD for future backend integration)
 // ============================================================================
 
-export type TaskStatus = 'draft' | 'initiated' | 'pending_acceptance' | 'accepted' | 'completed';
+export type TaskStatus = 'draft' | 'initiated' | 'pending_acceptance' | 'accepted' | 'completed' | 'time_proposed';
 export type TaskType = 'one_off' | 'recurring';
 export type RecurrencePattern = 'daily' | 'weekly' | 'custom';
 export type DifficultyRating = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
@@ -25,7 +25,7 @@ export interface UserStats {
   totalCompletedTasks: number; // Renamed from totalCompleted for clarity
   currentStreak: number;
   longestStreak: number;
-  score: number; // Can be derived from completions and difficulty
+  score: number; // Can be derived from completions and difficulty // TBU
 }
 
 /**
@@ -39,6 +39,7 @@ export interface Project {
   ownerId: string; // User who created the project
   participantIds: string[]; // Array of user IDs (normalized for DB)
   totalTasksPlanned: number; // Set by creator when project is created
+  isPublic: boolean; // Public or private project
   createdAt: Date;
   updatedAt: Date;
   color?: string; // UI preference, not in core ERD but useful for frontend
@@ -67,6 +68,8 @@ export interface Task {
   acceptedAt?: Date; // When assignee accepted
   completedAt?: Date; // When both users completed
   dueDate?: Date;
+  proposedDueDate?: Date; // Proposed new due date/time
+  proposedByUserId?: string; // Who proposed the new time
   initiatedByUserId: string; // Who initiated (usually creatorId)
   isMirrorCompletionVisible: boolean; // Both users see each other's completion status
   
@@ -103,12 +106,13 @@ export interface CompletionLog {
 export interface Notification {
   id: string;
   userId: string;
-  type: 'task_initiated' | 'task_accepted' | 'task_completed' | 'streak_reminder';
+  type: 'task_initiated' | 'task_accepted' | 'task_declined' | 'task_time_proposed' | 'task_completed' | 'streak_reminder' | 'project_joined';
   message: string;
   taskId?: string;
   projectId?: string;
   createdAt: Date;
   isRead: boolean; // Renamed from 'read' for clarity
+  emailSent?: boolean; // Track if email notification was sent
 }
 
 // ============================================================================
