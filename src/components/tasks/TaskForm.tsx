@@ -22,10 +22,12 @@ import { toast } from 'sonner';
 interface TaskFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Note: assigneeId is used for form input simplicity, but the parent component
+  // should convert this to TaskAssignment[] when creating the task (matching DB schema)
   onSubmit: (task: {
     title: string;
     description: string;
-    assigneeId: string;
+    assigneeId: string; // Form input - will be converted to TaskAssignment in parent
     projectId: string;
     type: TaskType;
     recurrencePattern?: RecurrencePattern;
@@ -173,7 +175,7 @@ export const TaskForm = ({
       description: description.trim(),
       assigneeId,
       projectId: project.id,
-      type: isRecurring ? 'recurring' : 'one_off',
+      type: isRecurring ? 'habit' : 'one_off',
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       dueDate: finalDueDate,
       customRecurrence: isRecurring && recurrencePattern === 'custom' ? customRecurrence : undefined

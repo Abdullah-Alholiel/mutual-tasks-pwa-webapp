@@ -1,39 +1,81 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskForm } from '@/components/tasks/TaskForm';
-import { getTodayTasks, mockTasks, mockProjects, mockUsers, currentUser, mapTaskStatusForUI } from '@/lib/mockData';
+import { mockTasks, mockProjects, mockUsers, currentUser, mapTaskStatusForUI } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Calendar, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Task, Project, DifficultyRating } from '@/types';
+import { Task, Project, DifficultyRating, TaskAssignment, AssignmentStatus, TaskTimeProposal } from '@/types';
+
+const buildAssignment = (
+  taskId: string,
+  userId: string,
+  status: AssignmentStatus,
+  dueDate: Date,
+  timestamp: Date
+): TaskAssignment => ({
+  id: `${taskId}-${userId}`,
+  taskId,
+  userId,
+  status,
+  isRequired: true,
+  effectiveDueDate: new Date(dueDate),
+  createdAt: timestamp,
+  updatedAt: timestamp
+});
 
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  // Get today's tasks for current user
-  const todayTasks = getTodayTasks(currentUser.id);
-
   const handleAccept = (taskId: string) => {
     setTasks(prev =>
       prev.map(task => {
-        if (task.id === taskId) {
-          // If accepting a time proposal, update the due date
-          if (task.status === 'time_proposed' && task.proposedDueDate) {
-            return {
-              ...task,
-              status: 'accepted' as const,
-              acceptedAt: new Date(),
-              dueDate: task.proposedDueDate,
-              proposedDueDate: undefined,
-              proposedByUserId: undefined
-            };
-          }
-          return { ...task, status: 'accepted' as const, acceptedAt: new Date() };
+        if (task.id !== taskId) return task;
+        const now = new Date();
+        const pendingProposal = task.timeProposals?.find(proposal => proposal.status === 'pending');
+
+        if (pendingProposal && pendingProposal.proposerId !== currentUser.id) {
+          return {
+            ...task,
+            dueDate: pendingProposal.proposedDueDate,
+            status: task.status === 'completed' ? task.status : 'scheduled',
+            acceptedAt: now,
+            timeProposals: task.timeProposals?.map(proposal =>
+              proposal.id === pendingProposal.id
+                ? { ...proposal, status: 'accepted', respondedAt: now }
+                : proposal
+            ),
+            assignments: task.assignments.map(assignment => ({
+              ...assignment,
+              effectiveDueDate: new Date(pendingProposal.proposedDueDate),
+              updatedAt: now
+            }))
+          };
         }
-        return task;
+
+        const assignments = task.assignments.map(assignment => {
+          if (assignment.userId === currentUser.id && assignment.status === 'invited') {
+            return { ...assignment, status: 'active' as AssignmentStatus, updatedAt: now };
+          }
+          return assignment;
+        });
+
+        const remainingInvites = assignments.some(assignment => assignment.status === 'invited');
+        const status = task.status === 'completed'
+          ? task.status
+          : remainingInvites
+            ? 'initiated'
+            : 'scheduled';
+
+        return {
+          ...task,
+          assignments,
+          status,
+          acceptedAt: now
+        };
       })
     );
     toast.success('Task accepted! Let\'s do this together 🎯');
@@ -50,9 +92,17 @@ const Index = () => {
         task.id === taskId
           ? {
               ...task,
-              status: 'time_proposed' as const,
-              proposedDueDate: proposedDate,
-              proposedByUserId: currentUser.id
+              timeProposals: [
+                ...(task.timeProposals || []),
+                {
+                  id: `ttp-${task.id}-${Date.now()}`,
+                  taskId: task.id,
+                  proposerId: currentUser.id,
+                  proposedDueDate: proposedDate,
+                  status: 'pending',
+                  createdAt: new Date()
+                } satisfies TaskTimeProposal
+              ]
             }
           : task
       )
@@ -62,37 +112,46 @@ const Index = () => {
     });
   };
 
-  const handleComplete = (taskId: string, difficultyRating?: number) => {
+  const handleComplete = (taskId: string, difficultyRating?: DifficultyRating) => {
     setTasks(prev => {
       let allCompleted = false;
-      
+
       const updatedTasks = prev.map(task => {
-        if (task.id === taskId) {
-          const updatedCompletions = {
-            ...task.completions,
-            [currentUser.id]: {
-              completed: true,
-              completedAt: new Date(),
-              difficultyRating: difficultyRating as DifficultyRating | undefined
-            }
-          };
+        if (task.id !== taskId) return task;
+        const now = new Date();
+        const updatedCompletions = {
+          ...task.completions,
+          [currentUser.id]: {
+            completed: true,
+            completedAt: now,
+            difficultyRating: difficultyRating as DifficultyRating | undefined
+          }
+        };
 
-          // Check if all users have completed the task
-          const allUsers = [task.creatorId, task.assigneeId];
-          allCompleted = allUsers.every(userId => 
-            updatedCompletions[userId]?.completed === true
-          );
+        const updatedAssignments = task.assignments.map(assignment =>
+          assignment.userId === currentUser.id
+            ? { ...assignment, status: 'completed' as AssignmentStatus, updatedAt: now }
+            : assignment
+        );
 
-          return {
-            ...task,
-            status: allCompleted ? ('completed' as const) : task.status,
-            completedAt: allCompleted ? new Date() : task.completedAt,
-            completions: updatedCompletions
-          };
-        }
-        return task;
+        const assignmentUserIds = updatedAssignments.map(assignment => assignment.userId);
+        allCompleted = assignmentUserIds.every(userId => updatedCompletions[userId]?.completed === true);
+
+        const nextStatus = allCompleted
+          ? 'completed'
+          : task.status === 'scheduled'
+            ? 'in_progress'
+            : task.status;
+
+        return {
+          ...task,
+          status: nextStatus,
+          completedAt: allCompleted ? now : task.completedAt,
+          assignments: updatedAssignments,
+          completions: updatedCompletions
+        };
       });
-      
+
       // Show toast based on the updated state
       if (allCompleted) {
         toast.success('Amazing work! 🎉', {
@@ -114,16 +173,18 @@ const Index = () => {
     // Check if task is due today
     const dueDate = task.dueDate ? new Date(task.dueDate) : null;
     if (!dueDate) return false;
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     dueDate.setHours(0, 0, 0, 0);
     const isToday = dueDate.getTime() === today.getTime();
-    
+
     if (!isToday) return false;
-    
-    // Check if current user is creator or assignee
-    return task.creatorId === currentUser.id || task.assigneeId === currentUser.id;
+
+    // Check if current user is creator or has an assignment
+    const isCreator = task.creatorId === currentUser.id;
+    const isAssignee = task.assignments.some(assignment => assignment.userId === currentUser.id);
+    return isCreator || isAssignee;
   });
 
   const pendingTasks = myTasks.filter(task => {
@@ -172,12 +233,15 @@ const Index = () => {
     return newProject;
   };
 
+  // Note: assigneeId is used here for form simplicity, but tasks are created with
+  // assignments array (matching database schema). The creator gets 'active' status,
+  // and the assignee gets 'invited' status initially.
   const handleCreateTask = (taskData: {
     title: string;
     description: string;
-    assigneeId: string;
+    assigneeId: string; // Form input - will be converted to TaskAssignment
     projectId: string;
-    type: 'one_off' | 'recurring';
+    type: 'one_off' | 'habit';
     recurrencePattern?: 'daily' | 'weekly' | 'custom';
     dueDate?: Date;
     customRecurrence?: {
@@ -190,153 +254,121 @@ const Index = () => {
     };
   }) => {
     const newTasks: Task[] = [];
+    const now = new Date();
+    const defaultDueDate = taskData.dueDate ? new Date(taskData.dueDate) : new Date();
+    defaultDueDate.setSeconds(0, 0);
 
-    if (taskData.type === 'recurring' && taskData.dueDate && taskData.recurrencePattern) {
-      // Generate recurring tasks based on pattern
+    const createTask = (id: string, dueDate: Date): Task => ({
+      id,
+      projectId: taskData.projectId,
+      creatorId: currentUser.id,
+      type: taskData.type,
+      recurrencePattern: taskData.recurrencePattern,
+      title: taskData.title,
+      description: taskData.description,
+      status: 'initiated',
+      initiatedAt: now,
+      dueDate,
+      difficultyRating: 3,
+      createdAt: now,
+      updatedAt: now,
+      isMirrorCompletionVisible: true,
+      assignments: [
+        buildAssignment(id, currentUser.id, 'active', dueDate, now),
+        buildAssignment(id, taskData.assigneeId, 'invited', dueDate, now)
+      ],
+      timeProposals: [],
+      completions: {
+        [currentUser.id]: { completed: false },
+        [taskData.assigneeId]: { completed: false }
+      }
+    });
+
+    if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
       const startDate = new Date(taskData.dueDate);
-      // Preserve the time from the original due date
-      startDate.setHours(
-        taskData.dueDate.getHours(),
-        taskData.dueDate.getMinutes(),
-        0,
-        0
-      );
-      
+      startDate.setSeconds(0, 0);
+
       let endDate: Date;
       if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-        // Use custom recurrence end condition
         if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
           endDate = new Date(taskData.customRecurrence.endDate);
           endDate.setHours(23, 59, 59, 999);
         } else {
-          // Calculate end date based on occurrence count
           endDate = new Date(startDate);
           const maxOccurrences = taskData.customRecurrence.occurrenceCount || 10;
-          // Estimate end date (will be refined in loop)
-          endDate.setDate(endDate.getDate() + (maxOccurrences * 30));
+          endDate.setDate(endDate.getDate() + maxOccurrences * 30);
         }
       } else {
-        // For daily/weekly, generate tasks for a reasonable period (4 weeks)
         endDate = new Date(startDate);
-        if (taskData.recurrencePattern === 'daily') {
-          endDate.setDate(endDate.getDate() + 28); // 4 weeks
-        } else if (taskData.recurrencePattern === 'weekly') {
-          endDate.setDate(endDate.getDate() + 28); // 4 weeks
-        }
+        endDate.setDate(endDate.getDate() + 28);
         endDate.setHours(23, 59, 59, 999);
       }
-      
+
       let currentDate = new Date(startDate);
       let taskIndex = 0;
       let occurrenceCount = 0;
-      const maxOccurrences = taskData.customRecurrence?.occurrenceCount || (taskData.recurrencePattern === 'daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
+      const maxOccurrences =
+        taskData.customRecurrence?.occurrenceCount ||
+        (taskData.recurrencePattern === 'daily'
+          ? 28
+          : taskData.recurrencePattern === 'weekly'
+            ? 4
+            : 10);
 
       while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
-        const taskDueDate = new Date(currentDate);
-        // Preserve the time from the original due date
-        taskDueDate.setHours(
-          taskData.dueDate.getHours(),
-          taskData.dueDate.getMinutes(),
-          0,
-          0
-        );
+        const dueDate = new Date(currentDate);
+        dueDate.setSeconds(0, 0);
 
-        const newTask: Task = {
-          id: `t${Date.now()}-${taskIndex}`,
-          projectId: taskData.projectId,
-          creatorId: currentUser.id,
-          assigneeId: taskData.assigneeId,
-          type: taskData.type,
-          recurrencePattern: taskData.recurrencePattern,
-          title: taskData.title,
-          description: taskData.description,
-          status: 'pending_acceptance',
-          initiatedAt: new Date(),
-          dueDate: taskDueDate,
-          initiatedByUserId: currentUser.id,
-          isMirrorCompletionVisible: true,
-          createdAt: new Date(),
-          completions: {
-            [currentUser.id]: { completed: false },
-            [taskData.assigneeId]: { completed: false }
-          }
-        };
+        const id = `t${Date.now()}-${taskIndex}`;
+        newTasks.push(createTask(id, dueDate));
 
-        newTasks.push(newTask);
         taskIndex++;
         occurrenceCount++;
 
-        // Move to next occurrence
         if (taskData.recurrencePattern === 'daily') {
           currentDate.setDate(currentDate.getDate() + 1);
         } else if (taskData.recurrencePattern === 'weekly') {
           currentDate.setDate(currentDate.getDate() + 7);
         } else if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-          // Handle custom recurrence
           const { frequency, interval, daysOfWeek } = taskData.customRecurrence;
-          
+
           if (frequency === 'days') {
             currentDate.setDate(currentDate.getDate() + interval);
           } else if (frequency === 'weeks') {
             if (daysOfWeek.length > 0) {
-              // Find next occurrence on specified days
               const searchStartDate = new Date(currentDate);
               let found = false;
               let attempts = 0;
               while (!found && attempts < 14) {
                 currentDate.setDate(currentDate.getDate() + 1);
-                const dayOfWeek = currentDate.getDay();
-                if (daysOfWeek.includes(dayOfWeek)) {
+                if (daysOfWeek.includes(currentDate.getDay())) {
                   found = true;
                 }
                 attempts++;
               }
-              // If no matching day found in 2 weeks, advance by interval weeks from search start
               if (!found) {
                 currentDate = new Date(searchStartDate);
-                currentDate.setDate(currentDate.getDate() + (interval * 7));
+                currentDate.setDate(currentDate.getDate() + interval * 7);
               }
             } else {
-              currentDate.setDate(currentDate.getDate() + (interval * 7));
+              currentDate.setDate(currentDate.getDate() + interval * 7);
             }
           } else if (frequency === 'months') {
             currentDate.setMonth(currentDate.getMonth() + interval);
           }
-          
-          // Check if we've exceeded the end date
+
           if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
             if (currentDate > taskData.customRecurrence.endDate) {
               break;
             }
           }
         } else {
-          // Default to daily
           currentDate.setDate(currentDate.getDate() + 1);
         }
       }
     } else {
-      // One-off task
-      const newTask: Task = {
-        id: `t${Date.now()}`,
-        projectId: taskData.projectId,
-        creatorId: currentUser.id,
-        assigneeId: taskData.assigneeId,
-        type: taskData.type,
-        recurrencePattern: taskData.recurrencePattern,
-        title: taskData.title,
-        description: taskData.description,
-        status: 'pending_acceptance',
-        initiatedAt: new Date(),
-        dueDate: taskData.dueDate,
-        initiatedByUserId: currentUser.id,
-        isMirrorCompletionVisible: true,
-        createdAt: new Date(),
-        completions: {
-          [currentUser.id]: { completed: false },
-          [taskData.assigneeId]: { completed: false }
-        }
-      };
-      newTasks.push(newTask);
+      const id = `t${Date.now()}`;
+      newTasks.push(createTask(id, defaultDueDate));
     }
 
     setTasks(prev => {
@@ -369,16 +401,14 @@ const Index = () => {
       return updatedTasks;
     });
     
-    toast.success(
-      newTasks.length > 1 
-        ? `${newTasks.length} recurring tasks created! 🚀`
-        : 'Task initiated! 🚀',
-      {
-        description: newTasks.length > 1 
-          ? 'Waiting for your friend to accept'
-          : 'Waiting for your friend to accept'
-      }
-    );
+    const toastTitle =
+      newTasks.length > 1
+        ? `${newTasks.length} habit tasks created! 🚀`
+        : 'Task initiated! 🚀';
+
+    toast.success(toastTitle, {
+      description: 'Waiting for your friend to accept'
+    });
     setShowTaskForm(false);
   };
 

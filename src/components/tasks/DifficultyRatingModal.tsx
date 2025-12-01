@@ -3,11 +3,12 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { DifficultyRating } from '@/types';
 
 interface DifficultyRatingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (rating: number) => void;
+  onSubmit: (rating: DifficultyRating) => void;
   taskTitle: string;
 }
 
@@ -17,19 +18,14 @@ export const DifficultyRatingModal = ({
   onSubmit,
   taskTitle
 }: DifficultyRatingModalProps) => {
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [selectedRating, setSelectedRating] = useState<DifficultyRating | null>(null);
 
-  const ratings = [
+  const ratings: Array<{ value: DifficultyRating; label: string; emoji: string }> = [
     { value: 1, label: 'Very Easy', emoji: '😌' },
     { value: 2, label: 'Easy', emoji: '🙂' },
     { value: 3, label: 'Moderate', emoji: '😐' },
-    { value: 4, label: 'Somewhat Hard', emoji: '😅' },
-    { value: 5, label: 'Hard', emoji: '😰' },
-    { value: 6, label: 'Very Hard', emoji: '😓' },
-    { value: 7, label: 'Extremely Hard', emoji: '😱' },
-    { value: 8, label: 'Intense', emoji: '💪' },
-    { value: 9, label: 'Brutal', emoji: '🔥' },
-    { value: 10, label: 'Extreme', emoji: '⚡' }
+    { value: 4, label: 'Hard', emoji: '😅' },
+    { value: 5, label: 'Extreme', emoji: '⚡' }
   ];
 
   const handleSubmit = () => {

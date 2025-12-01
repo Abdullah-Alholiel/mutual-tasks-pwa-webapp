@@ -131,7 +131,7 @@ export const createTaskInitiatedEmail = (
               <div style="margin-top: 15px;">
                 <p style="margin: 5px 0; color: #666;"><strong>Project:</strong> ${project.name}</p>
                 <p style="margin: 5px 0; color: #666;"><strong>Due Date:</strong> ${dueDateText}</p>
-                ${task.type === 'recurring' ? `<p style="margin: 5px 0; color: #666;"><strong>Recurrence:</strong> ${task.recurrencePattern}</p>` : ''}
+                ${task.type === 'habit' ? `<p style="margin: 5px 0; color: #666;"><strong>Recurrence:</strong> ${task.recurrencePattern}</p>` : ''}
               </div>
             </div>
             

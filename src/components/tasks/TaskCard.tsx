@@ -1,4 +1,4 @@
-import { Task, User } from '@/types';
+import { Task, DifficultyRating } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ interface TaskCardProps {
   task: Task;
   onAccept?: (taskId: string) => void;
   onDecline?: (taskId: string) => void;
-  onComplete?: (taskId: string, difficultyRating?: number) => void;
+  onComplete?: (taskId: string, difficultyRating?: DifficultyRating) => void;
   onProposeTime?: (taskId: string, proposedDate: Date) => void;
 }
 
@@ -30,16 +30,19 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
   const [proposedDate, setProposedDate] = useState<Date | undefined>(task.dueDate ? new Date(task.dueDate) : new Date());
   const [proposedTime, setProposedTime] = useState<string>('09:00');
   const creator = getUserById(task.creatorId);
-  const assignee = getUserById(task.assigneeId);
+  const myAssignment = task.assignments.find(assignment => assignment.userId === currentUser.id);
+  const partnerAssignment = task.assignments.find(assignment => assignment.userId !== currentUser.id);
+  const partnerUser = partnerAssignment ? getUserById(partnerAssignment.userId) : undefined;
   const project = getProjectById(task.projectId);
 
   const myCompletion = task.completions[currentUser.id];
-  const partnerCompletion = task.completions[task.creatorId === currentUser.id ? task.assigneeId : task.creatorId];
+  const partnerCompletion = partnerAssignment ? task.completions[partnerAssignment.userId] : undefined;
 
   // Map status to UI-friendly status
   const uiStatus = mapTaskStatusForUI(task.status);
-  const canComplete = uiStatus === 'accepted' && !myCompletion?.completed;
-  const needsAcceptance = (uiStatus === 'pending' || task.status === 'pending_acceptance') && task.assigneeId === currentUser.id;
+  const isActiveStatus = task.status === 'scheduled' || task.status === 'in_progress';
+  const canComplete = isActiveStatus && myAssignment?.status === 'active' && !myCompletion?.completed;
+  const needsAcceptance = myAssignment?.status === 'invited';
 
   const getStatusBadgeVariant = () => {
     switch (uiStatus) {
@@ -73,7 +76,7 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
     }
   };
 
-  const handleRatingSubmit = (rating: number) => {
+  const handleRatingSubmit = (rating: DifficultyRating) => {
     if (onComplete) {
       onComplete(task.id, rating);
     }
@@ -90,9 +93,10 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
     }
   };
 
-  const isTimeProposed = task.status === 'time_proposed';
-  const canRespondToProposal = isTimeProposed && task.proposedByUserId !== currentUser.id;
-  const isProposer = isTimeProposed && task.proposedByUserId === currentUser.id;
+  const pendingProposal = task.timeProposals?.find(proposal => proposal.status === 'pending');
+  const isTimeProposed = Boolean(pendingProposal);
+  const canRespondToProposal = isTimeProposed && pendingProposal?.proposerId !== currentUser.id;
+  const isProposer = isTimeProposed && pendingProposal?.proposerId === currentUser.id;
 
   return (
     <>
@@ -118,7 +122,7 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
                       {project.name}
                     </Badge>
                   )}
-                  {task.type === 'recurring' && (
+                  {task.type === 'habit' && (
                     <Badge variant="outline" className="text-xs flex items-center gap-1">
                       <Repeat className="w-3 h-3" />
                       {task.recurrencePattern}
@@ -175,11 +179,11 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
 
                 <div className="h-6 w-px bg-border" />
 
-                {assignee && (
+                {partnerUser && (
                   <div className="flex items-center gap-2">
                     <Avatar className="w-8 h-8 ring-2 ring-border">
-                      <AvatarImage src={assignee.avatar} alt={assignee.name} />
-                      <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={partnerUser.avatar} alt={partnerUser.name} />
+                      <AvatarFallback>{partnerUser.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="flex items-center gap-1">
                       {partnerCompletion?.completed ? (
@@ -227,14 +231,14 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
             </div>
 
             {/* Show proposed time info */}
-            {isTimeProposed && task.proposedDueDate && (
+            {isTimeProposed && pendingProposal?.proposedDueDate && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm">
                 <div className="flex items-center gap-2 mb-1">
                   <ClockIcon className="w-4 h-4 text-primary" />
                   <span className="font-medium">New time proposed:</span>
                 </div>
                 <div className="text-muted-foreground">
-                  {format(new Date(task.proposedDueDate), "PPP 'at' p")}
+                  {format(new Date(pendingProposal.proposedDueDate), "PPP 'at' p")}
                 </div>
               </div>
             )}
@@ -350,7 +354,7 @@ export const TaskCard = ({ task, onAccept, onDecline, onComplete, onProposeTime 
                 >
                   <Sparkles className="w-4 h-4 text-accent" />
                   <span className="text-sm text-muted-foreground">
-                    Difficulty: {myCompletion.difficultyRating}/10
+                    Difficulty: {myCompletion.difficultyRating}/5
                   </span>
                 </motion.div>
               )}
