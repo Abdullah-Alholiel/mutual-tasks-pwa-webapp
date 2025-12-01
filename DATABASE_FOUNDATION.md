@@ -2,16 +2,27 @@
 
 This document is the contract between the current front-end mocks and the future remote database. Every TypeScript interface in `src/types/index.ts` mirrors these tables so we can swap mock data for API calls without rewriting the UI.
 
-> **Status:** The app still runs on local mock data. Everything below prepares us for a hosted relational database (PostgreSQL, Supabase, Planetscale, etc.) once we are ready to turn it on.
+> **Status:** The app still runs on local mock data. Everything below prepares us for a hosted relational database (Supabase/PostgreSQL) once we are ready to turn it on.
 
 ## Entity relationship overview
 ```
-User (1) ──< (N) Project    (ownerId) + (participants via junction table)
-User (1) ──< (N) Task       (creatorId, assigneeId, initiatedByUserId)
-Project (1) ──< (N) Task
-Task (1) ──< (N) CompletionLog   (one row per user per task)
-User (1) ──< (N) Notification
+User (1) ──< (N) Project             (ownerId)
+Project (1) ──< (N) ProjectParticipant (role)
+Project (1) ──< (N) Task             (creatorId)
+Task (1) ──< (N) TaskAssignment      (userId)
+Task (1) ──< (N) TaskTimeProposal    (proposerId)
+Task (1) ──< (N) CompletionLog       (userId)
+User (1) ──< (N) Notification        (taskId | projectId)
+User (1) ──< (1) UserStats           (score derived)
 ```
+
+## Entity Relationship usecases
+
+
+
+
+
+
 
 ## Core entities
 
@@ -33,13 +44,13 @@ interface UserStats {
   totalCompletedTasks: number;
   currentStreak: number;
   longestStreak: number;
-  score: number;
+  score: number; // basic_score - tardiness_penalty
 }
 ```
 
 **Tables & notes**
 - `users` – columns mirror the interface. Store timezone in IANA format (e.g., `America/Los_Angeles`).
-- `user_stats` – either a materialized view or table joined by `user_id`. Keeping stats denormalized makes leaderboards instant.
+- `user_stats` – 1:1 table keyed by `user_id`. Keeps denormalized streak + score data for instant leaderboards.
 
 ### 2. Project
 **Primary key:** `id` **Foreign key:** `ownerId → users.id`
@@ -50,8 +61,7 @@ interface Project {
   name: string;
   description: string;
   ownerId: string;
-  participantIds: string[];
-  totalTasksPlanned: number;
+  participantIds: string[]; // mirrors project_participants rows
   isPublic: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -63,21 +73,26 @@ interface Project {
 ```
 
 **Tables & notes**
-- `projects` – store scalar fields plus `is_public` (bool) and optional `color`.
-- `project_participants` – junction table with `(project_id, user_id)` composite key.
-- Derived fields (`participants`, `completedTasks`, `progress`) are handled in queries/DTOs, not stored.
+- `projects` – store scalar fields plus `is_public` (bool) and optional `color` for UI accents.
+- `project_participants` – junction table with `(project_id, user_id)` composite PK and a `role` enum (`owner | manager | participant`).
+- Public/private differences live at the project level and inform which assignments/proposals are allowed.
 
 ### 3. Task
-**Primary key:** `id` **Foreign keys:** `projectId`, `creatorId`, `assigneeId`, `initiatedByUserId`
+**Primary key:** `id` **Foreign keys:** `projectId`, `creatorId`
 
 ```typescript
 type TaskStatus =
   | 'draft'
   | 'initiated'
-  | 'pending_acceptance'
-  | 'time_proposed'
-  | 'accepted'
-  | 'completed';
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled'
+  | 'expired';
+
+type TaskType = 'habit' | 'one_off';
+
+type DifficultyRating = 1 | 2 | 3 | 4 | 5;
 
 interface Task {
   id: string;
@@ -85,41 +100,81 @@ interface Task {
   title: string;
   description?: string;
   creatorId: string;
-  assigneeId: string;
-  type: 'one_off' | 'recurring';
-  recurrencePattern?: 'daily' | 'weekly' | 'custom';
+  type: TaskType;
   status: TaskStatus;
-  initiatedAt?: Date;
-  acceptedAt?: Date;
-  completedAt?: Date;
-  dueDate?: Date;
-  proposedDueDate?: Date;
-  proposedByUserId?: string;
-  initiatedByUserId: string;
-  isMirrorCompletionVisible: boolean;
+  dueDate: Date; // always set by initiator
+  difficultyRating: DifficultyRating;
+  createdAt: Date;
+  updatedAt: Date;
+  assignments: TaskAssignment[]; // hydrated for UI
+  timeProposals?: TaskTimeProposal[];
   completions: Record<string, {
     completed: boolean;
     completedAt?: Date;
     difficultyRating?: DifficultyRating;
   }>;
-  createdAt?: Date; // Legacy alias for initiatedAt
-  difficultyRating?: DifficultyRating; // Legacy convenience field
 }
 ```
 
 **Tables & notes**
-- `tasks` table keeps every scalar field including `proposed_due_date` + `proposed_by_user_id`.
-- Enums: `task_status`, `task_type`, `recurrence_pattern`.
-- Store `is_mirror_completion_visible` so both users can see each other’s progress.
-- The UI keeps a `completions` map for convenience, but the source of truth lives in `completion_logs`.
+- `tasks` – includes mandatory `due_date`, `difficulty_rating` (1–5), creator, timestamps, and `type` (`habit` or `one_off`).
+- No `assignee_id`; per-user participation is modeled through `task_assignments`.
+- Status starts at `draft`, moves to `initiated`, then either `scheduled` / `in_progress`, and can land on `completed`, `cancelled`, or `expired`.
+- Time changes happen through `task_time_proposals`; accepted proposals update the task `due_date` and each assignment’s `effective_due_date`.
 
-**Status flow**
-```
-draft → initiated → pending_acceptance → time_proposed → accepted → completed
-        ↘ (decline) -> archived (future)  ↘ (if new time rejected) -> pending_acceptance
+### 4. TaskAssignment
+**Primary key:** `id` **Foreign keys:** `taskId`, `userId`
+
+```typescript
+type AssignmentStatus =
+  | 'invited'
+  | 'active'
+  | 'declined'
+  | 'completed'
+  | 'missed'
+  | 'archived';
+
+interface TaskAssignment {
+  id: string;
+  taskId: string;
+  userId: string;
+  status: AssignmentStatus;
+  isRequired: boolean;
+  effectiveDueDate: Date;
+  archivedAt?: Date;
+  recoveredAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
 ```
 
-### 4. CompletionLog
+**Tables & notes**
+- `task_assignments` replaces `assigneeId` and tracks each participant’s state/history.
+- `(task_id, user_id)` is unique to prevent duplicates.
+- Archiving is per-user only; owners delete tasks globally instead of archiving.
+
+### 5. TaskTimeProposal
+**Primary key:** `id` **Foreign keys:** `taskId`, `proposerId`
+
+```typescript
+type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+
+interface TaskTimeProposal {
+  id: string;
+  taskId: string;
+  proposerId: string;
+  proposedDueDate: Date;
+  status: ProposalStatus;
+  createdAt: Date;
+  respondedAt?: Date;
+}
+```
+
+**Tables & notes**
+- Only available for private projects.
+- Each proposal captures who asked, the new time, and when it was handled.
+
+### 6. CompletionLog
 **Primary key:** `id` **Foreign keys:** `userId`, `taskId`
 
 ```typescript
@@ -128,16 +183,15 @@ interface CompletionLog {
   userId: string;
   taskId: string;
   completedAt: Date;
-  difficultyRating?: DifficultyRating; // 1-10 scale
+  difficultyRating: DifficultyRating; // 1-5
 }
 ```
 
 **Table & notes**
 - `completion_logs` – unique composite index on `(user_id, task_id)` so each user logs once per task instance.
-- Index `(user_id, completed_at)` to power streak queries and `(task_id)` for fast joins back to tasks.
-- Difficulty data feeds the score algorithm in `UserStats`.
+- Index `(user_id, completed_at)` to power streak queries and `(task_id)` for joins.
 
-### 5. Notification
+### 7. Notification
 **Primary key:** `id` **Foreign keys:** optional `taskId`, `projectId`
 
 ```typescript
@@ -165,23 +219,21 @@ interface Notification {
 
 **Table & notes**
 - `notifications` – index `(user_id, is_read, created_at)` for inbox queries.
-- `email_sent` flag ensures we do not fire duplicate transactional emails.
+- `email_sent` flag prevents duplicate transactional emails.
 
 ## Normalization summary
-- **Normalized tables:** `users`, `user_stats`, `projects`, `project_participants`, `tasks`, `completion_logs`, `notifications`.
-- **Denormalized convenience fields (frontend only):** `Project.participants`, `Project.completedTasks`, `Task.completions`, `Task.createdAt`.
-- **Bridging helper functions:** `populateProjectParticipants`, `mapTaskStatusForUI`, `getTodayTasks`, and `getProjectTasks` inside `src/lib/mockData.ts` simulate JOINs until the API replaces them.
+- **Normalized tables:** `users`, `user_stats`, `projects`, `project_participants`, `tasks`, `task_assignments`, `task_time_proposals`, `completion_logs`, `notifications`.
+- **Denormalized convenience fields (frontend only):** `Project.participants`, `Project.completedTasks`, `Project.progress`, `Task.assignments`, `Task.timeProposals`, `Task.completions`.
+- **Helper functions** in `src/lib/mockData.ts` still simulate joins (`populateProjectParticipants`, `getTodayTasks`, etc.) until the Supabase-backed API replaces them.
 
 ## Backend readiness checklist
-- [ ] Create SQL schema & migrations mirroring the interfaces above.
-- [ ] Seed lookup enums (`task_status`, `recurrence_pattern`, `notification_type`).
-- [ ] Implement REST (or tRPC/GraphQL) endpoints listed below with proper validation.
-- [ ] Enforce status transitions in the service layer (e.g., cannot jump from `draft` to `completed`).
-- [ ] Calculate/compress stats service-side: streaks, total completions, and score.
-- [ ] Emit notifications + email events when tasks change state.
-- [ ] Add pagination & filtering to all list endpoints (projects, tasks, notifications).
-- [ ] Make sure all date fields are stored as UTC timestamps or ISO strings.
-- [ ] Document environment variables (database URL, email provider keys, etc.).
+- [ ] Create SQL schema & migrations mirroring the interfaces above (use Supabase migrations).
+- [ ] Seed enums (`project_role`, `assignment_status`, `proposal_status`, `task_status`, `task_type`).
+- [ ] Enforce task status transitions service-side; prevent skipping straight to `completed`.
+- [ ] Implement scoring in the service layer: `score = basic_score - tardiness_penalty` (no recovery bonus).
+- [ ] Ensure project privacy rules gate assignments & time proposals.
+- [ ] Emit notifications + email events on assignment changes.
+- [ ] Add pagination/filtering to project, task, notification lists.
 
 ## Proposed API surface
 ```
@@ -200,6 +252,8 @@ PUT    /api/tasks/:id/decline
 PUT    /api/tasks/:id/propose-time
 PUT    /api/tasks/:id/complete
 GET    /api/tasks/today
+GET    /api/task-assignments/:id
+PUT    /api/task-assignments/:id/archive
 GET    /api/completion-logs
 POST   /api/completion-logs
 GET    /api/notifications
@@ -207,17 +261,19 @@ PUT    /api/notifications/:id/read
 ```
 
 ## Rolling out the real database
-1. **Stand up the DB** – provision PostgreSQL (Supabase, Railway, Neon, etc.) and run the schema above.
-2. **Add an API layer** – Node/Express, Nest, Next API routes, or Serverless functions that expose the endpoints.
-3. **Swap data hooks** – replace the exports in `src/lib/mockData.ts` with React Query hooks that call the API. The rest of the app already expects promises, so the change is localized.
-4. **Migrate statistics** – backfill `completion_logs` from any existing task data, then calculate `user_stats`.
-5. **Enable notifications & email** – use `EMAIL_INTEGRATION.md` as the playbook for wiring SendGrid, Resend, or AWS SES. Honor the `emailSent` flag.
-6. **Cut over gradually** – keep a feature flag or `.env` switch so teammates can toggle between mock mode and remote mode until the API is battle-tested.
+1. **Stand up Supabase.** Create a project, add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` to `.env.local` and `.env` for scripts.
+2. **Run migrations.** Use `database/index.ts` to push schema + seed data via the Supabase service client.
+3. **Swap data layer.** Replace `src/lib/mockData.ts` usage with React Query hooks that call Supabase SQL/RPC endpoints.
+4. **Backfill stats.** Move local completion history into `completion_logs`, then recompute `user_stats`.
+5. **Enable notifications/email.** Follow `EMAIL_INTEGRATION.md` to wire transactional email; respect `emailSent`.
+6. **Gradual cutover.** Keep a feature flag to toggle between mock mode and live mode while stabilizing the API.
 
 ## Notes & reminders
-- Keep IDs as strings on the client, even if the DB uses UUID types.
-- Dates are JavaScript `Date` objects in the mock layer; convert to ISO (`2025-11-26T12:00:00Z`) over the wire.
-- Difficulty rating uses a 1–10 scale (not 1–5) to give us more nuance for streak coaching.
-- Mirror-completion visibility lets each partner see if the other has finished; keep it enabled by default.
+- IDs stay as strings on the client, even if Supabase stores them as UUIDs.
+- Dates are JavaScript `Date` objects in the mock layer; convert to ISO (`YYYY-MM-DDTHH:mm:ss.sssZ`) over the wire.
+- Difficulty rating is a strict 1–5 integer everywhere (tasks + completion logs).
+- Owners delete tasks to end them for everyone. Archiving is per assignment (`task_assignments.status = 'archived'`).
+- Every task starts with an initial `due_date`; proposals only reschedule.
+- Task visibility = project membership + assignment rows, so keep participant data accurate.
 
-Once the remote DB is live, this document should stay updated so designers, engineers, and future contributors always know the “source of truth” for how data is shaped and why.
+Once the remote DB is live, keep this document updated so designers, engineers, and future contributors always know the “source of truth” for how data is shaped and why.

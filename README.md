@@ -10,8 +10,9 @@ A progressive web app that helps two or more friends keep each other accountable
 ## Feature highlights
 - **Shared projects** – create public or private projects with color tags, expected task counts, and participant chips.
 - **Two-sided tasks** – every task tracks creator, assignee, due dates, and individual completion states.
-- **Full status flow** – `draft → initiated → pending_acceptance → time_proposed → accepted → completed` so people can renegotiate times without losing context.
-- **Completion streaks & difficulty** – difficulty ratings are stored per user per task to fuel score and streak math.
+- **Full status flow** – `draft → initiated → scheduled → in_progress → completed` with optional exits to `cancelled` or `expired`, so people can renegotiate times without losing context.
+- **Completion streaks & difficulty** – difficulty ratings are stored per user per task to fuel score and streak math. 
+// TO DO: score should not be affected by difficulty ratings since the task has been completed regardless of how hard it is, for now score should be basic, finished tasks against total number of tasks completed in a project.
 - **Notifications inbox** – mock notifications mirror the messaging you will eventually push via email or in-app to keep everyone engaged.
 - **PWA-ready shell** – offline manifest, icons, and a service worker are already configured via `vite-plugin-pwa`.
 
@@ -53,7 +54,7 @@ mutual-tasks-pwa-webapp/
 ## Data & state model
 - UI components consume `User`, `Project`, `Task`, `CompletionLog`, and `Notification` interfaces defined in `src/types/index.ts`.
 - React Query is configured, even though the current data source is synchronous mock data. When the backend is ready, you only need to replace the functions inside `src/lib` with API calls and keep the rest of the app untouched.
-- Statuses include the new `time_proposed` step so people can renegotiate deadlines. The helper `mapTaskStatusForUI` converts database statuses to the simplified UI badges.
+- Statuses now include `scheduled`/`in_progress` plus dedicated task time proposals so people can renegotiate deadlines. The helper `mapTaskStatusForUI` converts database statuses to the simplified UI badges.
 
 ## Getting started (even if you have not coded recently)
 1. **Install Node.js 20+** – the easiest path is [nvm](https://github.com/nvm-sh/nvm). Run `nvm install 20 && nvm use 20`.
@@ -93,6 +94,17 @@ While we wait for the hosted database:
 - Use `DATABASE_FOUNDATION.md` as the contract for whoever builds the backend (tables, enums, indexes, API checklist).
 - When the API is ready, replace the helper functions in `src/lib/mockData.ts` with `fetch`/React Query hooks and remove the mock arrays.
 - Notifications already include fields like `emailSent` so the same objects can be persisted and used for transactional email later.
+
+### Database automation
+- Ensure `.env` (or `.env.local`) exposes the Supabase project URL, **service role key**, and the **database connection string**. Minimal setup:
+  ```
+  SUPABASE_URL=...
+  SUPABASE_SERVICE_ROLE_KEY=...
+  SUPABASE_DB_URL=postgresql://postgres:<db-password>@<db-host>:5432/postgres
+  ```
+  You can copy the connection string from Supabase → Database → Connection string → psql.
+- Run `npm run db:migrate` to create/update enums, tables, and indexes that mirror the TypeScript types in `src/types/index.ts`.
+- Use `npm run db:migrate` any time the schema changes—statements are idempotent so you can re-run safely.
 
 ## Troubleshooting quick answers
 - **Blank screen?** Make sure you are running Node 20+ and no other process is using port 5173.
