@@ -1,13 +1,26 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskForm } from '@/components/tasks/TaskForm';
-import { getTodayTasks, mockTasks, mockProjects, mockUsers, currentUser, mapTaskStatusForUI, mockTaskStatuses, mockCompletionLogs } from '@/lib/mockData';
+import { mockTasks, mockProjects, mockUsers, currentUser, mockTaskStatuses, mockCompletionLogs } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Calendar, Plus, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, RingColor } from '@/types';
+import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, RingColor } from '@/types';
+import { 
+  getTodayTasks, 
+  getNeedsActionTasks, 
+  getCompletedTasks, 
+  getArchivedTasks,
+  updateTasksWithStatuses 
+} from '@/lib/taskFilterUtils';
+import { calculateProjectProgress } from '@/lib/projectUtils';
+import { handleError } from '@/lib/errorUtils';
+import { 
+  createTaskStatusesForAllParticipants, 
+  validateProjectForTaskCreation 
+} from '@/lib/taskCreationUtils';
 
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
@@ -16,27 +29,44 @@ const Index = () => {
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [showTaskForm, setShowTaskForm] = useState(false);
 
-  // Get today's tasks for current user
-  const todayTasks = getTodayTasks(currentUser.id);
-
   // Helper to get task status for a user
   const getTaskStatusForUser = (taskId: string, userId: string): TaskStatusEntity | undefined => {
     return taskStatuses.find(ts => ts.taskId === taskId && ts.userId === userId);
   };
 
-  // Helper to update task with statuses
-  const updateTaskWithStatuses = (task: Task): Task => {
-    return {
-      ...task,
-      taskStatuses: taskStatuses.filter(ts => ts.taskId === task.id)
-    };
-  };
+  // Update tasks with their statuses
+  const tasksWithStatuses = useMemo(() => 
+    updateTasksWithStatuses(tasks, taskStatuses),
+    [tasks, taskStatuses]
+  );
+
+  // Filter tasks for today using utility
+  const myTasks = useMemo(() => {
+    return getTodayTasks(tasksWithStatuses, currentUser.id).filter(task => {
+      // Get project participants
+      const project = projects.find(p => p.id === task.projectId);
+      const projectParticipants = project?.participants || project?.participantRoles?.map(pr => {
+        const user = mockUsers.find(u => u.id === pr.userId);
+        return user;
+      }).filter(Boolean) || [];
+      
+      // Task should appear if user is in project participants or is creator
+      const isInProject = projectParticipants.some(p => 
+        (typeof p === 'object' && 'id' in p ? p.id : p) === currentUser.id
+      ) || task.creatorId === currentUser.id;
+      
+      return isInProject;
+    });
+  }, [tasksWithStatuses, projects, currentUser.id]);
 
 
   const handleRecover = (taskId: string) => {
     const now = new Date();
     const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+    if (!task) {
+      handleError('Task not found', 'handleRecover');
+      return;
+    }
 
     // Update task status from 'archived' to 'active'
     setTaskStatuses(prev =>
@@ -78,10 +108,16 @@ const Index = () => {
   const handleComplete = (taskId: string, difficultyRating?: number) => {
     const now = new Date();
     const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+    if (!task) {
+      handleError('Task not found', 'handleComplete');
+      return;
+    }
 
     const myTaskStatus = getTaskStatusForUser(taskId, currentUser.id);
-    if (!myTaskStatus) return;
+    if (!myTaskStatus) {
+      handleError('Task status not found', 'handleComplete');
+      return;
+    }
 
     // Check if task is recovered (completed after due date)
     const isRecovered = myTaskStatus.recoveredAt !== undefined;
@@ -181,18 +217,21 @@ const Index = () => {
       return updated;
     });
     
-    // Update project progress
+    // Update project progress using utility
     setProjects(prev =>
       prev.map(p => {
         if (p.id === task.projectId) {
-          const projectTasks = tasks.filter(t => t.projectId === p.id);
-          const userCompletedCount = projectTasks.filter(t => 
-            [...completionLogs, newCompletionLog].some(cl => cl.taskId === t.id && cl.userId === currentUser.id)
-          ).length;
+          const updatedCompletionLogs = [...completionLogs, newCompletionLog];
+          const { progress, completedTasks: completedCount } = calculateProjectProgress(
+            p,
+            tasks,
+            updatedCompletionLogs,
+            currentUser.id
+          );
           return {
             ...p,
-            completedTasks: userCompletedCount,
-            progress: projectTasks.length > 0 ? (userCompletedCount / projectTasks.length) * 100 : 0,
+            completedTasks: completedCount,
+            progress,
             updatedAt: now
           };
         }
@@ -201,59 +240,21 @@ const Index = () => {
     );
   };
 
-  // Filter tasks for today - tasks should appear for all project participants
-  const myTasks = tasks
-    .map(updateTaskWithStatuses)
-    .filter(task => {
-      const dueDate = new Date(task.originalDueDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      dueDate.setHours(0, 0, 0, 0);
-      const isToday = dueDate.getTime() === today.getTime();
-      
-      if (!isToday) return false;
-      
-      // Get project participants
-      const project = projects.find(p => p.id === task.projectId);
-      const projectParticipants = project?.participants || project?.participantRoles?.map(pr => {
-        const user = mockUsers.find(u => u.id === pr.userId);
-        return user;
-      }).filter(Boolean) || [];
-      
-      // Task should appear if user is in project participants or is creator
-      const isInProject = projectParticipants.some(p => 
-        (typeof p === 'object' && 'id' in p ? p.id : p) === currentUser.id
-      ) || task.creatorId === currentUser.id;
-      
-      return isInProject;
-    });
-
-  // Needs Your Action: tasks where user status is active but not completed
-  const pendingTasks = myTasks.filter(task => {
-    const myStatus = getTaskStatusForUser(task.id, currentUser.id);
-    const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === currentUser.id);
-    // Active tasks that are not completed, including recovered tasks
-    return (myStatus?.status === 'active' || myStatus?.recoveredAt) && 
-           !myCompletion && 
-           task.status !== 'completed' &&
-           !myStatus?.archivedAt; // Exclude tasks that are still archived
-  });
+  // Filter tasks using utilities
+  const pendingTasks = useMemo(() => 
+    getNeedsActionTasks(myTasks, taskStatuses, completionLogs, currentUser.id),
+    [myTasks, taskStatuses, completionLogs]
+  );
   
-  // Done for the Day: completed tasks
-  const completedTasks = myTasks.filter(task => {
-    const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === currentUser.id);
-    return myCompletion || task.status === 'completed';
-  });
+  const completedTasks = useMemo(() => 
+    getCompletedTasks(myTasks, completionLogs, currentUser.id),
+    [myTasks, completionLogs]
+  );
   
-  // Another Chance?: archived tasks (not recovered, not completed)
-  const archivedTasks = myTasks.filter(task => {
-    const myStatus = getTaskStatusForUser(task.id, currentUser.id);
-    const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === currentUser.id);
-    // Only show if archived, not recovered, and not completed
-    return (myStatus?.status === 'archived' || task.status === 'archived') && 
-           !myStatus?.recoveredAt && 
-           !myCompletion;
-  });
+  const archivedTasks = useMemo(() => 
+    getArchivedTasks(myTasks, taskStatuses, completionLogs, currentUser.id),
+    [myTasks, taskStatuses, completionLogs]
+  );
 
   const handleCreateProject = (projectData: {
     name: string;
@@ -284,28 +285,10 @@ const Index = () => {
     return newProject;
   };
 
-  // Helper to build task status entity
-  const buildTaskStatus = (
-    taskId: string,
-    userId: string,
-    status: TaskStatusUserStatus,
-    dueDate: Date,
-    timestamp: Date
-  ): TaskStatusEntity => ({
-    id: `${taskId}-${userId}`,
-    taskId,
-    userId,
-    status,
-    effectiveDueDate: new Date(dueDate),
-    initiatedAt: timestamp,
-    createdAt: timestamp,
-    updatedAt: timestamp
-  });
 
   const handleCreateTask = (taskData: {
     title: string;
     description: string;
-    assigneeId: string;
     projectId: string;
     type: 'one_off' | 'habit';
     recurrencePattern?: 'daily' | 'weekly' | 'custom';
@@ -323,17 +306,12 @@ const Index = () => {
     const newTaskStatuses: TaskStatusEntity[] = [];
     const now = new Date();
     const defaultDueDate = taskData.dueDate ? new Date(taskData.dueDate) : new Date();
-    defaultDueDate.setSeconds(0, 0);
+    defaultDueDate.setHours(0, 0, 0, 0); // Set to start of day
 
     if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
       // Generate recurring tasks
       const startDate = new Date(taskData.dueDate);
-      startDate.setHours(
-        taskData.dueDate.getHours(),
-        taskData.dueDate.getMinutes(),
-        0,
-        0
-      );
+      startDate.setHours(0, 0, 0, 0); // Set to start of day
       
       let endDate: Date;
       if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
@@ -363,12 +341,7 @@ const Index = () => {
 
       while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
         const taskDueDate = new Date(currentDate);
-        taskDueDate.setHours(
-          taskData.dueDate.getHours(),
-          taskData.dueDate.getMinutes(),
-          0,
-          0
-        );
+        taskDueDate.setHours(0, 0, 0, 0); // Set to start of day
 
         const taskId = `t${Date.now()}-${taskIndex}`;
         const newTask: Task = {
@@ -386,32 +359,31 @@ const Index = () => {
           updatedAt: now
         };
 
-        // Get all project participants to create task statuses for all
+        // Get project and validate
         const project = projects.find(p => p.id === taskData.projectId);
-        const projectParticipants = project?.participants || project?.participantRoles?.map(pr => {
-          const user = mockUsers.find(u => u.id === pr.userId);
-          return user;
-        }).filter(Boolean) || [];
+        if (!project) {
+          handleError('Project not found', 'handleCreateTask');
+          return;
+        }
         
-        // Create task status for all participants (avoid duplicates)
-        const participantIds = new Set<string>();
-        projectParticipants.forEach(p => {
-          const userId = typeof p === 'object' && 'id' in p ? p.id : p;
-          if (userId && !participantIds.has(userId)) {
-            participantIds.add(userId);
-            newTaskStatuses.push(
-              buildTaskStatus(taskId, userId, 'active', taskDueDate, now)
-            );
-          }
-        });
-        
-        // Ensure at least 2 participants (task requirement)
-        if (participantIds.size < 2) {
-          toast.error('Task requires at least 2 participants', {
-            description: 'Add more members to the project first'
+        // Validate project has enough participants
+        const validation = validateProjectForTaskCreation(project, mockUsers, 2);
+        if (!validation.isValid) {
+          toast.error('Cannot create task', {
+            description: validation.error
           });
           return;
         }
+        
+        // Create task statuses for all participants (automatically includes creator)
+        const statuses = createTaskStatusesForAllParticipants(
+          taskId,
+          project,
+          mockUsers,
+          taskDueDate,
+          now
+        );
+        newTaskStatuses.push(...statuses);
 
         newTasks.push(newTask);
         taskIndex++;
@@ -451,32 +423,31 @@ const Index = () => {
         updatedAt: now
       };
 
-      // Get all project participants to create task statuses for all
+      // Get project and validate
       const project = projects.find(p => p.id === taskData.projectId);
-      const projectParticipants = project?.participants || project?.participantRoles?.map(pr => {
-        const user = mockUsers.find(u => u.id === pr.userId);
-        return user;
-      }).filter(Boolean) || [];
+      if (!project) {
+        handleError('Project not found', 'handleCreateTask');
+        return;
+      }
       
-      // Create task status for all participants (avoid duplicates)
-      const participantIds = new Set<string>();
-      projectParticipants.forEach(p => {
-        const userId = typeof p === 'object' && 'id' in p ? p.id : p;
-        if (userId && !participantIds.has(userId)) {
-          participantIds.add(userId);
-          newTaskStatuses.push(
-            buildTaskStatus(taskId, userId, 'active', defaultDueDate, now)
-          );
-        }
-      });
-      
-      // Ensure at least 2 participants (task requirement)
-      if (participantIds.size < 2) {
-        toast.error('Task requires at least 2 participants', {
-          description: 'Add more members to the project first'
+      // Validate project has enough participants
+      const validation = validateProjectForTaskCreation(project, mockUsers, 2);
+      if (!validation.isValid) {
+        toast.error('Cannot create task', {
+          description: validation.error
         });
         return;
       }
+      
+      // Create task statuses for all participants (automatically includes creator)
+      const statuses = createTaskStatusesForAllParticipants(
+        taskId,
+        project,
+        mockUsers,
+        defaultDueDate,
+        now
+      );
+      newTaskStatuses.push(...statuses);
 
       newTasks.push(newTask);
     }

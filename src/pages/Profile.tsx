@@ -7,6 +7,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
+import { getUserProjects } from '@/lib/projectUtils';
+import { handleError } from '@/lib/errorUtils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +18,8 @@ import {
 import { toast } from 'sonner';
 
 const Profile = () => {
-  const userProjects = mockProjects.filter(p =>
-    p.participants?.some(u => u.id === currentUser.id) || 
-    p.participantRoles?.some(pr => pr.userId === currentUser.id)
-  );
+  // Use utility to get user projects
+  const userProjects = getUserProjects(mockProjects, currentUser.id);
 
   // Calculate overall total score from user stats
   const overallTotalScore = currentUser.stats?.totalscore || 0;

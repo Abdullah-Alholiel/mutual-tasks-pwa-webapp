@@ -1,4 +1,4 @@
-import { Notification, Task, Project, User } from '@/types';
+import type { Notification, Task, Project, User } from '@/types';
 import {
   createTaskInitiatedEmail,
   createTaskAcceptedEmail,

@@ -13,7 +13,7 @@ import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Inbox } from '@/components/notifications/Inbox';
 import { useState } from 'react';
-import { Notification } from '@/types';
+import type { Notification } from '@/types';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Today' },
@@ -46,9 +46,6 @@ export const DesktopNav = () => {
     toast.success('All notifications marked as read');
   };
 
-  const handleDismiss = (notificationId: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
-  };
 
   return (
     <motion.nav
@@ -86,7 +83,6 @@ export const DesktopNav = () => {
               notifications={notifications}
               onMarkAsRead={handleMarkAsRead}
               onMarkAllAsRead={handleMarkAllAsRead}
-              onDismiss={handleDismiss}
             />
             
             <DropdownMenu>

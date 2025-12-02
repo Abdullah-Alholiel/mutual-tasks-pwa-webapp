@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProjectCard } from '@/components/projects/ProjectCard';
 import { ProjectForm } from '@/components/projects/ProjectForm';
@@ -6,43 +6,35 @@ import { mockProjects, mockUsers, currentUser, mockTasks, mockCompletionLogs } f
 import { motion } from 'framer-motion';
 import { Plus, FolderKanban, Globe, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Project } from '@/types';
+import type { Project } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { calculateProjectsProgress, getUserProjects, getPublicProjects } from '@/lib/projectUtils';
+import { handleError } from '@/lib/errorUtils';
 
 const Projects = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [showProjectForm, setShowProjectForm] = useState(false);
   
-  // Calculate user-specific progress for each project
-  const projectsWithProgress = projects.map(project => {
-    const projectTasks = mockTasks.filter(t => t.projectId === project.id);
-    const userCompletedCount = projectTasks.filter(t => 
-      mockCompletionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id)
-    ).length;
-    return {
-      ...project,
-      completedTasks: userCompletedCount,
-      progress: projectTasks.length > 0 ? (userCompletedCount / projectTasks.length) * 100 : 0
-    };
-  });
+  // Calculate user-specific progress for each project using utility
+  const projectsWithProgress = useMemo(() => 
+    calculateProjectsProgress(projects, mockTasks, mockCompletionLogs, currentUser.id),
+    [projects, mockTasks, mockCompletionLogs]
+  );
 
-  // Filter projects with calculated progress
-  const myProjects = projectsWithProgress.filter(p =>
-    p.participants?.some(u => u.id === currentUser.id) ||
-    p.participantRoles?.some(pr => pr.userId === currentUser.id) ||
-    p.ownerId === currentUser.id
+  // Filter projects using utilities
+  const myProjects = useMemo(() => 
+    getUserProjects(projectsWithProgress, currentUser.id),
+    [projectsWithProgress]
   );
   
-  const publicProjects = projectsWithProgress.filter(p => 
-    p.isPublic && 
-    !p.participants?.some(u => u.id === currentUser.id) &&
-    !p.participantRoles?.some(pr => pr.userId === currentUser.id) &&
-    p.ownerId !== currentUser.id
+  const publicProjects = useMemo(() => 
+    getPublicProjects(projectsWithProgress, currentUser.id),
+    [projectsWithProgress]
   );
 
   const handleCreateProject = (projectData: {
@@ -55,6 +47,7 @@ const Projects = () => {
     // For private projects: require at least 2 participants (creator + one more)
     // For public projects: can create without additional participants
     if (!projectData.isPublic && projectData.participants.length < 1) {
+      handleError('Private project requires at least one participant', 'handleCreateProject');
       toast.error('Private project requires at least one participant', {
         description: 'Add at least one friend to create a private project'
       });

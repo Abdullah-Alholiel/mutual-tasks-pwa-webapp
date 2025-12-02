@@ -1,4 +1,4 @@
-import { Task, Project, User } from '@/types';
+import type { Task, Project, User } from '@/types';
 
 /**
  * Email Templates for Momentum App

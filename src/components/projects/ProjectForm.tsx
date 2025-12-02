@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Project, User } from '@/types';
+import type { Project, User } from '@/types';
 import { mockUsers, currentUser } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { FolderKanban, Users, Sparkles, Globe, Lock } from 'lucide-react';

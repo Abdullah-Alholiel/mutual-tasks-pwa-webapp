@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Project, User, TaskType, RecurrencePattern } from '@/types';
+import type { Project, User, TaskType, RecurrencePattern } from '@/types';
 import { mockUsers, currentUser } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus } from 'lucide-react';
@@ -25,7 +25,6 @@ interface TaskFormProps {
   onSubmit: (task: {
     title: string;
     description: string;
-    assigneeId: string;
     projectId: string;
     type: TaskType;
     recurrencePattern?: RecurrencePattern;
@@ -61,17 +60,10 @@ export const TaskForm = ({
 }: TaskFormProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [assigneeId, setAssigneeId] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProject?.id || '');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('daily');
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
-  const [dueTime, setDueTime] = useState<string>(() => {
-    const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  });
   
   // Custom recurrence settings
   const [customRecurrence, setCustomRecurrence] = useState({
@@ -87,40 +79,17 @@ export const TaskForm = ({
   // Use provided projects list, or fall back to initialProject
   const project = initialProject || (selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined);
   const availableProjects = allowProjectSelection ? projects : [];
-  
-  // Get available users - must be participants in the selected project
-  const availableUsers = project 
-    ? mockUsers.filter(u => {
-        if (u.id === currentUser.id) return false;
-        // Check participants array or participantRoles
-        return project.participants?.some(p => p.id === u.id) ||
-               project.participantRoles?.some(pr => pr.userId === u.id);
-      })
-    : mockUsers.filter(u => u.id !== currentUser.id);
-
-  // Reset assignee when project changes
-  useEffect(() => {
-    if (project && assigneeId) {
-      const isAssigneeValid = availableUsers.some(u => u.id === assigneeId);
-      if (!isAssigneeValid) {
-        setAssigneeId('');
-      }
-    }
-  }, [project, assigneeId, availableUsers]);
 
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       setTitle('');
       setDescription('');
-      setAssigneeId('');
       setIsRecurring(false);
       setRecurrencePattern('daily');
       const now = new Date();
+      now.setHours(0, 0, 0, 0); // Set to start of day
       setDueDate(now);
-      const hours = now.getHours().toString().padStart(2, '0');
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      setDueTime(`${hours}:${minutes}`);
       if (!initialProject) {
         setSelectedProjectId('');
       }
@@ -160,19 +129,16 @@ export const TaskForm = ({
       }
     }
 
-    // Combine date and time - preserve the time properly
+    // Set due date to start of day (no time component)
     let finalDueDate: Date | undefined = undefined;
     if (dueDate) {
       finalDueDate = new Date(dueDate);
-      const [hours, minutes] = dueTime.split(':').map(Number);
-      // Ensure we preserve the time even if date picker resets it
-      finalDueDate.setHours(hours, minutes || 0, 0, 0);
+      finalDueDate.setHours(0, 0, 0, 0);
     }
 
     onSubmit({
       title: title.trim(),
       description: description.trim(),
-      assigneeId: assigneeId || '', // Not used anymore, but kept for compatibility
       projectId: project.id,
       type: isRecurring ? 'habit' : 'one_off',
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
@@ -183,22 +149,19 @@ export const TaskForm = ({
     // Reset form
     setTitle('');
     setDescription('');
-    setAssigneeId('');
-        setIsRecurring(false);
-        setRecurrencePattern('daily');
-        const now = new Date();
-        setDueDate(now);
-        const hours = now.getHours().toString().padStart(2, '0');
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        setDueTime(`${hours}:${minutes}`);
-        setCustomRecurrence({
-          frequency: 'days',
-          interval: 1,
-          daysOfWeek: [],
-          endType: 'date',
-          endDate: undefined,
-          occurrenceCount: 10
-        });
+    setIsRecurring(false);
+    setRecurrencePattern('daily');
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    setDueDate(now);
+    setCustomRecurrence({
+      frequency: 'days',
+      interval: 1,
+      daysOfWeek: [],
+      endType: 'date',
+      endDate: undefined,
+      occurrenceCount: 10
+    });
     if (!initialProject) {
       setSelectedProjectId('');
     }
@@ -295,94 +258,40 @@ export const TaskForm = ({
             />
           </div>
 
-          {/* Assign To */}
-          <div className="space-y-2">
-            <Label>Assign To *</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {availableUsers.map((user) => (
-                <motion.button
-                  key={user.id}
-                  type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setAssigneeId(user.id)}
-                  className={cn(
-                    "flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
-                    assigneeId === user.id
-                      ? "border-primary bg-primary/5 shadow-primary"
-                      : "border-border hover:border-primary/50"
-                  )}
-                >
-                  <Avatar className="w-10 h-10 ring-2 ring-border">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{user.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-            {availableUsers.length === 0 && (
-              <div className="text-sm text-muted-foreground flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Users className="w-4 h-4" />
-                <span>No other participants in this project. Add friends to collaborate!</span>
-              </div>
-            )}
-          </div>
-
           {/* Due Date */}
           <div className="space-y-2">
-            <Label>Due Date & Time</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !dueDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={(date) => {
-                      // Preserve the time when date changes
-                      if (date) {
-                        const newDate = new Date(date);
-                        if (dueDate) {
-                          // Preserve existing time
-                          newDate.setHours(dueDate.getHours(), dueDate.getMinutes(), 0, 0);
-                        } else {
-                          // Use current time from dueTime state
-                          const [hours, minutes] = dueTime.split(':').map(Number);
-                          newDate.setHours(hours || 9, minutes || 0, 0, 0);
-                        }
-                        setDueDate(newDate);
-                      } else {
-                        setDueDate(date);
-                      }
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              
-              <Input
-                type="time"
-                value={dueTime}
-                onChange={(e) => setDueTime(e.target.value)}
-                className="text-base"
-              />
-            </div>
+            <Label>Due Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !dueDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dueDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      const newDate = new Date(date);
+                      newDate.setHours(0, 0, 0, 0);
+                      setDueDate(newDate);
+                    } else {
+                      setDueDate(date);
+                    }
+                  }}
+                  initialFocus
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Recurring Task Toggle */}
@@ -591,8 +500,8 @@ export const TaskForm = ({
           {/* Info Badge */}
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Note:</span> Your friend will need to accept 
-              this task before it becomes active. You'll both need to complete it for it to count! 💪
+              <span className="font-medium text-foreground">Note:</span> This task will be automatically assigned 
+              to all project members. You'll all need to complete it for it to count! 💪
             </p>
           </div>
 
@@ -608,7 +517,7 @@ export const TaskForm = ({
             </Button>
             <Button
               type="submit"
-              disabled={!title.trim() || !assigneeId || !project}
+              disabled={!title.trim() || !project}
               className="flex-1 gradient-primary text-white"
             >
               Initiate Task

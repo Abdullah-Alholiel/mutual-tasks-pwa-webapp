@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Notification } from '@/types';
+import type { Notification } from '@/types';
 import { Bell, CheckCircle2, Clock, Sparkles, X, Calendar, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,7 +13,7 @@ interface InboxProps {
   notifications: Notification[];
   onMarkAsRead: (notificationId: string) => void;
   onMarkAllAsRead: () => void;
-  onDismiss: (notificationId: string) => void;
+  onDismiss?: (notificationId: string) => void; // Made optional since we're not using it
 }
 
 export const Inbox = ({ 
@@ -142,7 +142,7 @@ export const Inbox = ({
                           key={notification.id}
                           notification={notification}
                           onClick={() => handleNotificationClick(notification)}
-                          onDismiss={() => onDismiss(notification.id)}
+                          onMarkAsRead={() => onMarkAsRead(notification.id)}
                           getIcon={getNotificationIcon}
                           getColor={getNotificationColor}
                         />
@@ -161,7 +161,7 @@ export const Inbox = ({
                         key={notification.id}
                         notification={notification}
                         onClick={() => handleNotificationClick(notification)}
-                        onDismiss={() => onDismiss(notification.id)}
+                        onMarkAsRead={() => onMarkAsRead(notification.id)}
                         getIcon={getNotificationIcon}
                         getColor={getNotificationColor}
                         isRead
@@ -181,7 +181,7 @@ export const Inbox = ({
 interface NotificationItemProps {
   notification: Notification;
   onClick: () => void;
-  onDismiss: () => void;
+  onMarkAsRead: () => void;
   getIcon: (type: Notification['type']) => React.ReactNode;
   getColor: (type: Notification['type']) => string;
   isRead?: boolean;
@@ -190,7 +190,7 @@ interface NotificationItemProps {
 const NotificationItem = ({
   notification,
   onClick,
-  onDismiss,
+  onMarkAsRead,
   getIcon,
   getColor,
   isRead = false
@@ -225,17 +225,19 @@ const NotificationItem = ({
             <div className="shrink-0 w-2 h-2 rounded-full bg-primary" />
           )}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0 h-6 w-6"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDismiss();
-            }}
-          >
-            <X className="w-4 h-4" />
-          </Button>
+          {!isRead && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkAsRead(notification.id);
+              }}
+            >
+              Mark as read
+            </Button>
+          )}
         </div>
       </Card>
     </motion.div>

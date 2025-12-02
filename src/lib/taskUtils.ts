@@ -6,7 +6,7 @@
 // that should be used consistently across all components.
 // ============================================================================
 
-import { TaskStatusEntity, CompletionLog, RingColor, TaskStatus, TaskStatusUserStatus } from '@/types';
+import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatus, TaskStatusUserStatus } from '@/types';
 
 /**
  * Calculate ring color for avatar highlighting based on task status and completion

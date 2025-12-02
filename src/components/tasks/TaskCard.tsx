@@ -1,4 +1,4 @@
-import { Task, User, TaskStatusUserStatus, TaskStatusEntity, CompletionLog } from '@/types';
+import type { Task, User, TaskStatusUserStatus, TaskStatusEntity, CompletionLog } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -182,17 +182,10 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                   dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 }
                 
-                // Format time
-                const timeLabel = dueDate.toLocaleTimeString('en-US', { 
-                  hour: 'numeric', 
-                  minute: '2-digit',
-                  hour12: true 
-                });
-                
                 return (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>{dateLabel} {timeLabel}</span>
+                    <span>{dateLabel}</span>
                   </div>
                 );
               })()}
