@@ -1,28 +1,71 @@
 // ============================================================================
-// Database Entity Types (matches ERD for future backend integration)
+// Database Entity Types - Single Source of Truth
+// ============================================================================
+// 
+// This file defines the canonical types used throughout the application.
+// All types use camelCase naming and Date objects for optimal frontend DX.
+//
+// The data access layer (src/lib/db.ts) handles:
+// - Transformation between database (snake_case, ISO strings) and these types
+// - Works seamlessly with both Supabase and mock data
+// - Components never see database-specific formats
 // ============================================================================
 
 export type TaskStatus =
-  | 'draft'
-  | 'initiated'
-  | 'scheduled'
-  | 'in_progress'
+  | 'active'
+  | 'upcoming'
   | 'completed'
-  | 'cancelled'
-  | 'expired';
+  | 'archived';
+
 export type TaskType = 'one_off' | 'habit';
 export type RecurrencePattern = 'daily' | 'weekly' | 'custom';
 export type DifficultyRating = 1 | 2 | 3 | 4 | 5;
 export type ProjectRole = 'owner' | 'manager' | 'participant';
-export type AssignmentStatus = 'invited' | 'active' | 'declined' | 'completed' | 'missed' | 'archived';
-export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
-export const TASK_STATUSES: TaskStatus[] = ['draft', 'initiated', 'scheduled', 'in_progress', 'completed', 'cancelled', 'expired'];
+export type TaskStatusUserStatus = 'active' | 'completed' | 'archived';
+export type TimingStatus = 'early' | 'on_time' | 'late';
+export type RingColor = 'green' | 'yellow' | 'red' | 'none';
+
+export const TASK_STATUSES: TaskStatus[] = ['active', 'upcoming', 'completed', 'archived'];
 export const TASK_TYPES: TaskType[] = ['one_off', 'habit'];
 export const RECURRENCE_PATTERNS: RecurrencePattern[] = ['daily', 'weekly', 'custom'];
 export const DIFFICULTY_RATINGS: DifficultyRating[] = [1, 2, 3, 4, 5];
 export const PROJECT_ROLES: ProjectRole[] = ['owner', 'manager', 'participant'];
-export const ASSIGNMENT_STATUSES: AssignmentStatus[] = ['invited', 'active', 'declined', 'completed', 'missed', 'archived'];
-export const PROPOSAL_STATUSES: ProposalStatus[] = ['pending', 'accepted', 'rejected', 'cancelled'];
+export const TASK_STATUS_USER_STATUSES: TaskStatusUserStatus[] = ['active', 'completed', 'archived'];
+export const TIMING_STATUSES: TimingStatus[] = ['early', 'on_time', 'late'];
+export const RING_COLORS: RingColor[] = ['green', 'yellow', 'red', 'none'];
+
+export type NotificationType =
+  | 'task_initiated'
+  | 'task_accepted'
+  | 'task_declined'
+  | 'task_completed'
+  | 'task_recovered'
+  | 'task_deleted'
+  | 'task_overdue'
+  | 'role_changed'
+  | 'participant_removed'
+  | 'project_joined'
+  | 'project_left'
+  | 'streak_reminder';
+
+export const NOTIFICATION_TYPES: NotificationType[] = [
+  'task_initiated',
+  'task_accepted',
+  'task_declined',
+  'task_completed',
+  'task_recovered',
+  'task_deleted',
+  'task_overdue',
+  'role_changed',
+  'participant_removed',
+  'project_joined',
+  'project_left',
+  'streak_reminder'
+];
+
+// ============================================================================
+// Core Entity Types
+// ============================================================================
 
 /**
  * User Entity
@@ -35,15 +78,19 @@ export interface User {
   email: string;
   avatar: string;
   timezone: string;
-  stats: UserStats;
+  notificationPreferences?: Record<string, boolean>;
+  createdAt: Date;
+  updatedAt: Date;
+  stats?: UserStats; // Computed/derived field for frontend convenience
 }
 
 export interface UserStats {
   userId: string;
-  totalCompletedTasks: number; // Renamed from totalCompleted for clarity
+  totalCompletedTasks: number;
   currentStreak: number;
   longestStreak: number;
-  score: number; // Can be derived from completions and difficulty // TBU
+  totalscore: number;
+  updatedAt: Date;
 }
 
 /**
@@ -54,26 +101,28 @@ export interface Project {
   id: string;
   name: string;
   description: string;
-  ownerId: string; // User who created the project
-  participantIds: string[]; // Array of user IDs (normalized for DB)
-  totalTasksPlanned: number; // Set by creator when project is created
-  isPublic: boolean; // Public or private project
+  icon?: string;
+  color?: string;
+  ownerId: string;
+  isPublic: boolean;
+  totalTasks: number;
   createdAt: Date;
   updatedAt: Date;
-  color?: string; // UI preference, not in core ERD but useful for frontend
   
   // Computed/derived fields (not stored in DB, calculated on the fly)
-  participants?: User[]; // Populated from participantIds for frontend convenience
-  participantRoles?: ProjectParticipant[]; // Mirrors project_participants table
-  completedTasks?: number; // Derived from tasks
-  progress?: number; // Derived: completedTasks / totalTasksPlanned
+  participants?: User[];
+  participantRoles?: ProjectParticipant[];
+  completedTasks?: number;
+  progress?: number;
 }
 
 export interface ProjectParticipant {
   projectId: string;
   userId: string;
   role: ProjectRole;
-  user?: User;
+  addedAt: Date;
+  removedAt?: Date;
+  user?: User; // Computed/derived field for frontend convenience
 }
 
 /**
@@ -83,54 +132,44 @@ export interface ProjectParticipant {
 export interface Task {
   id: string;
   projectId: string;
+  creatorId: string;
   title: string;
   description?: string;
-  creatorId: string; // User who created the task
   type: TaskType;
-  recurrencePattern?: RecurrencePattern; // For habit-style repeating tasks (UI only)
+  recurrencePattern?: RecurrencePattern;
+  originalDueDate: Date;
   status: TaskStatus;
-  dueDate: Date;
-  difficultyRating: DifficultyRating; // Stored at task level (seed for assignments)
+  initiatedAt?: Date;
+  completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
-  assignments: TaskAssignment[]; // Per-user state, mirrors task_assignments table
-  timeProposals?: TaskTimeProposal[]; // Pending or historical time proposals
-  initiatedAt?: Date; // When task was initiated (moved from draft)
-  acceptedAt?: Date; // When assignee accepted
-  completedAt?: Date; // When both users completed
-  isMirrorCompletionVisible: boolean; // Both users see each other's completion status
   
-  // Completion tracking (normalized to CompletionLog in DB, but kept here for convenience)
-  completions: Record<string, CompletionState>;
+  // Computed/derived fields (not stored in DB, calculated on the fly)
+  taskStatuses?: TaskStatusEntity[];
+  recurrence?: TaskRecurrence;
 }
 
-export interface CompletionState {
-      completed: boolean;
-      completedAt?: Date;
-      difficultyRating?: DifficultyRating;
-}
-
-export interface TaskAssignment {
+/**
+ * TaskStatus Entity
+ * Per-user task status tracking (replaces TaskAssignment)
+ */
+export interface TaskStatusEntity {
   id: string;
   taskId: string;
   userId: string;
-  status: AssignmentStatus;
-  isRequired: boolean;
+  status: TaskStatusUserStatus;
   effectiveDueDate: Date;
+  initiatedAt?: Date;
   archivedAt?: Date;
   recoveredAt?: Date;
+  timingStatus?: TimingStatus;
+  ringColor?: RingColor;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface TaskTimeProposal {
-  id: string;
-  taskId: string;
-  proposerId: string;
-  proposedDueDate: Date;
-  status: ProposalStatus;
-  createdAt: Date;
-  respondedAt?: Date;
+  
+  // Computed/derived fields
+  user?: User;
+  task?: Task;
 }
 
 /**
@@ -142,7 +181,12 @@ export interface CompletionLog {
   userId: string;
   taskId: string;
   completedAt: Date;
-  difficultyRating?: DifficultyRating; // 1-5 scale
+  difficultyRating?: DifficultyRating;
+  timingStatus: TimingStatus;
+  recoveredCompletion: boolean;
+  penaltyApplied: boolean;
+  xpEarned: number;
+  createdAt: Date;
 }
 
 /**
@@ -157,30 +201,50 @@ export interface Notification {
   taskId?: string;
   projectId?: string;
   createdAt: Date;
-  isRead: boolean; // Renamed from 'read' for clarity
-  emailSent?: boolean; // Track if email notification was sent
+  isRead: boolean;
+  emailSent: boolean;
 }
 
-export type NotificationType =
-  | 'task_initiated'
-  | 'task_accepted'
-  | 'task_declined'
-  | 'task_time_proposed'
-  | 'task_completed'
-  | 'streak_reminder'
-  | 'project_joined';
-export const NOTIFICATION_TYPES: NotificationType[] = [
-  'task_initiated',
-  'task_accepted',
-  'task_declined',
-  'task_time_proposed',
-  'task_completed',
-  'streak_reminder',
-  'project_joined'
-];
+/**
+ * TaskRecurrence Entity
+ * Handles recurring tasks (habits)
+ */
+export interface TaskRecurrence {
+  id: string;
+  taskId: string;
+  recurrencePattern: RecurrencePattern;
+  recurrenceInterval: number;
+  nextOccurrence: Date;
+  endOfRecurrence?: Date;
+  
+  // Computed/derived fields
+  task?: Task;
+}
+
+// ============================================================================
+// Backward Compatibility Aliases
+// ============================================================================
+
+/**
+ * @deprecated Use TaskStatusEntity instead
+ * Kept for backward compatibility with existing components
+ */
+export type TaskAssignment = TaskStatusEntity;
+
+/**
+ * @deprecated Use TaskStatusUserStatus instead
+ * Kept for backward compatibility with existing components
+ */
+export type AssignmentStatus = TaskStatusUserStatus;
+
+/**
+ * @deprecated Use TASK_STATUS_USER_STATUSES instead
+ * Kept for backward compatibility with migration scripts
+ */
+export const ASSIGNMENT_STATUSES = TASK_STATUS_USER_STATUSES;
 
 // ============================================================================
 // Helper Types for Forms and UI
 // ============================================================================
 
-export type TaskStatusDisplay = 'pending' | 'accepted' | 'completed'; // Simplified for UI
+export type TaskStatusDisplay = 'active' | 'completed' | 'archived';

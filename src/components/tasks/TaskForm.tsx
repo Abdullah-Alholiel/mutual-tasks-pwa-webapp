@@ -92,8 +92,9 @@ export const TaskForm = ({
   const availableUsers = project 
     ? mockUsers.filter(u => {
         if (u.id === currentUser.id) return false;
-        // Check participantIds first (normalized), then participants array (for backward compatibility)
-        return project.participantIds?.includes(u.id) || project.participants?.some(p => p.id === u.id);
+        // Check participants array or participantRoles
+        return project.participants?.some(p => p.id === u.id) ||
+               project.participantRoles?.some(pr => pr.userId === u.id);
       })
     : mockUsers.filter(u => u.id !== currentUser.id);
 
@@ -143,20 +144,20 @@ export const TaskForm = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title.trim() || !assigneeId || !project) {
+    if (!title.trim() || !project) {
       return;
     }
 
-    // Validate that assignee is a participant in the selected project
-    // Check both participantIds (normalized) and participants array (for backward compatibility)
-    const isInParticipantIds = project.participantIds?.includes(assigneeId) ?? false;
-    const isInParticipants = project.participants?.some(p => p.id === assigneeId) ?? false;
-    
-    if (!isInParticipantIds && !isInParticipants) {
-      toast.error('Invalid assignee', {
-        description: 'The selected friend must be a participant in this project'
-      });
-      return;
+    // For private projects: require at least 2 participants (creator + one more)
+    // For public projects: can create without additional participants
+    if (!project.isPublic) {
+      const participantCount = project.participants?.length || project.participantRoles?.length || 0;
+      if (participantCount < 2) {
+        toast.error('Task requires at least 2 participants', {
+          description: 'Add more members to the project first'
+        });
+        return;
+      }
     }
 
     // Combine date and time - preserve the time properly
@@ -171,9 +172,9 @@ export const TaskForm = ({
     onSubmit({
       title: title.trim(),
       description: description.trim(),
-      assigneeId,
+      assigneeId: assigneeId || '', // Not used anymore, but kept for compatibility
       projectId: project.id,
-      type: isRecurring ? 'recurring' : 'one_off',
+      type: isRecurring ? 'habit' : 'one_off',
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       dueDate: finalDueDate,
       customRecurrence: isRecurring && recurrencePattern === 'custom' ? customRecurrence : undefined

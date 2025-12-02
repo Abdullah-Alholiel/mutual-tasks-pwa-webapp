@@ -4,10 +4,12 @@ import {
   ASSIGNMENT_STATUSES,
   NOTIFICATION_TYPES,
   PROJECT_ROLES,
-  PROPOSAL_STATUSES,
   RECURRENCE_PATTERNS,
   TASK_STATUSES,
-  TASK_TYPES
+  TASK_TYPES,
+  TASK_STATUS_USER_STATUSES,
+  TIMING_STATUSES,
+  RING_COLORS
 } from '../src/types';
 
 // Disable SSL certificate validation for local development
@@ -235,10 +237,12 @@ $$;
 
 const ENUM_STATEMENTS = [
   buildEnumStatement('project_role', PROJECT_ROLES),
-  buildEnumStatement('assignment_status', ASSIGNMENT_STATUSES),
-  buildEnumStatement('proposal_status', PROPOSAL_STATUSES),
+  buildEnumStatement('task_status_user_status', TASK_STATUS_USER_STATUSES),
   buildEnumStatement('task_type', TASK_TYPES),
   buildEnumStatement('task_status', TASK_STATUSES),
+  buildEnumStatement('recurrence_pattern', RECURRENCE_PATTERNS),
+  buildEnumStatement('timing_status', TIMING_STATUSES),
+  buildEnumStatement('ring_color', RING_COLORS),
   buildEnumStatement('notification_type', NOTIFICATION_TYPES)
 ];
 
@@ -251,6 +255,7 @@ const TABLE_STATEMENTS = [
     email text NOT NULL UNIQUE,
     avatar text NOT NULL,
     timezone text NOT NULL,
+    notification_preferences jsonb,
     created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
   );
@@ -261,7 +266,7 @@ const TABLE_STATEMENTS = [
     total_completed_tasks integer NOT NULL DEFAULT 0,
     current_streak integer NOT NULL DEFAULT 0,
     longest_streak integer NOT NULL DEFAULT 0,
-    score integer NOT NULL DEFAULT 0,
+    totalscore integer NOT NULL DEFAULT 0,
     updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
   );
   `,
@@ -270,10 +275,11 @@ const TABLE_STATEMENTS = [
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name text NOT NULL,
     description text,
+    icon text,
+    color text,
     owner_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     is_public boolean NOT NULL DEFAULT false,
-    total_tasks_planned integer NOT NULL DEFAULT 0,
-    color text,
+    total_tasks integer NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
   );
@@ -283,7 +289,8 @@ const TABLE_STATEMENTS = [
     project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
     user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     role project_role NOT NULL DEFAULT 'participant',
-    created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+    added_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+    removed_at timestamptz,
     PRIMARY KEY (project_id, user_id)
   );
   `,
@@ -295,45 +302,32 @@ const TABLE_STATEMENTS = [
     title text NOT NULL,
     description text,
     type task_type NOT NULL,
-    status task_status NOT NULL DEFAULT 'draft',
-    recurrence_pattern text CHECK (
-      recurrence_pattern IS NULL
-      OR recurrence_pattern = ANY(ARRAY[${RECURRENCE_PATTERNS.map(value => `'${value}'`).join(', ')}]::text[])
-    ),
-    due_date timestamptz NOT NULL,
-    difficulty_rating smallint NOT NULL CHECK (difficulty_rating BETWEEN 1 AND 5),
+    recurrence_pattern recurrence_pattern,
+    original_due_date timestamptz NOT NULL,
+    status task_status NOT NULL DEFAULT 'initiated',
     initiated_at timestamptz,
-    accepted_at timestamptz,
     completed_at timestamptz,
-    is_mirror_completion_visible boolean NOT NULL DEFAULT true,
     created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
   );
   `,
   `
-  CREATE TABLE IF NOT EXISTS public.task_assignments (
+  CREATE TABLE IF NOT EXISTS public.task_status (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
     user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    status assignment_status NOT NULL DEFAULT 'invited',
-    is_required boolean NOT NULL DEFAULT true,
+    status task_status_user_status NOT NULL DEFAULT 'initiated',
     effective_due_date timestamptz NOT NULL,
+    initiated_at timestamptz,
+    accepted_at timestamptz,
+    declined_at timestamptz,
     archived_at timestamptz,
     recovered_at timestamptz,
+    timing_status timing_status,
+    ring_color ring_color,
     created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     updated_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     UNIQUE(task_id, user_id)
-  );
-  `,
-  `
-  CREATE TABLE IF NOT EXISTS public.task_time_proposals (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
-    proposer_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    proposed_due_date timestamptz NOT NULL,
-    status proposal_status NOT NULL DEFAULT 'pending',
-    created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
-    responded_at timestamptz
   );
   `,
   `
@@ -342,8 +336,12 @@ const TABLE_STATEMENTS = [
     user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
     completed_at timestamptz NOT NULL,
-    difficulty_rating smallint NOT NULL CHECK (difficulty_rating BETWEEN 1 AND 5),
-    UNIQUE(user_id, task_id)
+    difficulty_rating smallint CHECK (difficulty_rating BETWEEN 1 AND 5),
+    timing_status timing_status NOT NULL,
+    recovered_completion boolean NOT NULL DEFAULT false,
+    penalty_applied boolean NOT NULL DEFAULT false,
+    xp_earned integer NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT timezone('utc', now())
   );
   `,
   `
@@ -354,9 +352,20 @@ const TABLE_STATEMENTS = [
     message text NOT NULL,
     task_id uuid REFERENCES public.tasks(id) ON DELETE SET NULL,
     project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     is_read boolean NOT NULL DEFAULT false,
-    email_sent boolean NOT NULL DEFAULT false,
-    created_at timestamptz NOT NULL DEFAULT timezone('utc', now())
+    email_sent boolean NOT NULL DEFAULT false
+  );
+  `,
+  `
+  CREATE TABLE IF NOT EXISTS public.task_recurrence (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    recurrence_pattern recurrence_pattern NOT NULL,
+    recurrence_interval integer NOT NULL,
+    next_occurrence timestamptz NOT NULL,
+    end_of_recurrence timestamptz,
+    UNIQUE(task_id)
   );
   `
 ];
@@ -364,15 +373,18 @@ const TABLE_STATEMENTS = [
 const INDEX_STATEMENTS = [
   'CREATE INDEX IF NOT EXISTS idx_projects_owner ON public.projects(owner_id);',
   'CREATE INDEX IF NOT EXISTS idx_project_participants_role ON public.project_participants(project_id, role);',
+  'CREATE INDEX IF NOT EXISTS idx_project_participants_user ON public.project_participants(user_id);',
   'CREATE INDEX IF NOT EXISTS idx_tasks_project ON public.tasks(project_id);',
   'CREATE INDEX IF NOT EXISTS idx_tasks_creator ON public.tasks(creator_id);',
-  'CREATE INDEX IF NOT EXISTS idx_task_assignments_user_status ON public.task_assignments(user_id, status);',
-  'CREATE INDEX IF NOT EXISTS idx_task_assignments_effective_due_date ON public.task_assignments(user_id, effective_due_date);',
-  'CREATE INDEX IF NOT EXISTS idx_time_proposals_task_status ON public.task_time_proposals(task_id, status);',
-  'CREATE INDEX IF NOT EXISTS idx_time_proposals_proposer_status ON public.task_time_proposals(proposer_id, status);',
+  'CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status);',
+  'CREATE INDEX IF NOT EXISTS idx_task_status_user_status ON public.task_status(user_id, status);',
+  'CREATE INDEX IF NOT EXISTS idx_task_status_effective_due_date ON public.task_status(user_id, effective_due_date);',
+  'CREATE INDEX IF NOT EXISTS idx_task_status_task ON public.task_status(task_id);',
   'CREATE INDEX IF NOT EXISTS idx_completion_logs_user_completed ON public.completion_logs(user_id, completed_at);',
   'CREATE INDEX IF NOT EXISTS idx_completion_logs_task ON public.completion_logs(task_id);',
-  'CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON public.notifications(user_id, is_read, created_at);'
+  'CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON public.notifications(user_id, is_read, created_at);',
+  'CREATE INDEX IF NOT EXISTS idx_task_recurrence_task ON public.task_recurrence(task_id);',
+  'CREATE INDEX IF NOT EXISTS idx_task_recurrence_next_occurrence ON public.task_recurrence(next_occurrence);'
 ];
 
 const MIGRATION_STATEMENTS = [

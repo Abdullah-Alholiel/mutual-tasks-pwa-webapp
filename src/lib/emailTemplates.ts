@@ -90,8 +90,8 @@ export const createTaskInitiatedEmail = (
   project: Project,
   initiator: User
 ): EmailData => {
-  const dueDateText = task.dueDate 
-    ? new Date(task.dueDate).toLocaleDateString('en-US', { 
+  const dueDateText = task.originalDueDate 
+    ? new Date(task.originalDueDate).toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
@@ -131,7 +131,7 @@ export const createTaskInitiatedEmail = (
               <div style="margin-top: 15px;">
                 <p style="margin: 5px 0; color: #666;"><strong>Project:</strong> ${project.name}</p>
                 <p style="margin: 5px 0; color: #666;"><strong>Due Date:</strong> ${dueDateText}</p>
-                ${task.type === 'recurring' ? `<p style="margin: 5px 0; color: #666;"><strong>Recurrence:</strong> ${task.recurrencePattern}</p>` : ''}
+                ${task.type === 'habit' && task.recurrencePattern ? `<p style="margin: 5px 0; color: #666;"><strong>Recurrence:</strong> ${task.recurrencePattern}</p>` : ''}
               </div>
             </div>
             
@@ -351,7 +351,7 @@ export const createTaskCompletedEmail = (
             </p>
             
             <p style="font-size: 16px; color: #666;">
-              ${task.completions && Object.values(task.completions).every(c => c.completed) 
+              ${task.status === 'completed'
                 ? '🎊 Amazing! Both of you have completed this task. Great teamwork!' 
                 : 'Keep up the momentum! Complete your part to finish this task together.'}
             </p>
@@ -366,7 +366,7 @@ export const createTaskCompletedEmail = (
         </body>
       </html>
     `,
-    text: `Hi ${recipient.name},\n\n${completer.name} has completed "${task.title}" in "${project.name}".\n\n${task.completions && Object.values(task.completions).every(c => c.completed) ? 'Both of you have completed this task!' : 'Complete your part to finish together!'}`
+    text: `Hi ${recipient.name},\n\n${completer.name} has completed "${task.title}" in "${project.name}".\n\n${task.status === 'completed' ? 'Both of you have completed this task!' : 'Complete your part to finish together!'}`
   };
 };
 

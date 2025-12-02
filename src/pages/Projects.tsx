@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProjectCard } from '@/components/projects/ProjectCard';
 import { ProjectForm } from '@/components/projects/ProjectForm';
-import { mockProjects, mockUsers, currentUser } from '@/lib/mockData';
+import { mockProjects, mockUsers, currentUser, mockTasks, mockCompletionLogs } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Plus, FolderKanban, Globe, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,16 +17,32 @@ const Projects = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
   const [showProjectForm, setShowProjectForm] = useState(false);
+  
+  // Calculate user-specific progress for each project
+  const projectsWithProgress = projects.map(project => {
+    const projectTasks = mockTasks.filter(t => t.projectId === project.id);
+    const userCompletedCount = projectTasks.filter(t => 
+      mockCompletionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id)
+    ).length;
+    return {
+      ...project,
+      completedTasks: userCompletedCount,
+      progress: projectTasks.length > 0 ? (userCompletedCount / projectTasks.length) * 100 : 0
+    };
+  });
 
-  // Filter projects
-  const myProjects = projects.filter(p =>
-    p.participantIds?.includes(currentUser.id) || p.participants?.some(u => u.id === currentUser.id)
+  // Filter projects with calculated progress
+  const myProjects = projectsWithProgress.filter(p =>
+    p.participants?.some(u => u.id === currentUser.id) ||
+    p.participantRoles?.some(pr => pr.userId === currentUser.id) ||
+    p.ownerId === currentUser.id
   );
   
-  const publicProjects = projects.filter(p => 
+  const publicProjects = projectsWithProgress.filter(p => 
     p.isPublic && 
-    !p.participantIds?.includes(currentUser.id) &&
-    !p.participants?.some(u => u.id === currentUser.id)
+    !p.participants?.some(u => u.id === currentUser.id) &&
+    !p.participantRoles?.some(pr => pr.userId === currentUser.id) &&
+    p.ownerId !== currentUser.id
   );
 
   const handleCreateProject = (projectData: {
@@ -36,15 +52,25 @@ const Projects = () => {
     color: string;
     isPublic: boolean;
   }) => {
-    const participantUsers = [currentUser, ...projectData.participants.map(id => mockUsers.find(u => u.id === id)!).filter(Boolean)];
+    // For private projects: require at least 2 participants (creator + one more)
+    // For public projects: can create without additional participants
+    if (!projectData.isPublic && projectData.participants.length < 1) {
+      toast.error('Private project requires at least one participant', {
+        description: 'Add at least one friend to create a private project'
+      });
+      return;
+    }
+    
+    const participantUsers = projectData.participants.length > 0
+      ? [currentUser, ...projectData.participants.map(id => mockUsers.find(u => u.id === id)!).filter(Boolean)]
+      : [currentUser]; // Public projects can have just the creator
     
     const newProject: Project = {
       id: `p${Date.now()}`,
       name: projectData.name,
       description: projectData.description,
       ownerId: currentUser.id,
-      participantIds: [currentUser.id, ...projectData.participants],
-      totalTasksPlanned: 0,
+      totalTasks: 0,
       isPublic: projectData.isPublic,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -74,8 +100,8 @@ const Projects = () => {
           
           return {
             ...p,
-            participantIds: [...(p.participantIds || []), currentUser.id],
-            participants: updatedParticipants
+            participants: updatedParticipants,
+            isPublic: p.isPublic // Preserve public status
           };
         }
         return p;
@@ -224,8 +250,8 @@ interface PublicProjectCardProps {
 
 const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
   const navigate = useNavigate();
-  const progress = project.totalTasksPlanned > 0 
-    ? ((project.completedTasks || 0) / project.totalTasksPlanned) * 100 
+  const progress = project.totalTasks > 0 
+    ? ((project.completedTasks || 0) / project.totalTasks) * 100 
     : 0;
 
   return (
@@ -269,7 +295,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Progress</span>
               <span className="font-medium text-foreground">
-                {project.completedTasks || 0}/{project.totalTasksPlanned || 0} tasks
+                {project.completedTasks || 0}/{project.totalTasks || 0} tasks
               </span>
             </div>
             <div className="w-full bg-muted rounded-full h-2">
@@ -288,7 +314,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {project.participants?.length || project.participantIds?.length || 0} members
+                {project.participants?.length || project.participantRoles?.length || 0} members
               </span>
             </div>
           </div>

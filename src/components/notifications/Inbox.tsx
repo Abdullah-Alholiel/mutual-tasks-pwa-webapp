@@ -37,8 +37,6 @@ export const Inbox = ({
         return <CheckCircle2 className="w-5 h-5 text-success" />;
       case 'task_declined':
         return <X className="w-5 h-5 text-destructive" />;
-      case 'task_time_proposed':
-        return <Calendar className="w-5 h-5 text-accent" />;
       case 'task_completed':
         return <CheckCircle2 className="w-5 h-5 text-success" />;
       case 'project_joined':
@@ -56,8 +54,6 @@ export const Inbox = ({
         return 'bg-success/10 border-success/20';
       case 'task_declined':
         return 'bg-destructive/10 border-destructive/20';
-      case 'task_time_proposed':
-        return 'bg-accent/10 border-accent/20';
       case 'task_completed':
         return 'bg-success/10 border-success/20';
       case 'project_joined':

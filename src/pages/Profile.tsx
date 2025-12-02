@@ -17,15 +17,12 @@ import { toast } from 'sonner';
 
 const Profile = () => {
   const userProjects = mockProjects.filter(p =>
-    p.participantIds?.includes(currentUser.id) || p.participants?.some(u => u.id === currentUser.id)
+    p.participants?.some(u => u.id === currentUser.id) || 
+    p.participantRoles?.some(pr => pr.userId === currentUser.id)
   );
 
-  // Calculate overall total score from all projects
-  const overallTotalScore = userProjects.reduce((sum, project) => {
-    // Calculate project score (completed tasks * average difficulty or just completed tasks)
-    const projectScore = project.completedTasks || 0;
-    return sum + projectScore;
-  }, 0) + currentUser.stats.score;
+  // Calculate overall total score from user stats
+  const overallTotalScore = currentUser.stats?.totalscore || 0;
 
   const handleLogout = () => {
     toast.success('Logged out successfully', {
@@ -173,12 +170,12 @@ const Profile = () => {
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{project.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {project.completedTasks || 0}/{project.totalTasksPlanned || 0} tasks completed
+                      {project.completedTasks || 0}/{project.totalTasks || 0} tasks completed
                     </div>
                   </div>
                   <div className="text-sm font-medium text-muted-foreground">
-                    {project.totalTasksPlanned > 0 
-                      ? `${Math.round(((project.completedTasks || 0) / project.totalTasksPlanned) * 100)}%`
+                    {project.totalTasks > 0 
+                      ? `${Math.round(((project.completedTasks || 0) / project.totalTasks) * 100)}%`
                       : '0%'}
                   </div>
                 </div>

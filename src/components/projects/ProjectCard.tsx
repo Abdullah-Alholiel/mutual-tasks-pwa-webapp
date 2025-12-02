@@ -2,8 +2,9 @@ import { Project } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { Users, TrendingUp } from 'lucide-react';
+import { Users, TrendingUp, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface ProjectCardProps {
@@ -12,8 +13,8 @@ interface ProjectCardProps {
 
 export const ProjectCard = ({ project }: ProjectCardProps) => {
   const navigate = useNavigate();
-  const progress = project.totalTasksPlanned > 0 
-    ? ((project.completedTasks || 0) / project.totalTasksPlanned) * 100 
+  const progress = project.totalTasks > 0 
+    ? ((project.completedTasks || 0) / project.totalTasks) * 100 
     : 0;
 
   return (
@@ -28,9 +29,17 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
           {/* Header */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-lg text-foreground break-words mb-1">
-                {project.name}
-              </h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-lg text-foreground break-words">
+                  {project.name}
+                </h3>
+                {project.isPublic && (
+                  <Badge variant="outline" className="text-xs flex items-center gap-1">
+                    <Globe className="w-3 h-3" />
+                    Public
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {project.description}
               </p>
@@ -49,7 +58,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Progress</span>
               <span className="font-medium text-foreground">
-                {project.completedTasks || 0}/{project.totalTasksPlanned || 0} tasks
+                {project.completedTasks || 0}/{project.totalTasks || 0} tasks
               </span>
             </div>
             <Progress value={progress} className="h-2" />
@@ -60,7 +69,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {project.participants?.length || project.participantIds?.length || 0} members
+                {project.participants?.length || project.participantRoles?.length || 0} members
               </span>
             </div>
             

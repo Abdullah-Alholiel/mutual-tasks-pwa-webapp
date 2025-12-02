@@ -12,6 +12,7 @@ import { motion } from 'framer-motion';
 import { FolderKanban, Users, Sparkles, Globe, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
 
 const PROJECT_COLORS = [
   { name: 'Blue', value: 'hsl(199, 89%, 48%)' },
@@ -55,6 +56,15 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
     e.preventDefault();
     
     if (!name.trim()) {
+      return;
+    }
+
+    // For private projects: require at least 1 participant (creator + one friend)
+    // For public projects: can create without additional participants (add members later)
+    if (!isPublic && selectedParticipants.length < 1) {
+      toast.error('Private project requires at least one friend', {
+        description: 'Add at least one friend to create a private project'
+      });
       return;
     }
 

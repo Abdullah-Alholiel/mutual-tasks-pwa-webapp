@@ -9,29 +9,37 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getProjectById, mockTasks, currentUser, mockProjects, mapTaskStatusForUI } from '@/lib/mockData';
+import { getProjectById, mockTasks, currentUser, mockProjects, mapTaskStatusForUI, mockTaskStatuses, mockCompletionLogs, mockProjectParticipants, mockUsers } from '@/lib/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Users, TrendingUp, Clock, CheckCircle2, Sparkles, Repeat, UserPlus } from 'lucide-react';
-import { Task, Project, DifficultyRating } from '@/types';
+import { ArrowLeft, Plus, Users, TrendingUp, Clock, CheckCircle2, Sparkles, Repeat, UserPlus, Settings, Trash2 } from 'lucide-react';
+import { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, ProjectRole, RingColor } from '@/types';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { mockUsers } from '@/lib/mockData';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  // Check if project was passed via location state (from Projects page)
   const projectFromState = location.state?.project as Project | undefined;
   const projectFromData = getProjectById(id || '');
   const project = projectFromState || projectFromData;
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
+  const [showEditProjectForm, setShowEditProjectForm] = useState(false);
   const [memberEmail, setMemberEmail] = useState('');
   const [tasks, setTasks] = useState(mockTasks);
+  const [taskStatuses, setTaskStatuses] = useState(mockTaskStatuses);
+  const [completionLogs, setCompletionLogs] = useState(mockCompletionLogs);
   const [projects, setProjects] = useState(mockProjects);
+  const [projectParticipants, setProjectParticipants] = useState(mockProjectParticipants);
 
   if (!project) {
     return (
@@ -47,120 +55,296 @@ const ProjectDetail = () => {
   // Get updated project from state if available
   const currentProject = projects.find(p => p.id === project.id) || project;
   
-  const projectTasks = tasks.filter(t => t.projectId === currentProject.id);
+  // Get project participants
+  const participants = projectParticipants
+    .filter(pp => pp.projectId === currentProject.id && !pp.removedAt)
+    .map(pp => ({
+      ...pp,
+      user: mockUsers.find(u => u.id === pp.userId)
+    }));
+
+  // Update project with participants
+  const projectWithParticipants: Project = {
+    ...currentProject,
+    participants: participants.map(p => p.user).filter(Boolean) as typeof mockUsers,
+    participantRoles: participants
+  };
+
+  // Helper to update task with statuses
+  const updateTaskWithStatuses = (task: Task): Task => {
+    return {
+      ...task,
+      taskStatuses: taskStatuses.filter(ts => ts.taskId === task.id)
+    };
+  };
+
+  const projectTasks = tasks
+    .filter(t => t.projectId === currentProject.id)
+    .map(updateTaskWithStatuses);
   
-  // Calculate progress dynamically from tasks
+  // Calculate progress dynamically from tasks - count tasks where current user has completed
   const totalTasks = projectTasks.length;
   const completedCount = projectTasks.filter(t => {
-    const uiStatus = mapTaskStatusForUI(t.status);
-    return uiStatus === 'completed';
+    const userCompletion = completionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id);
+    return userCompletion;
   }).length;
   
   const progress = totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
-  const pendingTasks = projectTasks.filter(t => mapTaskStatusForUI(t.status) === 'pending');
-  const activeTasks = projectTasks.filter(t => mapTaskStatusForUI(t.status) === 'accepted');
-  const completedTasks = projectTasks.filter(t => mapTaskStatusForUI(t.status) === 'completed');
-  const recurringTasks = projectTasks.filter(t => t.type === 'recurring');
+  // Needs Action: tasks where user status is active but not completed, and due date is today or past
+  // Includes recovered tasks (recoveredAt is set but not completed)
+  const needsActionTasks = projectTasks.filter(t => {
+    const myStatus = t.taskStatuses?.find(ts => ts.userId === currentUser.id);
+    const myCompletion = completionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id);
+    const dueDate = new Date(t.originalDueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    const isDueTodayOrPast = dueDate.getTime() <= today.getTime();
+    
+    // Active tasks (including recovered) that are not completed and not archived
+    return (myStatus?.status === 'active' || myStatus?.recoveredAt) && 
+           !myCompletion && 
+           t.status !== 'completed' && 
+           isDueTodayOrPast && 
+           !myStatus.archivedAt;
+  });
+  
+  // Active: tasks that are active (not completed, not archived) and due in future
+  const activeTasks = projectTasks.filter(t => {
+    const myStatus = t.taskStatuses?.find(ts => ts.userId === currentUser.id);
+    const myCompletion = completionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id);
+    const dueDate = new Date(t.originalDueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    const isDueFuture = dueDate.getTime() > today.getTime();
+    
+    return t.status === 'active' && myStatus?.status === 'active' && !myCompletion && !myStatus.archivedAt && isDueFuture;
+  });
+  
+  // Completed: tasks that are completed by current user
+  const completedTasks = projectTasks.filter(t => {
+    const myCompletion = completionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id);
+    return myCompletion;
+  });
+  
+  // Upcoming: tasks with status 'upcoming' or due in future
+  const upcomingTasks = projectTasks.filter(t => {
+    const dueDate = new Date(t.originalDueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dueDate.setHours(0, 0, 0, 0);
+    return t.status === 'upcoming' || dueDate.getTime() > today.getTime();
+  });
+  
+  // Habits: tasks that are habits
+  const habitTasks = projectTasks.filter(t => t.type === 'habit');
+  
+  // Archived: tasks that are archived (archivedAt is not null) and NOT recovered, NOT completed
+  const archivedTasks = projectTasks.filter(t => {
+    const myStatus = t.taskStatuses?.find(ts => ts.userId === currentUser.id);
+    const myCompletion = completionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id);
+    
+    // Only show if archived, not recovered, and not completed
+    return (myStatus?.status === 'archived' || 
+            (myStatus?.archivedAt !== undefined && myStatus.archivedAt !== null)) && 
+           !myStatus?.recoveredAt && 
+           !myCompletion;
+  });
 
-  const handleAccept = (taskId: string) => {
-    setTasks(prev =>
-      prev.map(task => {
-        if (task.id === taskId) {
-          // If accepting a time proposal, update the due date
-          if (task.status === 'time_proposed' && task.proposedDueDate) {
-            return {
-              ...task,
-              status: 'accepted' as const,
-              acceptedAt: new Date(),
-              dueDate: task.proposedDueDate,
-              proposedDueDate: undefined,
-              proposedByUserId: undefined
-            };
-          }
-          return { ...task, status: 'accepted' as const, acceptedAt: new Date() };
+  // Helper to get task status for a user
+  const getTaskStatusForUser = (taskId: string, userId: string): TaskStatusEntity | undefined => {
+    return taskStatuses.find(ts => ts.taskId === taskId && ts.userId === userId);
+  };
+
+
+  const handleRecover = (taskId: string) => {
+    const now = new Date();
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    setTaskStatuses(prev =>
+      prev.map(ts => {
+        if (ts.taskId === taskId && ts.userId === currentUser.id && ts.status === 'archived') {
+        return {
+            ...ts,
+            status: 'active' as TaskStatusUserStatus,
+            recoveredAt: now,
+            archivedAt: undefined,
+            ringColor: 'yellow',
+            timingStatus: 'late',
+            updatedAt: now
+          };
         }
-        return task;
+        return ts;
       })
     );
-    toast.success('Task accepted! Let\'s do this together 🎯');
-  };
 
-  const handleDecline = (taskId: string) => {
-    setTasks(prev => prev.filter(task => task.id !== taskId));
-    toast('Task declined');
-  };
-
-  const handleProposeTime = (taskId: string, proposedDate: Date) => {
     setTasks(prev =>
-      prev.map(task =>
-        task.id === taskId
-          ? {
-              ...task,
-              status: 'time_proposed' as const,
-              proposedDueDate: proposedDate,
-              proposedByUserId: currentUser.id
-            }
-          : task
-      )
+      prev.map(t => {
+        if (t.id === taskId) {
+          return {
+            ...t,
+            status: 'active' as Task['status'],
+            updatedAt: now
+          };
+        }
+        return t;
+      })
     );
-    toast.success('Time proposed! ⏰', {
-      description: 'Waiting for response...'
+
+    toast.success('Task recovered! 💪', {
+      description: 'Complete it to earn half XP'
     });
   };
 
   const handleComplete = (taskId: string, difficultyRating?: number) => {
-    setTasks(prev => {
-      let allCompleted = false;
-      
-      const updatedTasks = prev.map(task => {
-        if (task.id === taskId) {
-          const updatedCompletions = {
-            ...task.completions,
-            [currentUser.id]: {
-              completed: true,
-              completedAt: new Date(),
-              difficultyRating: difficultyRating as DifficultyRating | undefined
-            }
-          };
+    const now = new Date();
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
-          // Check if all users have completed the task
-          const allUsers = [task.creatorId, task.assigneeId];
-          allCompleted = allUsers.every(userId => 
-            updatedCompletions[userId]?.completed === true
-          );
+    const myTaskStatus = getTaskStatusForUser(taskId, currentUser.id);
+    if (!myTaskStatus) return;
 
+    const isRecovered = myTaskStatus.recoveredAt !== undefined;
+    const isBeforeDueDate = now <= myTaskStatus.effectiveDueDate;
+    const penaltyApplied = isRecovered && !isBeforeDueDate;
+
+    const baseXP = (difficultyRating || 3) * 100;
+    const xpEarned = penaltyApplied ? Math.floor(baseXP / 2) : baseXP;
+
+    let timingStatus: TimingStatus = 'on_time';
+    if (now < myTaskStatus.effectiveDueDate) {
+      timingStatus = 'early';
+    } else if (now > myTaskStatus.effectiveDueDate) {
+      timingStatus = 'late';
+    }
+
+    // Determine ring color based on rules:
+    // Green: completed on time/early (isLate: false) AND not recovered
+    // Yellow: recovered task (recoveredCompletion: true) - always yellow when recovered
+    // None: late completion but not recovered
+    let ringColor: RingColor = 'none';
+    if (isRecovered || myTaskStatus.recoveredAt) {
+      ringColor = 'yellow'; // Recovered task always yellow, even when completed
+    } else if (timingStatus === 'on_time' || timingStatus === 'early') {
+      ringColor = 'green'; // Completed on time
+    } else {
+      ringColor = 'none'; // Late but not recovered
+    }
+
+    const newCompletionLog = {
+      id: `cl-${Date.now()}`,
+      userId: currentUser.id,
+      taskId: taskId,
+      completedAt: now,
+      difficultyRating: difficultyRating as DifficultyRating | undefined,
+      timingStatus,
+      recoveredCompletion: isRecovered,
+      penaltyApplied,
+      xpEarned,
+      createdAt: now
+    };
+
+    setCompletionLogs(prev => [...prev, newCompletionLog]);
+
+    // Update task status to 'completed' and ensure ringColor is set
+    setTaskStatuses(prev => {
+      const updated = prev.map(ts => {
+        if (ts.taskId === taskId && ts.userId === currentUser.id) {
           return {
-            ...task,
-            status: allCompleted ? ('completed' as const) : task.status,
-            completedAt: allCompleted ? new Date() : task.completedAt,
-            completions: updatedCompletions
+            ...ts,
+            status: 'completed' as TaskStatusUserStatus,
+            ringColor, // Ensure ringColor is set (green for on-time, yellow for recovered)
+            timingStatus,
+            updatedAt: now
           };
         }
-        return task;
+        return ts;
       });
-      
-      // Show toast based on the updated state
+
+      // Check if all participants have completed (use updated taskStatuses)
+      const allStatuses = updated.filter(ts => ts.taskId === taskId);
+      const allCompleted = allStatuses.every(ts => 
+        ts.userId === currentUser.id || ts.status === 'completed'
+      );
+
+      // Update task status based on all participants' completion
+      setTasks(prevTasks =>
+        prevTasks.map(t => {
+          if (t.id === taskId) {
+            return {
+              ...t,
+              status: allCompleted ? 'completed' : 'active',
+              completedAt: allCompleted ? now : undefined,
+              updatedAt: now
+            };
+          }
+          return t;
+        })
+      );
+
+      // Show toast
       if (allCompleted) {
         toast.success('Amazing work! 🎉', {
           description: 'Task completed by everyone!'
         });
       } else {
         toast.success('Great job! 💪', {
-          description: 'Waiting for your partner to complete...'
+          description: penaltyApplied 
+            ? 'Waiting for your partner to complete... (Half XP - Recovered)'
+            : 'Waiting for your partner to complete...'
         });
       }
-      
-      return updatedTasks;
+
+      return updated;
     });
+    
+    // Update project progress
+    setProjects(prev =>
+      prev.map(p => {
+        if (p.id === task.projectId) {
+          const projectTasks = tasks.filter(t => t.projectId === p.id);
+          const userCompletedCount = projectTasks.filter(t => 
+            [...completionLogs, newCompletionLog].some(cl => cl.taskId === t.id && cl.userId === currentUser.id)
+          ).length;
+          return {
+            ...p,
+            completedTasks: userCompletedCount,
+            progress: projectTasks.length > 0 ? (userCompletedCount / projectTasks.length) * 100 : 0,
+            updatedAt: now
+          };
+        }
+        return p;
+      })
+    );
   };
+
+  // Helper to build task status entity
+  const buildTaskStatus = (
+    taskId: string,
+    userId: string,
+    status: TaskStatusUserStatus,
+    dueDate: Date,
+    timestamp: Date
+  ): TaskStatusEntity => ({
+    id: `${taskId}-${userId}`,
+    taskId,
+    userId,
+    status,
+    effectiveDueDate: new Date(dueDate),
+    initiatedAt: timestamp,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  });
 
   const handleCreateTask = (taskData: {
     title: string;
     description: string;
     assigneeId: string;
     projectId: string;
-    type: 'one_off' | 'recurring';
+    type: 'one_off' | 'habit';
     recurrencePattern?: 'daily' | 'weekly' | 'custom';
     dueDate?: Date;
     customRecurrence?: {
@@ -173,11 +357,13 @@ const ProjectDetail = () => {
     };
   }) => {
     const newTasks: Task[] = [];
+    const newTaskStatuses: TaskStatusEntity[] = [];
+    const now = new Date();
+    const defaultDueDate = taskData.dueDate ? new Date(taskData.dueDate) : new Date();
+    defaultDueDate.setSeconds(0, 0);
 
-    if (taskData.type === 'recurring' && taskData.dueDate && taskData.recurrencePattern) {
-      // Generate recurring tasks based on pattern
+    if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
       const startDate = new Date(taskData.dueDate);
-      // Preserve the time from the original due date
       startDate.setHours(
         taskData.dueDate.getHours(),
         taskData.dueDate.getMinutes(),
@@ -187,24 +373,20 @@ const ProjectDetail = () => {
       
       let endDate: Date;
       if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-        // Use custom recurrence end condition
         if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
           endDate = new Date(taskData.customRecurrence.endDate);
           endDate.setHours(23, 59, 59, 999);
         } else {
-          // Calculate end date based on occurrence count
           endDate = new Date(startDate);
           const maxOccurrences = taskData.customRecurrence.occurrenceCount || 10;
-          // Estimate end date (will be refined in loop)
           endDate.setDate(endDate.getDate() + (maxOccurrences * 30));
         }
       } else {
-        // For daily/weekly, generate tasks for a reasonable period (4 weeks)
         endDate = new Date(startDate);
         if (taskData.recurrencePattern === 'daily') {
-          endDate.setDate(endDate.getDate() + 28); // 4 weeks
+          endDate.setDate(endDate.getDate() + 28);
         } else if (taskData.recurrencePattern === 'weekly') {
-          endDate.setDate(endDate.getDate() + 28); // 4 weeks
+          endDate.setDate(endDate.getDate() + 28);
         }
         endDate.setHours(23, 59, 59, 999);
       }
@@ -212,11 +394,11 @@ const ProjectDetail = () => {
       let currentDate = new Date(startDate);
       let taskIndex = 0;
       let occurrenceCount = 0;
-      const maxOccurrences = taskData.customRecurrence?.occurrenceCount || (taskData.recurrencePattern === 'daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
+      const maxOccurrences = taskData.customRecurrence?.occurrenceCount || 
+        (taskData.recurrencePattern === 'daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
 
       while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
         const taskDueDate = new Date(currentDate);
-        // Preserve the time from the original due date
         taskDueDate.setHours(
           taskData.dueDate.getHours(),
           taskData.dueDate.getMinutes(),
@@ -224,129 +406,144 @@ const ProjectDetail = () => {
           0
         );
 
+        const taskId = `t${Date.now()}-${taskIndex}`;
         const newTask: Task = {
-          id: `t${Date.now()}-${taskIndex}`,
+          id: taskId,
           projectId: taskData.projectId,
           creatorId: currentUser.id,
-          assigneeId: taskData.assigneeId,
           type: taskData.type,
           recurrencePattern: taskData.recurrencePattern,
           title: taskData.title,
           description: taskData.description,
-          status: 'pending_acceptance',
-          initiatedAt: new Date(),
-          dueDate: taskDueDate,
-          initiatedByUserId: currentUser.id,
-          isMirrorCompletionVisible: true,
-          createdAt: new Date(),
-          completions: {
-            [currentUser.id]: { completed: false },
-            [taskData.assigneeId]: { completed: false }
-          }
+          originalDueDate: taskDueDate,
+          status: 'active',
+          initiatedAt: now,
+          createdAt: now,
+          updatedAt: now
         };
+
+        // Get all project participants to create task statuses for all
+        const projectParticipants = projectWithParticipants.participants || projectWithParticipants.participantRoles?.map(pr => {
+          const user = mockUsers.find(u => u.id === pr.userId);
+          return user;
+        }).filter(Boolean) || [];
+        
+        // Create task status for all participants (avoid duplicates)
+        const participantIds = new Set<string>();
+        projectParticipants.forEach(p => {
+          const userId = typeof p === 'object' && 'id' in p ? p.id : p;
+          if (userId && !participantIds.has(userId)) {
+            participantIds.add(userId);
+            newTaskStatuses.push(
+              buildTaskStatus(taskId, userId, 'active', taskDueDate, now)
+            );
+          }
+        });
+        
+        // Ensure at least 2 participants (task requirement)
+        if (participantIds.size < 2) {
+          toast.error('Task requires at least 2 participants', {
+            description: 'Add more members to the project first'
+          });
+          return;
+        }
 
         newTasks.push(newTask);
         taskIndex++;
         occurrenceCount++;
         
-        // Move to next occurrence
         if (taskData.recurrencePattern === 'daily') {
           currentDate.setDate(currentDate.getDate() + 1);
         } else if (taskData.recurrencePattern === 'weekly') {
           currentDate.setDate(currentDate.getDate() + 7);
         } else if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-          // Handle custom recurrence
-          const { frequency, interval, daysOfWeek } = taskData.customRecurrence;
-          
+          const { frequency, interval } = taskData.customRecurrence;
           if (frequency === 'days') {
             currentDate.setDate(currentDate.getDate() + interval);
           } else if (frequency === 'weeks') {
-            if (daysOfWeek.length > 0) {
-              // Find next occurrence on specified days
-              const searchStartDate = new Date(currentDate);
-              let found = false;
-              let attempts = 0;
-              while (!found && attempts < 14) {
-                currentDate.setDate(currentDate.getDate() + 1);
-                const dayOfWeek = currentDate.getDay();
-                if (daysOfWeek.includes(dayOfWeek)) {
-                  found = true;
-                }
-                attempts++;
-              }
-              // If no matching day found in 2 weeks, advance by interval weeks from search start
-              if (!found) {
-                currentDate = new Date(searchStartDate);
                 currentDate.setDate(currentDate.getDate() + (interval * 7));
-              }
-            } else {
-              currentDate.setDate(currentDate.getDate() + (interval * 7));
-            }
           } else if (frequency === 'months') {
             currentDate.setMonth(currentDate.getMonth() + interval);
           }
-          
-          // Check if we've exceeded the end date
-          if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
-            if (currentDate > taskData.customRecurrence.endDate) {
-              break;
             }
           }
         } else {
-          // Default to daily
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      }
-    } else {
-      // One-off task
+      const taskId = `t${Date.now()}`;
       const newTask: Task = {
-        id: `t${Date.now()}`,
+        id: taskId,
         projectId: taskData.projectId,
         creatorId: currentUser.id,
-        assigneeId: taskData.assigneeId,
         type: taskData.type,
         recurrencePattern: taskData.recurrencePattern,
         title: taskData.title,
         description: taskData.description,
-        status: 'pending_acceptance',
-        initiatedAt: new Date(),
-        dueDate: taskData.dueDate,
-        initiatedByUserId: currentUser.id,
-        isMirrorCompletionVisible: true,
-        createdAt: new Date(),
-        completions: {
-          [currentUser.id]: { completed: false },
-          [taskData.assigneeId]: { completed: false }
-        }
+        originalDueDate: defaultDueDate,
+        status: 'active',
+        initiatedAt: now,
+        createdAt: now,
+        updatedAt: now
       };
+
+      // Get all project participants to create task statuses for all
+      const projectParticipants = projectWithParticipants.participants || projectWithParticipants.participantRoles?.map(pr => {
+        const user = mockUsers.find(u => u.id === pr.userId);
+        return user;
+      }).filter(Boolean) || [];
+      
+      // Create task status for all participants (avoid duplicates)
+      const participantIds = new Set<string>();
+      projectParticipants.forEach(p => {
+        const userId = typeof p === 'object' && 'id' in p ? p.id : p;
+        if (userId && !participantIds.has(userId)) {
+          participantIds.add(userId);
+          newTaskStatuses.push(
+            buildTaskStatus(taskId, userId, 'active', defaultDueDate, now)
+          );
+        }
+      });
+      
+      // Ensure at least 2 participants (task requirement)
+      if (participantIds.size < 2) {
+        toast.error('Task requires at least 2 participants', {
+          description: 'Add more members to the project first'
+        });
+        return;
+      }
+
       newTasks.push(newTask);
     }
 
-    setTasks(prev => {
-      const updatedTasks = [...newTasks, ...prev];
-      
-      // Update project progress
-      const projectTasks = updatedTasks.filter(t => t.projectId === project.id);
-      const totalTasks = projectTasks.length;
-      const completedCount = projectTasks.filter(t => {
-        const uiStatus = mapTaskStatusForUI(t.status);
-        return uiStatus === 'completed';
-      }).length;
-      
-      // Note: In a real app, we'd update the project state here
-      // For now, the progress is calculated on the fly
-      
-      return updatedTasks;
-    });
+    setTasks(prev => [...newTasks, ...prev]);
+    setTaskStatuses(prev => [...newTaskStatuses, ...prev]);
     
-    toast.success(
-      newTasks.length > 1 
-        ? `${newTasks.length} recurring tasks created! 🚀`
-        : 'Task initiated! 🚀',
-      {
-        description: 'Waiting for your friend to accept'
-      }
+    // Update project totalTasks and recalculate progress
+    setProjects(prev =>
+      prev.map(p => {
+        if (p.id === taskData.projectId) {
+          const projectTasks = [...newTasks, ...tasks].filter(t => t.projectId === p.id);
+          const userCompletedCount = projectTasks.filter(t => 
+            completionLogs.some(cl => cl.taskId === t.id && cl.userId === currentUser.id)
+          ).length;
+          return {
+            ...p,
+            totalTasks: projectTasks.length,
+            completedTasks: userCompletedCount,
+            progress: projectTasks.length > 0 ? (userCompletedCount / projectTasks.length) * 100 : 0,
+            updatedAt: new Date()
+          };
+        }
+        return p;
+      })
     );
+    
+    const toastTitle = newTasks.length > 1
+      ? `${newTasks.length} habit tasks created! 🚀`
+      : 'Task initiated! 🚀';
+
+    toast.success(toastTitle, {
+      description: 'Waiting for your friend to accept'
+    });
+    setShowTaskForm(false);
   };
 
   const handleAddMember = () => {
@@ -355,7 +552,6 @@ const ProjectDetail = () => {
       return;
     }
 
-    // Find user by email
     const userToAdd = mockUsers.find(u => u.email.toLowerCase() === memberEmail.toLowerCase().trim());
     
     if (!userToAdd) {
@@ -365,14 +561,25 @@ const ProjectDetail = () => {
       return;
     }
 
-    if (currentProject.participantIds?.includes(userToAdd.id)) {
+    if (participants.some(p => p.userId === userToAdd.id)) {
       toast.error('User already in project', {
         description: 'This user is already a member of this project'
       });
       return;
     }
 
-    // Add member to project
+    const now = new Date();
+    const newParticipant = {
+      projectId: currentProject.id,
+      userId: userToAdd.id,
+      role: 'participant' as ProjectRole,
+      addedAt: now,
+      removedAt: undefined,
+      user: userToAdd
+    };
+
+    setProjectParticipants(prev => [...prev, newParticipant]);
+
     setProjects(prev =>
       prev.map(p => {
         if (p.id === currentProject.id) {
@@ -382,8 +589,8 @@ const ProjectDetail = () => {
           
           return {
             ...p,
-            participantIds: [...(p.participantIds || []), userToAdd.id],
-            participants: updatedParticipants
+            participants: updatedParticipants,
+            updatedAt: new Date()
           };
         }
         return p;
@@ -397,6 +604,92 @@ const ProjectDetail = () => {
     setMemberEmail('');
     setShowAddMemberForm(false);
   };
+
+  const handleRemoveParticipant = (userId: string) => {
+    const now = new Date();
+    
+    setProjectParticipants(prev =>
+      prev.map(pp => {
+        if (pp.projectId === currentProject.id && pp.userId === userId) {
+          return {
+            ...pp,
+            removedAt: now
+          };
+        }
+        return pp;
+      })
+    );
+
+    setProjects(prev =>
+      prev.map(p => {
+        if (p.id === currentProject.id) {
+          return {
+            ...p,
+            participants: p.participants?.filter(u => u.id !== userId),
+            updatedAt: new Date()
+          };
+        }
+        return p;
+      })
+    );
+
+    toast.success('Participant removed', {
+      description: 'The member has been removed from the project'
+    });
+  };
+
+  const handleUpdateRole = (userId: string, newRole: ProjectRole) => {
+    setProjectParticipants(prev =>
+      prev.map(pp => {
+        if (pp.projectId === currentProject.id && pp.userId === userId) {
+          return {
+            ...pp,
+            role: newRole
+          };
+        }
+        return pp;
+      })
+    );
+
+    toast.success('Role updated', {
+      description: `User role changed to ${newRole}`
+    });
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setTaskStatuses(prev => prev.filter(ts => ts.taskId !== taskId));
+    setCompletionLogs(prev => prev.filter(cl => cl.taskId !== taskId));
+    
+    toast.success('Task deleted', {
+      description: 'The task has been removed from the project'
+    });
+  };
+
+  const handleEditProject = (projectData: { name: string; description: string }) => {
+    setProjects(prev =>
+      prev.map(p => {
+        if (p.id === currentProject.id) {
+          return {
+            ...p,
+            name: projectData.name,
+            description: projectData.description,
+            updatedAt: new Date()
+          };
+        }
+        return p;
+      })
+    );
+
+    toast.success('Project updated', {
+      description: 'Project settings have been saved'
+    });
+    setShowEditProjectForm(false);
+  };
+
+  const isOwner = currentProject.ownerId === currentUser.id;
+  const isManager = participants.some(p => p.userId === currentUser.id && p.role === 'manager');
+  const canManage = isOwner || isManager;
 
   return (
     <AppLayout>
@@ -416,24 +709,41 @@ const ProjectDetail = () => {
             <div className="flex items-center gap-3 mb-2">
               <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: `${project.color}15` }}
+                style={{ backgroundColor: `${projectWithParticipants.color}15` }}
               >
-                <TrendingUp className="w-6 h-6" style={{ color: project.color }} />
+                {projectWithParticipants.icon ? (
+                  <span className="text-2xl">{projectWithParticipants.icon}</span>
+                ) : (
+                  <TrendingUp className="w-6 h-6" style={{ color: projectWithParticipants.color }} />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold break-words">{currentProject.name}</h1>
-                <p className="text-muted-foreground">{currentProject.description}</p>
+                <h1 className="text-2xl md:text-3xl font-bold break-words">{projectWithParticipants.name}</h1>
+                <p className="text-muted-foreground">{projectWithParticipants.description}</p>
               </div>
             </div>
           </div>
 
+          <div className="flex items-center gap-2 shrink-0">
+            {canManage && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowEditProjectForm(true)}
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            )}
+            {canManage && (
           <Button
             onClick={() => setShowTaskForm(true)}
-            className="gradient-primary text-white hover:opacity-90 shrink-0"
+                className="gradient-primary text-white hover:opacity-90"
           >
             <Plus className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">New Task</span>
           </Button>
+            )}
+          </div>
         </div>
 
         {/* Stats Card */}
@@ -454,11 +764,11 @@ const ProjectDetail = () => {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-status-pending">{pendingTasks.length}</div>
-                <div className="text-xs text-muted-foreground">Pending</div>
+                <div className="text-2xl font-bold text-primary">{needsActionTasks.length}</div>
+                <div className="text-xs text-muted-foreground">Needs Action</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-status-accepted">{activeTasks.length}</div>
+                <div className="text-2xl font-bold text-primary">{activeTasks.length}</div>
                 <div className="text-xs text-muted-foreground">Active</div>
               </div>
               <div className="text-center">
@@ -474,7 +784,7 @@ const ProjectDetail = () => {
                   <Users className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Team Members</span>
                 </div>
-                {currentProject.ownerId === currentUser.id && (
+                {isOwner && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -486,18 +796,54 @@ const ProjectDetail = () => {
                   </Button>
                 )}
               </div>
-              {currentProject.participants && currentProject.participants.length > 0 && (
-                <div className="flex -space-x-2">
-                  {currentProject.participants.map((participant) => (
-                    <Avatar
-                      key={participant.id}
-                      className="w-10 h-10 ring-2 ring-background border border-border"
-                      title={participant.name}
-                    >
-                      <AvatarImage src={participant.avatar} alt={participant.name} />
-                      <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
+              {projectWithParticipants.participants && projectWithParticipants.participants.length > 0 && (
+                <div className="space-y-2">
+                  {participants.map((participant) => {
+                    const user = participant.user;
+                    if (!user) return null;
+                    
+                    return (
+                      <div key={participant.userId} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-8 h-8 ring-2 ring-background border border-border">
+                            <AvatarImage src={user.avatar} alt={user.name} />
+                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                  ))}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{user.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
+                </div>
+                        </div>
+                        {/* Show role badge for all users, but only owner can change it */}
+                        {isOwner && participant.userId !== currentUser.id ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8">
+                                <Badge variant="outline">{participant.role}</Badge>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleUpdateRole(participant.userId, 'manager')}>
+                                Set as Manager
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleUpdateRole(participant.userId, 'participant')}>
+                                Set as Participant
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleRemoveParticipant(participant.userId)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <Badge variant="outline">{participant.role}</Badge>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -506,54 +852,33 @@ const ProjectDetail = () => {
 
         {/* Tasks Tabs */}
         <Tabs defaultValue="all" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
             <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="pending">
-              Pending {pendingTasks.length > 0 && (
-                <Badge variant="secondary" className="ml-2">{pendingTasks.length}</Badge>
-              )}
-            </TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
-            <TabsTrigger value="recurring">
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="habits">
               <Repeat className="w-4 h-4 mr-1" />
-              Recurring
+              Habits
             </TabsTrigger>
+            <TabsTrigger value="archived">Archived</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-6">
-            {pendingTasks.length > 0 && (
+            {needsActionTasks.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-status-pending" />
+                  <Clock className="w-5 h-5 text-primary" />
                   <h3 className="text-lg font-semibold">Needs Action</h3>
                 </div>
                 <div className="space-y-3">
-                  {pendingTasks.map(task => (
+                  {needsActionTasks.map(task => (
                     <TaskCard
                       key={task.id}
                       task={task}
-                      onAccept={handleAccept}
-                      onDecline={handleDecline}
-                      onProposeTime={handleProposeTime}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTasks.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-status-accepted" />
-                  <h3 className="text-lg font-semibold">In Progress</h3>
-                </div>
-                <div className="space-y-3">
-                  {activeTasks.map(task => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
+                      completionLogs={completionLogs}
                       onComplete={handleComplete}
+                      onRecover={handleRecover}
                     />
                   ))}
                 </div>
@@ -564,39 +889,38 @@ const ProjectDetail = () => {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-status-completed" />
-                  <h3 className="text-lg font-semibold">Completed</h3>
+                  <h3 className="text-lg font-semibold">Mission Accomplished</h3>
                 </div>
                 <div className="space-y-3 opacity-60">
                   {completedTasks.map(task => (
-                    <TaskCard key={task.id} task={task} />
+                    <TaskCard key={task.id} task={task} completionLogs={completionLogs} />
                   ))}
                 </div>
               </div>
             )}
 
-            {projectTasks.length === 0 && (
-              <EmptyState onCreateTask={() => setShowTaskForm(true)} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="pending">
+            {archivedTasks.length > 0 && (
             <div className="space-y-3">
-              {pendingTasks.length > 0 ? (
-                pendingTasks.map(task => (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold">Another chance ?</h3>
+                </div>
+                <div className="space-y-3">
+                  {archivedTasks.map(task => (
                   <TaskCard
                     key={task.id}
                     task={task}
-                    onAccept={handleAccept}
-                    onDecline={handleDecline}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No pending tasks</p>
+                      completionLogs={completionLogs}
+                      onRecover={handleRecover}
+                    />
+                  ))}
                 </div>
-              )}
             </div>
+            )}
+
+            {projectTasks.length === 0 && (
+              <EmptyState onCreateTask={() => setShowTaskForm(true)} />
+            )}
           </TabsContent>
 
           <TabsContent value="active">
@@ -606,7 +930,9 @@ const ProjectDetail = () => {
                   <TaskCard
                     key={task.id}
                     task={task}
+                    completionLogs={completionLogs}
                     onComplete={handleComplete}
+                    onRecover={handleRecover}
                   />
                 ))
               ) : (
@@ -633,26 +959,65 @@ const ProjectDetail = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="recurring">
+          <TabsContent value="upcoming">
             <div className="space-y-3">
-              {recurringTasks.length > 0 ? (
-                recurringTasks.map(task => (
+              {upcomingTasks.length > 0 ? (
+                upcomingTasks.map(task => (
                   <TaskCard
                     key={task.id}
                     task={task}
-                    onAccept={handleAccept}
-                    onDecline={handleDecline}
+                    completionLogs={completionLogs}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No upcoming tasks</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="habits">
+            <div className="space-y-3">
+              {habitTasks.length > 0 ? (
+                habitTasks.map(task => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    completionLogs={completionLogs}
                     onComplete={handleComplete}
-                    onProposeTime={handleProposeTime}
+                    onRecover={handleRecover}
                   />
                 ))
               ) : (
                 <div className="text-center py-12">
                   <Repeat className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-4">No recurring tasks yet</p>
+                  <p className="text-muted-foreground mb-4">No habit tasks yet</p>
+                  {canManage && (
                   <Button onClick={() => setShowTaskForm(true)} variant="outline">
-                    Create Recurring Task
+                    Create Habit Task
                   </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="archived">
+            <div className="space-y-3">
+              {archivedTasks.length > 0 ? (
+                archivedTasks.map(task => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onRecover={handleRecover}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No archived tasks</p>
                 </div>
               )}
             </div>
@@ -664,7 +1029,7 @@ const ProjectDetail = () => {
         open={showTaskForm}
         onOpenChange={setShowTaskForm}
         onSubmit={handleCreateTask}
-        project={currentProject}
+        project={projectWithParticipants}
       />
 
       {/* Add Member Dialog */}
@@ -717,6 +1082,24 @@ const ProjectDetail = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={showEditProjectForm} onOpenChange={setShowEditProjectForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Update project name and description
+            </DialogDescription>
+          </DialogHeader>
+
+          <EditProjectForm
+            project={projectWithParticipants}
+            onSave={handleEditProject}
+            onCancel={() => setShowEditProjectForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
@@ -740,5 +1123,64 @@ const EmptyState = ({ onCreateTask }: { onCreateTask: () => void }) => (
     </Button>
   </motion.div>
 );
+
+const EditProjectForm = ({ 
+  project, 
+  onSave, 
+  onCancel 
+}: { 
+  project: Project; 
+  onSave: (data: { name: string; description: string }) => void;
+  onCancel: () => void;
+}) => {
+  const [name, setName] = useState(project.name);
+  const [description, setDescription] = useState(project.description);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({ name: name.trim(), description: description.trim() });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 py-4">
+      <div className="space-y-2">
+        <Label htmlFor="name">Project Name *</Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description</Label>
+        <textarea
+          id="description"
+          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="flex-1 gradient-primary text-white"
+        >
+          Save Changes
+        </Button>
+      </div>
+    </form>
+  );
+};
 
 export default ProjectDetail;

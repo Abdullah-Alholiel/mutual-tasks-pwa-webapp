@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+let cachedServiceClient: SupabaseClient | null = null;
 let cachedClient: SupabaseClient | null = null;
 
 /**
@@ -7,7 +8,7 @@ let cachedClient: SupabaseClient | null = null;
  * Never ship this bundle to the browser – it has admin privileges.
  */
 export const getServiceSupabaseClient = (): SupabaseClient => {
-  if (cachedClient) return cachedClient;
+  if (cachedServiceClient) return cachedServiceClient;
 
   const url = process.env.SUPABASE_URL;
   const serviceRoleKey =
@@ -17,9 +18,28 @@ export const getServiceSupabaseClient = (): SupabaseClient => {
     throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SERVICE_ANON_KEY env vars.');
   }
 
-  cachedClient = createClient(url, serviceRoleKey, {
+  cachedServiceClient = createClient(url, serviceRoleKey, {
     auth: { persistSession: false }
   });
+
+  return cachedServiceClient;
+};
+
+/**
+ * Client-side Supabase client that uses the anon key.
+ * Safe to use in the browser.
+ */
+export const getSupabaseClient = (): SupabaseClient => {
+  if (cachedClient) return cachedClient;
+
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars.');
+  }
+
+  cachedClient = createClient(url, anonKey);
 
   return cachedClient;
 };
