@@ -90,8 +90,8 @@ export const createTaskInitiatedEmail = (
   project: Project,
   initiator: User
 ): EmailData => {
-  const dueDateText = task.originalDueDate 
-    ? new Date(task.originalDueDate).toLocaleDateString('en-US', { 
+  const dueDateText = task.dueDate 
+    ? new Date(task.dueDate).toLocaleDateString('en-US', { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 

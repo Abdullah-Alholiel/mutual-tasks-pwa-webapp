@@ -541,7 +541,10 @@ export const TaskForm = ({
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Note:</span> This task will be automatically assigned 
-              to all project members. You'll all need to complete it for it to count! 💪
+              to all project members. 💪
+              <br />
+              <br />
+             <b> Daily/Weekly recurring tasks will repeat till the end of the month.</b>
             </p>
           </div>
 

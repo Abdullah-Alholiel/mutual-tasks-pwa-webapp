@@ -70,7 +70,6 @@ export const buildTaskStatus = (
   userId,
   status,
   effectiveDueDate: new Date(dueDate),
-  initiatedAt: timestamp,
   createdAt: timestamp,
   updatedAt: timestamp
 });

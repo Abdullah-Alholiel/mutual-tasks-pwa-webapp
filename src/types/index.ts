@@ -137,9 +137,8 @@ export interface Task {
   description?: string;
   type: TaskType;
   recurrencePattern?: RecurrencePattern;
-  originalDueDate: Date;
+  dueDate: Date;
   status: TaskStatus;
-  initiatedAt?: Date;
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -159,7 +158,6 @@ export interface TaskStatusEntity {
   userId: string;
   status: TaskStatusUserStatus;
   effectiveDueDate: Date;
-  initiatedAt?: Date;
   archivedAt?: Date;
   recoveredAt?: Date;
   timingStatus?: TimingStatus;

@@ -43,9 +43,18 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
   const userStatus = myCompletion ? 'completed' : (myTaskStatus?.status || task.status);
   const uiStatus = userStatus === 'completed' ? 'completed' : mapTaskStatusForUI(task.status);
   
+  // Check if task is archived (at task level or user's taskStatus level)
+  const isTaskArchived = task.status === 'archived' || 
+                        myTaskStatus?.status === 'archived' ||
+                        (myTaskStatus?.archivedAt !== undefined && myTaskStatus?.archivedAt !== null);
+  
   // Use modular utilities for task actions
-  const canComplete = canCompleteTask(myTaskStatus, myCompletion);
-  const canRecover = canRecoverTask(myTaskStatus, task.status, myCompletion);
+  const canComplete = canCompleteTask(myTaskStatus, myCompletion, task);
+  const canRecover = canRecoverTask(myTaskStatus, task.status, myCompletion, task);
+  
+  // For archived tasks, always prioritize showing recover button (even if canComplete somehow returns true)
+  const shouldShowRecover = isTaskArchived ? canRecover : (canRecover && !canComplete);
+  const shouldShowComplete = isTaskArchived ? false : (canComplete && !canRecover);
 
   const handleComplete = () => {
     if (canComplete && onComplete) {
@@ -169,8 +178,8 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                 })()}
               </div>
 
-              {task.originalDueDate && (() => {
-                const dueDate = new Date(task.originalDueDate);
+              {task.dueDate && (() => {
+                const dueDate = new Date(task.dueDate);
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const dueDateOnly = new Date(dueDate);
@@ -199,7 +208,7 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
             {/* Actions */}
             <AnimatePresence mode="wait">
               {/* Show Recover button for archived tasks, Mark Complete for active tasks */}
-              {canRecover && !canComplete && (
+              {shouldShowRecover && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -218,7 +227,7 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                 </motion.div>
               )}
 
-              {canComplete && !canRecover && (
+              {shouldShowComplete && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}

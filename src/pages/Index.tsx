@@ -22,6 +22,7 @@ import {
   validateProjectForTaskCreation 
 } from '@/lib/taskCreationUtils';
 import { normalizeToStartOfDay, calculateRingColor } from '@/lib/taskUtils';
+import { recoverTask } from '@/lib/taskRecoveryUtils';
 
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
@@ -80,44 +81,39 @@ const Index = () => {
 
 
   const handleRecover = (taskId: string) => {
-    const now = new Date();
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) {
-      handleError('Task not found', 'handleRecover');
+    // Use centralized recovery utility - single source of truth
+    const result = recoverTask(taskId, currentUser.id, tasks, taskStatuses);
+    
+    if (!result || !result.success) {
+      handleError('Task not found or cannot be recovered', 'handleRecover');
       return;
     }
 
-    // Update task status from 'archived' to 'active'
-    setTaskStatuses(prev =>
-      prev.map(ts => {
-        if (ts.taskId === taskId && ts.userId === currentUser.id && ts.status === 'archived') {
-          return {
-            ...ts,
-            status: 'active' as TaskStatusUserStatus,
-            recoveredAt: now,
-            archivedAt: undefined,
-            ringColor: 'yellow', // Yellow ring for recovered tasks
-            timingStatus: 'late',
-            updatedAt: now
-          };
-        }
-        return ts;
-      })
-    );
+    // Update task state
+    if (result.updatedTask) {
+      setTasks(prev =>
+        prev.map(t => t.id === taskId ? result.updatedTask! : t)
+      );
+    }
 
-    // Update task status to active
-    setTasks(prev =>
-      prev.map(t => {
-        if (t.id === taskId) {
-          return {
-            ...t,
-            status: 'active' as Task['status'],
-            updatedAt: now
-          };
+    // Update task status state
+    if (result.updatedTaskStatus) {
+      setTaskStatuses(prev => {
+        const existingIndex = prev.findIndex(
+          ts => ts.taskId === taskId && ts.userId === currentUser.id
+        );
+        
+        if (existingIndex >= 0) {
+          // Update existing task status
+          return prev.map((ts, index) =>
+            index === existingIndex ? result.updatedTaskStatus! : ts
+          );
+        } else {
+          // Add new task status (edge case)
+          return [...prev, result.updatedTaskStatus];
         }
-        return t;
-      })
-    );
+      });
+    }
 
     toast.success('Task recovered! 💪', {
       description: 'Complete it to earn half XP'
@@ -401,9 +397,8 @@ const Index = () => {
           recurrencePattern: taskData.recurrencePattern,
           title: taskData.title,
           description: taskData.description,
-          originalDueDate: taskDueDate,
+          dueDate: taskDueDate,
           status: 'active',
-          initiatedAt: now,
           createdAt: now,
           updatedAt: now
         };
@@ -465,9 +460,8 @@ const Index = () => {
         recurrencePattern: taskData.recurrencePattern,
         title: taskData.title,
         description: taskData.description,
-        originalDueDate: defaultDueDate,
+        dueDate: defaultDueDate,
         status: 'active',
-        initiatedAt: now,
         createdAt: now,
         updatedAt: now
       };
@@ -524,7 +518,7 @@ const Index = () => {
       : 'Task initiated! 🚀';
 
     toast.success(toastTitle, {
-      description: 'Waiting for your friend to accept'
+      description: 'Your friend has been notified. to accept'
     });
     setShowTaskForm(false);
   };

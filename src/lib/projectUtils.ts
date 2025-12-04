@@ -6,7 +6,8 @@
 // and filtering that should be used consistently across all components.
 // ============================================================================
 
-import type { Project, Task, CompletionLog, User, ProjectParticipant } from '@/types';
+import type { Project, Task, CompletionLog, User, ProjectParticipant, ProjectRole } from '@/types';
+import { PROJECT_ROLES } from '@/types';
 
 /**
  * Calculate project progress for a specific user
@@ -315,5 +316,15 @@ export const joinProject = (
     updatedParticipants,
     updatedProject
   };
+};
+
+/**
+ * Get available roles that can be assigned, excluding the current role
+ * 
+ * @param currentRole - The current role of the participant
+ * @returns Array of available roles excluding the current role and owner role
+ */
+export const getAvailableRoles = (currentRole: ProjectRole): ProjectRole[] => {
+  return PROJECT_ROLES.filter(role => role !== currentRole && role !== 'owner');
 };
 

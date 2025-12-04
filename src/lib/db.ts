@@ -73,9 +73,8 @@ type TaskRow = {
   description?: string | null;
   type: TaskType;
   recurrence_pattern?: string | null;
-  original_due_date: string;
+  due_date: string;
   status: TaskStatus;
-  initiated_at?: string | null;
   completed_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -149,9 +148,8 @@ function transformTaskRow(row: TaskRow, taskStatuses?: TaskStatusEntity[], recur
     description: row.description || undefined,
     type: row.type,
     recurrencePattern: (row.recurrence_pattern as any) || undefined,
-    originalDueDate: new Date(row.original_due_date),
+    dueDate: new Date(row.due_date),
     status: row.status,
-    initiatedAt: row.initiated_at ? new Date(row.initiated_at) : undefined,
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
@@ -514,9 +512,8 @@ class SupabaseDatabaseClient implements DatabaseClient {
       description: data.description || null,
       type: data.type,
       recurrence_pattern: data.recurrencePattern || null,
-      original_due_date: data.originalDueDate.toISOString(),
+      due_date: data.dueDate.toISOString(),
       status: data.status,
-      initiated_at: data.initiatedAt?.toISOString() || null,
       completed_at: data.completedAt?.toISOString() || null,
     };
 
@@ -535,7 +532,7 @@ class SupabaseDatabaseClient implements DatabaseClient {
     if (data.title !== undefined) row.title = data.title;
     if (data.description !== undefined) row.description = data.description || null;
     if (data.status !== undefined) row.status = data.status;
-    if (data.originalDueDate !== undefined) row.original_due_date = data.originalDueDate.toISOString();
+    if (data.dueDate !== undefined) row.due_date = data.dueDate.toISOString();
     if (data.completedAt !== undefined) row.completed_at = data.completedAt?.toISOString() || null;
 
     const { data: result, error } = await this.supabase
