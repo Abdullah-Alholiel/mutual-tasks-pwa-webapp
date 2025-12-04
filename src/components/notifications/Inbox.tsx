@@ -13,14 +13,12 @@ interface InboxProps {
   notifications: Notification[];
   onMarkAsRead: (notificationId: string) => void;
   onMarkAllAsRead: () => void;
-  onDismiss?: (notificationId: string) => void; // Made optional since we're not using it
 }
 
 export const Inbox = ({ 
   notifications, 
   onMarkAsRead, 
-  onMarkAllAsRead,
-  onDismiss 
+  onMarkAllAsRead
 }: InboxProps) => {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -142,7 +140,7 @@ export const Inbox = ({
                           key={notification.id}
                           notification={notification}
                           onClick={() => handleNotificationClick(notification)}
-                          onMarkAsRead={() => onMarkAsRead(notification.id)}
+                        onMarkAsRead={onMarkAsRead}
                           getIcon={getNotificationIcon}
                           getColor={getNotificationColor}
                         />
@@ -161,7 +159,7 @@ export const Inbox = ({
                         key={notification.id}
                         notification={notification}
                         onClick={() => handleNotificationClick(notification)}
-                        onMarkAsRead={() => onMarkAsRead(notification.id)}
+                        onMarkAsRead={onMarkAsRead}
                         getIcon={getNotificationIcon}
                         getColor={getNotificationColor}
                         isRead
@@ -181,7 +179,7 @@ export const Inbox = ({
 interface NotificationItemProps {
   notification: Notification;
   onClick: () => void;
-  onMarkAsRead: () => void;
+  onMarkAsRead: (notificationId: string) => void;
   getIcon: (type: Notification['type']) => React.ReactNode;
   getColor: (type: Notification['type']) => string;
   isRead?: boolean;

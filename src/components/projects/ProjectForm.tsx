@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,10 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import type { Project, User } from '@/types';
 import { mockUsers, currentUser } from '@/lib/mockData';
 import { motion } from 'framer-motion';
-import { FolderKanban, Users, Sparkles, Globe, Lock } from 'lucide-react';
+import { FolderKanban, Users, Sparkles, Globe, Lock, AtSign, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
 
 const PROJECT_COLORS = [
   { name: 'Blue', value: 'hsl(199, 89%, 48%)' },
@@ -41,8 +42,32 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [selectedColor, setSelectedColor] = useState(PROJECT_COLORS[0].value);
   const [isPublic, setIsPublic] = useState(true);
+  const [friendHandle, setFriendHandle] = useState('');
+  const [highlightedFriendIds, setHighlightedFriendIds] = useState<Set<string>>(new Set());
 
+  // Get all available friends (existing users excluding current user)
   const availableFriends = mockUsers.filter(u => u.id !== currentUser.id);
+
+  // Get friends that are selected or added by handle
+  const allFriends = useMemo(() => {
+    // Get all unique friends (available + highlighted)
+    const friendMap = new Map<string, User>();
+    
+    // Add all available friends
+    availableFriends.forEach(friend => {
+      friendMap.set(friend.id, friend);
+    });
+    
+    // Add highlighted friends (those added by handle)
+    highlightedFriendIds.forEach(friendId => {
+      const friend = mockUsers.find(u => u.id === friendId && u.id !== currentUser.id);
+      if (friend) {
+        friendMap.set(friend.id, friend);
+      }
+    });
+    
+    return Array.from(friendMap.values());
+  }, [availableFriends, highlightedFriendIds]);
 
   const toggleParticipant = (userId: string) => {
     setSelectedParticipants(prev =>
@@ -50,6 +75,54 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
+  };
+
+  const handleAddFriendByHandle = () => {
+    if (!friendHandle.trim()) {
+      toast.error('Please enter a handle');
+      return;
+    }
+
+    // Validate handle format
+    const handleValidation = validateHandleFormat(friendHandle);
+    if (!handleValidation.isValid) {
+      toast.error(handleValidation.error || 'Invalid handle format');
+      return;
+    }
+
+    // Find user by handle
+    const user = findUserByIdentifier(friendHandle);
+    if (!user) {
+      toast.error('User not found', {
+        description: 'No user with this handle exists in the system'
+      });
+      return;
+    }
+
+    if (user.id === currentUser.id) {
+      toast.error('Cannot add yourself', {
+        description: 'You are already the project owner'
+      });
+      return;
+    }
+
+    // Add to highlighted friends (so they appear in the list with highlighting)
+    setHighlightedFriendIds(prev => new Set([...prev, user.id]));
+    
+    // Add to selected participants if not already selected
+    if (!selectedParticipants.includes(user.id)) {
+      setSelectedParticipants(prev => [...prev, user.id]);
+      toast.success('Friend added!', {
+        description: `${user.name} (${user.handle}) has been added`
+      });
+    } else {
+      toast.info('Friend already added', {
+        description: `${user.name} is already in the list`
+      });
+    }
+
+    // Clear handle input
+    setFriendHandle('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -82,11 +155,27 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
     setSelectedParticipants([]);
     setSelectedColor(PROJECT_COLORS[0].value);
     setIsPublic(true);
+    setFriendHandle('');
+    setHighlightedFriendIds(new Set());
     onOpenChange(false);
   };
 
+  // Reset form when dialog closes
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setName('');
+      setDescription('');
+      setSelectedParticipants([]);
+      setSelectedColor(PROJECT_COLORS[0].value);
+      setIsPublic(true);
+      setFriendHandle('');
+      setHighlightedFriendIds(new Set());
+    }
+    onOpenChange(open);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
@@ -180,42 +269,104 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
 
           {/* Participants */}
           <div className="space-y-2">
-            <Label>Add Friends *</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {availableFriends.map((user) => (
-                <motion.button
-                  key={user.id}
+            <Label>Add Friends {!isPublic && '*'}</Label>
+            <p className="text-xs text-muted-foreground">
+              {isPublic 
+                ? 'Optional: Add friends to collaborate (or add them later)'
+                : 'Required: Add at least one friend to create a private project'}
+            </p>
+            
+            {/* Add Friend by Handle */}
+            <div className="space-y-2">
+              <Label htmlFor="friend-handle" className="text-sm">Add Friend by Handle</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="friend-handle"
+                    type="text"
+                    placeholder="@username"
+                    value={friendHandle}
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      // Auto-add @ if user types without it
+                      if (value && !value.startsWith('@')) {
+                        value = `@${value}`;
+                      }
+                      setFriendHandle(value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddFriendByHandle();
+                      }
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+                <Button
                   type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => toggleParticipant(user.id)}
-                  className={cn(
-                    "flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left",
-                    selectedParticipants.includes(user.id)
-                      ? "border-primary bg-primary/5 shadow-primary"
-                      : "border-border hover:border-primary/50"
-                  )}
+                  variant="outline"
+                  onClick={handleAddFriendByHandle}
+                  disabled={!friendHandle.trim()}
                 >
-                  <Avatar className="w-10 h-10 ring-2 ring-border">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{user.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
-                  </div>
-                  {selectedParticipants.includes(user.id) && (
-                    <Badge variant="default" className="shrink-0">Selected</Badge>
-                  )}
-                </motion.button>
-              ))}
-            </div>
-            {availableFriends.length === 0 && (
-              <div className="text-sm text-muted-foreground flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Users className="w-4 h-4" />
-                <span>No friends available. Add friends to collaborate!</span>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add
+                </Button>
               </div>
-            )}
+            </div>
+
+            {/* Friends List */}
+            <div className="space-y-2">
+              <Label className="text-sm">Select Friends</Label>
+              <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                {allFriends.map((user) => {
+                  const isSelected = selectedParticipants.includes(user.id);
+                  const isHighlighted = highlightedFriendIds.has(user.id);
+                  
+                  return (
+                    <motion.button
+                      key={user.id}
+                      type="button"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => toggleParticipant(user.id)}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left relative",
+                        isSelected
+                          ? "border-primary bg-primary/5 shadow-primary"
+                          : isHighlighted
+                          ? "border-accent bg-accent/5 shadow-accent/20"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      {isHighlighted && !isSelected && (
+                        <div className="absolute top-1 right-1">
+                          <Badge variant="secondary" className="text-xs">New</Badge>
+                        </div>
+                      )}
+                      <Avatar className="w-10 h-10 ring-2 ring-border">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{user.name}</div>
+                        <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
+                      </div>
+                      {isSelected && (
+                        <Badge variant="default" className="shrink-0">Selected</Badge>
+                      )}
+                    </motion.button>
+                  );
+                })}
+              </div>
+              {allFriends.length === 0 && (
+                <div className="text-sm text-muted-foreground flex items-center gap-2 p-3 bg-muted rounded-lg">
+                  <Users className="w-4 h-4" />
+                  <span>No friends available. Add friends by handle above!</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Info Badge */}
@@ -231,18 +382,18 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => handleDialogClose(false)}
               className="flex-1"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={!name.trim() || selectedParticipants.length === 0}
+              disabled={!name.trim() || (!isPublic && selectedParticipants.length === 0)}
               className="flex-1 gradient-primary text-white"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Create Project
+              {isPublic ? 'Create Public Project' : 'Create Private Project'}
             </Button>
           </div>
         </form>

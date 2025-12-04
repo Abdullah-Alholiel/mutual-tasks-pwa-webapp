@@ -9,11 +9,11 @@ This document is the contract between the current front-end mocks and the future
 User (1) ──< (N) Project             (ownerId)
 Project (1) ──< (N) ProjectParticipant (role)
 Project (1) ──< (N) Task             (creatorId)
-Task (1) ──< (N) TaskAssignment      (userId)
-Task (1) ──< (N) TaskTimeProposal    (proposerId)
+Task (1) ──< (N) TaskStatusEntity    (userId) [replaces TaskAssignment]
+Task (1) ──< (N) TaskRecurrence      (for habits)
 Task (1) ──< (N) CompletionLog       (userId)
 User (1) ──< (N) Notification        (taskId | projectId)
-User (1) ──< (1) UserStats           (score derived)
+User (1) ──< (1) UserStats           (totalscore derived)
 ```
 
 ## Entity Relationship usecases
@@ -37,14 +37,19 @@ interface User {
   email: string;
   avatar: string;
   timezone: string;
-  stats: UserStats;
+  notificationPreferences?: Record<string, boolean>;
+  createdAt: Date;
+  updatedAt: Date;
+  stats?: UserStats; // Computed/derived field for frontend convenience
 }
 
 interface UserStats {
+  userId: string;
   totalCompletedTasks: number;
   currentStreak: number;
   longestStreak: number;
-  score: number; // basic_score - tardiness_penalty
+  totalscore: number; // XP earned from completed tasks
+  updatedAt: Date;
 }
 ```
 
@@ -60,15 +65,28 @@ interface Project {
   id: string;
   name: string;
   description: string;
+  icon?: string;
+  color?: string;
   ownerId: string;
-  participantIds: string[]; // mirrors project_participants rows
   isPublic: boolean;
+  totalTasks: number;
   createdAt: Date;
   updatedAt: Date;
-  color?: string;
+  
+  // Computed/derived fields (not stored in DB, calculated on the fly)
   participants?: User[];
+  participantRoles?: ProjectParticipant[];
   completedTasks?: number;
   progress?: number;
+}
+
+interface ProjectParticipant {
+  projectId: string;
+  userId: string;
+  role: ProjectRole; // 'owner' | 'manager' | 'participant'
+  addedAt: Date;
+  removedAt?: Date;
+  user?: User; // Computed/derived field for frontend convenience
 }
 ```
 
@@ -81,115 +99,136 @@ interface Project {
 **Primary key:** `id` **Foreign keys:** `projectId`, `creatorId`
 
 ```typescript
-type TaskStatus =
-  | 'draft'
-  | 'initiated'
-  | 'scheduled'
-  | 'in_progress'
-  | 'completed'
-  | 'cancelled'
-  | 'expired';
+type TaskStatus = 'active' | 'upcoming' | 'completed' | 'archived';
 
-type TaskType = 'habit' | 'one_off';
+type TaskType = 'one_off' | 'habit';
 
-type DifficultyRating = 1 | 2 | 3 | 4 | 5;
+type RecurrencePattern = 'daily' | 'weekly' | 'custom';
 
 interface Task {
   id: string;
   projectId: string;
+  creatorId: string;
   title: string;
   description?: string;
-  creatorId: string;
   type: TaskType;
+  recurrencePattern?: RecurrencePattern; // For habit tasks
+  originalDueDate: Date; // Date-only (no time component)
   status: TaskStatus;
-  dueDate: Date; // always set by initiator
-  difficultyRating: DifficultyRating;
+  initiatedAt?: Date;
+  completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
-  assignments: TaskAssignment[]; // hydrated for UI
-  timeProposals?: TaskTimeProposal[];
-  completions: Record<string, {
-    completed: boolean;
-    completedAt?: Date;
-    difficultyRating?: DifficultyRating;
-  }>;
+  
+  // Computed/derived fields (not stored in DB, calculated on the fly)
+  taskStatuses?: TaskStatusEntity[];
+  recurrence?: TaskRecurrence;
 }
 ```
 
 **Tables & notes**
-- `tasks` – includes mandatory `due_date`, `difficulty_rating` (1–5), creator, timestamps, and `type` (`habit` or `one_off`).
-- No `assignee_id`; per-user participation is modeled through `task_assignments`.
-- Status starts at `draft`, moves to `initiated`, then either `scheduled` / `in_progress`, and can land on `completed`, `cancelled`, or `expired`.
-- Time changes happen through `task_time_proposals`; accepted proposals update the task `due_date` and each assignment’s `effective_due_date`.
+- `tasks` – includes mandatory `original_due_date` (date-only, no time), creator, timestamps, and `type` (`habit` or `one_off`).
+- `recurrence_pattern` is optional and only used for habit tasks (`daily`, `weekly`, or `custom`).
+- No `assignee_id`; per-user participation is modeled through `task_statuses` (formerly `task_assignments`).
+- Status can be `active`, `upcoming`, `completed`, or `archived`.
+- Tasks are automatically assigned to all project participants when created (no assignment step).
 
-### 4. TaskAssignment
+### 4. TaskStatusEntity
 **Primary key:** `id` **Foreign keys:** `taskId`, `userId`
 
-```typescript
-type AssignmentStatus =
-  | 'invited'
-  | 'active'
-  | 'declined'
-  | 'completed'
-  | 'missed'
-  | 'archived';
+> **Note:** This entity replaces the old `TaskAssignment` concept. The name `TaskStatusEntity` better reflects that it tracks per-user task status, not just assignment.
 
-interface TaskAssignment {
+```typescript
+type TaskStatusUserStatus = 'active' | 'completed' | 'archived';
+
+type TimingStatus = 'early' | 'on_time' | 'late';
+
+type RingColor = 'green' | 'yellow' | 'red' | 'none';
+
+interface TaskStatusEntity {
   id: string;
   taskId: string;
   userId: string;
-  status: AssignmentStatus;
-  isRequired: boolean;
-  effectiveDueDate: Date;
+  status: TaskStatusUserStatus;
+  effectiveDueDate: Date; // User-specific due date (date-only, no time)
+  initiatedAt?: Date;
   archivedAt?: Date;
-  recoveredAt?: Date;
+  recoveredAt?: Date; // When user recovered an archived task
+  timingStatus?: TimingStatus; // Calculated when task is completed
+  ringColor?: RingColor; // Visual indicator: green (on-time), yellow (recovered), red (expired), none
   createdAt: Date;
   updatedAt: Date;
+  
+  // Computed/derived fields
+  user?: User;
+  task?: Task;
 }
 ```
 
 **Tables & notes**
-- `task_assignments` replaces `assigneeId` and tracks each participant’s state/history.
+- `task_statuses` (table name) replaces `task_assignments` and tracks each participant's state/history.
 - `(task_id, user_id)` is unique to prevent duplicates.
-- Archiving is per-user only; owners delete tasks globally instead of archiving.
+- Tasks are automatically assigned to all project participants when created (no invitation/acceptance flow).
+- `effective_due_date` is initially set to the task's `original_due_date` but can be adjusted per user if needed.
+- `archived_at` marks when a user's task was archived (expired and not completed).
+- `recovered_at` marks when a user recovered an archived task (moves status back to `active`).
+- `ring_color` provides visual feedback: green for on-time completion, yellow for recovered tasks, red for expired/archived.
+- Archiving is per-user only; task owners can delete tasks globally.
 
-### 5. TaskTimeProposal
-**Primary key:** `id` **Foreign keys:** `taskId`, `proposerId`
+### 5. TaskRecurrence
+**Primary key:** `id` **Foreign key:** `taskId`
 
 ```typescript
-type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled';
+type RecurrencePattern = 'daily' | 'weekly' | 'custom';
 
-interface TaskTimeProposal {
+interface TaskRecurrence {
   id: string;
   taskId: string;
-  proposerId: string;
-  proposedDueDate: Date;
-  status: ProposalStatus;
-  createdAt: Date;
-  respondedAt?: Date;
+  recurrencePattern: RecurrencePattern;
+  recurrenceInterval: number; // For custom patterns
+  nextOccurrence: Date;
+  endOfRecurrence?: Date;
+  
+  // Computed/derived fields
+  task?: Task;
 }
 ```
 
 **Tables & notes**
-- Only available for private projects.
-- Each proposal captures who asked, the new time, and when it was handled.
+- `task_recurrences` – only used for habit tasks (`type = 'habit'`).
+- Tracks recurrence pattern and generates future task instances.
+- `recurrence_interval` is used for custom patterns (e.g., every 3 days).
+- `next_occurrence` tracks when the next instance should be generated.
 
 ### 6. CompletionLog
 **Primary key:** `id` **Foreign keys:** `userId`, `taskId`
 
 ```typescript
+type DifficultyRating = 1 | 2 | 3 | 4 | 5;
+
+type TimingStatus = 'early' | 'on_time' | 'late';
+
 interface CompletionLog {
   id: string;
   userId: string;
   taskId: string;
   completedAt: Date;
-  difficultyRating: DifficultyRating; // 1-5
+  difficultyRating?: DifficultyRating; // 1-5, optional
+  timingStatus: TimingStatus; // Calculated based on effectiveDueDate
+  recoveredCompletion: boolean; // True if task was recovered before completion
+  penaltyApplied: boolean; // True if half XP was applied (recovered + late)
+  xpEarned: number; // XP calculated: base (difficulty * 100) or half if penalty applied
+  createdAt: Date;
 }
 ```
 
 **Table & notes**
 - `completion_logs` – unique composite index on `(user_id, task_id)` so each user logs once per task instance.
 - Index `(user_id, completed_at)` to power streak queries and `(task_id)` for joins.
+- `timing_status` is calculated when the task is completed: `early` (before due date), `on_time` (on due date), or `late` (after due date).
+- `recovered_completion` indicates if the task was recovered (archived then reactivated) before completion.
+- `penalty_applied` is true when a recovered task is completed late, resulting in half XP.
+- `xp_earned` stores the calculated XP: base is `difficulty_rating * 100`, or half if `penalty_applied` is true.
 
 ### 7. Notification
 **Primary key:** `id` **Foreign keys:** optional `taskId`, `projectId`
@@ -199,10 +238,15 @@ type NotificationType =
   | 'task_initiated'
   | 'task_accepted'
   | 'task_declined'
-  | 'task_time_proposed'
   | 'task_completed'
-  | 'streak_reminder'
-  | 'project_joined';
+  | 'task_recovered'
+  | 'task_deleted'
+  | 'task_overdue'
+  | 'role_changed'
+  | 'participant_removed'
+  | 'project_joined'
+  | 'project_left'
+  | 'streak_reminder';
 
 interface Notification {
   id: string;
@@ -213,27 +257,32 @@ interface Notification {
   projectId?: string;
   createdAt: Date;
   isRead: boolean;
-  emailSent?: boolean;
+  emailSent: boolean; // Required, not optional
 }
 ```
 
 **Table & notes**
 - `notifications` – index `(user_id, is_read, created_at)` for inbox queries.
-- `email_sent` flag prevents duplicate transactional emails.
+- `email_sent` flag (required boolean) prevents duplicate transactional emails.
+- Notifications can be marked as read without deletion (persistent history).
 
 ## Normalization summary
-- **Normalized tables:** `users`, `user_stats`, `projects`, `project_participants`, `tasks`, `task_assignments`, `task_time_proposals`, `completion_logs`, `notifications`.
-- **Denormalized convenience fields (frontend only):** `Project.participants`, `Project.completedTasks`, `Project.progress`, `Task.assignments`, `Task.timeProposals`, `Task.completions`.
+- **Normalized tables:** `users`, `user_stats`, `projects`, `project_participants`, `tasks`, `task_statuses` (replaces `task_assignments`), `task_recurrences`, `completion_logs`, `notifications`.
+- **Denormalized convenience fields (frontend only):** `Project.participants`, `Project.participantRoles`, `Project.completedTasks`, `Project.progress`, `Task.taskStatuses`, `Task.recurrence`, `TaskStatusEntity.user`, `TaskStatusEntity.task`, `ProjectParticipant.user`.
 - **Helper functions** in `src/lib/mockData.ts` still simulate joins (`populateProjectParticipants`, `getTodayTasks`, etc.) until the Supabase-backed API replaces them.
+- **Date handling:** All due dates are date-only (no time component). Use `normalizeToStartOfDay()` utility to ensure consistency.
 
 ## Backend readiness checklist
 - [ ] Create SQL schema & migrations mirroring the interfaces above (use Supabase migrations).
-- [ ] Seed enums (`project_role`, `assignment_status`, `proposal_status`, `task_status`, `task_type`).
+- [ ] Seed enums (`project_role`, `task_status_user_status`, `task_status`, `task_type`, `recurrence_pattern`, `timing_status`, `ring_color`, `notification_type`).
 - [ ] Enforce task status transitions service-side; prevent skipping straight to `completed`.
-- [ ] Implement scoring in the service layer: `score = basic_score - tardiness_penalty` (no recovery bonus).
-- [ ] Ensure project privacy rules gate assignments & time proposals.
-- [ ] Emit notifications + email events on assignment changes.
+- [ ] Implement XP calculation: `base_xp = difficulty_rating * 100`, `xp_earned = penalty_applied ? base_xp / 2 : base_xp`.
+- [ ] Auto-assign tasks to all project participants on creation (no assignment flow).
+- [ ] Calculate `timing_status` on completion: compare `completed_at` with `effective_due_date`.
+- [ ] Calculate `ring_color` based on completion timing and recovery status.
+- [ ] Emit notifications + email events on task creation, completion, recovery, etc.
 - [ ] Add pagination/filtering to project, task, notification lists.
+- [ ] Ensure all due dates are stored as date-only (no time component).
 
 ## Proposed API surface
 ```
@@ -245,19 +294,19 @@ GET    /api/projects/:id
 PUT    /api/projects/:id
 GET    /api/projects/:id/tasks
 GET    /api/tasks
-POST   /api/tasks
+POST   /api/tasks                    # Auto-assigns to all project participants
 GET    /api/tasks/:id
-PUT    /api/tasks/:id/accept
-PUT    /api/tasks/:id/decline
-PUT    /api/tasks/:id/propose-time
-PUT    /api/tasks/:id/complete
+PUT    /api/tasks/:id
+PUT    /api/tasks/:id/complete       # Creates CompletionLog, updates TaskStatusEntity
+PUT    /api/tasks/:id/recover       # Recovers archived task (sets recoveredAt)
 GET    /api/tasks/today
-GET    /api/task-assignments/:id
-PUT    /api/task-assignments/:id/archive
+GET    /api/task-statuses           # Get all task statuses (replaces task-assignments)
+GET    /api/task-statuses/:id
+PUT    /api/task-statuses/:id        # Update status, ringColor, etc.
 GET    /api/completion-logs
 POST   /api/completion-logs
 GET    /api/notifications
-PUT    /api/notifications/:id/read
+PUT    /api/notifications/:id/read   # Mark as read (does not delete)
 ```
 
 ## Rolling out the real database
@@ -271,9 +320,14 @@ PUT    /api/notifications/:id/read
 ## Notes & reminders
 - IDs stay as strings on the client, even if Supabase stores them as UUIDs.
 - Dates are JavaScript `Date` objects in the mock layer; convert to ISO (`YYYY-MM-DDTHH:mm:ss.sssZ`) over the wire.
-- Difficulty rating is a strict 1–5 integer everywhere (tasks + completion logs).
-- Owners delete tasks to end them for everyone. Archiving is per assignment (`task_assignments.status = 'archived'`).
-- Every task starts with an initial `due_date`; proposals only reschedule.
-- Task visibility = project membership + assignment rows, so keep participant data accurate.
+- **Due dates are date-only** (no time component). Always use `normalizeToStartOfDay()` utility when creating or comparing dates.
+- Difficulty rating is a strict 1–5 integer (optional in CompletionLog).
+- **Tasks are auto-assigned** to all project participants on creation (no invitation/acceptance flow).
+- Owners delete tasks to end them for everyone. Archiving is per-user (`task_statuses.status = 'archived'`, `archived_at` set).
+- Recovered tasks have `recovered_at` set and `status = 'active'`; they earn half XP if completed late.
+- Ring colors provide visual feedback: `green` (on-time completion), `yellow` (recovered task), `red` (expired/archived), `none` (default).
+- XP calculation: base is `difficulty_rating * 100`, or half if `penalty_applied` (recovered + late completion).
+- Task visibility = project membership + task status rows, so keep participant data accurate.
+- Notifications are marked as read but never deleted (persistent history).
 
 Once the remote DB is live, keep this document updated so designers, engineers, and future contributors always know the “source of truth” for how data is shaped and why.

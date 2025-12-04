@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { Inbox } from '@/components/notifications/Inbox';
 import { useState } from 'react';
 import type { Notification } from '@/types';
+import { db } from '@/lib/db';
+import { handleError } from '@/lib/errorUtils';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Today' },
@@ -41,15 +43,26 @@ export const MobileNav = () => {
     navigate('/profile');
   };
 
-  const handleMarkAsRead = (notificationId: string) => {
+  const handleMarkAsRead = async (notificationId: string) => {
     setNotifications(prev =>
       prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
     );
+    try {
+      await db.markNotificationRead(notificationId);
+    } catch (error) {
+      handleError(error, 'markNotificationRead');
+    }
   };
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    try {
+      await Promise.all(unreadIds.map(id => db.markNotificationRead(id)));
     toast.success('All notifications marked as read');
+    } catch (error) {
+      handleError(error, 'markAllNotificationsRead');
+    }
   };
 
 

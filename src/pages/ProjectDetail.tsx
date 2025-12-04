@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getProjectById, mockTasks, currentUser, mockProjects, mockTaskStatuses, mockCompletionLogs, mockProjectParticipants, mockUsers } from '@/lib/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Plus, Users, TrendingUp, Clock, CheckCircle2, Sparkles, Repeat, UserPlus, Settings, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus, Users, TrendingUp, Clock, CheckCircle2, Sparkles, Repeat, UserPlus, Settings, Trash2, AtSign, LogOut } from 'lucide-react';
 import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, ProjectRole, RingColor } from '@/types';
-import { calculateProjectProgress } from '@/lib/projectUtils';
+import { calculateProjectProgress, leaveProject, canLeaveProject } from '@/lib/projectUtils';
+import { normalizeToStartOfDay } from '@/lib/taskUtils';
 import { 
   getProjectTasks, 
   updateTasksWithStatuses, 
@@ -22,13 +23,16 @@ import {
   getArchivedTasks,
   getActiveTasks,
   getUpcomingTasks,
-  getVisibleTasks
+  getVisibleTasks,
+  getProjectTaskBuckets
 } from '@/lib/taskFilterUtils';
 import { handleError } from '@/lib/errorUtils';
 import { 
   createTaskStatusesForAllParticipants, 
   validateProjectForTaskCreation 
 } from '@/lib/taskCreationUtils';
+import { calculateRingColor } from '@/lib/taskUtils';
+import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -50,7 +54,8 @@ const ProjectDetail = () => {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
   const [showEditProjectForm, setShowEditProjectForm] = useState(false);
-  const [memberEmail, setMemberEmail] = useState('');
+  const [showLeaveProjectDialog, setShowLeaveProjectDialog] = useState(false);
+  const [memberIdentifier, setMemberIdentifier] = useState('');
   const [tasks, setTasks] = useState(mockTasks);
   const [taskStatuses, setTaskStatuses] = useState(mockTaskStatuses);
   const [completionLogs, setCompletionLogs] = useState(mockCompletionLogs);
@@ -90,6 +95,7 @@ const ProjectDetail = () => {
   // All project participants should see all tasks, regardless of task status
   const projectTasksRaw = getProjectTasks(tasks, currentProject.id);
   const projectTasks = updateTasksWithStatuses(projectTasksRaw, taskStatuses);
+  const projectTaskBuckets = getProjectTaskBuckets(projectTasks);
   
   // Calculate progress using utility
   const { progress, completedTasks: completedCount, totalTasks } = calculateProjectProgress(
@@ -121,6 +127,30 @@ const ProjectDetail = () => {
   
   // Archived: tasks that are archived (archivedAt is not null) and NOT recovered, NOT completed
   const archivedTasks = getArchivedTasks(projectTasks, taskStatuses, completionLogs, currentUser.id);
+
+  // Project-wide buckets ensure All tab always has data even if user-specific lists are empty
+  const needsActionSectionTasks = needsActionTasks.length > 0
+    ? needsActionTasks
+    : projectTaskBuckets.needsAction;
+  const activeSectionTasks = activeTasks.length > 0
+    ? activeTasks
+    : projectTaskBuckets.active;
+  const upcomingSectionTasks = upcomingTasks.length > 0
+    ? upcomingTasks
+    : projectTaskBuckets.upcoming;
+  const completedSectionTasks = completedTasks.length > 0
+    ? completedTasks
+    : projectTaskBuckets.completed;
+  const archivedSectionTasks = archivedTasks.length > 0
+    ? archivedTasks
+    : projectTaskBuckets.archived;
+  const hasAnyAllTabContent = Boolean(
+    needsActionSectionTasks.length ||
+    activeSectionTasks.length ||
+    upcomingSectionTasks.length ||
+    completedSectionTasks.length ||
+    archivedSectionTasks.length
+  );
 
   // Helper to get task status for a user
   const getTaskStatusForUser = (taskId: string, userId: string): TaskStatusEntity | undefined => {
@@ -186,24 +216,28 @@ const ProjectDetail = () => {
     const baseXP = (difficultyRating || 3) * 100;
     const xpEarned = penaltyApplied ? Math.floor(baseXP / 2) : baseXP;
 
+    // Determine timing status
+    // Compare dates (not times) to handle daily tasks correctly
+    // For tasks due today, completing at any time today should be 'on_time'
+    const nowDate = new Date(now);
+    nowDate.setHours(0, 0, 0, 0);
+    const dueDate = new Date(myTaskStatus.effectiveDueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    
     let timingStatus: TimingStatus = 'on_time';
-    if (now < myTaskStatus.effectiveDueDate) {
+    if (nowDate < dueDate) {
       timingStatus = 'early';
-    } else if (now > myTaskStatus.effectiveDueDate) {
+    } else if (nowDate > dueDate) {
       timingStatus = 'late';
-    }
-
-    // Determine ring color based on rules:
-    // Green: completed on time/early (isLate: false) AND not recovered
-    // Yellow: recovered task (recoveredCompletion: true) - always yellow when recovered
-    // None: late completion but not recovered
-    let ringColor: RingColor = 'none';
-    if (isRecovered || myTaskStatus.recoveredAt) {
-      ringColor = 'yellow'; // Recovered task always yellow, even when completed
-    } else if (timingStatus === 'on_time' || timingStatus === 'early') {
-      ringColor = 'green'; // Completed on time
     } else {
-      ringColor = 'none'; // Late but not recovered
+      // Same day - check if completed before end of due date
+      const dueDateEnd = new Date(myTaskStatus.effectiveDueDate);
+      dueDateEnd.setHours(23, 59, 59, 999);
+      if (now > dueDateEnd) {
+        timingStatus = 'late';
+      } else {
+        timingStatus = 'on_time';
+      }
     }
 
     const newCompletionLog = {
@@ -219,6 +253,10 @@ const ProjectDetail = () => {
       createdAt: now
     };
 
+    // Calculate ring color using modular utility function
+    // This ensures consistency across all task instances
+    const ringColor = calculateRingColor(newCompletionLog, myTaskStatus, task);
+
     setCompletionLogs(prev => [...prev, newCompletionLog]);
 
     // Update task status to 'completed' and ensure ringColor is set
@@ -228,7 +266,7 @@ const ProjectDetail = () => {
           return {
             ...ts,
             status: 'completed' as TaskStatusUserStatus,
-            ringColor, // Ensure ringColor is set (green for on-time, yellow for recovered)
+            ringColor, // Ensure ringColor is set using modular calculation
             timingStatus,
             updatedAt: now
           };
@@ -299,7 +337,7 @@ const ProjectDetail = () => {
     description: string;
     projectId: string;
     type: 'one_off' | 'habit';
-    recurrencePattern?: 'daily' | 'weekly' | 'custom';
+    recurrencePattern?: 'Daily' | 'weekly' | 'custom';
     dueDate?: Date;
     customRecurrence?: {
       frequency: 'days' | 'weeks' | 'months';
@@ -313,12 +351,10 @@ const ProjectDetail = () => {
     const newTasks: Task[] = [];
     const newTaskStatuses: TaskStatusEntity[] = [];
     const now = new Date();
-    const defaultDueDate = taskData.dueDate ? new Date(taskData.dueDate) : new Date();
-    defaultDueDate.setHours(0, 0, 0, 0); // Set to start of day
+    const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
 
     if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
-      const startDate = new Date(taskData.dueDate);
-      startDate.setHours(0, 0, 0, 0); // Set to start of day
+      const startDate = normalizeToStartOfDay(taskData.dueDate);
       
       let endDate: Date;
       if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
@@ -332,7 +368,7 @@ const ProjectDetail = () => {
         }
       } else {
         endDate = new Date(startDate);
-        if (taskData.recurrencePattern === 'daily') {
+        if (taskData.recurrencePattern === 'Daily') {
           endDate.setDate(endDate.getDate() + 28);
         } else if (taskData.recurrencePattern === 'weekly') {
           endDate.setDate(endDate.getDate() + 28);
@@ -344,11 +380,10 @@ const ProjectDetail = () => {
       let taskIndex = 0;
       let occurrenceCount = 0;
       const maxOccurrences = taskData.customRecurrence?.occurrenceCount || 
-        (taskData.recurrencePattern === 'daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
+        (taskData.recurrencePattern === 'Daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
 
       while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
-        const taskDueDate = new Date(currentDate);
-        taskDueDate.setHours(0, 0, 0, 0); // Set to start of day
+        const taskDueDate = normalizeToStartOfDay(currentDate);
 
         const taskId = `t${Date.now()}-${taskIndex}`;
         const newTask: Task = {
@@ -389,7 +424,7 @@ const ProjectDetail = () => {
         taskIndex++;
         occurrenceCount++;
         
-        if (taskData.recurrencePattern === 'daily') {
+        if (taskData.recurrencePattern === 'Daily') {
           currentDate.setDate(currentDate.getDate() + 1);
         } else if (taskData.recurrencePattern === 'weekly') {
           currentDate.setDate(currentDate.getDate() + 7);
@@ -477,16 +512,24 @@ const ProjectDetail = () => {
   };
 
   const handleAddMember = () => {
-    if (!memberEmail.trim()) {
-      toast.error('Please enter an email address');
+    if (!memberIdentifier.trim()) {
+      toast.error('Please enter a handle');
       return;
     }
 
-    const userToAdd = mockUsers.find(u => u.email.toLowerCase() === memberEmail.toLowerCase().trim());
+    // Validate handle format
+    const handleValidation = validateHandleFormat(memberIdentifier);
+    if (!handleValidation.isValid) {
+      toast.error(handleValidation.error || 'Invalid handle format');
+      return;
+    }
+
+    // Find user by handle only
+    const userToAdd = findUserByIdentifier(memberIdentifier);
     
     if (!userToAdd) {
       toast.error('User not found', {
-        description: 'No user with this email exists in the system'
+        description: 'No user with this handle exists in the system'
       });
       return;
     }
@@ -528,10 +571,10 @@ const ProjectDetail = () => {
     );
 
     toast.success('Member added! 🎉', {
-      description: `${userToAdd.name} has been added to the project`
+      description: `${userToAdd.name} (${userToAdd.handle}) has been added to the project`
     });
     
-    setMemberEmail('');
+    setMemberIdentifier('');
     setShowAddMemberForm(false);
   };
 
@@ -617,9 +660,53 @@ const ProjectDetail = () => {
     setShowEditProjectForm(false);
   };
 
+  const handleLeaveProject = () => {
+    // Use modular utility function
+    const result = leaveProject(
+      currentProject.id,
+      currentUser.id,
+      projectParticipants,
+      currentProject.ownerId
+    );
+
+    if (!result.success) {
+      toast.error('Cannot leave project', {
+        description: result.error || 'Unable to leave project at this time'
+      });
+      setShowLeaveProjectDialog(false);
+      return;
+    }
+
+    // Update project participants
+    setProjectParticipants(result.updatedParticipants);
+
+    // Update projects list - remove user from participants
+    setProjects(prev =>
+      prev.map(p => {
+        if (p.id === currentProject.id) {
+          return {
+            ...p,
+            participants: p.participants?.filter(u => u.id !== currentUser.id),
+            updatedAt: new Date()
+          };
+        }
+        return p;
+      })
+    );
+
+    toast.success('Left project', {
+      description: 'You have been removed from this project'
+    });
+
+    setShowLeaveProjectDialog(false);
+    // Navigate back to projects page
+    navigate('/projects');
+  };
+
   const isOwner = currentProject.ownerId === currentUser.id;
   const isManager = participants.some(p => p.userId === currentUser.id && p.role === 'manager');
   const canManage = isOwner || isManager;
+  const canLeave = canLeaveProject(currentUser.id, currentProject.ownerId, projectParticipants, currentProject.id);
 
   return (
     <AppLayout>
@@ -795,14 +882,14 @@ const ProjectDetail = () => {
           </TabsList>
 
           <TabsContent value="all" className="space-y-6">
-            {needsActionTasks.length > 0 && (
+            {needsActionSectionTasks.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-primary" />
                   <h3 className="text-lg font-semibold">Needs Action</h3>
                 </div>
                 <div className="space-y-3">
-                  {needsActionTasks.map(task => (
+                  {needsActionSectionTasks.map(task => (
                     <TaskCard
                       key={task.id}
                       task={task}
@@ -815,14 +902,14 @@ const ProjectDetail = () => {
               </div>
             )}
 
-            {activeTasks.length > 0 && (
+            {activeSectionTasks.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-accent" />
                   <h3 className="text-lg font-semibold">Active</h3>
                 </div>
                 <div className="space-y-3">
-                  {activeTasks.map(task => (
+                  {activeSectionTasks.map(task => (
                     <TaskCard
                       key={task.id}
                       task={task}
@@ -835,14 +922,14 @@ const ProjectDetail = () => {
               </div>
             )}
 
-            {upcomingTasks.length > 0 && (
+            {upcomingSectionTasks.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-muted-foreground" />
                   <h3 className="text-lg font-semibold">Upcoming</h3>
                 </div>
                 <div className="space-y-3">
-                  {upcomingTasks.map(task => (
+                  {upcomingSectionTasks.map(task => (
                     <TaskCard
                       key={task.id}
                       task={task}
@@ -853,28 +940,28 @@ const ProjectDetail = () => {
               </div>
             )}
 
-            {completedTasks.length > 0 && (
+            {completedSectionTasks.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-status-completed" />
                   <h3 className="text-lg font-semibold">Mission Accomplished</h3>
                 </div>
                 <div className="space-y-3 opacity-60">
-                  {completedTasks.map(task => (
+                  {completedSectionTasks.map(task => (
                     <TaskCard key={task.id} task={task} completionLogs={completionLogs} />
                   ))}
                 </div>
               </div>
             )}
 
-            {archivedTasks.length > 0 && (
+            {archivedSectionTasks.length > 0 && (
             <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-muted-foreground" />
                   <h3 className="text-lg font-semibold">Another chance ?</h3>
                 </div>
                 <div className="space-y-3">
-                  {archivedTasks.map(task => (
+                  {archivedSectionTasks.map(task => (
                   <TaskCard
                     key={task.id}
                     task={task}
@@ -886,12 +973,28 @@ const ProjectDetail = () => {
             </div>
             )}
 
-            {needsActionTasks.length === 0 && 
-             activeTasks.length === 0 && 
-             upcomingTasks.length === 0 &&
-             completedTasks.length === 0 && 
-             archivedTasks.length === 0 && (
-              <EmptyState onCreateTask={() => setShowTaskForm(true)} />
+            {!hasAnyAllTabContent && (
+              projectTasks.length === 0 ? (
+                <EmptyState onCreateTask={() => setShowTaskForm(true)} />
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-accent" />
+                    <h3 className="text-lg font-semibold">All Project Tasks</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {projectTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        completionLogs={completionLogs}
+                        onComplete={handleComplete}
+                        onRecover={handleRecover}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
             )}
           </TabsContent>
 
@@ -1010,25 +1113,39 @@ const ProjectDetail = () => {
           <DialogHeader>
             <DialogTitle>Add Team Member</DialogTitle>
             <DialogDescription>
-              Add a new member to this project by entering their email address
+              Add a new member to this project by entering their handle
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="user@example.com"
-                value={memberEmail}
-                onChange={(e) => setMemberEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddMember();
-                  }
-                }}
-              />
+              <Label htmlFor="handle">Handle</Label>
+              <div className="relative">
+                <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <Input
+                  id="handle"
+                  type="text"
+                  placeholder="@username"
+                  value={memberIdentifier}
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    // Auto-add @ if user types without it
+                    if (value && !value.startsWith('@')) {
+                      value = `@${value}`;
+                    }
+                    setMemberIdentifier(value);
+                  }}
+                  className="pl-10"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddMember();
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter the user's unique handle (e.g., @username)
+              </p>
             </div>
 
             <div className="flex gap-3 pt-2">
@@ -1036,7 +1153,7 @@ const ProjectDetail = () => {
                 variant="outline"
                 onClick={() => {
                   setShowAddMemberForm(false);
-                  setMemberEmail('');
+                  setMemberIdentifier('');
                 }}
                 className="flex-1"
               >
@@ -1044,7 +1161,7 @@ const ProjectDetail = () => {
               </Button>
               <Button
                 onClick={handleAddMember}
-                disabled={!memberEmail.trim()}
+                disabled={!memberIdentifier.trim()}
                 className="flex-1 gradient-primary text-white"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
@@ -1069,7 +1186,39 @@ const ProjectDetail = () => {
             project={projectWithParticipants}
             onSave={handleEditProject}
             onCancel={() => setShowEditProjectForm(false)}
+            onLeaveProject={canLeave ? () => setShowLeaveProjectDialog(true) : undefined}
+            canLeave={canLeave}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Project Confirmation Dialog */}
+      <Dialog open={showLeaveProjectDialog} onOpenChange={setShowLeaveProjectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Leave Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to leave this project? You will no longer have access to its tasks and progress.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowLeaveProjectDialog(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLeaveProject}
+              variant="destructive"
+              className="flex-1"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Leave Project
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </AppLayout>
@@ -1099,11 +1248,15 @@ const EmptyState = ({ onCreateTask }: { onCreateTask: () => void }) => (
 const EditProjectForm = ({ 
   project, 
   onSave, 
-  onCancel 
+  onCancel,
+  onLeaveProject,
+  canLeave
 }: { 
   project: Project; 
   onSave: (data: { name: string; description: string }) => void;
   onCancel: () => void;
+  onLeaveProject?: () => void;
+  canLeave?: boolean;
 }) => {
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
@@ -1151,6 +1304,29 @@ const EditProjectForm = ({
           Save Changes
         </Button>
       </div>
+
+      {/* Leave Project Section */}
+      {canLeave && onLeaveProject && (
+        <div className="pt-6 border-t border-border/50">
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground mb-1">Danger Zone</h3>
+              <p className="text-xs text-muted-foreground">
+                Leave this project. You will lose access to all tasks and progress.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={onLeaveProject}
+              className="w-full"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Leave Project
+            </Button>
+          </div>
+        </div>
+      )}
     </form>
   );
 };

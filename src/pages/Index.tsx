@@ -1,13 +1,13 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskForm } from '@/components/tasks/TaskForm';
-import { mockTasks, mockProjects, mockUsers, currentUser, mockTaskStatuses, mockCompletionLogs } from '@/lib/mockData';
+import { mockTasks, mockProjects, mockUsers, currentUser, mockTaskStatuses, mockCompletionLogs, mockProjectParticipants } from '@/lib/mockData';
 import { motion } from 'framer-motion';
-import { Calendar, Plus, Sparkles } from 'lucide-react';
+import { Calendar, CheckCircle2, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, RingColor } from '@/types';
+import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, RingColor, ProjectParticipant } from '@/types';
 import { 
   getTodayTasks, 
   getNeedsActionTasks, 
@@ -15,18 +15,20 @@ import {
   getArchivedTasks,
   updateTasksWithStatuses 
 } from '@/lib/taskFilterUtils';
-import { calculateProjectProgress } from '@/lib/projectUtils';
+import { calculateProjectProgress, getProjectsWhereCanCreateTasks } from '@/lib/projectUtils';
 import { handleError } from '@/lib/errorUtils';
 import { 
   createTaskStatusesForAllParticipants, 
   validateProjectForTaskCreation 
 } from '@/lib/taskCreationUtils';
+import { normalizeToStartOfDay, calculateRingColor } from '@/lib/taskUtils';
 
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
   const [taskStatuses, setTaskStatuses] = useState<TaskStatusEntity[]>(mockTaskStatuses);
   const [completionLogs, setCompletionLogs] = useState(mockCompletionLogs);
   const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const [projectParticipants, setProjectParticipants] = useState(mockProjectParticipants);
   const [showTaskForm, setShowTaskForm] = useState(false);
 
   // Helper to get task status for a user
@@ -38,6 +40,23 @@ const Index = () => {
   const tasksWithStatuses = useMemo(() => 
     updateTasksWithStatuses(tasks, taskStatuses),
     [tasks, taskStatuses]
+  );
+
+  // Update projects with participant roles for permission checking
+  const projectsWithRoles = useMemo(() => 
+    projects.map(project => ({
+      ...project,
+      participantRoles: projectParticipants.filter(pp => 
+        pp.projectId === project.id && !pp.removedAt
+      )
+    })),
+    [projects, projectParticipants]
+  );
+
+  // Get projects where user can create tasks (only owner/manager roles)
+  const projectsWhereCanCreateTasks = useMemo(() => 
+    getProjectsWhereCanCreateTasks(projectsWithRoles, currentUser.id),
+    [projectsWithRoles]
   );
 
   // Filter tasks for today using utility
@@ -129,24 +148,27 @@ const Index = () => {
     const xpEarned = penaltyApplied ? Math.floor(baseXP / 2) : baseXP;
 
     // Determine timing status
+    // Compare dates (not times) to handle daily tasks correctly
+    // For tasks due today, completing at any time today should be 'on_time'
+    const nowDate = new Date(now);
+    nowDate.setHours(0, 0, 0, 0);
+    const dueDate = new Date(myTaskStatus.effectiveDueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    
     let timingStatus: TimingStatus = 'on_time';
-    if (now < myTaskStatus.effectiveDueDate) {
+    if (nowDate < dueDate) {
       timingStatus = 'early';
-    } else if (now > myTaskStatus.effectiveDueDate) {
+    } else if (nowDate > dueDate) {
       timingStatus = 'late';
-    }
-
-    // Determine ring color based on rules:
-    // Green: completed on time/early (isLate: false) AND not recovered
-    // Yellow: recovered task (recoveredCompletion: true) - always yellow when recovered
-    // None: late completion but not recovered
-    let ringColor: RingColor = 'none';
-    if (isRecovered || myTaskStatus.recoveredAt) {
-      ringColor = 'yellow'; // Recovered task always yellow, even when completed
-    } else if (timingStatus === 'on_time' || timingStatus === 'early') {
-      ringColor = 'green'; // Completed on time
     } else {
-      ringColor = 'none'; // Late but not recovered
+      // Same day - check if completed before end of due date
+      const dueDateEnd = new Date(myTaskStatus.effectiveDueDate);
+      dueDateEnd.setHours(23, 59, 59, 999);
+      if (now > dueDateEnd) {
+        timingStatus = 'late';
+      } else {
+        timingStatus = 'on_time';
+      }
     }
 
     // Create completion log
@@ -163,6 +185,10 @@ const Index = () => {
       createdAt: now
     };
 
+    // Calculate ring color using modular utility function
+    // This ensures consistency across all task instances
+    const ringColor = calculateRingColor(newCompletionLog, myTaskStatus, task);
+
     setCompletionLogs(prev => [...prev, newCompletionLog]);
 
     // Update task status to 'completed' and ensure ringColor is set
@@ -172,7 +198,7 @@ const Index = () => {
           return {
             ...ts,
             status: 'completed' as TaskStatusUserStatus,
-            ringColor, // Ensure ringColor is set (green for on-time, yellow for recovered)
+            ringColor, // Ensure ringColor is set using modular calculation
             timingStatus,
             updatedAt: now
           };
@@ -264,6 +290,7 @@ const Index = () => {
     isPublic: boolean;
   }): Project => {
     const participantUsers = [currentUser, ...projectData.participants.map(id => mockUsers.find(u => u.id === id)!).filter(Boolean)];
+    const now = new Date();
     
     const newProject: Project = {
       id: `p${Date.now()}`,
@@ -272,15 +299,40 @@ const Index = () => {
       ownerId: currentUser.id,
       totalTasks: 0,
       isPublic: projectData.isPublic,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
       color: projectData.color,
       participants: participantUsers,
       completedTasks: 0,
       progress: 0
     };
 
+    // Create project participant entry for the owner
+    const ownerParticipant: ProjectParticipant = {
+      projectId: newProject.id,
+      userId: currentUser.id,
+      role: 'owner',
+      addedAt: now,
+      removedAt: undefined,
+      user: currentUser
+    };
+
+    // Create participant entries for other participants
+    const otherParticipants: ProjectParticipant[] = projectData.participants.map(userId => ({
+      projectId: newProject.id,
+      userId,
+      role: 'participant' as const,
+      addedAt: now,
+      removedAt: undefined,
+      user: mockUsers.find(u => u.id === userId)
+    }));
+
+    // Add participant roles to project
+    newProject.participantRoles = [ownerParticipant, ...otherParticipants];
+
     setProjects(prev => [newProject, ...prev]);
+    setProjectParticipants(prev => [...prev, ownerParticipant, ...otherParticipants]);
+    
     toast.success('Project created! 🎉');
     return newProject;
   };
@@ -291,7 +343,7 @@ const Index = () => {
     description: string;
     projectId: string;
     type: 'one_off' | 'habit';
-    recurrencePattern?: 'daily' | 'weekly' | 'custom';
+    recurrencePattern?: 'Daily' | 'weekly' | 'custom';
     dueDate?: Date;
     customRecurrence?: {
       frequency: 'days' | 'weeks' | 'months';
@@ -305,13 +357,11 @@ const Index = () => {
     const newTasks: Task[] = [];
     const newTaskStatuses: TaskStatusEntity[] = [];
     const now = new Date();
-    const defaultDueDate = taskData.dueDate ? new Date(taskData.dueDate) : new Date();
-    defaultDueDate.setHours(0, 0, 0, 0); // Set to start of day
+    const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
 
     if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
       // Generate recurring tasks
-      const startDate = new Date(taskData.dueDate);
-      startDate.setHours(0, 0, 0, 0); // Set to start of day
+      const startDate = normalizeToStartOfDay(taskData.dueDate);
       
       let endDate: Date;
       if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
@@ -325,7 +375,7 @@ const Index = () => {
         }
       } else {
         endDate = new Date(startDate);
-        if (taskData.recurrencePattern === 'daily') {
+        if (taskData.recurrencePattern === 'Daily') {
           endDate.setDate(endDate.getDate() + 28);
         } else if (taskData.recurrencePattern === 'weekly') {
           endDate.setDate(endDate.getDate() + 28);
@@ -337,11 +387,10 @@ const Index = () => {
       let taskIndex = 0;
       let occurrenceCount = 0;
       const maxOccurrences = taskData.customRecurrence?.occurrenceCount || 
-        (taskData.recurrencePattern === 'daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
+        (taskData.recurrencePattern === 'Daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
 
       while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
-        const taskDueDate = new Date(currentDate);
-        taskDueDate.setHours(0, 0, 0, 0); // Set to start of day
+        const taskDueDate = normalizeToStartOfDay(currentDate);
 
         const taskId = `t${Date.now()}-${taskIndex}`;
         const newTask: Task = {
@@ -390,7 +439,7 @@ const Index = () => {
         occurrenceCount++;
 
         // Move to next occurrence
-        if (taskData.recurrencePattern === 'daily') {
+        if (taskData.recurrencePattern === 'Daily') {
           currentDate.setDate(currentDate.getDate() + 1);
         } else if (taskData.recurrencePattern === 'weekly') {
           currentDate.setDate(currentDate.getDate() + 7);
@@ -508,13 +557,15 @@ const Index = () => {
             </motion.p>
           </div>
 
-          <Button
-            onClick={() => setShowTaskForm(true)}
-            className="gradient-primary text-white hover:opacity-90"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Task
-          </Button>
+          {projectsWhereCanCreateTasks.length > 0 && (
+            <Button
+              onClick={() => setShowTaskForm(true)}
+              className="gradient-primary text-white hover:opacity-90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Task
+            </Button>
+          )}
         </div>
 
         {/* Stats Overview */}
@@ -580,7 +631,10 @@ const Index = () => {
         {/* Done for the Day */}
         {completedTasks.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Done for the Day</h2>
+            <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-accent" />
+              <h2 className="text-xl font-semibold">Done for the Day</h2>
+            </div>
             <div className="space-y-3 opacity-60">
               {completedTasks.map((task) => (
                 <TaskCard key={task.id} task={task} completionLogs={completionLogs} />
@@ -592,7 +646,10 @@ const Index = () => {
         {/* Another Chance? */}
         {archivedTasks.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Another Chance ?</h2>
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-accent" />
+              <h2 className="text-xl font-semibold">Another Chance ?</h2>
+            </div>
             <div className="space-y-3">
               {archivedTasks.map((task) => (
                 <TaskCard
@@ -620,13 +677,15 @@ const Index = () => {
             <p className="text-muted-foreground mb-6">
               Start a new task or check out your projects
             </p>
-            <Button
-              onClick={() => setShowTaskForm(true)}
-              className="gradient-primary text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Task
-            </Button>
+            {projectsWhereCanCreateTasks.length > 0 && (
+              <Button
+                onClick={() => setShowTaskForm(true)}
+                className="gradient-primary text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Task
+              </Button>
+            )}
           </motion.div>
         )}
       </div>
@@ -635,7 +694,7 @@ const Index = () => {
         open={showTaskForm}
         onOpenChange={setShowTaskForm}
         onSubmit={handleCreateTask}
-        projects={projects}
+        projects={projectsWhereCanCreateTasks}
         allowProjectSelection={true}
         onCreateProject={handleCreateProject}
       />

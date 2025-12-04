@@ -7,6 +7,7 @@
 // ============================================================================
 
 import type { Task, TaskStatusEntity, CompletionLog, Project, User } from '@/types';
+import { normalizeToStartOfDay } from '@/lib/taskUtils';
 
 /**
  * Get tasks for today (based on originalDueDate)
@@ -161,10 +162,10 @@ export const getActiveTasks = (
   return tasks.filter(task => {
     const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
     const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === userId);
+    const isBaseTaskActive = task.status === 'active' || task.status === 'upcoming';
+    const hasRecoveredStatus = !!(myStatus?.recoveredAt && !myStatus?.archivedAt && task.status !== 'completed');
     
-    // Task must be active or upcoming
-    const isTaskActive = task.status === 'active' || task.status === 'upcoming';
-    if (!isTaskActive) return false;
+    if (!isBaseTaskActive && !hasRecoveredStatus) return false;
     
     // User must not have completed it
     if (myCompletion || task.status === 'completed') return false;
@@ -175,17 +176,17 @@ export const getActiveTasks = (
       // If projects array provided, check project membership
       if (projects) {
         const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject && isTaskActive && !myCompletion;
+        return isInProject && (isBaseTaskActive || hasRecoveredStatus) && !myCompletion;
       }
       // Fallback: show if creator
-      return isCreator && isTaskActive && !myCompletion;
+      return isCreator && (isBaseTaskActive || hasRecoveredStatus) && !myCompletion;
     }
     
     // User has a status - check if it's active or recovered
     const isUserActive = (myStatus.status === 'active' || myStatus.recoveredAt) && 
                          !myStatus.archivedAt;
     
-    return isUserActive && isTaskActive;
+    return isUserActive && (isBaseTaskActive || hasRecoveredStatus);
   });
 };
 
@@ -335,4 +336,55 @@ export const updateTasksWithStatuses = (
     ...task,
     taskStatuses: taskStatuses.filter(ts => ts.taskId === task.id)
   }));
+};
+
+export interface ProjectTaskBuckets {
+  needsAction: Task[];
+  active: Task[];
+  upcoming: Task[];
+  completed: Task[];
+  archived: Task[];
+}
+
+/**
+ * Group project tasks by high-level status (project-wide, not user-specific)
+ */
+export const getProjectTaskBuckets = (tasks: Task[]): ProjectTaskBuckets => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  return tasks.reduce<ProjectTaskBuckets>((buckets, task) => {
+    const dueDate = normalizeToStartOfDay(new Date(task.originalDueDate));
+    const isDueTodayOrPast = dueDate.getTime() <= today.getTime();
+    const isDueFuture = dueDate.getTime() > today.getTime();
+    
+    if (task.status === 'completed') {
+      buckets.completed.push(task);
+      return buckets;
+    }
+    
+    if (task.status === 'archived') {
+      buckets.archived.push(task);
+      return buckets;
+    }
+    
+    // Active / upcoming tasks
+    buckets.active.push(task);
+    
+    if (isDueTodayOrPast) {
+      buckets.needsAction.push(task);
+    }
+    
+    if (isDueFuture) {
+      buckets.upcoming.push(task);
+    }
+    
+    return buckets;
+  }, {
+    needsAction: [],
+    active: [],
+    upcoming: [],
+    completed: [],
+    archived: []
+  });
 };

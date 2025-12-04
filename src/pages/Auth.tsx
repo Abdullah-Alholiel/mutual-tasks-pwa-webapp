@@ -5,14 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { Sparkles, Mail, ArrowRight, Zap } from 'lucide-react';
+import { Sparkles, Mail, ArrowRight, Zap, AtSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { isHandleUnique, validateHandleFormat } from '@/lib/userUtils';
 
 const Auth = () => {
   const [loginEmail, setLoginEmail] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupName, setSignupName] = useState('');
+  const [signupHandle, setSignupHandle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -50,13 +52,28 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signupEmail.trim() || !signupName.trim()) {
+    if (!signupEmail.trim() || !signupName.trim() || !signupHandle.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupEmail)) {
       toast.error('Please enter a valid email address');
+      return;
+    }
+
+    // Validate handle format
+    const handleValidation = validateHandleFormat(signupHandle);
+    if (!handleValidation.isValid) {
+      toast.error(handleValidation.error || 'Invalid handle format');
+      return;
+    }
+
+    // Check handle uniqueness
+    if (!isHandleUnique(signupHandle)) {
+      toast.error('Handle already taken', {
+        description: 'Please choose a different handle'
+      });
       return;
     }
 
@@ -207,6 +224,36 @@ const Auth = () => {
                         required
                       />
                     </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-handle">Handle</Label>
+                    <div className="relative">
+                      <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Input
+                        id="signup-handle"
+                        type="text"
+                        placeholder="@yourhandle"
+                        value={signupHandle}
+                        onChange={(e) => {
+                          let value = e.target.value;
+                          // Auto-add @ if user types without it
+                          if (value && !value.startsWith('@')) {
+                            value = `@${value}`;
+                          }
+                          setSignupHandle(value);
+                        }}
+                        className="pl-10 text-base"
+                        disabled={isLoading}
+                        required
+                        pattern="^@[a-zA-Z0-9_]+$"
+                        minLength={3}
+                        maxLength={30}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Your unique identifier. Letters, numbers, and underscores only.
+                    </p>
                   </div>
 
                   <Button

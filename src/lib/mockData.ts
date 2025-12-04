@@ -222,7 +222,7 @@ export const mockProjects: Project[] = [
   {
     id: 'project_004',
     name: 'Daily Fitness Challenge',
-    description: '30-day fitness accountability challenge with daily workouts.',
+    description: '30-day fitness accountability challenge with Daily workouts.',
     icon: '💪',
     color: '#E91E63',
     ownerId: 'user_001',
@@ -365,7 +365,7 @@ export const mockTasks: Task[] = [
     title: 'Write campaign copy',
     description: 'Write the copy for the email campaign.',
     type: 'habit',
-    recurrencePattern: 'daily',
+    recurrencePattern: 'Daily',
     originalDueDate: new Date(today.getTime() + 1 * 24 * 60 * 60 * 1000), // Tomorrow
     status: 'active',
     initiatedAt: getHoursAgo(5),
@@ -445,7 +445,7 @@ export const mockTasks: Task[] = [
     title: 'Morning workout',
     description: '30 minutes of cardio or strength training.',
     type: 'habit',
-    recurrencePattern: 'daily',
+    recurrencePattern: 'Daily',
     originalDueDate: today,
     status: 'completed',
     initiatedAt: getDaysAgo(5),
@@ -461,7 +461,7 @@ export const mockTasks: Task[] = [
     title: 'Evening meditation',
     description: '10 minutes of mindfulness meditation.',
     type: 'habit',
-    recurrencePattern: 'daily',
+    recurrencePattern: 'Daily',
     originalDueDate: today,
     status: 'active',
     initiatedAt: getDaysAgo(4),
@@ -999,7 +999,7 @@ export const mockTaskRecurrences: TaskRecurrence[] = [
   {
     id: 'recurrence_001',
     taskId: 'task_002',
-    recurrencePattern: 'daily',
+    recurrencePattern: 'Daily',
     recurrenceInterval: 1,
     nextOccurrence: tomorrow,
     endOfRecurrence: new Date('2025-12-31T23:59:59'),
@@ -1007,7 +1007,7 @@ export const mockTaskRecurrences: TaskRecurrence[] = [
   {
     id: 'recurrence_002',
     taskId: 'task_007',
-    recurrencePattern: 'daily',
+    recurrencePattern: 'Daily',
     recurrenceInterval: 1,
     nextOccurrence: tomorrow,
     endOfRecurrence: new Date('2025-12-31T23:59:59'),
@@ -1015,7 +1015,7 @@ export const mockTaskRecurrences: TaskRecurrence[] = [
   {
     id: 'recurrence_003',
     taskId: 'task_008',
-    recurrencePattern: 'daily',
+    recurrencePattern: 'Daily',
     recurrenceInterval: 1,
     nextOccurrence: tomorrow,
     endOfRecurrence: new Date('2025-12-31T23:59:59'),

@@ -62,7 +62,7 @@ export const TaskForm = ({
   const [description, setDescription] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProject?.id || '');
   const [isRecurring, setIsRecurring] = useState(false);
-  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('daily');
+  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('Daily');
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   
   // Custom recurrence settings
@@ -86,7 +86,7 @@ export const TaskForm = ({
       setTitle('');
       setDescription('');
       setIsRecurring(false);
-      setRecurrencePattern('daily');
+      setRecurrencePattern('Daily');
       const now = new Date();
       now.setHours(0, 0, 0, 0); // Set to start of day
       setDueDate(now);
@@ -108,6 +108,10 @@ export const TaskForm = ({
       setSelectedProjectId(newProject.id);
       setShowProjectForm(false);
     }
+  };
+
+  const handleProjectFormClose = (open: boolean) => {
+    setShowProjectForm(open);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -150,7 +154,7 @@ export const TaskForm = ({
     setTitle('');
     setDescription('');
     setIsRecurring(false);
-    setRecurrencePattern('daily');
+    setRecurrencePattern('Daily');
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     setDueDate(now);
@@ -191,13 +195,41 @@ export const TaskForm = ({
               <Label>Project *</Label>
               <div className="space-y-2">
                 <Select 
-                  value={selectedProjectId} 
-                  onValueChange={setSelectedProjectId}
+                  value={selectedProjectId || ''} 
+                  onValueChange={(value) => {
+                    if (value === 'none') {
+                      setSelectedProjectId('');
+                    } else {
+                      setSelectedProjectId(value);
+                    }
+                  }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a project" />
+                    <SelectValue placeholder="Select or Create a project">
+                      {project ? (
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: project.color }}
+                          />
+                          <span>{project.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Select or Create a project</span>
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
+                    {/* Option to clear selection */}
+                    {selectedProjectId && (
+                      <SelectItem value="none">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <span>—</span>
+                          <span>None (clear selection)</span>
+                        </div>
+                      </SelectItem>
+                    )}
+                    {/* Existing projects */}
                     {availableProjects.map((proj) => (
                       <SelectItem key={proj.id} value={proj.id}>
                         <div className="flex items-center gap-2">
@@ -209,22 +241,30 @@ export const TaskForm = ({
                         </div>
                       </SelectItem>
                     ))}
+                    {/* Create New Project button - separate from select items */}
+                    <div className="border-t border-border mt-1 pt-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowProjectForm(true);
+                        }}
+                        className="w-full justify-start text-primary font-medium hover:bg-primary/10"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create New Project
+                      </Button>
+                    </div>
                   </SelectContent>
                 </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowProjectForm(true)}
-                  className="w-full"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create New Project
-                </Button>
               </div>
             </div>
           )}
 
-          {project && (
+          {/* Show project badge only when project is provided directly (not via selection) */}
+          {project && !allowProjectSelection && (
             <div className="bg-muted/50 rounded-xl p-3 flex items-center gap-2">
               <FolderKanban className="w-4 h-4" style={{ color: project.color }} />
               <span className="text-sm font-medium" style={{ color: project.color }}>
@@ -330,7 +370,7 @@ export const TaskForm = ({
                   <SelectValue placeholder="Select pattern" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">
+                  <SelectItem value="Daily">
                     <div className="flex items-center gap-2">
                       <span>📅</span>
                       <span>Daily</span>
@@ -529,7 +569,7 @@ export const TaskForm = ({
       {allowProjectSelection && onCreateProject && (
         <ProjectForm
           open={showProjectForm}
-          onOpenChange={setShowProjectForm}
+          onOpenChange={handleProjectFormClose}
           onSubmit={handleCreateProject}
         />
       )}

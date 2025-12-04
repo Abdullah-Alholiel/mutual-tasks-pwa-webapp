@@ -85,10 +85,14 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                       {project.name}
                     </Badge>
                   )}
-                  {task.type === 'habit' && (
+                  {task.type === 'habit' && task.recurrencePattern && (
                     <Badge variant="outline" className="text-xs flex items-center gap-1">
                       <Repeat className="w-3 h-3" />
-                      {task.recurrencePattern}
+                      {task.recurrencePattern.toLowerCase() === 'daily' 
+                        ? 'Daily' 
+                        : task.recurrencePattern.toLowerCase() === 'weekly'
+                        ? 'Weekly'
+                        : task.recurrencePattern.charAt(0).toUpperCase() + task.recurrencePattern.slice(1).toLowerCase()}
                     </Badge>
                   )}
                 </div>
@@ -141,8 +145,9 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                       log => log.taskId === task.id && log.userId === participant.status.userId
                     );
                     
-                    // Use modular utility for ring color calculation - pass task due date for expiration check
-                    const ringColorClass = getRingColor(participant.status, participantCompletion, task.originalDueDate);
+                    // Use modular utility for ring color calculation - pass full task entity for comprehensive checks
+                    // This ensures archived/expired tasks show red rings for all participants
+                    const ringColorClass = getRingColor(participant.status, participantCompletion, task);
                     
                     return (
                       <div key={participant.status.userId} className="flex items-center gap-2">
