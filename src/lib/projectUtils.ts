@@ -235,3 +235,85 @@ export const canLeaveProject = (
   return !!userParticipant;
 };
 
+/**
+ * Join Project - Modular utility for adding a user to a project
+ * 
+ * This function handles:
+ * - Creating a new ProjectParticipant entry
+ * - Adding user to project participants array
+ * - Preventing duplicate joins
+ * - Returning updated data structures for database operations
+ * 
+ * @param projectId - The project ID to join
+ * @param userId - The user ID joining the project
+ * @param user - The user object joining the project
+ * @param currentParticipants - Current project participants array
+ * @param currentProject - Current project object
+ * @returns Object with updated participants, project, and success/error information
+ */
+export const joinProject = (
+  projectId: string,
+  userId: string,
+  user: User,
+  currentParticipants: ProjectParticipant[],
+  currentProject: Project
+): {
+  success: boolean;
+  error?: string;
+  updatedParticipants: ProjectParticipant[];
+  updatedProject: Project;
+} => {
+  // Check if user is already a participant
+  const existingParticipant = currentParticipants.find(
+    p => p.projectId === projectId && p.userId === userId && !p.removedAt
+  );
+
+  if (existingParticipant) {
+    return {
+      success: false,
+      error: 'User is already a participant in this project',
+      updatedParticipants: currentParticipants,
+      updatedProject: currentProject
+    };
+  }
+
+  // Check if project is public
+  if (!currentProject.isPublic) {
+    return {
+      success: false,
+      error: 'Cannot join private project. You must be invited by the owner.',
+      updatedParticipants: currentParticipants,
+      updatedProject: currentProject
+    };
+  }
+
+  // Create new participant entry
+  const now = new Date();
+  const newParticipant: ProjectParticipant = {
+    projectId,
+    userId,
+    role: 'participant',
+    addedAt: now,
+    removedAt: undefined,
+    user
+  };
+
+  // Add to participants array
+  const updatedParticipants = [...currentParticipants, newParticipant];
+
+  // Update project participants array
+  const updatedProject: Project = {
+    ...currentProject,
+    participants: currentProject.participants 
+      ? [...currentProject.participants, user]
+      : [user],
+    updatedAt: now
+  };
+
+  return {
+    success: true,
+    updatedParticipants,
+    updatedProject
+  };
+};
+

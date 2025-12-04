@@ -70,11 +70,10 @@ export const MobileNav = () => {
     <motion.nav
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t border-border"
     >
-      <div className="mx-4 mb-4">
-        <div className="glass-strong rounded-3xl shadow-lg p-2">
-          <div className="flex items-center justify-around gap-1">
+      <div className="glass-strong p-2">
+        <div className="flex items-center justify-around gap-1">
             {/* Today - Far Left */}
             <NavLink
               to="/"
@@ -184,7 +183,6 @@ export const MobileNav = () => {
                 Profile
               </span>
             </div>
-          </div>
         </div>
       </div>
     </motion.nav>

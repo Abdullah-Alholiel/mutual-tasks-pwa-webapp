@@ -278,7 +278,7 @@ export const mockProjectParticipants: ProjectParticipant[] = [
   {
     projectId: 'project_002',
     userId: 'user_001',
-    role: 'manager',
+    role: 'participant',
     addedAt: new Date('2025-11-20T14:05:00'),
     removedAt: undefined,
     user: mockUsers[0],

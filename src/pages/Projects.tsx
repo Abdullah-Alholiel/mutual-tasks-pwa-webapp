@@ -2,22 +2,23 @@ import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProjectCard } from '@/components/projects/ProjectCard';
 import { ProjectForm } from '@/components/projects/ProjectForm';
-import { mockProjects, mockUsers, currentUser, mockTasks, mockCompletionLogs } from '@/lib/mockData';
+import { mockProjects, mockUsers, currentUser, mockTasks, mockCompletionLogs, mockProjectParticipants } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Plus, FolderKanban, Globe, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { Project } from '@/types';
+import type { Project, ProjectParticipant } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { calculateProjectsProgress, getUserProjects, getPublicProjects } from '@/lib/projectUtils';
+import { calculateProjectsProgress, getUserProjects, getPublicProjects, joinProject } from '@/lib/projectUtils';
 import { handleError } from '@/lib/errorUtils';
 
 const Projects = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(mockProjects);
+  const [projectParticipants, setProjectParticipants] = useState<ProjectParticipant[]>(mockProjectParticipants);
   const [showProjectForm, setShowProjectForm] = useState(false);
   
   // Calculate user-specific progress for each project using utility
@@ -84,25 +85,40 @@ const Projects = () => {
   };
 
   const handleJoinProject = (project: Project) => {
+    // Use modular joinProject utility
+    const result = joinProject(
+      project.id,
+      currentUser.id,
+      currentUser,
+      projectParticipants,
+      project
+    );
+
+    if (!result.success) {
+      toast.error('Cannot join project', {
+        description: result.error || 'An error occurred while joining the project'
+      });
+      return;
+    }
+
+    // Update project participants state
+    setProjectParticipants(result.updatedParticipants);
+
+    // Update projects state
     setProjects(prev =>
-      prev.map(p => {
-        if (p.id === project.id) {
-          const updatedParticipants = p.participants 
-            ? [...p.participants, currentUser]
-            : [currentUser];
-          
-          return {
-            ...p,
-            participants: updatedParticipants,
-            isPublic: p.isPublic // Preserve public status
-          };
-        }
-        return p;
-      })
+      prev.map(p => p.id === project.id ? result.updatedProject : p)
     );
     
     toast.success('Joined project! 🎉', {
       description: `You're now a member of ${project.name}`
+    });
+
+    // Navigate to project detail with updated data
+    navigate(`/projects/${project.id}`, {
+      state: {
+        project: result.updatedProject,
+        projectParticipants: result.updatedParticipants
+      }
     });
   };
 

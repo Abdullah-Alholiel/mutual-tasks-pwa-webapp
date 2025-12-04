@@ -12,7 +12,7 @@ import {
 import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Inbox } from '@/components/notifications/Inbox';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Notification } from '@/types';
 import { db } from '@/lib/db';
 import { handleError } from '@/lib/errorUtils';
@@ -27,6 +27,9 @@ export const DesktopNav = () => {
   const [notifications, setNotifications] = useState<Notification[]>(
     mockNotifications.filter(n => n.userId === currentUser.id)
   );
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  const scrollThreshold = 10; // Minimum scroll distance to trigger hide/show
 
   const handleLogout = () => {
     toast.success('Logged out successfully', {
@@ -59,11 +62,67 @@ export const DesktopNav = () => {
     }
   };
 
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Only apply on desktop (md breakpoint and above)
+      if (window.innerWidth < 768) {
+        setIsVisible(true);
+        lastScrollY.current = currentScrollY;
+        return;
+      }
+
+      // Show nav when at the top
+      if (currentScrollY < scrollThreshold) {
+        setIsVisible(true);
+        lastScrollY.current = currentScrollY;
+        return;
+      }
+
+      // Determine scroll direction
+      const scrollingDown = currentScrollY > lastScrollY.current;
+      const scrollDifference = Math.abs(currentScrollY - lastScrollY.current);
+
+      // Only update if scroll difference is significant enough
+      if (scrollDifference > scrollThreshold) {
+        setIsVisible(!scrollingDown);
+        lastScrollY.current = currentScrollY;
+      }
+    };
+
+    // Throttle scroll events for better performance
+    let ticking = false;
+    const throttledHandleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', throttledHandleScroll);
+    };
+  }, []);
+
 
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+      animate={{ 
+        y: isVisible ? 0 : -100, 
+        opacity: isVisible ? 1 : 0,
+        pointerEvents: isVisible ? 'auto' : 'none'
+      }}
+      transition={{ 
+        duration: 0.2,
+        ease: 'easeInOut'
+      }}
       className="hidden md:block fixed top-0 left-0 right-0 z-50"
     >
       <div className="flex justify-center pt-4">

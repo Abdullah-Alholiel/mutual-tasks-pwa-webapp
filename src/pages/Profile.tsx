@@ -6,16 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
+import { Trophy, Target, Zap, TrendingUp } from 'lucide-react';
 import { getUserProjects } from '@/lib/projectUtils';
 import { handleError } from '@/lib/errorUtils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
 
 const Profile = () => {
   // Use utility to get user projects
@@ -23,15 +16,6 @@ const Profile = () => {
 
   // Calculate overall total score from user stats
   const overallTotalScore = currentUser.stats?.totalscore || 0;
-
-  const handleLogout = () => {
-    toast.success('Logged out successfully', {
-      description: 'See you soon!'
-    });
-    // In a real app, this would clear auth state
-    // Redirect to auth page
-    window.location.href = '/auth';
-  };
 
   const stats = [
     {
@@ -66,7 +50,7 @@ const Profile = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-8 animate-fade-in max-w-4xl">
+      <div className="space-y-8 animate-fade-in max-w-4xl mx-auto w-full">
         {/* Profile Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -74,24 +58,12 @@ const Profile = () => {
         >
           <Card className="p-6">
             <div className="flex items-start gap-6">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="cursor-pointer">
-                    <Avatar className="w-24 h-24 ring-4 ring-border hover:ring-primary transition-all">
-                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                      <AvatarFallback className="text-2xl">
-                        {currentUser.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Avatar className="w-24 h-24 ring-4 ring-border">
+                <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                <AvatarFallback className="text-2xl">
+                  {currentUser.name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
 
               <div className="flex-1">
                 <h1 className="text-2xl font-bold mb-1">{currentUser.name}</h1>

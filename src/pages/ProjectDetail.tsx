@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getProjectById, mockTasks, currentUser, mockProjects, mockTaskStatuses, mockCompletionLogs, mockProjectParticipants, mockUsers } from '@/lib/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, Users, TrendingUp, Clock, CheckCircle2, Sparkles, Repeat, UserPlus, Settings, Trash2, AtSign, LogOut } from 'lucide-react';
-import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, ProjectRole, RingColor } from '@/types';
+import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, ProjectRole, RingColor, ProjectParticipant } from '@/types';
 import { calculateProjectProgress, leaveProject, canLeaveProject } from '@/lib/projectUtils';
 import { normalizeToStartOfDay } from '@/lib/taskUtils';
 import { 
@@ -49,18 +49,22 @@ const ProjectDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const projectFromState = location.state?.project as Project | undefined;
+  const projectParticipantsFromState = location.state?.projectParticipants as ProjectParticipant[] | undefined;
   const projectFromData = getProjectById(id || '');
   const project = projectFromState || projectFromData;
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
   const [showEditProjectForm, setShowEditProjectForm] = useState(false);
   const [showLeaveProjectDialog, setShowLeaveProjectDialog] = useState(false);
+  const [showMembersDialog, setShowMembersDialog] = useState(false);
   const [memberIdentifier, setMemberIdentifier] = useState('');
   const [tasks, setTasks] = useState(mockTasks);
   const [taskStatuses, setTaskStatuses] = useState(mockTaskStatuses);
   const [completionLogs, setCompletionLogs] = useState(mockCompletionLogs);
   const [projects, setProjects] = useState(mockProjects);
-  const [projectParticipants, setProjectParticipants] = useState(mockProjectParticipants);
+  const [projectParticipants, setProjectParticipants] = useState(
+    projectParticipantsFromState || mockProjectParticipants
+  );
 
   if (!project) {
     return (
@@ -710,9 +714,9 @@ const ProjectDetail = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-6 animate-fade-in overflow-x-hidden w-full">
         {/* Header */}
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-2 sm:gap-4">
           <Button
             variant="ghost"
             size="icon"
@@ -723,40 +727,39 @@ const ProjectDetail = () => {
           </Button>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
                 style={{ backgroundColor: `${projectWithParticipants.color}15` }}
               >
                 {projectWithParticipants.icon ? (
-                  <span className="text-2xl">{projectWithParticipants.icon}</span>
+                  <span className="text-xl sm:text-2xl">{projectWithParticipants.icon}</span>
                 ) : (
-                  <TrendingUp className="w-6 h-6" style={{ color: projectWithParticipants.color }} />
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: projectWithParticipants.color }} />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold break-words">{projectWithParticipants.name}</h1>
-                <p className="text-muted-foreground">{projectWithParticipants.description}</p>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words">{projectWithParticipants.name}</h1>
+                <p className="text-sm sm:text-base text-muted-foreground line-clamp-2">{projectWithParticipants.description}</p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {canManage && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowEditProjectForm(true)}
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
-            )}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowEditProjectForm(true)}
+              className="shrink-0 h-9 w-9 sm:h-10 sm:w-10"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
             {canManage && (
           <Button
             onClick={() => setShowTaskForm(true)}
-                className="gradient-primary text-white hover:opacity-90"
+                className="gradient-primary text-white hover:opacity-90 shrink-0 h-9 sm:h-10 px-2 sm:px-4"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">New Task</span>
           </Button>
             )}
@@ -801,84 +804,62 @@ const ProjectDetail = () => {
                   <Users className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Team Members</span>
                 </div>
-                {isOwner && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowAddMemberForm(true)}
-                    className="h-8"
-                  >
-                    <UserPlus className="w-4 h-4 mr-1" />
-                    Add
-                  </Button>
-                )}
-              </div>
-              {projectWithParticipants.participants && projectWithParticipants.participants.length > 0 && (
-                <div className="space-y-2">
-                  {participants.map((participant) => {
-                    const user = participant.user;
-                    if (!user) return null;
-                    
-                    return (
-                      <div key={participant.userId} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-8 h-8 ring-2 ring-background border border-border">
-                            <AvatarImage src={user.avatar} alt={user.name} />
-                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">{user.name}</div>
-                            <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
-                </div>
+                <div className="flex items-center gap-2">
+                  {projectWithParticipants.participants && projectWithParticipants.participants.length > 0 && (
+                    <div 
+                      className="flex -space-x-2 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => setShowMembersDialog(true)}
+                    >
+                      {projectWithParticipants.participants.slice(0, 5).map((participant) => (
+                        <Avatar
+                          key={participant.id}
+                          className="w-8 h-8 ring-2 ring-background border border-border"
+                        >
+                          <AvatarImage src={participant.avatar} alt={participant.name} />
+                          <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {projectWithParticipants.participants.length > 5 && (
+                        <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            +{projectWithParticipants.participants.length - 5}
+                          </span>
                         </div>
-                        {/* Show role badge for all users, but only owner can change it */}
-                        {isOwner && participant.userId !== currentUser.id ? (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8">
-                                <Badge variant="outline">{participant.role}</Badge>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleUpdateRole(participant.userId, 'manager')}>
-                                Set as Manager
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleUpdateRole(participant.userId, 'participant')}>
-                                Set as Participant
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleRemoveParticipant(participant.userId)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Remove
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        ) : (
-                          <Badge variant="outline">{participant.role}</Badge>
-                        )}
-                      </div>
-                    );
-                  })}
+                      )}
+                    </div>
+                  )}
+                  {isOwner && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowAddMemberForm(true)}
+                      className="h-8"
+                    >
+                      <UserPlus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </Card>
 
         {/* Tasks Tabs */}
         <Tabs defaultValue="all" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="completed">Completed</TabsTrigger>
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="habits">
-              <Repeat className="w-4 h-4 mr-1" />
-              Habits
+          <TabsList className="grid w-full grid-cols-6 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
+            <TabsTrigger value="all" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
+            <TabsTrigger value="active" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Active</TabsTrigger>
+            <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Done</TabsTrigger>
+            <TabsTrigger value="upcoming" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
+              <span className="hidden sm:inline">Upcoming</span>
+              <span className="sm:hidden">Next</span>
             </TabsTrigger>
-            <TabsTrigger value="archived">Archived</TabsTrigger>
+            <TabsTrigger value="habits" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
+              <Repeat className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 md:mr-1 inline-block" />
+              <span className="hidden sm:inline">Habits</span>
+            </TabsTrigger>
+            <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archive</TabsTrigger>
           </TabsList>
 
           <TabsContent value="all" className="space-y-6">
@@ -1176,9 +1157,11 @@ const ProjectDetail = () => {
       <Dialog open={showEditProjectForm} onOpenChange={setShowEditProjectForm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
+            <DialogTitle>{canManage ? 'Edit Project' : 'Project Settings'}</DialogTitle>
             <DialogDescription>
-              Update project name and description
+              {canManage 
+                ? 'Update project name and description'
+                : 'View project settings. Only owners and managers can edit project details.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1188,6 +1171,7 @@ const ProjectDetail = () => {
             onCancel={() => setShowEditProjectForm(false)}
             onLeaveProject={canLeave ? () => setShowLeaveProjectDialog(true) : undefined}
             canLeave={canLeave}
+            canEdit={canManage}
           />
         </DialogContent>
       </Dialog>
@@ -1221,6 +1205,89 @@ const ProjectDetail = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Members Dialog */}
+      <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Team Members</DialogTitle>
+            <DialogDescription>
+              View and manage project members and their roles
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+            {participants.map((participant) => {
+              const user = participant.user;
+              if (!user) return null;
+              
+              return (
+                <div key={participant.userId} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-10 h-10 ring-2 ring-background border border-border">
+                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{user.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
+                    </div>
+                  </div>
+                  {/* Show role badge for all users, but only owner can change it */}
+                  {isOwner && participant.userId !== currentUser.id ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8">
+                          <Badge variant="outline">{participant.role}</Badge>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleUpdateRole(participant.userId, 'manager')}>
+                          Set as Manager
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleUpdateRole(participant.userId, 'participant')}>
+                          Set as Participant
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleRemoveParticipant(participant.userId)}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Remove
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <Badge variant="outline">{participant.role}</Badge>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowMembersDialog(false)}
+              className="flex-1"
+            >
+              Close
+            </Button>
+            {isOwner && (
+              <Button
+                onClick={() => {
+                  setShowMembersDialog(false);
+                  setShowAddMemberForm(true);
+                }}
+                className="flex-1 gradient-primary text-white"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add Member
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };
@@ -1250,19 +1317,22 @@ const EditProjectForm = ({
   onSave, 
   onCancel,
   onLeaveProject,
-  canLeave
+  canLeave,
+  canEdit
 }: { 
   project: Project; 
   onSave: (data: { name: string; description: string }) => void;
   onCancel: () => void;
   onLeaveProject?: () => void;
   canLeave?: boolean;
+  canEdit: boolean;
 }) => {
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEdit) return; // Prevent submission if not allowed to edit
     onSave({ name: name.trim(), description: description.trim() });
   };
 
@@ -1275,39 +1345,54 @@ const EditProjectForm = ({
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
+          disabled={!canEdit}
+          className={!canEdit ? "bg-muted cursor-not-allowed" : ""}
         />
+        {!canEdit && (
+          <p className="text-xs text-muted-foreground">
+            Only owners and managers can edit the project name
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
         <textarea
           id="description"
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${!canEdit ? "bg-muted cursor-not-allowed" : ""}`}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          disabled={!canEdit}
         />
+        {!canEdit && (
+          <p className="text-xs text-muted-foreground">
+            Only owners and managers can edit the project description
+          </p>
+        )}
       </div>
 
-      <div className="flex gap-3 pt-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          className="flex-1"
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          className="flex-1 gradient-primary text-white"
-        >
-          Save Changes
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="flex gap-3 pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1 gradient-primary text-white"
+          >
+            Save Changes
+          </Button>
+        </div>
+      )}
 
       {/* Leave Project Section */}
       {canLeave && onLeaveProject && (
-        <div className="pt-6 border-t border-border/50">
+        <div className={`pt-6 border-t border-border/50 ${!canEdit ? "pt-0" : ""}`}>
           <div className="space-y-3">
             <div>
               <h3 className="text-sm font-semibold text-foreground mb-1">Danger Zone</h3>
@@ -1325,6 +1410,14 @@ const EditProjectForm = ({
               Leave Project
             </Button>
           </div>
+        </div>
+      )}
+
+      {!canEdit && !canLeave && (
+        <div className="pt-4">
+          <p className="text-sm text-muted-foreground text-center">
+            You don't have permission to edit this project or leave it.
+          </p>
         </div>
       )}
     </form>
