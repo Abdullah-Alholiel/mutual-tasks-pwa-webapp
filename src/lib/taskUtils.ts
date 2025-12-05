@@ -6,7 +6,59 @@
 // that should be used consistently across all components.
 // ============================================================================
 
-import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatus, TaskStatusUserStatus, Task } from '@/types';
+import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatusUserStatus, Task, TaskStatus } from '@/types';
+
+/**
+ * Calculate the task status user status based on due date, completion, and recovery
+ * 
+ * Rules:
+ * - "Active": when due date is today but user hasn't marked it complete yet
+ * - "Completed": when user has marked it as completed
+ * - "Archived": when user doesn't mark as completed and due date has passed
+ * - "Recovered": when user has recovered the task (recoveredAt is set)
+ * - "Upcoming": when task's due date is after today's date
+ * 
+ * @param taskStatus - The user's task status entity
+ * @param completionLog - The completion log for this user (if completed)
+ * @param task - The task entity (for checking due date)
+ * @returns The calculated task status user status
+ */
+export const calculateTaskStatusUserStatus = (
+  taskStatus: TaskStatusEntity | undefined,
+  completionLog: CompletionLog | undefined,
+  task: Task
+): TaskStatusUserStatus => {
+  // Completed always wins
+  if (completionLog || taskStatus?.status === 'completed') {
+    return 'completed';
+  }
+
+  // Recovered overrides date-based status
+  if (taskStatus?.recoveredAt || taskStatus?.status === 'recovered') {
+    return 'recovered';
+  }
+
+  const effectiveDueDate = normalizeToStartOfDay(
+    new Date(taskStatus?.effectiveDueDate || task.dueDate)
+  );
+  const today = normalizeToStartOfDay(new Date());
+
+  // Explicit archived flag from user status takes precedence over date check
+  if (taskStatus?.status === 'archived' || taskStatus?.archivedAt) {
+    return 'archived';
+  }
+
+  if (effectiveDueDate.getTime() > today.getTime()) {
+    return 'upcoming';
+  }
+
+  if (effectiveDueDate.getTime() === today.getTime()) {
+    return 'active';
+  }
+
+  // Past due and not completed/recovered -> archived
+  return 'archived';
+};
 
 /**
  * Normalize a date to the start of the day (00:00:00.000)
@@ -56,8 +108,9 @@ export const calculateRingColor = (
     return 'none';
   }
 
-  // PRIORITY 2: If task is archived, all participants should have red ring
-  if (task && task.status === 'archived') {
+  // PRIORITY 2: Check if task status user status would be archived (past due, not completed)
+  // Note: General task status only includes 'active' and 'upcoming', so we check via taskStatus
+  if (task && taskStatus && taskStatus.archivedAt) {
     return 'red';
   }
 
@@ -225,10 +278,6 @@ export const mapTaskStatusForUI = (status: TaskStatus): 'active' | 'completed' |
     case 'active':
     case 'upcoming':
       return 'active';
-    case 'completed':
-      return 'completed';
-    case 'archived':
-      return 'archived';
     default:
       return 'active';
   }
@@ -250,68 +299,44 @@ export const canCompleteTask = (
 ): boolean => {
   if (!taskStatus) return false;
   if (completionLog) return false; // Already completed
-  if (taskStatus.status === 'archived') return false; // Archived tasks need recovery first
-  if (taskStatus.status !== 'active') return false;
-  
-  // Check if task is due today - users can only complete tasks due today
-  if (task || taskStatus.effectiveDueDate) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const taskDueDate = task?.dueDate || taskStatus.effectiveDueDate;
-    const dueDate = normalizeToStartOfDay(new Date(taskDueDate));
-    const isDueToday = dueDate.getTime() === today.getTime();
-    
-    // Only allow completion if task is due today
-    return isDueToday;
+
+  const computedStatus = task ? calculateTaskStatusUserStatus(taskStatus, completionLog, task) : taskStatus.status;
+
+  // Recovered tasks can always be completed from today's view
+  if (taskStatus.recoveredAt || computedStatus === 'recovered') {
+    return true;
   }
-  
-  // If no due date info, allow completion (fallback for edge cases)
-  return true;
+
+  // Only allow completion for active (due today) tasks
+  return computedStatus === 'active';
 };
 
 /**
  * Check if a task can be recovered by the current user
- * 
- * A task can be recovered if:
- * 1. The task itself is archived (task.status === 'archived'), OR
- * 2. The user's task status is archived (taskStatus.status === 'archived' OR taskStatus.archivedAt is set)
- * AND the task has not been completed by the user
- * AND the task has not been recovered yet (taskStatus.recoveredAt is not set)
+ * Tasks can be recovered when the user's task status is archived (past due and not completed)
+ * and the task has not already been recovered or completed.
  * 
  * @param taskStatus - The user's task status entity (optional - task can be archived at task level)
- * @param taskOverallStatus - The overall task status
  * @param completionLog - The completion log for this user (if completed)
  * @param task - Optional task entity to check task-level archived status
  * @returns True if the task can be recovered
  */
 export const canRecoverTask = (
   taskStatus: TaskStatusEntity | undefined,
-  taskOverallStatus: TaskStatus,
   completionLog: CompletionLog | undefined,
   task?: Task
 ): boolean => {
-  // Already completed, can't recover
   if (completionLog) return false;
-  
-  // Check if task is archived at task level
-  const isTaskArchived = taskOverallStatus === 'archived' || (task?.status === 'archived');
-  
-  // If task is archived at task level, user can always recover if they haven't completed it
-  // Task-level archiving takes precedence - even if user previously recovered it,
-  // they can recover it again when the task is archived at task level
-  if (isTaskArchived) {
-    // User can recover if they haven't completed it (recoveredAt status is ignored for task-level archived tasks)
-    return true;
-  }
-  
-  // If task is not archived at task level, check user's taskStatus
-  if (!taskStatus) return false;
-  
-  // Can recover if user's status is archived and not recovered yet
-  return (taskStatus.status === 'archived' || 
-         (taskStatus.archivedAt !== undefined && taskStatus.archivedAt !== null)) &&
-         !taskStatus.recoveredAt; // Not already recovered
+  if (!taskStatus && !task) return false;
+
+  // Already recovered
+  if (taskStatus?.recoveredAt || taskStatus?.status === 'recovered') return false;
+
+  const computedStatus = task
+    ? calculateTaskStatusUserStatus(taskStatus, completionLog, task)
+    : taskStatus?.status;
+
+  return computedStatus === 'archived';
 };
 
 /**
@@ -320,11 +345,15 @@ export const canRecoverTask = (
  * @param uiStatus - The UI status ('active', 'completed', 'archived')
  * @returns Badge variant string
  */
-export const getStatusBadgeVariant = (uiStatus: 'active' | 'completed' | 'archived'): 'default' | 'secondary' | 'outline' => {
+export const getStatusBadgeVariant = (
+  uiStatus: 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming'
+): 'default' | 'secondary' | 'outline' => {
   switch (uiStatus) {
     case 'completed':
       return 'default';
     case 'active':
+    case 'upcoming':
+    case 'recovered':
       return 'secondary';
     case 'archived':
       return 'outline';
@@ -339,10 +368,16 @@ export const getStatusBadgeVariant = (uiStatus: 'active' | 'completed' | 'archiv
  * @param uiStatus - The UI status ('active', 'completed', 'archived')
  * @returns Color class string
  */
-export const getStatusColor = (uiStatus: 'active' | 'completed' | 'archived'): string => {
+export const getStatusColor = (
+  uiStatus: 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming'
+): string => {
   switch (uiStatus) {
     case 'active':
       return 'text-primary';
+    case 'upcoming':
+      return 'text-muted-foreground';
+    case 'recovered':
+      return 'text-accent';
     case 'completed':
       return 'text-status-completed';
     case 'archived':

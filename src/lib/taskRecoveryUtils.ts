@@ -7,6 +7,7 @@
 // ============================================================================
 
 import type { Task, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, RingColor } from '@/types';
+import { calculateTaskStatusUserStatus } from './taskUtils';
 
 /**
  * Recover a task - Single Source of Truth for Task Recovery Logic
@@ -45,34 +46,23 @@ export const recoverTask = (
     return null;
   }
 
-  // Check if task is archived at task level
-  const isTaskArchived = task.status === 'archived';
-
   // Find user's task status
   const userTaskStatus = taskStatuses.find(ts => ts.taskId === taskId && ts.userId === userId);
 
-  // Check if task can be recovered
-  // Task can be recovered if:
-  // 1. Task is archived at task level, OR
-  // 2. User's taskStatus is archived
-  const canRecover = isTaskArchived || 
-                    (userTaskStatus && (
-                      userTaskStatus.status === 'archived' || 
-                      (userTaskStatus.archivedAt !== undefined && userTaskStatus.archivedAt !== null)
-                    ));
+  const computedStatus = calculateTaskStatusUserStatus(userTaskStatus, undefined, task);
+
+  // Check if task can be recovered (only archived tasks)
+  const canRecover = computedStatus === 'archived';
 
   if (!canRecover) {
     return null;
   }
 
-  // Update task status if archived at task level
-  const updatedTask: Task | null = isTaskArchived
-    ? {
-        ...task,
-        status: 'active' as Task['status'],
-        updatedAt: now
-      }
-    : null;
+  // Keep general task status (active/upcoming) but update timestamp
+  const updatedTask: Task | null = {
+    ...task,
+    updatedAt: now
+  };
 
   // Update user's task status
   let updatedTaskStatus: TaskStatusEntity | null = null;
@@ -81,22 +71,20 @@ export const recoverTask = (
     // Update existing task status
     updatedTaskStatus = {
       ...userTaskStatus,
-      status: 'active' as TaskStatusUserStatus,
+      status: 'recovered' as TaskStatusUserStatus,
       recoveredAt: now, // Set recoveredAt to now (even if it was previously set)
       archivedAt: undefined, // Clear archivedAt
       ringColor: 'yellow' as RingColor, // Yellow ring for recovered tasks
       timingStatus: 'late' as TimingStatus,
       updatedAt: now
     };
-  } else if (isTaskArchived) {
-    // If task is archived at task level but user has no taskStatus,
-    // create a new taskStatus for recovery
-    // Note: This is an edge case - normally all participants should have taskStatuses
+  } else {
+    // Edge case: user has no status yet, create recovered status entry
     updatedTaskStatus = {
       id: `ts-recover-${Date.now()}-${userId}`,
       taskId: taskId,
       userId: userId,
-      status: 'active' as TaskStatusUserStatus,
+      status: 'recovered' as TaskStatusUserStatus,
       effectiveDueDate: task.dueDate,
       recoveredAt: now,
       archivedAt: undefined,

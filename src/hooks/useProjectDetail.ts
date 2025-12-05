@@ -5,15 +5,10 @@ import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserS
 import { getProjectById, mockTasks, currentUser, mockProjects, mockTaskStatuses, mockCompletionLogs, mockProjectParticipants, mockUsers } from '@/lib/mockData';
 import { 
   getProjectTasks, 
-  updateTasksWithStatuses, 
-  getCompletedTasks, 
-  getArchivedTasks,
-  getActiveTasksForToday,
-  getUpcomingTasks,
-  getProjectTaskBuckets
+  updateTasksWithStatuses
 } from '@/lib/taskFilterUtils';
 import { calculateProjectProgress, leaveProject, canLeaveProject } from '@/lib/projectUtils';
-import { normalizeToStartOfDay, calculateRingColor } from '@/lib/taskUtils';
+import { normalizeToStartOfDay, calculateRingColor, calculateTaskStatusUserStatus } from '@/lib/taskUtils';
 import { recoverTask } from '@/lib/taskRecoveryUtils';
 import { 
   createTaskStatusesForAllParticipants, 
@@ -97,24 +92,49 @@ export const useProjectDetail = () => {
     return taskStatuses.find(ts => ts.taskId === taskId && ts.userId === userId);
   };
 
-  // Filter tasks for different sections - ensure no duplicates
-  // Active: tasks due TODAY only (not all active tasks)
-  const activeTasks = useMemo(() => {
-    if (!currentProject) return [];
-    return getActiveTasksForToday(projectTasks, taskStatuses, completionLogs, currentUser.id, projects);
-  }, [projectTasks, taskStatuses, completionLogs, currentProject, projects]);
+  // User-specific categorization to avoid duplicates across sections
+  const {
+    activeTasks,
+    upcomingTasks,
+    completedTasks,
+    archivedTasks,
+  } = useMemo(() => {
+    const active: Task[] = [];
+    const upcoming: Task[] = [];
+    const completed: Task[] = [];
+    const archived: Task[] = [];
+    const addUnique = (list: Task[], task: Task) => {
+      if (!list.some(t => t.id === task.id)) list.push(task);
+    };
 
-  // Upcoming: active tasks due in the future (not today)
-  const upcomingTasks = useMemo(() => {
-    if (!currentProject) return [];
-    return getUpcomingTasks(projectTasks, taskStatuses, completionLogs, currentUser.id, projects);
-  }, [projectTasks, taskStatuses, completionLogs, projects]);
+    projectTasks.forEach(task => {
+      const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === currentUser.id);
+      const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === currentUser.id);
+      const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
 
-  // Completed: tasks that are completed by current user
-  const completedTasks = useMemo(() => 
-    getCompletedTasks(projectTasks, completionLogs, currentUser.id),
-    [projectTasks, completionLogs]
-  );
+      if (myCompletion) {
+        addUnique(completed, task);
+        return;
+      }
+
+      switch (userStatus) {
+        case 'recovered':
+        case 'active':
+          addUnique(active, task);
+          break;
+        case 'upcoming':
+          addUnique(upcoming, task);
+          break;
+        case 'archived':
+          addUnique(archived, task);
+          break;
+        default:
+          addUnique(active, task);
+      }
+    });
+
+    return { activeTasks: active, upcomingTasks: upcoming, completedTasks: completed, archivedTasks: archived };
+  }, [projectTasks, taskStatuses, completionLogs]);
 
   // Habits: all habit tasks in the project (all participants see all habit tasks)
   const habitTasks = useMemo(() => 
@@ -122,56 +142,10 @@ export const useProjectDetail = () => {
     [projectTasks]
   );
 
-  // Archived: tasks that are archived (archivedAt is not null) and NOT recovered, NOT completed
-  const archivedTasks = useMemo(() => 
-    getArchivedTasks(projectTasks, taskStatuses, completionLogs, currentUser.id, projects),
-    [projectTasks, taskStatuses, completionLogs, projects]
-  );
-
-  // Project-wide buckets for "All" tab (ensures All tab always has data even if user-specific lists are empty)
-  const projectTaskBuckets = useMemo(() => 
-    getProjectTaskBuckets(projectTasks),
-    [projectTasks]
-  );
-
-  // Ensure no duplicates - prioritize user-specific lists, fallback to project-wide buckets
-  const activeSectionTasks = useMemo(() => {
-    const userTasks = activeTasks;
-    const bucketTasks = projectTaskBuckets.active.filter(t => {
-      // Only include tasks due today in active section
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const dueDate = normalizeToStartOfDay(new Date(t.dueDate));
-      return dueDate.getTime() === today.getTime();
-    });
-    const taskIds = new Set(userTasks.map(t => t.id));
-    const uniqueBucketTasks = bucketTasks.filter(t => !taskIds.has(t.id));
-    return [...userTasks, ...uniqueBucketTasks];
-  }, [activeTasks, projectTaskBuckets.active]);
-
-  const upcomingSectionTasks = useMemo(() => {
-    const userTasks = upcomingTasks;
-    const bucketTasks = projectTaskBuckets.upcoming;
-    const taskIds = new Set(userTasks.map(t => t.id));
-    const uniqueBucketTasks = bucketTasks.filter(t => !taskIds.has(t.id));
-    return [...userTasks, ...uniqueBucketTasks];
-  }, [upcomingTasks, projectTaskBuckets.upcoming]);
-
-  const completedSectionTasks = useMemo(() => {
-    const userTasks = completedTasks;
-    const bucketTasks = projectTaskBuckets.completed;
-    const taskIds = new Set(userTasks.map(t => t.id));
-    const uniqueBucketTasks = bucketTasks.filter(t => !taskIds.has(t.id));
-    return [...userTasks, ...uniqueBucketTasks];
-  }, [completedTasks, projectTaskBuckets.completed]);
-
-  const archivedSectionTasks = useMemo(() => {
-    const userTasks = archivedTasks;
-    const bucketTasks = projectTaskBuckets.archived;
-    const taskIds = new Set(userTasks.map(t => t.id));
-    const uniqueBucketTasks = bucketTasks.filter(t => !taskIds.has(t.id));
-    return [...userTasks, ...uniqueBucketTasks];
-  }, [archivedTasks, projectTaskBuckets.archived]);
+  const activeSectionTasks = activeTasks;
+  const upcomingSectionTasks = upcomingTasks;
+  const completedSectionTasks = completedTasks;
+  const archivedSectionTasks = archivedTasks;
 
   const hasAnyAllTabContent = useMemo(() => 
     Boolean(
@@ -298,9 +272,11 @@ export const useProjectDetail = () => {
       setTasks(prevTasks =>
         prevTasks.map(t => {
           if (t.id === taskId) {
+            // General task status only includes 'active' and 'upcoming'
+            // We don't set it to 'completed' - that's tracked via completion logs
             return {
               ...t,
-              status: allCompleted ? 'completed' : 'active',
+              status: 'active' as Task['status'],
               completedAt: allCompleted ? now : undefined,
               updatedAt: now
             };

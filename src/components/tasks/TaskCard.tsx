@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getUserById, getProjectById, currentUser, mapTaskStatusForUI } from '@/lib/mockData';
+import { getUserById, getProjectById, currentUser } from '@/lib/mockData';
 import { useState } from 'react';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,8 @@ import {
   canCompleteTask, 
   canRecoverTask, 
   getStatusBadgeVariant, 
-  getStatusColor 
+  getStatusColor,
+  calculateTaskStatusUserStatus
 } from '@/lib/taskUtils';
 
 interface TaskCardProps {
@@ -24,9 +25,10 @@ interface TaskCardProps {
   onDecline?: (taskId: string) => void;
   onComplete?: (taskId: string, difficultyRating?: number) => void;
   onRecover?: (taskId: string) => void;
+  showRecover?: boolean; // If false, hide recover button (for today's view)
 }
 
-export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover }: TaskCardProps) => {
+export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, showRecover = true }: TaskCardProps) => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const creator = getUserById(task.creatorId);
   const project = getProjectById(task.projectId);
@@ -39,22 +41,26 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
     log => log.taskId === task.id && log.userId === currentUser.id
   );
 
-  // Map status to UI-friendly status - use user's individual status if completed, otherwise task status
-  const userStatus = myCompletion ? 'completed' : (myTaskStatus?.status || task.status);
-  const uiStatus = userStatus === 'completed' ? 'completed' : mapTaskStatusForUI(task.status);
+// Calculate task status user status using the new utility function
+const taskStatusUserStatus = calculateTaskStatusUserStatus(myTaskStatus, myCompletion, task);
   
-  // Check if task is archived (at task level or user's taskStatus level)
-  const isTaskArchived = task.status === 'archived' || 
-                        myTaskStatus?.status === 'archived' ||
-                        (myTaskStatus?.archivedAt !== undefined && myTaskStatus?.archivedAt !== null);
+// Use calculated user status directly for UI
+const uiStatus: TaskStatusUserStatus = taskStatusUserStatus;
   
-  // Use modular utilities for task actions
-  const canComplete = canCompleteTask(myTaskStatus, myCompletion, task);
-  const canRecover = canRecoverTask(myTaskStatus, task.status, myCompletion, task);
+const isTaskArchived = uiStatus === 'archived';
   
-  // For archived tasks, always prioritize showing recover button (even if canComplete somehow returns true)
-  const shouldShowRecover = isTaskArchived ? canRecover : (canRecover && !canComplete);
-  const shouldShowComplete = isTaskArchived ? false : (canComplete && !canRecover);
+// Use modular utilities for task actions
+const canComplete = canCompleteTask(myTaskStatus, myCompletion, task);
+const canRecover = canRecoverTask(myTaskStatus, myCompletion, task);
+  
+// Check if task is recovered
+const isRecovered = uiStatus === 'recovered';
+  
+// For archived tasks, always prioritize showing recover button (even if canComplete somehow returns true)
+// But only if showRecover is true (for project detail view)
+// Recovered tasks should show complete button, not recover button
+const shouldShowRecover = showRecover && !!onRecover && !isRecovered && canRecover;
+const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (uiStatus === 'active' || uiStatus === 'recovered');
 
   const handleComplete = () => {
     if (canComplete && onComplete) {

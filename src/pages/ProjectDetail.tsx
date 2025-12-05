@@ -60,7 +60,6 @@ const ProjectDetail = () => {
     memberIdentifier,
     setMemberIdentifier,
     handleRecover,
-    handleComplete,
     handleCreateTask,
     handleAddMember,
     handleRemoveParticipant,
@@ -136,7 +135,6 @@ const ProjectDetail = () => {
                 completedTasks={completedSectionTasks}
                 archivedTasks={archivedSectionTasks}
                 completionLogs={completionLogs}
-                onComplete={handleComplete}
                 onRecover={handleRecover}
               />
             ) : (
@@ -154,7 +152,6 @@ const ProjectDetail = () => {
                         key={task.id}
                         task={task}
                         completionLogs={completionLogs}
-                        onComplete={handleComplete}
                         onRecover={handleRecover}
                       />
                     ))}
@@ -172,7 +169,6 @@ const ProjectDetail = () => {
                     key={task.id}
                     task={task}
                     completionLogs={completionLogs}
-                    onComplete={handleComplete}
                     onRecover={handleRecover}
                   />
                 ))
@@ -231,7 +227,6 @@ const ProjectDetail = () => {
                     key={task.id}
                     task={task}
                     completionLogs={completionLogs}
-                    onComplete={handleComplete}
                     onRecover={handleRecover}
                   />
                 ))

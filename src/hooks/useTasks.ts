@@ -87,7 +87,7 @@ export const useCreateTask = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       const toastTitle = 'Task initiated! 🚀';
       toast.success(toastTitle, {
-        description: 'Waiting for your friend to accept'
+        description: 'Your friend has been notified.'
       });
       return newTask;
     },

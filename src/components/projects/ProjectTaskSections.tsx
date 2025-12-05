@@ -7,9 +7,7 @@ interface TaskSectionProps {
   icon: React.ReactNode;
   tasks: Task[];
   completionLogs: CompletionLog[];
-  onComplete?: (taskId: string, difficultyRating?: number) => void;
   onRecover?: (taskId: string) => void;
-  showCompleteButton?: boolean;
   className?: string;
 }
 
@@ -18,9 +16,7 @@ export const TaskSection = ({
   icon,
   tasks,
   completionLogs,
-  onComplete,
   onRecover,
-  showCompleteButton = true,
   className = '',
 }: TaskSectionProps) => {
   if (tasks.length === 0) return null;
@@ -37,7 +33,6 @@ export const TaskSection = ({
             key={task.id}
             task={task}
             completionLogs={completionLogs}
-            onComplete={showCompleteButton ? onComplete : undefined}
             onRecover={onRecover}
           />
         ))}
@@ -52,7 +47,6 @@ interface ProjectTaskSectionsProps {
   completedTasks: Task[];
   archivedTasks: Task[];
   completionLogs: CompletionLog[];
-  onComplete: (taskId: string, difficultyRating?: number) => void;
   onRecover: (taskId: string) => void;
 }
 
@@ -62,7 +56,6 @@ export const ProjectTaskSections = ({
   completedTasks,
   archivedTasks,
   completionLogs,
-  onComplete,
   onRecover,
 }: ProjectTaskSectionsProps) => {
   return (
@@ -73,7 +66,6 @@ export const ProjectTaskSections = ({
           icon={<Sparkles className="w-5 h-5 text-accent" />}
           tasks={activeTasks}
           completionLogs={completionLogs}
-          onComplete={onComplete}
           onRecover={onRecover}
         />
       )}
@@ -84,9 +76,6 @@ export const ProjectTaskSections = ({
           icon={<Clock className="w-5 h-5 text-muted-foreground" />}
           tasks={upcomingTasks}
           completionLogs={completionLogs}
-          onComplete={undefined}
-          onRecover={undefined}
-          showCompleteButton={false}
         />
       )}
 

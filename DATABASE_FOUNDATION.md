@@ -103,7 +103,7 @@ type TaskStatus = 'active' | 'upcoming' | 'completed' | 'archived';
 
 type TaskType = 'one_off' | 'habit';
 
-type RecurrencePattern = 'daily' | 'weekly' | 'custom';
+type RecurrencePattern = 'Daily' | 'weekly' | 'custom';
 
 interface Task {
   id: string;
@@ -128,7 +128,7 @@ interface Task {
 
 **Tables & notes**
 - `tasks` – includes mandatory `original_due_date` (date-only, no time), creator, timestamps, and `type` (`habit` or `one_off`).
-- `recurrence_pattern` is optional and only used for habit tasks (`daily`, `weekly`, or `custom`).
+- `recurrence_pattern` is optional and only used for habit tasks (`Daily`, `weekly`, or `custom`).
 - No `assignee_id`; per-user participation is modeled through `task_statuses` (formerly `task_assignments`).
 - Status can be `active`, `upcoming`, `completed`, or `archived`.
 - Tasks are automatically assigned to all project participants when created (no assignment step).
@@ -179,7 +179,7 @@ interface TaskStatusEntity {
 **Primary key:** `id` **Foreign key:** `taskId`
 
 ```typescript
-type RecurrencePattern = 'daily' | 'weekly' | 'custom';
+type RecurrencePattern = 'Daily' | 'weekly' | 'custom';
 
 interface TaskRecurrence {
   id: string;

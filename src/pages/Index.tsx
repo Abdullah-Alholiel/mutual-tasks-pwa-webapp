@@ -11,8 +11,8 @@ import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserS
 import { 
   getTodayTasks, 
   getNeedsActionTasks, 
-  getCompletedTasks, 
-  getArchivedTasks,
+  getCompletedTasksForToday,
+  getRecoveredTasks,
   updateTasksWithStatuses 
 } from '@/lib/taskFilterUtils';
 import { calculateProjectProgress, getProjectsWhereCanCreateTasks } from '@/lib/projectUtils';
@@ -80,45 +80,7 @@ const Index = () => {
   }, [tasksWithStatuses, projects, currentUser.id]);
 
 
-  const handleRecover = (taskId: string) => {
-    // Use centralized recovery utility - single source of truth
-    const result = recoverTask(taskId, currentUser.id, tasks, taskStatuses);
-    
-    if (!result || !result.success) {
-      handleError('Task not found or cannot be recovered', 'handleRecover');
-      return;
-    }
-
-    // Update task state
-    if (result.updatedTask) {
-      setTasks(prev =>
-        prev.map(t => t.id === taskId ? result.updatedTask! : t)
-      );
-    }
-
-    // Update task status state
-    if (result.updatedTaskStatus) {
-      setTaskStatuses(prev => {
-        const existingIndex = prev.findIndex(
-          ts => ts.taskId === taskId && ts.userId === currentUser.id
-        );
-        
-        if (existingIndex >= 0) {
-          // Update existing task status
-          return prev.map((ts, index) =>
-            index === existingIndex ? result.updatedTaskStatus! : ts
-          );
-        } else {
-          // Add new task status (edge case)
-          return [...prev, result.updatedTaskStatus];
-        }
-      });
-    }
-
-    toast.success('Task recovered! 💪', {
-      description: 'Complete it to earn half XP'
-    });
-  };
+  // Note: handleRecover is removed from today's view - recovery should only be in project detail view
 
   const handleComplete = (taskId: string, difficultyRating?: number) => {
     const now = new Date();
@@ -212,9 +174,11 @@ const Index = () => {
       setTasks(prevTasks =>
         prevTasks.map(t => {
           if (t.id === taskId) {
+            // General task status only includes 'active' and 'upcoming'
+            // We don't set it to 'completed' - that's tracked via completion logs
             return {
               ...t,
-              status: allCompleted ? 'completed' : 'active',
+              status: 'active' as Task['status'],
               completedAt: allCompleted ? now : undefined,
               updatedAt: now
             };
@@ -262,20 +226,20 @@ const Index = () => {
     );
   };
 
-  // Filter tasks using utilities
-  const pendingTasks = useMemo(() => 
-    getNeedsActionTasks(myTasks, taskStatuses, completionLogs, currentUser.id),
+  // Filter tasks using utilities for today's view sections
+  const needsActionTasks = useMemo(() => 
+    getNeedsActionTasks(myTasks, taskStatuses, completionLogs, currentUser.id, projectsWithRoles),
+    [myTasks, taskStatuses, completionLogs, projectsWithRoles]
+  );
+  
+  const completedTasksForToday = useMemo(() => 
+    getCompletedTasksForToday(myTasks, taskStatuses, completionLogs, currentUser.id),
     [myTasks, taskStatuses, completionLogs]
   );
   
-  const completedTasks = useMemo(() => 
-    getCompletedTasks(myTasks, completionLogs, currentUser.id),
-    [myTasks, completionLogs]
-  );
-  
-  const archivedTasks = useMemo(() => 
-    getArchivedTasks(myTasks, taskStatuses, completionLogs, currentUser.id),
-    [myTasks, taskStatuses, completionLogs]
+  const recoveredTasks = useMemo(() => 
+    getRecoveredTasks(tasksWithStatuses, taskStatuses, completionLogs, currentUser.id, projectsWithRoles),
+    [tasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles]
   );
 
   const handleCreateProject = (projectData: {
@@ -571,7 +535,7 @@ const Index = () => {
             className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm"
           >
             <div className="text-2xl font-bold text-primary mb-1">
-              {pendingTasks.length}
+              {needsActionTasks.length}
             </div>
             <div className="text-sm text-muted-foreground">Needs Action</div>
           </motion.div>
@@ -583,7 +547,7 @@ const Index = () => {
             className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm"
           >
             <div className="text-2xl font-bold text-status-completed mb-1">
-              {completedTasks.length}
+              {completedTasksForToday.length}
             </div>
             <div className="text-sm text-muted-foreground">Done</div>
           </motion.div>
@@ -595,27 +559,27 @@ const Index = () => {
             className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm"
           >
             <div className="text-2xl font-bold text-muted-foreground mb-1">
-              {archivedTasks.length}
+              {recoveredTasks.length}
             </div>
-            <div className="text-sm text-muted-foreground">Archived</div>
+            <div className="text-sm text-muted-foreground">Recovered</div>
           </motion.div>
         </div>
 
         {/* Needs Your Action */}
-        {pendingTasks.length > 0 && (
+        {needsActionTasks.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-accent" />
               <h2 className="text-xl font-semibold">Needs Your Action</h2>
             </div>
             <div className="space-y-3">
-              {pendingTasks.map((task) => (
+              {needsActionTasks.map((task) => (
                 <TaskCard
                   key={task.id}
                   task={task}
                   completionLogs={completionLogs}
                   onComplete={handleComplete}
-                  onRecover={handleRecover}
+                  showRecover={false}
                 />
               ))}
             </div>
@@ -623,14 +587,14 @@ const Index = () => {
         )}
 
         {/* Done for the Day */}
-        {completedTasks.length > 0 && (
+        {completedTasksForToday.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-accent" />
               <h2 className="text-xl font-semibold">Done for the Day</h2>
             </div>
             <div className="space-y-3 opacity-60">
-              {completedTasks.map((task) => (
+              {completedTasksForToday.map((task) => (
                 <TaskCard key={task.id} task={task} completionLogs={completionLogs} />
               ))}
             </div>
@@ -638,19 +602,20 @@ const Index = () => {
         )}
 
         {/* Another Chance? */}
-        {archivedTasks.length > 0 && (
+        {recoveredTasks.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <RotateCcw className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-semibold">Another Chance ?</h2>
+              <h2 className="text-xl font-semibold">Another Chance?</h2>
             </div>
             <div className="space-y-3">
-              {archivedTasks.map((task) => (
+              {recoveredTasks.map((task) => (
                 <TaskCard
                   key={task.id}
                   task={task}
                   completionLogs={completionLogs}
-                  onRecover={handleRecover}
+                  onComplete={handleComplete}
+                  showRecover={false}
                 />
               ))}
             </div>

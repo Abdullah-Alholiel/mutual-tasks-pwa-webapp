@@ -14,23 +14,22 @@
 export type TaskStatus =
   | 'active'
   | 'upcoming'
-  | 'completed'
-  | 'archived';
+;
 
 export type TaskType = 'one_off' | 'habit';
 export type RecurrencePattern = 'Daily' | 'weekly' | 'custom';
 export type DifficultyRating = 1 | 2 | 3 | 4 | 5;
 export type ProjectRole = 'owner' | 'manager' | 'participant';
-export type TaskStatusUserStatus = 'active' | 'completed' | 'archived';
+export type TaskStatusUserStatus = 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming';
 export type TimingStatus = 'early' | 'on_time' | 'late';
 export type RingColor = 'green' | 'yellow' | 'red' | 'none';
 
-export const TASK_STATUSES: TaskStatus[] = ['active', 'upcoming', 'completed', 'archived'];
+export const TASK_STATUSES: TaskStatus[] = ['active', 'upcoming'];
 export const TASK_TYPES: TaskType[] = ['one_off', 'habit'];
 export const RECURRENCE_PATTERNS: RecurrencePattern[] = ['Daily', 'weekly', 'custom'];
 export const DIFFICULTY_RATINGS: DifficultyRating[] = [1, 2, 3, 4, 5];
 export const PROJECT_ROLES: ProjectRole[] = ['owner', 'manager', 'participant'];
-export const TASK_STATUS_USER_STATUSES: TaskStatusUserStatus[] = ['active', 'completed', 'archived'];
+export const TASK_STATUS_USER_STATUSES: TaskStatusUserStatus[] = ['active', 'completed', 'archived', 'recovered', 'upcoming'];
 export const TIMING_STATUSES: TimingStatus[] = ['early', 'on_time', 'late'];
 export const RING_COLORS: RingColor[] = ['green', 'yellow', 'red', 'none'];
 
