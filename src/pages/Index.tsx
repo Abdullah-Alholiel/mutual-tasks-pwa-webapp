@@ -167,7 +167,7 @@ const Index = () => {
       // Check if all participants have completed (use updated taskStatuses)
       const allStatuses = updated.filter(ts => ts.taskId === taskId);
       const allCompleted = allStatuses.every(ts => 
-        ts.userId === currentUser.id || ts.status === 'completed'
+        ts.userId === currentUser.id || ts.status === 'Completed'
       );
 
       // Update task status based on all participants' completion
@@ -178,7 +178,6 @@ const Index = () => {
             // We don't set it to 'completed' - that's tracked via completion logs
             return {
               ...t,
-              status: 'active' as Task['status'],
               completedAt: allCompleted ? now : undefined,
               updatedAt: now
             };
@@ -362,7 +361,6 @@ const Index = () => {
           title: taskData.title,
           description: taskData.description,
           dueDate: taskDueDate,
-          status: 'active',
           createdAt: now,
           updatedAt: now
         };
@@ -425,7 +423,6 @@ const Index = () => {
         title: taskData.title,
         description: taskData.description,
         dueDate: defaultDueDate,
-        status: 'active',
         createdAt: now,
         updatedAt: now
       };

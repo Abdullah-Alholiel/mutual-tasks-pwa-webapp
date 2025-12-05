@@ -11,25 +11,22 @@
 // - Components never see database-specific formats
 // ============================================================================
 
-export type TaskStatus =
-  | 'active'
-  | 'upcoming'
-;
+// Task status is user-dependent; per-user status only
+export type TaskStatus = 'Active' | 'Completed' | 'Archived' | 'Recovered' | 'Upcoming';
 
 export type TaskType = 'one_off' | 'habit';
 export type RecurrencePattern = 'Daily' | 'weekly' | 'custom';
 export type DifficultyRating = 1 | 2 | 3 | 4 | 5;
 export type ProjectRole = 'owner' | 'manager' | 'participant';
-export type TaskStatusUserStatus = 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming';
+export type TaskStatusUserStatus = TaskStatus;
 export type TimingStatus = 'early' | 'on_time' | 'late';
 export type RingColor = 'green' | 'yellow' | 'red' | 'none';
 
-export const TASK_STATUSES: TaskStatus[] = ['active', 'upcoming'];
+export const TASK_STATUSES: TaskStatus[] = ['Active', 'Completed', 'Archived', 'Recovered', 'Upcoming'];
 export const TASK_TYPES: TaskType[] = ['one_off', 'habit'];
 export const RECURRENCE_PATTERNS: RecurrencePattern[] = ['Daily', 'weekly', 'custom'];
 export const DIFFICULTY_RATINGS: DifficultyRating[] = [1, 2, 3, 4, 5];
 export const PROJECT_ROLES: ProjectRole[] = ['owner', 'manager', 'participant'];
-export const TASK_STATUS_USER_STATUSES: TaskStatusUserStatus[] = ['active', 'completed', 'archived', 'recovered', 'upcoming'];
 export const TIMING_STATUSES: TimingStatus[] = ['early', 'on_time', 'late'];
 export const RING_COLORS: RingColor[] = ['green', 'yellow', 'red', 'none'];
 
@@ -137,7 +134,6 @@ export interface Task {
   type: TaskType;
   recurrencePattern?: RecurrencePattern;
   dueDate: Date;
-  status: TaskStatus;
   completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -235,13 +231,13 @@ export type TaskAssignment = TaskStatusEntity;
 export type AssignmentStatus = TaskStatusUserStatus;
 
 /**
- * @deprecated Use TASK_STATUS_USER_STATUSES instead
+ * @deprecated Use TASK_STATUSES instead
  * Kept for backward compatibility with migration scripts
  */
-export const ASSIGNMENT_STATUSES = TASK_STATUS_USER_STATUSES;
+export const ASSIGNMENT_STATUSES = TASK_STATUSES;
 
 // ============================================================================
 // Helper Types for Forms and UI
 // ============================================================================
 
-export type TaskStatusDisplay = 'active' | 'completed' | 'archived';
+export type TaskStatusDisplay = 'Active' | 'Completed' | 'Archived';

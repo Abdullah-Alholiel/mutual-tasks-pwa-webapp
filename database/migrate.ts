@@ -7,7 +7,6 @@ import {
   RECURRENCE_PATTERNS,
   TASK_STATUSES,
   TASK_TYPES,
-  TASK_STATUS_USER_STATUSES,
   TIMING_STATUSES,
   RING_COLORS
 } from '../src/types';
@@ -237,7 +236,6 @@ $$;
 
 const ENUM_STATEMENTS = [
   buildEnumStatement('project_role', PROJECT_ROLES),
-  buildEnumStatement('task_status_user_status', TASK_STATUS_USER_STATUSES),
   buildEnumStatement('task_type', TASK_TYPES),
   buildEnumStatement('task_status', TASK_STATUSES),
   buildEnumStatement('recurrence_pattern', RECURRENCE_PATTERNS),

@@ -327,6 +327,10 @@ export const createTaskCompletedEmail = (
   project: Project,
   completer: User
 ): EmailData => {
+  const allCompleted = task.taskStatuses?.length
+    ? task.taskStatuses.every(ts => ts.status === 'Completed')
+    : false;
+
   return {
     to: recipient.email,
     subject: `${completer.name} completed "${task.title}"`,
@@ -351,7 +355,7 @@ export const createTaskCompletedEmail = (
             </p>
             
             <p style="font-size: 16px; color: #666;">
-              ${task.status === 'completed'
+              ${allCompleted
                 ? '🎊 Amazing! Both of you have completed this task. Great teamwork!' 
                 : 'Keep up the momentum! Complete your part to finish this task together.'}
             </p>
@@ -366,7 +370,7 @@ export const createTaskCompletedEmail = (
         </body>
       </html>
     `,
-    text: `Hi ${recipient.name},\n\n${completer.name} has completed "${task.title}" in "${project.name}".\n\n${task.status === 'completed' ? 'Both of you have completed this task!' : 'Complete your part to finish together!'}`
+    text: `Hi ${recipient.name},\n\n${completer.name} has completed "${task.title}" in "${project.name}".\n\n${allCompleted ? 'Both of you have completed this task!' : 'Complete your part to finish together!'}`
   };
 };
 

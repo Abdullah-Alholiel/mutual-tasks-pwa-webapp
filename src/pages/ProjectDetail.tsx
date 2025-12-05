@@ -115,7 +115,7 @@ const ProjectDetail = () => {
           <TabsList className="grid w-full grid-cols-6 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
             <TabsTrigger value="all" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
             <TabsTrigger value="active" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Active</TabsTrigger>
-            <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Done</TabsTrigger>
+            <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
             <TabsTrigger value="upcoming" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
               <span className="hidden sm:inline">Upcoming</span>
               <span className="sm:hidden">Next</span>

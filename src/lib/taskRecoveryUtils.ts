@@ -52,7 +52,7 @@ export const recoverTask = (
   const computedStatus = calculateTaskStatusUserStatus(userTaskStatus, undefined, task);
 
   // Check if task can be recovered (only archived tasks)
-  const canRecover = computedStatus === 'archived';
+  const canRecover = computedStatus === 'Archived';
 
   if (!canRecover) {
     return null;
@@ -71,7 +71,7 @@ export const recoverTask = (
     // Update existing task status
     updatedTaskStatus = {
       ...userTaskStatus,
-      status: 'recovered' as TaskStatusUserStatus,
+      status: 'Recovered' as TaskStatusUserStatus,
       recoveredAt: now, // Set recoveredAt to now (even if it was previously set)
       archivedAt: undefined, // Clear archivedAt
       ringColor: 'yellow' as RingColor, // Yellow ring for recovered tasks
@@ -84,7 +84,7 @@ export const recoverTask = (
       id: `ts-recover-${Date.now()}-${userId}`,
       taskId: taskId,
       userId: userId,
-      status: 'recovered' as TaskStatusUserStatus,
+      status: 'Recovered' as TaskStatusUserStatus,
       effectiveDueDate: task.dueDate,
       recoveredAt: now,
       archivedAt: undefined,

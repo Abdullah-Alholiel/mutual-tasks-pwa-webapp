@@ -94,7 +94,7 @@ export const createTaskStatusesForAllParticipants = (
   const participantIds = getProjectParticipantIds(project, allUsers);
   
   return participantIds.map(userId =>
-    buildTaskStatus(taskId, userId, 'active', dueDate, timestamp)
+    buildTaskStatus(taskId, userId, 'Active', dueDate, timestamp)
   );
 };
 

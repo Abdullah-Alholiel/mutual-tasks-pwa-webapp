@@ -81,7 +81,7 @@ export const ProjectTaskSections = ({
 
       {completedTasks.length > 0 && (
         <TaskSection
-          title="Done"
+          title="Completed"
           icon={<CheckCircle2 className="w-5 h-5 text-status-completed" />}
           tasks={completedTasks}
           completionLogs={completionLogs}

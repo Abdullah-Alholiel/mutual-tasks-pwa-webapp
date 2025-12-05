@@ -17,7 +17,7 @@ import { getTodayTasks, getProjectTasks, getUserTasks } from '@/lib/taskFilterUt
 /**
  * Hook to fetch all tasks
  */
-export const useTasks = (filters?: { projectId?: string; userId?: string; status?: Task['status'] }) => {
+export const useTasks = (filters?: { projectId?: string; userId?: string }) => {
   return useQuery({
     queryKey: ['tasks', filters],
     queryFn: async () => {

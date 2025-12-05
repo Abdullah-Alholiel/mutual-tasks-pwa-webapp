@@ -253,7 +253,6 @@ export const mockTasks: Task[] = [
     description: 'Hero and retargeting variants.',
     type: 'one_off',
     dueDate: new Date(today.getTime() + 4 * 24 * 60 * 60 * 1000),
-    status: 'upcoming',
     createdAt: getHoursAgo(12),
     updatedAt: getHoursAgo(12),
   },
@@ -265,7 +264,6 @@ export const mockTasks: Task[] = [
     description: 'Two subject lines, one CTA.',
     type: 'one_off',
     dueDate: today,
-    status: 'active',
     createdAt: getHoursAgo(8),
     updatedAt: getHoursAgo(2),
   },
@@ -277,7 +275,6 @@ export const mockTasks: Task[] = [
     description: 'Flag top three offers.',
     type: 'one_off',
     dueDate: getYesterday(),
-    status: 'active',
     createdAt: getDaysAgo(3),
     updatedAt: getDaysAgo(1),
   },
@@ -289,7 +286,6 @@ export const mockTasks: Task[] = [
     description: 'Validate UTMs across journey.',
     type: 'one_off',
     dueDate: getDaysAgo(2),
-    status: 'active',
     createdAt: getDaysAgo(4),
     updatedAt: getHoursAgo(1),
   },
@@ -302,7 +298,6 @@ export const mockTasks: Task[] = [
     description: 'Add pricing slide',
     type: 'one_off',
     dueDate: tomorrow,
-    status: 'upcoming',
     createdAt: getHoursAgo(6),
     updatedAt: getHoursAgo(6),
   },
@@ -314,7 +309,6 @@ export const mockTasks: Task[] = [
     description: '2 min loom, include CTA',
     type: 'one_off',
     dueDate: getDaysAgo(2),
-    status: 'active',
     createdAt: getDaysAgo(4),
     updatedAt: getHoursAgo(3),
   },
@@ -327,7 +321,6 @@ export const mockTasks: Task[] = [
     description: 'Mobile + desktop',
     type: 'one_off',
     dueDate: today,
-    status: 'active',
     createdAt: getDaysAgo(2),
     updatedAt: getHoursAgo(1),
   },
@@ -340,7 +333,6 @@ export const mockTasks: Task[] = [
     type: 'habit',
     recurrencePattern: 'Daily',
     dueDate: tomorrow,
-    status: 'upcoming',
     createdAt: getDaysAgo(5),
     updatedAt: getHoursAgo(2),
   },
@@ -354,7 +346,6 @@ export const mockTasks: Task[] = [
     type: 'habit',
     recurrencePattern: 'Daily',
     dueDate: today,
-    status: 'active',
     createdAt: getDaysAgo(10),
     updatedAt: getHoursAgo(1),
   },
@@ -367,7 +358,6 @@ export const mockTasks: Task[] = [
     type: 'habit',
     recurrencePattern: 'Daily',
     dueDate: tomorrow,
-    status: 'upcoming',
     createdAt: getDaysAgo(10),
     updatedAt: getHoursAgo(1),
   },
@@ -379,36 +369,36 @@ export const mockTasks: Task[] = [
 
 export const mockTaskStatuses: TaskStatusEntity[] = [
   // task_001 upcoming future
-  { id: 'ts_001_a', taskId: 'task_001', userId: 'user_001', status: 'upcoming', effectiveDueDate: mockTasks[0].dueDate, createdAt: getHoursAgo(12), updatedAt: getHoursAgo(12) },
-  { id: 'ts_001_b', taskId: 'task_001', userId: 'user_002', status: 'upcoming', effectiveDueDate: mockTasks[0].dueDate, createdAt: getHoursAgo(12), updatedAt: getHoursAgo(12) },
+  { id: 'ts_001_a', taskId: 'task_001', userId: 'user_001', status: 'Upcoming', effectiveDueDate: mockTasks[0].dueDate, createdAt: getHoursAgo(12), updatedAt: getHoursAgo(12) },
+  { id: 'ts_001_b', taskId: 'task_001', userId: 'user_002', status: 'Upcoming', effectiveDueDate: mockTasks[0].dueDate, createdAt: getHoursAgo(12), updatedAt: getHoursAgo(12) },
   // task_002 active today
-  { id: 'ts_002_a', taskId: 'task_002', userId: 'user_001', status: 'active', effectiveDueDate: today, createdAt: getHoursAgo(8), updatedAt: getHoursAgo(2) },
-  { id: 'ts_002_b', taskId: 'task_002', userId: 'user_002', status: 'active', effectiveDueDate: today, createdAt: getHoursAgo(8), updatedAt: getHoursAgo(2) },
+  { id: 'ts_002_a', taskId: 'task_002', userId: 'user_001', status: 'Active', effectiveDueDate: today, createdAt: getHoursAgo(8), updatedAt: getHoursAgo(2) },
+  { id: 'ts_002_b', taskId: 'task_002', userId: 'user_002', status: 'Active', effectiveDueDate: today, createdAt: getHoursAgo(8), updatedAt: getHoursAgo(2) },
   // task_003 past: creator completed, others archived
-  { id: 'ts_003_a', taskId: 'task_003', userId: 'user_002', status: 'completed', effectiveDueDate: mockTasks[2].dueDate, ringColor: 'green', timingStatus: 'on_time', createdAt: getDaysAgo(3), updatedAt: getDaysAgo(1) },
-  { id: 'ts_003_b', taskId: 'task_003', userId: 'user_001', status: 'archived', effectiveDueDate: mockTasks[2].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(3), updatedAt: getDaysAgo(1) },
-  { id: 'ts_003_c', taskId: 'task_003', userId: 'user_003', status: 'archived', effectiveDueDate: mockTasks[2].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(3), updatedAt: getDaysAgo(1) },
+  { id: 'ts_003_a', taskId: 'task_003', userId: 'user_002', status: 'Completed', effectiveDueDate: mockTasks[2].dueDate, ringColor: 'green', timingStatus: 'on_time', createdAt: getDaysAgo(3), updatedAt: getDaysAgo(1) },
+  { id: 'ts_003_b', taskId: 'task_003', userId: 'user_001', status: 'Archived', effectiveDueDate: mockTasks[2].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(3), updatedAt: getDaysAgo(1) },
+  { id: 'ts_003_c', taskId: 'task_003', userId: 'user_003', status: 'Archived', effectiveDueDate: mockTasks[2].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(3), updatedAt: getDaysAgo(1) },
   // task_004 recovered by user_001, archived for others
-  { id: 'ts_004_a', taskId: 'task_004', userId: 'user_001', status: 'recovered', effectiveDueDate: mockTasks[3].dueDate, recoveredAt: getHoursAgo(1), archivedAt: getDaysAgo(1), ringColor: 'yellow', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getHoursAgo(1) },
-  { id: 'ts_004_b', taskId: 'task_004', userId: 'user_003', status: 'archived', effectiveDueDate: mockTasks[3].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getDaysAgo(1) },
+  { id: 'ts_004_a', taskId: 'task_004', userId: 'user_001', status: 'Recovered', effectiveDueDate: mockTasks[3].dueDate, recoveredAt: getHoursAgo(1), archivedAt: getDaysAgo(1), ringColor: 'yellow', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getHoursAgo(1) },
+  { id: 'ts_004_b', taskId: 'task_004', userId: 'user_003', status: 'Archived', effectiveDueDate: mockTasks[3].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getDaysAgo(1) },
   // task_005 upcoming tomorrow (project_002)
-  { id: 'ts_005_a', taskId: 'task_005', userId: 'user_002', status: 'upcoming', effectiveDueDate: mockTasks[4].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getHoursAgo(6), updatedAt: getHoursAgo(6) },
-  { id: 'ts_005_b', taskId: 'task_005', userId: 'user_001', status: 'upcoming', effectiveDueDate: mockTasks[4].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getHoursAgo(6), updatedAt: getHoursAgo(6) },
+  { id: 'ts_005_a', taskId: 'task_005', userId: 'user_002', status: 'Upcoming', effectiveDueDate: mockTasks[4].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getHoursAgo(6), updatedAt: getHoursAgo(6) },
+  { id: 'ts_005_b', taskId: 'task_005', userId: 'user_001', status: 'Upcoming', effectiveDueDate: mockTasks[4].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getHoursAgo(6), updatedAt: getHoursAgo(6) },
   // task_006 recovered vs archived split
-  { id: 'ts_006_a', taskId: 'task_006', userId: 'user_001', status: 'recovered', effectiveDueDate: mockTasks[5].dueDate, recoveredAt: getHoursAgo(3), archivedAt: getDaysAgo(1), ringColor: 'yellow', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getHoursAgo(3) },
-  { id: 'ts_006_b', taskId: 'task_006', userId: 'user_002', status: 'archived', effectiveDueDate: mockTasks[5].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getDaysAgo(1) },
+  { id: 'ts_006_a', taskId: 'task_006', userId: 'user_001', status: 'Recovered', effectiveDueDate: mockTasks[5].dueDate, recoveredAt: getHoursAgo(3), archivedAt: getDaysAgo(1), ringColor: 'yellow', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getHoursAgo(3) },
+  { id: 'ts_006_b', taskId: 'task_006', userId: 'user_002', status: 'Archived', effectiveDueDate: mockTasks[5].dueDate, archivedAt: getDaysAgo(1), ringColor: 'red', timingStatus: 'late', createdAt: getDaysAgo(4), updatedAt: getDaysAgo(1) },
   // task_007 completed today by owner
-  { id: 'ts_007_a', taskId: 'task_007', userId: 'user_003', status: 'completed', effectiveDueDate: mockTasks[6].dueDate, ringColor: 'green', timingStatus: 'on_time', createdAt: getDaysAgo(2), updatedAt: getHoursAgo(1) },
-  { id: 'ts_007_b', taskId: 'task_007', userId: 'user_004', status: 'active', effectiveDueDate: mockTasks[6].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(2), updatedAt: getHoursAgo(1) },
+  { id: 'ts_007_a', taskId: 'task_007', userId: 'user_003', status: 'Completed', effectiveDueDate: mockTasks[6].dueDate, ringColor: 'green', timingStatus: 'on_time', createdAt: getDaysAgo(2), updatedAt: getHoursAgo(1) },
+  { id: 'ts_007_b', taskId: 'task_007', userId: 'user_004', status: 'Active', effectiveDueDate: mockTasks[6].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(2), updatedAt: getHoursAgo(1) },
   // task_008 habit upcoming
-  { id: 'ts_008_a', taskId: 'task_008', userId: 'user_003', status: 'upcoming', effectiveDueDate: mockTasks[7].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(5), updatedAt: getHoursAgo(2) },
-  { id: 'ts_008_b', taskId: 'task_008', userId: 'user_004', status: 'upcoming', effectiveDueDate: mockTasks[7].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(5), updatedAt: getHoursAgo(2) },
+  { id: 'ts_008_a', taskId: 'task_008', userId: 'user_003', status: 'Upcoming', effectiveDueDate: mockTasks[7].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(5), updatedAt: getHoursAgo(2) },
+  { id: 'ts_008_b', taskId: 'task_008', userId: 'user_004', status: 'Upcoming', effectiveDueDate: mockTasks[7].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(5), updatedAt: getHoursAgo(2) },
   // task_009 habit today active
-  { id: 'ts_009_a', taskId: 'task_009', userId: 'user_001', status: 'active', effectiveDueDate: mockTasks[8].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
-  { id: 'ts_009_b', taskId: 'task_009', userId: 'user_004', status: 'active', effectiveDueDate: mockTasks[8].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
+  { id: 'ts_009_a', taskId: 'task_009', userId: 'user_001', status: 'Active', effectiveDueDate: mockTasks[8].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
+  { id: 'ts_009_b', taskId: 'task_009', userId: 'user_004', status: 'Active', effectiveDueDate: mockTasks[8].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
   // task_010 habit future
-  { id: 'ts_010_a', taskId: 'task_010', userId: 'user_001', status: 'upcoming', effectiveDueDate: mockTasks[9].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
-  { id: 'ts_010_b', taskId: 'task_010', userId: 'user_004', status: 'upcoming', effectiveDueDate: mockTasks[9].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
+  { id: 'ts_010_a', taskId: 'task_010', userId: 'user_001', status: 'Upcoming', effectiveDueDate: mockTasks[9].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
+  { id: 'ts_010_b', taskId: 'task_010', userId: 'user_004', status: 'Upcoming', effectiveDueDate: mockTasks[9].dueDate, ringColor: 'none', timingStatus: 'on_time', createdAt: getDaysAgo(10), updatedAt: getHoursAgo(1) },
 ];
 
 mockTasks.forEach(task => {
@@ -675,7 +665,7 @@ export const getProjectTasks = (projectId: string): Task[] => {
 export const getArchivedTasks = (userId: string): Task[] => {
   return mockTasks.filter(task => {
     const userStatus = task.taskStatuses?.find(ts => ts.userId === userId);
-    return userStatus?.status === 'archived';
+    return userStatus?.status === 'Archived';
   });
 };
 
@@ -687,6 +677,6 @@ export const getExpiredTasks = (userId: string): Task[] => {
     // General task status only includes 'active' and 'upcoming'
     // Check user's task status instead
     const userStatus = task.taskStatuses?.find(ts => ts.userId === userId);
-    return userStatus && (userStatus.status === 'archived' || userStatus.archivedAt);
+    return userStatus && (userStatus.status === 'Archived' || userStatus.archivedAt);
   });
 };

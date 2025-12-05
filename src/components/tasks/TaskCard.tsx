@@ -47,20 +47,20 @@ const taskStatusUserStatus = calculateTaskStatusUserStatus(myTaskStatus, myCompl
 // Use calculated user status directly for UI
 const uiStatus: TaskStatusUserStatus = taskStatusUserStatus;
   
-const isTaskArchived = uiStatus === 'archived';
+const isTaskArchived = uiStatus === 'Archived';
   
 // Use modular utilities for task actions
 const canComplete = canCompleteTask(myTaskStatus, myCompletion, task);
 const canRecover = canRecoverTask(myTaskStatus, myCompletion, task);
   
 // Check if task is recovered
-const isRecovered = uiStatus === 'recovered';
+const isRecovered = uiStatus === 'Recovered';
   
 // For archived tasks, always prioritize showing recover button (even if canComplete somehow returns true)
 // But only if showRecover is true (for project detail view)
 // Recovered tasks should show complete button, not recover button
 const shouldShowRecover = showRecover && !!onRecover && !isRecovered && canRecover;
-const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (uiStatus === 'active' || uiStatus === 'recovered');
+const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (uiStatus === 'Active' || uiStatus === 'Recovered');
 
   const handleComplete = () => {
     if (canComplete && onComplete) {
@@ -126,11 +126,11 @@ const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (ui
               <Badge 
                 variant={getStatusBadgeVariant(uiStatus)} 
                 className={`${getStatusColor(uiStatus)} capitalize shrink-0 font-bold ${
-                  uiStatus === 'completed' 
+                  uiStatus === 'Completed' 
                     ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold' 
                     : ''
                 }`}
-                style={uiStatus === 'completed' ? {
+                style={uiStatus === 'Completed' ? {
                   borderColor: 'hsl(var(--status-completed) / 0.4)',
                   backgroundColor: 'hsl(var(--status-completed) / 0.15)',
                   color: 'hsl(var(--status-completed))'
@@ -251,7 +251,7 @@ const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (ui
                 </motion.div>
               )}
 
-              {uiStatus === 'completed' && myCompletion && (
+              {uiStatus === 'Completed' && myCompletion && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}

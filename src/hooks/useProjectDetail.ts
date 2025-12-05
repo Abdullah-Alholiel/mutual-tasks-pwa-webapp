@@ -118,14 +118,14 @@ export const useProjectDetail = () => {
       }
 
       switch (userStatus) {
-        case 'recovered':
-        case 'active':
+        case 'Recovered':
+        case 'Active':
           addUnique(active, task);
           break;
-        case 'upcoming':
+        case 'Upcoming':
           addUnique(upcoming, task);
           break;
-        case 'archived':
+        case 'Archived':
           addUnique(archived, task);
           break;
         default:
@@ -266,7 +266,7 @@ export const useProjectDetail = () => {
 
       const allStatuses = updated.filter(ts => ts.taskId === taskId);
       const allCompleted = allStatuses.every(ts => 
-        ts.userId === currentUser.id || ts.status === 'completed'
+        ts.userId === currentUser.id || ts.status === 'Completed'
       );
 
       setTasks(prevTasks =>
@@ -276,7 +276,6 @@ export const useProjectDetail = () => {
             // We don't set it to 'completed' - that's tracked via completion logs
             return {
               ...t,
-              status: 'active' as Task['status'],
               completedAt: allCompleted ? now : undefined,
               updatedAt: now
             };
@@ -384,7 +383,6 @@ export const useProjectDetail = () => {
           title: taskData.title,
           description: taskData.description,
           dueDate: taskDueDate,
-          status: 'active',
           createdAt: now,
           updatedAt: now
         };
@@ -436,7 +434,6 @@ export const useProjectDetail = () => {
         title: taskData.title,
         description: taskData.description,
         dueDate: defaultDueDate,
-        status: 'active',
         createdAt: now,
         updatedAt: now
       };

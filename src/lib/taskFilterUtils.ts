@@ -90,33 +90,22 @@ export const getNeedsActionTasks = (
     const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
     const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
     
-    // Calculate task status user status
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
-    
-    // Only include tasks with user status "active" (due today, not completed)
-    if (userStatus !== 'active') return false;
-    
-    // Task must be active or upcoming (general task status)
-    const isTaskActive = task.status === 'active' || task.status === 'upcoming';
-    if (!isTaskActive) return false;
-    
-    // Check if due date is today
+    if (userStatus !== 'Active') return false;
+
     const effectiveDueDate = myStatus?.effectiveDueDate || task.dueDate;
     const dueDate = normalizeToStartOfDay(new Date(effectiveDueDate));
     const isDueToday = dueDate.getTime() === today.getTime();
-    
     if (!isDueToday) return false;
-    
-    // If user has no status, check if they're in the project
+
     if (!myStatus) {
       if (projects) {
         const isInProject = isUserInTaskProject(task, userId, projects);
         return isInProject;
       }
-      // Fallback: show if creator
       return task.creatorId === userId;
     }
-    
+
     return true;
   });
 };
@@ -169,31 +158,19 @@ export const getActiveTasks = (
   return tasks.filter(task => {
     const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
     const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === userId);
-    
-    // Task must be active or upcoming
-    const isTaskActive = task.status === 'active' || task.status === 'upcoming';
-    if (!isTaskActive) return false;
-    
-    // User must not have completed it
     if (myCompletion) return false;
-    
-    // If user has no task status, check if they're in the project
+
     if (!myStatus) {
       const isCreator = task.creatorId === userId;
-      // If projects array provided, check project membership
       if (projects) {
         const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject && isTaskActive && !myCompletion;
+        return isInProject && !myCompletion;
       }
-      // Fallback: show if creator
-      return isCreator && isTaskActive && !myCompletion;
+      return isCreator && !myCompletion;
     }
-    
-    // User has a status - check if it's active or recovered
-    const isUserActive = (myStatus.status === 'active' || myStatus.recoveredAt) && 
-                         !myStatus.archivedAt;
-    
-    return isUserActive && isTaskActive;
+
+    const userStatus = calculateTaskStatusUserStatus(myStatus, undefined, task);
+    return (userStatus === 'Active' || userStatus === 'Recovered');
   });
 };
 
@@ -224,48 +201,30 @@ export const getActiveTasksForToday = (
     const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
     const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
     
-    if (myCompletion) return false; // Already completed
+    if (myCompletion) return false;
     
-    // Task must be active or upcoming
-    const isTaskActive = task.status === 'active' || task.status === 'upcoming';
-    if (!isTaskActive) return false;
-    
-    // Check if task is recovered
-    const isRecovered = myStatus?.recoveredAt !== undefined && myStatus?.recoveredAt !== null;
-    
-    // If including recovered tasks (for project detail), show recovered tasks regardless of due date
+    const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
+    const isRecovered = myStatus?.recoveredAt !== undefined && myStatus?.recoveredAt !== null || userStatus === 'Recovered';
+
     if (includeRecovered && isRecovered) {
-      // Recovered tasks should be shown in active section
-      // Make sure status is active (not archived)
-      if (myStatus && (myStatus.status === 'archived' || myStatus.archivedAt)) {
-        return false; // Don't show if still archived
-      }
-      return true;
+      return userStatus === 'Recovered';
     }
-    
-    // Check if task is due today - use effectiveDueDate from status if available, otherwise use task dueDate
+
     const taskDueDate = myStatus?.effectiveDueDate || task.dueDate;
     const dueDate = normalizeToStartOfDay(new Date(taskDueDate));
     const isDueToday = dueDate.getTime() === today.getTime();
-    
     if (!isDueToday) return false;
-    
-    // If user has no task status, check if they're in the project
+
     if (!myStatus) {
       const isCreator = task.creatorId === userId;
-      // If projects array provided, check project membership
       if (projects) {
         const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject && isTaskActive && !myCompletion;
+        return isInProject && !myCompletion;
       }
-      // Fallback: show if creator
-      return isCreator && isTaskActive && !myCompletion;
+      return isCreator && !myCompletion;
     }
-    
-    // User has a status - check if it's active (not archived, not recovered if not including recovered)
-    const isUserActive = myStatus.status === 'active' && !myStatus.archivedAt;
-    
-    return isUserActive && isTaskActive;
+
+    return userStatus === 'Active';
   });
 };
 
@@ -284,7 +243,6 @@ export const getCompletedTasks = (
 ): Task[] => {
   return tasks.filter(task => {
     const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
-    // Task is completed if user has a completion log
     return !!myCompletion;
   });
 };
@@ -344,15 +302,8 @@ export const getRecoveredTasks = (
     // Exclude completed tasks - they should not appear in recovered section
     if (myCompletion) return false;
     
-    // Calculate task status user status
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
-    
-    // Only include tasks with user status "recovered"
-    if (userStatus !== 'recovered') return false;
-    
-    // Task must be active or upcoming (general task status)
-    const isTaskActive = task.status === 'active' || task.status === 'upcoming';
-    if (!isTaskActive) return false;
+    if (userStatus !== 'Recovered') return false;
     
     // If user has no status, check if they're in the project
     if (!myStatus) {
@@ -396,9 +347,6 @@ export const getUpcomingTasks = (
     dueDate.setHours(0, 0, 0, 0);
     const isDueFuture = dueDate.getTime() > today.getTime();
     
-    // Task must be active and due in future
-    const isTaskActive = task.status === 'active' || task.status === 'upcoming';
-    if (!isTaskActive) return false;
     if (!isDueFuture) return false;
     if (myCompletion) return false;
     
@@ -412,11 +360,8 @@ export const getUpcomingTasks = (
       return task.creatorId === userId;
     }
     
-    // Upcoming tasks are active tasks due in the future
-    const isUserActive = (myStatus.status === 'active' || myStatus.recoveredAt) && 
-                         !myStatus.archivedAt;
-    
-    return isUserActive;
+    const userStatus = calculateTaskStatusUserStatus(myStatus, undefined, task);
+    return userStatus === 'Upcoming';
   });
 };
 
@@ -454,8 +399,7 @@ export const getArchivedTasks = (
     }
     
     // Only show if archived, not recovered, and not completed
-    // Check if user's task status is archived (via archivedAt or status)
-    const isArchived = myStatus.status === 'archived' || 
+    const isArchived = myStatus.status === 'Archived' || 
                       (myStatus.archivedAt !== undefined && myStatus.archivedAt !== null);
     
     return isArchived && !myStatus.recoveredAt && !myCompletion;
@@ -529,22 +473,12 @@ export const getProjectTaskBuckets = (
   const archived: Task[] = [];
   
   tasks.forEach(task => {
-    // For active/upcoming tasks, check due date
-    // General task status only includes 'active' and 'upcoming'
-    if (task.status === 'active' || task.status === 'upcoming') {
-      const dueDate = new Date(task.dueDate);
-      dueDate.setHours(0, 0, 0, 0);
-      const isDueTodayOrPast = dueDate.getTime() <= today.getTime();
-      const isDueFuture = dueDate.getTime() > today.getTime();
-      
-      if (isDueTodayOrPast) {
-        active.push(task);
-      } else if (isDueFuture) {
-        upcoming.push(task);
-      } else {
-        // Default to active if date comparison fails
-        active.push(task);
-      }
+    const dueDate = new Date(task.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    if (dueDate.getTime() <= today.getTime()) {
+      active.push(task);
+    } else {
+      upcoming.push(task);
     }
   });
   

@@ -29,13 +29,13 @@ export const calculateTaskStatusUserStatus = (
   task: Task
 ): TaskStatusUserStatus => {
   // Completed always wins
-  if (completionLog || taskStatus?.status === 'completed') {
-    return 'completed';
+  if (completionLog || taskStatus?.status === 'Completed') {
+    return 'Completed';
   }
 
   // Recovered overrides date-based status
-  if (taskStatus?.recoveredAt || taskStatus?.status === 'recovered') {
-    return 'recovered';
+  if (taskStatus?.recoveredAt || taskStatus?.status === 'Recovered') {
+    return 'Recovered';
   }
 
   const effectiveDueDate = normalizeToStartOfDay(
@@ -44,20 +44,20 @@ export const calculateTaskStatusUserStatus = (
   const today = normalizeToStartOfDay(new Date());
 
   // Explicit archived flag from user status takes precedence over date check
-  if (taskStatus?.status === 'archived' || taskStatus?.archivedAt) {
-    return 'archived';
+  if (taskStatus?.status === 'Archived' || taskStatus?.archivedAt) {
+    return 'Archived';
   }
 
   if (effectiveDueDate.getTime() > today.getTime()) {
-    return 'upcoming';
+    return 'Upcoming';
   }
 
   if (effectiveDueDate.getTime() === today.getTime()) {
-    return 'active';
+    return 'Active';
   }
 
   // Past due and not completed/recovered -> archived
-  return 'archived';
+  return 'Archived';
 };
 
 /**
@@ -215,7 +215,7 @@ export const getRingColor = (
 
   // PRIORITY 2: If task status is completed but no completion log found, 
   // check if ringColor is set (this handles edge cases where completion log might not be passed)
-  if (taskStatus.status === 'completed' && taskStatus.ringColor) {
+  if (taskStatus.status === 'Completed' && taskStatus.ringColor) {
     switch (taskStatus.ringColor) {
       case 'green':
         return 'ring-green-500';
@@ -275,8 +275,14 @@ export const getRingColor = (
  */
 export const mapTaskStatusForUI = (status: TaskStatus): 'active' | 'completed' | 'archived' => {
   switch (status) {
-    case 'active':
-    case 'upcoming':
+    case 'Active':
+    case 'Upcoming':
+      return 'active';
+    case 'Archived':
+      return 'archived';
+    case 'Completed':
+      return 'completed';
+    case 'Recovered':
       return 'active';
     default:
       return 'active';
@@ -303,12 +309,12 @@ export const canCompleteTask = (
   const computedStatus = task ? calculateTaskStatusUserStatus(taskStatus, completionLog, task) : taskStatus.status;
 
   // Recovered tasks can always be completed from today's view
-  if (taskStatus.recoveredAt || computedStatus === 'recovered') {
+  if (taskStatus.recoveredAt || computedStatus === 'Recovered') {
     return true;
   }
 
   // Only allow completion for active (due today) tasks
-  return computedStatus === 'active';
+  return computedStatus === 'Active';
 };
 
 /**
@@ -330,13 +336,13 @@ export const canRecoverTask = (
   if (!taskStatus && !task) return false;
 
   // Already recovered
-  if (taskStatus?.recoveredAt || taskStatus?.status === 'recovered') return false;
+  if (taskStatus?.recoveredAt || taskStatus?.status === 'Recovered') return false;
 
   const computedStatus = task
     ? calculateTaskStatusUserStatus(taskStatus, completionLog, task)
     : taskStatus?.status;
 
-  return computedStatus === 'archived';
+  return computedStatus === 'Archived';
 };
 
 /**
@@ -346,16 +352,16 @@ export const canRecoverTask = (
  * @returns Badge variant string
  */
 export const getStatusBadgeVariant = (
-  uiStatus: 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming'
+  uiStatus: TaskStatusUserStatus
 ): 'default' | 'secondary' | 'outline' => {
   switch (uiStatus) {
-    case 'completed':
+    case 'Completed':
       return 'default';
-    case 'active':
-    case 'upcoming':
-    case 'recovered':
+    case 'Active':
+    case 'Upcoming':
+    case 'Recovered':
       return 'secondary';
-    case 'archived':
+    case 'Archived':
       return 'outline';
     default:
       return 'outline';
@@ -369,18 +375,18 @@ export const getStatusBadgeVariant = (
  * @returns Color class string
  */
 export const getStatusColor = (
-  uiStatus: 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming'
+  uiStatus: TaskStatusUserStatus
 ): string => {
   switch (uiStatus) {
-    case 'active':
+    case 'Active':
       return 'text-primary';
-    case 'upcoming':
+    case 'Upcoming':
       return 'text-muted-foreground';
-    case 'recovered':
+    case 'Recovered':
       return 'text-accent';
-    case 'completed':
+    case 'Completed':
       return 'text-status-completed';
-    case 'archived':
+    case 'Archived':
       return 'text-muted-foreground';
     default:
       return 'text-muted-foreground';

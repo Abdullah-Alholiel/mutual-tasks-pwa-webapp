@@ -149,7 +149,6 @@ function transformTaskRow(row: TaskRow, taskStatuses?: TaskStatusEntity[], recur
     type: row.type,
     recurrencePattern: (row.recurrence_pattern as any) || undefined,
     dueDate: new Date(row.due_date),
-    status: row.status,
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
@@ -188,7 +187,7 @@ export interface DatabaseClient {
   updateProject(id: string, data: Partial<Project>): Promise<Project>;
   
   // Tasks
-  getTasks(filters?: { projectId?: string; userId?: string; status?: TaskStatus }): Promise<Task[]>;
+  getTasks(filters?: { projectId?: string; userId?: string }): Promise<Task[]>;
   getTask(id: string): Promise<Task | null>;
   createTask(data: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task>;
   updateTask(id: string, data: Partial<Task>): Promise<Task>;
@@ -265,7 +264,7 @@ class MockDatabaseClient implements DatabaseClient {
     return project;
   }
 
-  async getTasks(filters?: { projectId?: string; userId?: string; status?: TaskStatus }): Promise<Task[]> {
+  async getTasks(filters?: { projectId?: string; userId?: string }): Promise<Task[]> {
     let tasks = [...mockTasks];
     
     if (filters?.projectId) {
@@ -277,10 +276,6 @@ class MockDatabaseClient implements DatabaseClient {
         t.taskStatuses?.some(ts => ts.userId === filters.userId) ||
         t.creatorId === filters.userId
       );
-    }
-    
-    if (filters?.status) {
-      tasks = tasks.filter(t => t.status === filters.status);
     }
     
     return tasks;
@@ -469,15 +464,11 @@ class SupabaseDatabaseClient implements DatabaseClient {
     return transformProjectRow(result as ProjectRow);
   }
 
-  async getTasks(filters?: { projectId?: string; userId?: string; status?: TaskStatus }): Promise<Task[]> {
+  async getTasks(filters?: { projectId?: string; userId?: string }): Promise<Task[]> {
     let query = this.supabase.from('tasks').select('*');
 
     if (filters?.projectId) {
       query = query.eq('project_id', filters.projectId);
-    }
-
-    if (filters?.status) {
-      query = query.eq('status', filters.status);
     }
 
     const { data, error } = await query;
@@ -513,7 +504,6 @@ class SupabaseDatabaseClient implements DatabaseClient {
       type: data.type,
       recurrence_pattern: data.recurrencePattern || null,
       due_date: data.dueDate.toISOString(),
-      status: data.status,
       completed_at: data.completedAt?.toISOString() || null,
     };
 
@@ -531,7 +521,6 @@ class SupabaseDatabaseClient implements DatabaseClient {
     const row: Partial<TaskRow> = {};
     if (data.title !== undefined) row.title = data.title;
     if (data.description !== undefined) row.description = data.description || null;
-    if (data.status !== undefined) row.status = data.status;
     if (data.dueDate !== undefined) row.due_date = data.dueDate.toISOString();
     if (data.completedAt !== undefined) row.completed_at = data.completedAt?.toISOString() || null;
 
