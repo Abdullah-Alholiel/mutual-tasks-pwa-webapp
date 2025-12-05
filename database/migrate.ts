@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { Client } from 'pg';
 import {
-  ASSIGNMENT_STATUSES,
   NOTIFICATION_TYPES,
   PROJECT_ROLES,
   RECURRENCE_PATTERNS,

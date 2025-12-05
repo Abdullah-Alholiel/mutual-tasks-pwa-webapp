@@ -7,7 +7,8 @@ This document explains how all components operationally function and which files
 2. [Data Flow](#data-flow)
 3. [File Structure & Responsibilities](#file-structure--responsibilities)
 4. [Component Patterns](#component-patterns)
-5. [Standardization Checklist](#standardization-checklist)
+5. [Task Status Model](#task-status-model)
+6. [Standardization Checklist](#standardization-checklist)
 
 ---
 
@@ -26,6 +27,46 @@ User Interaction → Page Component → Feature Component → Data Layer → Moc
 3. **Component Composition**: Pages compose feature components, which compose UI components
 4. **State Management**: React state in pages, passed down as props to components
 5. **Utility Functions**: Reusable logic in `src/lib/` (taskUtils, notificationService, etc.)
+6. **Per-User Task Status**: Task status is stored per user (`TaskStatusEntity.status`), NOT on the task itself. Enum values are `Active | Completed | Archived | Recovered | Upcoming` (capitalized).
+
+---
+
+## Task Status Model
+
+### Core Concept
+**Tasks do NOT have a global status field.** All task status is user-dependent and stored in `TaskStatusEntity` records.
+
+### TaskStatusEntity Structure
+```typescript
+interface TaskStatusEntity {
+  id: string;
+  taskId: string;
+  userId: string;  // Foreign key to user
+  status: TaskStatus;  // 'Active' | 'Completed' | 'Archived' | 'Recovered' | 'Upcoming'
+  effectiveDueDate: Date;
+  archivedAt?: Date;
+  recoveredAt?: Date;
+  timingStatus?: TimingStatus;
+  ringColor?: RingColor;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Status Calculation Logic
+The `calculateTaskStatusUserStatus()` function in `taskUtils.ts` determines status based on:
+1. **Completed**: If user has a completion log OR status is 'Completed'
+2. **Recovered**: If `recoveredAt` is set OR status is 'Recovered'
+3. **Archived**: If `archivedAt` is set OR status is 'Archived' OR past due date
+4. **Upcoming**: If due date is in the future
+5. **Active**: If due date is today and not completed/archived/recovered
+
+### Status Rules
+- **Active**: Task due today, user hasn't completed it yet
+- **Completed**: User marked task as complete (has completion log)
+- **Archived**: Task past due date, user didn't complete it
+- **Recovered**: User recovered an archived task (can be completed from "Another Chance?" section)
+- **Upcoming**: Task due date is in the future
 
 ---
 
@@ -74,10 +115,15 @@ User Interaction → Page Component → Feature Component → Data Layer → Moc
 **Key Types**:
 - `User`, `UserStats` - User entities
 - `Project`, `ProjectParticipant` - Project entities
-- `Task`, `TaskStatusEntity` - Task entities (note: TaskStatusEntity replaces TaskAssignment)
+- `Task` - Task entity (NO status field - status is per-user only)
+- `TaskStatusEntity` - Per-user task status (status enum: `Active | Completed | Archived | Recovered | Upcoming`)
 - `CompletionLog` - Task completion records
 - `Notification` - User notifications
 - `TaskRecurrence` - Recurring task patterns
+
+**Key Enums**:
+- `TaskStatus` = `'Active' | 'Completed' | 'Archived' | 'Recovered' | 'Upcoming'`
+- `TASK_STATUSES` = `['Active', 'Completed', 'Archived', 'Recovered', 'Upcoming']`
 
 **Standardization Note**: All types use camelCase. Database layer (`db.ts`) handles transformation to/from snake_case.
 
@@ -100,6 +146,7 @@ const projects = await db.getProjects({ userId: currentUser.id });
 ```
 
 **Standardization**: All components should use `db` client, never access `mockData` directly.
+**Task Status Note**: Tasks have NO `status` field. `getTasks()` filters only by `projectId` and `userId`. Per-user status is in `taskStatuses` array.
 
 ---
 
@@ -115,6 +162,7 @@ const projects = await db.getProjects({ userId: currentUser.id });
 - ✅ Used by `db.ts` MockDatabaseClient
 - ❌ Should NOT be imported directly in components
 - ✅ Helper functions can be used for UI utilities (e.g., `getUserById` for displaying user info)
+**Task Status Note**: `mockTasks` have NO `status` field. All status is modeled via `mockTaskStatuses` (per-user, capitalized enum values).
 
 ---
 
@@ -122,10 +170,11 @@ const projects = await db.getProjects({ userId: currentUser.id });
 **Purpose**: Reusable, standardized task-related logic
 
 **Key Functions**:
+- `calculateTaskStatusUserStatus()` - Calculate user's task status based on completion, recovery, and dates
 - `getRingColor()` - Calculate avatar ring color (green/yellow/red/none)
-- `canCompleteTask()` - Check if task can be completed
-- `canRecoverTask()` - Check if task can be recovered
-- `mapTaskStatusForUI()` - Map DB status to UI status
+- `canCompleteTask()` - Check if task can be completed (only active/recovered tasks due today)
+- `canRecoverTask()` - Check if task can be recovered (only archived tasks)
+- `normalizeToStartOfDay()` - Normalize dates to start of day
 - `getStatusBadgeVariant()`, `getStatusColor()` - UI styling helpers
 
 **Standardization**: 
@@ -142,15 +191,53 @@ const projects = await db.getProjects({ userId: currentUser.id });
 - `getTodayTasks(tasks, userId?)` - Get tasks due today
 - `getProjectTasks(tasks, projectId)` - Get tasks for a specific project
 - `getUserTasks(tasks, userId)` - Get tasks for a specific user
-- `getNeedsActionTasks(tasks, taskStatuses, completionLogs, userId)` - Get tasks needing user action
-- `getCompletedTasks(tasks, completionLogs, userId)` - Get completed tasks
+- `getNeedsActionTasks(tasks, taskStatuses, completionLogs, userId)` - Get active tasks due today (for "Needs Your Action" section)
+- `getCompletedTasksForToday(tasks, taskStatuses, completionLogs, userId)` - Get completed tasks with today's date (for "Done for the Day" section)
+- `getRecoveredTasks(tasks, taskStatuses, completionLogs, userId)` - Get recovered tasks regardless of date (for "Another Chance?" section)
 - `getArchivedTasks(tasks, taskStatuses, completionLogs, userId)` - Get archived tasks that can be recovered
+- `getUpcomingTasks(tasks, taskStatuses, completionLogs, userId)` - Get upcoming tasks
 - `updateTasksWithStatuses(tasks, taskStatuses)` - Update tasks with their status entities
+
+**Status Source**: All filters derive from per-user `TaskStatusEntity.status` (capitalized enums: `Active`, `Completed`, etc.) plus completion logs. Task-level status does not exist.
 
 **Standardization**: 
 - ✅ All pages use these utilities for task filtering
 - ✅ Eliminates duplication across Index.tsx, Projects.tsx, and ProjectDetail.tsx
 - ✅ Consistent filtering logic across the application
+
+---
+
+#### `taskCreationUtils.ts` - Task Creation Utilities
+**Purpose**: Standardized task creation logic
+
+**Key Functions**:
+- `getProjectParticipantIds(project, allUsers)` - Get all participant IDs including owner
+- `buildTaskStatus(taskId, userId, status, dueDate, timestamp)` - Build a task status entity
+- `createTaskStatusesForAllParticipants(taskId, project, allUsers, dueDate, timestamp)` - Create status entities for all project participants (initial status: `'Active'`)
+- `validateProjectForTaskCreation(project, allUsers, minParticipants)` - Validate project has enough participants
+
+**Standardization**: 
+- ✅ All task creation uses these utilities
+- ✅ Ensures consistent task status initialization
+- ✅ Validates project requirements before task creation
+
+---
+
+#### `taskRecoveryUtils.ts` - Task Recovery Utilities
+**Purpose**: Standardized task recovery logic
+
+**Key Functions**:
+- `recoverTask(taskId, userId, tasks, taskStatuses)` - Recover an archived task
+  - Sets status to `'Recovered'`
+  - Sets `recoveredAt` timestamp
+  - Clears `archivedAt`
+  - Sets `ringColor` to `'yellow'`
+  - Sets `timingStatus` to `'late'`
+
+**Standardization**: 
+- ✅ All task recovery uses this utility
+- ✅ Ensures consistent recovery behavior
+- ✅ Only archived tasks can be recovered
 
 ---
 
@@ -162,11 +249,29 @@ const projects = await db.getProjects({ userId: currentUser.id });
 - `calculateProjectsProgress(projects, tasks, completionLogs, userId)` - Batch progress calculation for multiple projects
 - `getUserProjects(projects, userId)` - Filter projects by user participation
 - `getPublicProjects(projects, userId)` - Filter public projects user is not part of
+- `getProjectsWhereCanCreateTasks(projects, userId)` - Get projects where user can create tasks (owner/manager roles)
+- `joinProject(projectId, userId, user, projectParticipants, project)` - Join a public project
+- `leaveProject(projectId, userId, projectParticipants)` - Leave a project
+- `canLeaveProject(project, userId)` - Check if user can leave project
 
 **Standardization**: 
 - ✅ All pages use these utilities for progress calculation
 - ✅ Eliminates duplication (was duplicated in Index.tsx and Projects.tsx)
 - ✅ Consistent progress calculation across the application
+
+---
+
+#### `userUtils.ts` - User Utilities
+**Purpose**: User-related helper functions
+
+**Key Functions**:
+- `isHandleUnique(handle, excludeUserId?)` - Check if handle is unique
+- `validateHandleFormat(handle)` - Validate handle format (@ prefix, alphanumeric + underscore, 3-30 chars)
+- `findUserByIdentifier(identifier)` - Find user by email or handle
+
+**Standardization**: 
+- ✅ All user lookup/validation uses these utilities
+- ✅ Consistent handle validation across the application
 
 ---
 
@@ -195,7 +300,18 @@ const projects = await db.getProjects({ userId: currentUser.id });
 
 ---
 
-### `/src/hooks/` - React Query Hooks
+#### `emailTemplates.ts` - Email Template Utilities
+**Purpose**: Generate email templates for notifications
+
+**Key Functions**:
+- `generateTaskCompletedEmail()` - Generate email for task completion
+- Various email template generators for different notification types
+
+**Standardization**: All email generation uses these templates.
+
+---
+
+### `/src/hooks/` - React Hooks
 
 #### `useProjects.ts` - Project Data Hooks
 **Purpose**: React Query hooks for project data fetching and mutations
@@ -218,13 +334,13 @@ const projects = await db.getProjects({ userId: currentUser.id });
 **Purpose**: React Query hooks for task data fetching and mutations
 
 **Key Hooks**:
-- `useTasks(filters?)` - Fetch tasks with optional filters
+- `useTasks(filters?)` - Fetch tasks with optional filters (projectId, userId only - no status filter)
 - `useTask(id)` - Fetch single task by ID
 - `useTodayTasks()` - Fetch today's tasks
 - `useProjectTasks(projectId)` - Fetch tasks for a project
 - `useCreateTask()` - Create new task mutation
 - `useUpdateTask()` - Update task mutation
-- `useUpdateTaskStatus()` - Update task status mutation
+- `useUpdateTaskStatus()` - Update task status mutation (per-user status)
 
 **Standardization**: 
 - ✅ Ready for React Query integration
@@ -246,6 +362,42 @@ const projects = await db.getProjects({ userId: currentUser.id });
 
 ---
 
+#### `useProjectDetail.ts` - Project Detail Hook
+**Purpose**: Custom hook for project detail page logic
+
+**Key Features**:
+- Manages all state for project detail page
+- Categorizes tasks by user status (Active/Recovered, Upcoming, Completed, Archived)
+- Prevents task duplication across sections
+- Handles task creation, recovery, completion
+- Manages project member operations
+
+**Returns**:
+- Project data, participants, progress
+- Task lists (active, upcoming, completed, archived, habits)
+- UI state (modals, dialogs)
+- Action handlers (create, recover, complete, add member, etc.)
+- Permission flags (isOwner, isManager, canManage, canLeave)
+
+**Standardization**: 
+- ✅ Centralizes all project detail logic
+- ✅ Uses utilities for filtering and calculations
+- ✅ Prevents task duplication with user-specific categorization
+
+---
+
+#### `use-mobile.tsx` - Mobile Detection Hook
+**Purpose**: Detect if user is on mobile device
+
+**Usage**: Used for responsive UI behavior
+
+---
+
+#### `use-toast.ts` - Toast Hook
+**Purpose**: Toast notification hook (from shadcn/ui)
+
+---
+
 ### `/src/pages/` - Page Components
 
 #### `Index.tsx` - Today's Tasks Page
@@ -257,20 +409,24 @@ const projects = await db.getProjects({ userId: currentUser.id });
 - Groups tasks into: "Needs Your Action", "Done for the Day", "Another Chance?"
 
 **Key Operations**:
-- `handleComplete()` - Complete task with difficulty rating
-- `handleRecover()` - Recover archived task
+- `handleComplete()` - Complete task with difficulty rating (only in today's view)
 - `handleCreateTask()` - Create new task (one-off or habit with recurrence)
 - `handleCreateProject()` - Create new project
 
 **Data Flow**:
 1. Loads tasks from mockData
-2. Filters by today's date
-3. Groups by user status
+2. Filters by today's date using `getTodayTasks()`
+3. Groups by user status using `getNeedsActionTasks()`, `getCompletedTasksForToday()`, `getRecoveredTasks()`
 4. Updates state on actions
 5. Passes data to `TaskCard` components
 
+**Sections**:
+- **Needs Your Action**: Active tasks due today (status: `Active`)
+- **Done for the Day**: Completed tasks with today's completion date
+- **Another Chance?**: Recovered tasks (status: `Recovered`, regardless of date)
+
 **Standardization**: 
-- ✅ Uses `getTodayTasks()`, `getNeedsActionTasks()`, `getCompletedTasks()`, `getArchivedTasks()` utilities
+- ✅ Uses `getTodayTasks()`, `getNeedsActionTasks()`, `getCompletedTasksForToday()`, `getRecoveredTasks()` utilities
 - ✅ Uses `updateTasksWithStatuses()` utility
 - ✅ Uses `calculateProjectProgress()` utility
 - ✅ Uses `handleError()` for error handling
@@ -293,13 +449,14 @@ const projects = await db.getProjects({ userId: currentUser.id });
 
 **Data Flow**:
 1. Loads projects from mockData
-2. Filters into "My Projects" and "Public Projects"
-3. Calculates progress for each project
+2. Filters into "My Projects" and "Public Projects" using `getUserProjects()` and `getPublicProjects()`
+3. Calculates progress for each project using `calculateProjectsProgress()`
 4. Renders `ProjectCard` components
 
 **Standardization**: 
 - ✅ Uses `calculateProjectsProgress()` utility
 - ✅ Uses `getUserProjects()` and `getPublicProjects()` utilities
+- ✅ Uses `joinProject()` utility
 - ✅ Uses `handleError()` for error handling
 - ✅ Uses `useMemo` for performance optimization
 - ✅ Consistent type imports
@@ -310,12 +467,32 @@ const projects = await db.getProjects({ userId: currentUser.id });
 #### `ProjectDetail.tsx` - Project Detail Page
 **Responsibility**: Display project details, tasks, participants
 
+**Architecture**:
+- Uses `useProjectDetail()` hook for all logic
+- Composes `ProjectHeader`, `ProjectStats`, `ProjectTaskSections` components
+- Tabs: All, Active, Completed, Upcoming, Habits, Archived
+
+**Task Categorization**:
+- **All Tab**: Shows all tasks in project (no duplicates)
+- **Active Tab**: Tasks with user status `Active` or `Recovered`
+- **Upcoming Tab**: Tasks with user status `Upcoming`
+- **Completed Tab**: Tasks user has completed (has completion log)
+- **Archived Tab**: Tasks with user status `Archived`
+- **Habits Tab**: All habit tasks in project
+
+**Key Operations**:
+- Task creation (via `TaskForm`)
+- Task recovery (via `handleRecover` - only in project detail view)
+- Task completion (via `handleComplete` - only in today's view)
+- Member management (add, remove, update role)
+- Project editing
+
 **Standardization**: 
-- ✅ Uses `getProjectTasks()`, `updateTasksWithStatuses()` utilities
-- ✅ Uses `calculateProjectProgress()` utility
-- ✅ Uses `getNeedsActionTasks()`, `getCompletedTasks()`, `getArchivedTasks()` utilities
+- ✅ Uses `useProjectDetail()` hook (centralized logic)
+- ✅ Uses `ProjectHeader`, `ProjectStats`, `ProjectTaskSections` components
 - ✅ Uses `handleError()` for error handling
 - ✅ Consistent type imports
+- ✅ Prevents task duplication with user-specific categorization
 - ⚠️ Still uses local state (React Query hooks ready for integration)
 
 ---
@@ -323,11 +500,24 @@ const projects = await db.getProjects({ userId: currentUser.id });
 #### `Profile.tsx` - User Profile Page
 **Responsibility**: Display user stats, streaks, completion history
 
+**Components Used**:
+- `StreakCalendar` - Activity heatmap
+
 **Standardization**: 
 - ✅ Uses `getUserProjects()` utility
 - ✅ Uses `handleError()` for error handling
 - ✅ Consistent type imports
 - ⚠️ Still uses local state (React Query hooks ready for integration)
+
+---
+
+#### `Auth.tsx` - Authentication Page
+**Responsibility**: User authentication
+
+---
+
+#### `NotFound.tsx` - 404 Page
+**Responsibility**: Display 404 error
 
 ---
 
@@ -344,6 +534,10 @@ const projects = await db.getProjects({ userId: currentUser.id });
 - **Purpose**: Navigation bars
 - **Standardization**: ✅ Consistent navigation structure
 
+##### `NavLink.tsx`
+- **Purpose**: Navigation link component
+- **Standardization**: ✅ Used in navigation components
+
 ---
 
 #### Feature Components
@@ -352,17 +546,26 @@ const projects = await db.getProjects({ userId: currentUser.id });
 **Purpose**: Display individual task with status, participants, actions
 
 **Props**:
-- `task: Task` - Task to display
+- `task: Task` - Task to display (NO status field)
 - `completionLogs?: CompletionLog[]` - Completion records
-- `onComplete?: (taskId, difficultyRating) => void` - Completion handler
-- `onRecover?: (taskId) => void` - Recovery handler
-- `onAccept?`, `onDecline?` - Acceptance handlers (if needed)
+- `onComplete?: (taskId, difficultyRating) => void` - Completion handler (only shown in today's view)
+- `onRecover?: (taskId) => void` - Recovery handler (only shown in project detail view)
+- `showRecover?: boolean` - Control recover button visibility (default: true)
 
 **Key Features**:
-- ✅ Uses `taskUtils` for ring color, status mapping, action checks
+- ✅ Uses `calculateTaskStatusUserStatus()` to determine user's status
+- ✅ Uses `getRingColor()` for participant ring colors
+- ✅ Uses `canCompleteTask()` and `canRecoverTask()` for action visibility
 - ✅ Displays all participants with ring colors
 - ✅ Shows completion status per participant
 - ✅ Handles difficulty rating modal
+- ✅ Status badge shows user's status (Active, Completed, Archived, Recovered, Upcoming)
+
+**Status Display Logic**:
+- Calculates user's status using `calculateTaskStatusUserStatus()`
+- Maps status to UI badge (Active/Recovered show as "active", Completed shows as "completed", Archived shows as "archived")
+- Shows "Mark Complete" button only if `canCompleteTask()` returns true AND `onComplete` is provided
+- Shows "Recover Task" button only if `canRecoverTask()` returns true AND `showRecover` is true AND `onRecover` is provided
 
 **Standardization**: ✅ Well-standardized, uses utilities correctly
 
@@ -392,6 +595,7 @@ const projects = await db.getProjects({ userId: currentUser.id });
 - `onSubmit: (taskData) => void` - Form submission handler
 - `projects: Project[]` - Available projects
 - `allowProjectSelection?: boolean` - Allow project selection
+- `onCreateProject?: () => Project` - Create project handler
 
 **Standardization**: ✅ Uses Dialog component, consistent form pattern
 
@@ -422,13 +626,109 @@ const projects = await db.getProjects({ userId: currentUser.id });
 
 ---
 
+##### `ProjectHeader.tsx` - Project Header Component
+**Purpose**: Display project header with actions
+
+**Props**:
+- `project: Project`
+- `canManage: boolean`
+- `onBack: () => void`
+- `onEdit: () => void`
+- `onCreateTask: () => void`
+
+**Features**:
+- Shows project icon, name, description
+- Back button
+- Edit button (if can manage)
+- Create task button (if can manage)
+
+**Standardization**: ✅ Reusable, consistent styling
+
+---
+
+##### `ProjectStats.tsx` - Project Statistics Component
+**Purpose**: Display project statistics and participants
+
+**Props**:
+- `project: Project`
+- `progress: number`
+- `completedCount: number`
+- `totalTasks: number`
+- `activeCount: number`
+- `completedTasksCount: number`
+- `participants: ProjectParticipant[]`
+- `isOwner: boolean`
+- `onAddMember: () => void`
+- `onViewMembers: () => void`
+
+**Features**:
+- Progress bar
+- Active/Completed task counts
+- Participant avatars
+- Add member button (if owner)
+
+**Standardization**: ✅ Reusable, consistent styling
+
+---
+
+##### `ProjectTaskSections.tsx` - Project Task Sections Component
+**Purpose**: Display task sections for project detail view
+
+**Props**:
+- `activeTasks: Task[]`
+- `upcomingTasks: Task[]`
+- `completedTasks: Task[]`
+- `archivedTasks: Task[]`
+- `completionLogs: CompletionLog[]`
+- `onRecover: (taskId: string) => void`
+
+**Features**:
+- Renders task sections (Active, Upcoming, Completed, Archived)
+- Uses `TaskSection` sub-component
+- Shows recover button only in Archived section
+
+**Standardization**: ✅ Reusable, consistent structure
+
+---
+
+##### `Inbox.tsx` - Notifications Inbox Component
+**Purpose**: Display and manage notifications
+
+**Props**:
+- `notifications: Notification[]`
+- `onMarkAsRead: (notificationId: string) => void`
+- `onMarkAllAsRead: () => void`
+
+**Features**:
+- Unread count badge
+- Grouped by read/unread
+- Click to navigate to task/project
+- Mark as read functionality
+
+**Standardization**: ✅ Reusable, consistent UI
+
+---
+
+##### `StreakCalendar.tsx` - Activity Heatmap Component
+**Purpose**: Display user activity streak calendar
+
+**Features**:
+- 7-week activity heatmap
+- Current streak display
+- Longest streak display
+- Intensity-based color coding
+
+**Standardization**: ✅ Reusable, consistent styling
+
+---
+
 #### UI Components (`/src/components/ui/`)
 **Purpose**: shadcn/ui component library
 
 **Standardization**: ✅ All components from shadcn/ui, consistent styling
 
 **Key Components Used**:
-- `Button`, `Card`, `Badge`, `Avatar`, `Dialog`, `Tabs`, `Progress`, etc.
+- `Button`, `Card`, `Badge`, `Avatar`, `Dialog`, `Tabs`, `Progress`, `Input`, `Label`, `Select`, `Toast`, etc.
 
 ---
 
@@ -443,7 +743,7 @@ const PageName = () => {
   
   // 2. Data loading/filtering
   const filteredData = useMemo(() => {
-    // Filter logic
+    // Filter logic using utilities
   }, [data]);
   
   // 3. Event handlers
@@ -471,8 +771,8 @@ interface ComponentProps {
 
 export const Component = ({ data, onAction }: ComponentProps) => {
   // 1. Use utilities from lib/
-  const status = mapTaskStatusForUI(data.status);
-  const canAct = canCompleteTask(data);
+  const status = calculateTaskStatusUserStatus(taskStatus, completionLog, task);
+  const canAct = canCompleteTask(taskStatus, completionLog, task);
   
   // 2. Local UI state (modals, etc.)
   const [isOpen, setIsOpen] = useState(false);
@@ -496,11 +796,23 @@ const projects = await db.getProjects({ userId: currentUser.id });
 import { mockProjects } from '@/lib/mockData';
 ```
 
-### 4. Utility Usage Pattern
+### 4. Task Status Pattern
+```typescript
+// ✅ CORRECT: Calculate user status
+import { calculateTaskStatusUserStatus } from '@/lib/taskUtils';
+const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
+const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
+const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
+
+// ❌ INCORRECT: Access task.status (doesn't exist)
+const status = task.status; // Wrong! Tasks don't have status
+```
+
+### 5. Utility Usage Pattern
 ```typescript
 // ✅ CORRECT: Use taskUtils
 import { getRingColor, canCompleteTask } from '@/lib/taskUtils';
-const ringColor = getRingColor(taskStatus, completionLog, taskDueDate);
+const ringColor = getRingColor(taskStatus, completionLog, task);
 
 // ❌ INCORRECT: Duplicate logic
 const ringColor = taskStatus.completed ? 'green' : 'red'; // Wrong!
@@ -518,14 +830,38 @@ const ringColor = taskStatus.completed ? 'green' : 'red'; // Wrong!
   - `calculateProjectsProgress()` - Batch progress calculation
   - `getUserProjects()` - Filter user projects
   - `getPublicProjects()` - Filter public projects
+  - `getProjectsWhereCanCreateTasks()` - Filter projects by permission
+  - `joinProject()` - Join public project
+  - `leaveProject()` - Leave project
+  - `canLeaveProject()` - Check if user can leave
 - [x] **Task Filtering Utilities** (`taskFilterUtils.ts`)
   - `getTodayTasks()` - Get today's tasks
   - `getProjectTasks()` - Get project tasks
   - `getUserTasks()` - Get user tasks
   - `getNeedsActionTasks()` - Get tasks needing action
-  - `getCompletedTasks()` - Get completed tasks
+  - `getCompletedTasksForToday()` - Get completed tasks for today
+  - `getRecoveredTasks()` - Get recovered tasks
   - `getArchivedTasks()` - Get archived tasks
+  - `getUpcomingTasks()` - Get upcoming tasks
   - `updateTasksWithStatuses()` - Update tasks with statuses
+- [x] **Task Creation Utilities** (`taskCreationUtils.ts`)
+  - `getProjectParticipantIds()` - Get participant IDs
+  - `buildTaskStatus()` - Build task status entity
+  - `createTaskStatusesForAllParticipants()` - Create statuses for all participants
+  - `validateProjectForTaskCreation()` - Validate project for task creation
+- [x] **Task Recovery Utilities** (`taskRecoveryUtils.ts`)
+  - `recoverTask()` - Recover archived task
+- [x] **Task Logic Utilities** (`taskUtils.ts`)
+  - `calculateTaskStatusUserStatus()` - Calculate user status
+  - `getRingColor()` - Calculate ring color
+  - `canCompleteTask()` - Check if can complete
+  - `canRecoverTask()` - Check if can recover
+  - `normalizeToStartOfDay()` - Normalize dates
+  - `getStatusBadgeVariant()`, `getStatusColor()` - UI helpers
+- [x] **User Utilities** (`userUtils.ts`)
+  - `isHandleUnique()` - Check handle uniqueness
+  - `validateHandleFormat()` - Validate handle format
+  - `findUserByIdentifier()` - Find user by email/handle
 - [x] **Error Handling Utilities** (`errorUtils.ts`)
   - `handleError()` - Consistent error handling
   - `handleAsync()` - Async operation wrapper
@@ -539,11 +875,13 @@ const ringColor = taskStatus.completed ? 'green' : 'red'; // Wrong!
   - `useCreateTask()`, `useUpdateTask()`, `useUpdateTaskStatus()`
 - [x] **User Hooks** (`useCurrentUser.ts`)
   - `useCurrentUser()`, `useCurrentUserStats()`
+- [x] **Project Detail Hook** (`useProjectDetail.ts`)
+  - Centralized project detail page logic
 
 #### 3. Pages Updated ✅
 - [x] **Index.tsx** - Uses all utilities, error handling, memoization
 - [x] **Projects.tsx** - Uses all utilities, error handling, memoization
-- [x] **ProjectDetail.tsx** - Uses all utilities, error handling
+- [x] **ProjectDetail.tsx** - Uses `useProjectDetail()` hook, all utilities
 - [x] **Profile.tsx** - Uses utilities, error handling
 
 #### 4. Type Imports ✅
@@ -554,6 +892,13 @@ const ringColor = taskStatus.completed ? 'green' : 'red'; // Wrong!
 #### 5. Error Handling ✅
 - [x] All error handling uses `handleError()` utility
 - [x] Consistent error logging and user notifications
+
+#### 6. Task Status Model ✅
+- [x] Tasks have NO `status` field
+- [x] All status is per-user via `TaskStatusEntity`
+- [x] Status enum: `Active | Completed | Archived | Recovered | Upcoming` (capitalized)
+- [x] All status calculation uses `calculateTaskStatusUserStatus()`
+- [x] All components use per-user status correctly
 
 ### ⚠️ Future Improvements
 
@@ -579,58 +924,29 @@ const ringColor = taskStatus.completed ? 'green' : 'red'; // Wrong!
 
 ---
 
-## Standardization Implementation Summary
-
-### Files Created
-1. `/src/lib/projectUtils.ts` - Project utilities (progress calculation, filtering)
-2. `/src/lib/taskFilterUtils.ts` - Task filtering utilities
-3. `/src/lib/errorUtils.ts` - Error handling utilities
-4. `/src/hooks/useProjects.ts` - Project React Query hooks
-5. `/src/hooks/useTasks.ts` - Task React Query hooks
-6. `/src/hooks/useCurrentUser.ts` - Current user hooks
-
-### Files Updated
-1. `/src/pages/Index.tsx` - Uses utilities, error handling, memoization
-2. `/src/pages/Projects.tsx` - Uses utilities, error handling, memoization
-3. `/src/pages/ProjectDetail.tsx` - Uses utilities, error handling
-4. `/src/pages/Profile.tsx` - Uses utilities, error handling
-5. All component files - Updated type imports to `import type`
-6. All library files - Updated type imports to `import type`
-
-### Impact Achieved
-1. **Eliminated Duplication**: Progress calculation centralized (was in 2+ places)
-2. **Consistent Filtering**: Task filtering uses standardized utilities
-3. **Error Handling**: All errors go through `handleError()` utility
-4. **Type Safety**: Better tree-shaking with `import type`
-5. **Performance**: Added `useMemo` to prevent unnecessary recalculations
-6. **Future-Ready**: React Query hooks ready for integration
-
-### Next Steps
-1. **Integrate React Query**: Replace local state with React Query hooks in pages
-2. **Remove Direct mockData Imports**: All data access should go through `db` client
-3. **Add Loading States**: Use React Query's `isLoading` states
-4. **Add Error Boundaries**: Implement error boundaries for better error handling
-
----
-
 ## Best Practices
 
 ### ✅ DO
 - Use `db` client for all data access
 - Use utilities from `lib/taskUtils.ts` for task logic
+- Use `calculateTaskStatusUserStatus()` to get user's task status
 - Import types from `@/types`
 - Use `AppLayout` for all pages
 - Use shadcn/ui components for UI
 - Show toast notifications for user actions
 - Use TypeScript interfaces for all props
+- Use per-user task status (TaskStatusEntity), not task-level status
+- Use capitalized status enums: `Active`, `Completed`, `Archived`, `Recovered`, `Upcoming`
 
 ### ❌ DON'T
 - Import directly from `mockData.ts` in components
+- Access `task.status` (doesn't exist - use TaskStatusEntity)
 - Duplicate task logic (ring colors, status mapping, etc.)
 - Create components without TypeScript interfaces
 - Skip error handling
 - Use inline styles (use Tailwind classes)
 - Mix data access patterns (always use `db` client)
+- Use lowercase status values (use capitalized: `Active`, not `active`)
 
 ---
 
@@ -645,36 +961,49 @@ const ringColor = taskStatus.completed ? 'green' : 'red'; // Wrong!
 | `lib/mockData.ts` | Mock data source | `db.ts` (MockDatabaseClient) |
 | `lib/taskUtils.ts` | Task logic utilities | TaskCard, pages |
 | `lib/taskFilterUtils.ts` | Task filtering utilities | Pages |
+| `lib/taskCreationUtils.ts` | Task creation utilities | Pages |
+| `lib/taskRecoveryUtils.ts` | Task recovery utilities | Pages |
 | `lib/projectUtils.ts` | Project utilities | Pages |
+| `lib/userUtils.ts` | User utilities | Pages |
 | `lib/errorUtils.ts` | Error handling utilities | All pages, components |
 | `lib/notificationService.ts` | Notification creation | Pages, event handlers |
+| `lib/emailTemplates.ts` | Email templates | notificationService |
 | `hooks/useProjects.ts` | Project React Query hooks | Pages (ready for integration) |
 | `hooks/useTasks.ts` | Task React Query hooks | Pages (ready for integration) |
 | `hooks/useCurrentUser.ts` | Current user hooks | Pages (ready for integration) |
+| `hooks/useProjectDetail.ts` | Project detail hook | ProjectDetail page |
 | `pages/Index.tsx` | Today's tasks page | Router |
 | `pages/Projects.tsx` | Projects list page | Router |
+| `pages/ProjectDetail.tsx` | Project detail page | Router |
+| `pages/Profile.tsx` | User profile page | Router |
 | `components/layout/AppLayout.tsx` | Page layout wrapper | All pages |
 | `components/tasks/TaskCard.tsx` | Task display | Index, ProjectDetail |
-| `components/projects/ProjectCard.tsx` | Project display | Projects |
 | `components/tasks/TaskForm.tsx` | Task creation form | Index, ProjectDetail |
+| `components/tasks/DifficultyRatingModal.tsx` | Difficulty rating modal | TaskCard |
+| `components/projects/ProjectCard.tsx` | Project display | Projects |
 | `components/projects/ProjectForm.tsx` | Project creation form | Projects |
+| `components/projects/ProjectHeader.tsx` | Project header | ProjectDetail |
+| `components/projects/ProjectStats.tsx` | Project statistics | ProjectDetail |
+| `components/projects/ProjectTaskSections.tsx` | Task sections | ProjectDetail |
+| `components/notifications/Inbox.tsx` | Notifications inbox | DesktopNav, MobileNav |
+| `components/profile/StreakCalendar.tsx` | Activity heatmap | Profile |
 
 ---
 
 ## Questions for Standardization Review
 
 1. **Data Access**: Are all pages using `db` client? (Check: Index, Projects, ProjectDetail, Profile)
-2. **Utilities**: Are all task-related calculations using `taskUtils.ts`?
-3. **Types**: Are all types imported from `@/types`?
-4. **Components**: Do all components have TypeScript interfaces?
-5. **Error Handling**: Is error handling consistent across pages?
-6. **Loading States**: Are loading states implemented?
+2. **Task Status**: Are all components using per-user status (TaskStatusEntity)? (Check: TaskCard, pages)
+3. **Utilities**: Are all task-related calculations using `taskUtils.ts`?
+4. **Types**: Are all types imported from `@/types`?
+5. **Components**: Do all components have TypeScript interfaces?
+6. **Error Handling**: Is error handling consistent across pages?
 7. **Progress Calculation**: Is progress calculation centralized?
 8. **Task Filtering**: Is task filtering logic centralized?
+9. **Status Enum**: Are all status values capitalized? (`Active`, not `active`)
 
 ---
 
-**Last Updated**: Standardization completed - all utilities and hooks implemented
+**Last Updated**: 2025-01-XX - Per-user task status model implemented
 **Status**: ✅ All standardization recommendations implemented
 **Next Review**: After React Query integration
-

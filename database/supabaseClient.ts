@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import 'dotenv/config';
 
 let cachedServiceClient: SupabaseClient | null = null;
 let cachedClient: SupabaseClient | null = null;
@@ -32,14 +33,13 @@ export const getServiceSupabaseClient = (): SupabaseClient => {
 export const getSupabaseClient = (): SupabaseClient => {
   if (cachedClient) return cachedClient;
 
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const url = process.env.SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
-    throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars.');
+    throw new Error('Missing SUPABASE_URL or SUPABASE_ANON_KEY env vars.');
   }
 
   cachedClient = createClient(url, anonKey);
-
   return cachedClient;
 };
