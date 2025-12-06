@@ -13,7 +13,7 @@ import {
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Inbox } from '@/components/notifications/Inbox';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Notification } from '@/types';
 import { db } from '@/lib/db';
 import { handleError } from '@/lib/errorUtils';
@@ -30,8 +30,6 @@ export const MobileNav = () => {
   const [notifications, setNotifications] = useState<Notification[]>(
     mockNotifications.filter(n => n.userId === currentUser.id)
   );
-  
-  const isProfileActive = location.pathname === '/profile';
 
   const handleLogout = () => {
     toast.success('Logged out successfully', {
@@ -69,10 +67,11 @@ export const MobileNav = () => {
   };
 
 
+  // Memoize active state to prevent unnecessary re-renders
+  const isProfileActive = useMemo(() => location.pathname === '/profile', [location.pathname]);
+
   return (
-    <motion.nav
-      initial={{ y: 100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+    <nav
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t border-border"
     >
       <div className="glass-strong p-2">
@@ -81,32 +80,44 @@ export const MobileNav = () => {
             <NavLink
               to="/"
               end
-              className="flex flex-col items-center gap-1 px-2 sm:px-3 py-3 rounded-2xl transition-all duration-200"
+              className="flex flex-col items-center gap-1 px-2 sm:px-3 py-3 rounded-2xl transition-all duration-300"
               activeClassName="bg-primary/10"
             >
               {({ isActive }) => (
                 <motion.div
                   whileTap={{ scale: 0.95 }}
-                  className="flex flex-col items-center gap-1"
+                  className="flex flex-col items-center gap-1 relative"
+                  layout
                 >
                   <motion.div
                     animate={{
                       scale: isActive ? 1.1 : 1,
                       color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'
                     }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    transition={{ 
+                      type: 'spring', 
+                      stiffness: 400, 
+                      damping: 25,
+                      duration: 0.3
+                    }}
                   >
                     <Home className="w-5 h-5" />
                   </motion.div>
-                  <span
-                    className={`text-xs transition-colors hidden sm:block ${
-                      isActive 
-                        ? 'text-primary font-bold' 
-                        : 'text-muted-foreground font-medium'
-                    }`}
+                  <motion.span
+                    className="text-xs hidden sm:block"
+                    animate={{
+                      color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                      fontWeight: isActive ? 700 : 500
+                    }}
+                    transition={{ 
+                      type: 'spring', 
+                      stiffness: 400, 
+                      damping: 25,
+                      duration: 0.3
+                    }}
                   >
                     Today
-                  </span>
+                  </motion.span>
                 </motion.div>
               )}
             </NavLink>
@@ -115,32 +126,44 @@ export const MobileNav = () => {
             <NavLink
               to="/projects"
               end
-              className="flex flex-col items-center gap-1 px-2 sm:px-3 py-3 rounded-2xl transition-all duration-200"
+              className="flex flex-col items-center gap-1 px-2 sm:px-3 py-3 rounded-2xl transition-all duration-300"
               activeClassName="bg-primary/10"
             >
               {({ isActive }) => (
                 <motion.div
                   whileTap={{ scale: 0.95 }}
-                  className="flex flex-col items-center gap-1"
+                  className="flex flex-col items-center gap-1 relative"
+                  layout
                 >
                   <motion.div
                     animate={{
                       scale: isActive ? 1.1 : 1,
                       color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'
                     }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                    transition={{ 
+                      type: 'spring', 
+                      stiffness: 400, 
+                      damping: 25,
+                      duration: 0.3
+                    }}
                   >
                     <FolderKanban className="w-5 h-5" />
                   </motion.div>
-                  <span
-                    className={`text-xs transition-colors hidden sm:block ${
-                      isActive 
-                        ? 'text-primary font-bold' 
-                        : 'text-muted-foreground font-medium'
-                    }`}
+                  <motion.span
+                    className="text-xs hidden sm:block"
+                    animate={{
+                      color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                      fontWeight: isActive ? 700 : 500
+                    }}
+                    transition={{ 
+                      type: 'spring', 
+                      stiffness: 400, 
+                      damping: 25,
+                      duration: 0.3
+                    }}
                   >
                     Projects
-                  </span>
+                  </motion.span>
                 </motion.div>
               )}
             </NavLink>
@@ -165,20 +188,33 @@ export const MobileNav = () => {
                 <DropdownMenuTrigger asChild>
                   <motion.div
                     whileTap={{ scale: 0.95 }}
-                    className="flex flex-col items-center gap-1"
+                    className="flex flex-col items-center gap-1 relative"
+                    layout
                   >
-                    <Avatar 
-                      className={`w-6 h-6 ring-2 transition-all ${
-                        isProfileActive 
-                          ? 'ring-primary' 
-                          : 'ring-border'
-                      }`}
+                    <motion.div
+                      animate={{
+                        scale: isProfileActive ? 1.1 : 1
+                      }}
+                      transition={{ 
+                        type: 'spring', 
+                        stiffness: 400, 
+                        damping: 25,
+                        duration: 0.3
+                      }}
                     >
-                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                      <AvatarFallback className="text-xs">
-                        {currentUser.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
+                      <Avatar 
+                        className={`w-6 h-6 ring-2 transition-all duration-300 ${
+                          isProfileActive 
+                            ? 'ring-primary' 
+                            : 'ring-border'
+                        }`}
+                      >
+                        <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                        <AvatarFallback className="text-xs">
+                          {currentUser.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </motion.div>
                   </motion.div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" side="top" className="mb-2">
@@ -192,18 +228,26 @@ export const MobileNav = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <span 
-                className={`text-xs hidden sm:block transition-colors ${
-                  isProfileActive 
-                    ? 'text-primary font-bold' 
-                    : 'text-muted-foreground font-medium'
-                }`}
+              <motion.span 
+                className="text-xs hidden sm:block"
+                animate={{
+                  color: isProfileActive 
+                    ? 'hsl(var(--primary))' 
+                    : 'hsl(var(--muted-foreground))',
+                  fontWeight: isProfileActive ? 700 : 500
+                }}
+                transition={{ 
+                  type: 'spring', 
+                  stiffness: 400, 
+                  damping: 25,
+                  duration: 0.3
+                }}
               >
                 Profile
-              </span>
+              </motion.span>
             </div>
         </div>
       </div>
-    </motion.nav>
+    </nav>
   );
 };
