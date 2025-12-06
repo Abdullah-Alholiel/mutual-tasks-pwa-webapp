@@ -1,48 +1,19 @@
-import { Home, FolderKanban, User, Bell } from 'lucide-react';
+import { Home, FolderKanban } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { currentUser, mockNotifications } from '@/lib/mockData';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { LogOut, User as UserIcon } from 'lucide-react';
-import { toast } from 'sonner';
 import { Inbox } from '@/components/notifications/Inbox';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import type { Notification } from '@/types';
 import { db } from '@/lib/db';
 import { handleError } from '@/lib/errorUtils';
-
-const navItems = [
-  { to: '/', icon: Home, label: 'Today' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/profile', icon: User, label: 'Profile' },
-];
+import { toast } from 'sonner';
 
 export const MobileNav = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [notifications, setNotifications] = useState<Notification[]>(
     mockNotifications.filter(n => n.userId === currentUser.id)
   );
-
-  const handleLogout = () => {
-    toast.success('Logged out successfully', {
-      description: 'See you soon!'
-    });
-    // In a real app, this would clear auth state
-    // Redirect to auth page
-    window.location.href = '/auth';
-  };
-
-  const handleViewProfile = () => {
-    navigate('/profile');
-  };
 
   const handleMarkAsRead = async (notificationId: string) => {
     setNotifications(prev =>
@@ -65,10 +36,6 @@ export const MobileNav = () => {
       handleError(error, 'markAllNotificationsRead');
     }
   };
-
-
-  // Memoize active state to prevent unnecessary re-renders
-  const isProfileActive = useMemo(() => location.pathname === '/profile', [location.pathname]);
 
   return (
     <nav
@@ -183,69 +150,62 @@ export const MobileNav = () => {
             </div>
 
             {/* Profile Button - Far Right */}
-            <div className="flex flex-col items-center gap-1 px-2 sm:px-3 py-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+            <NavLink
+              to="/profile"
+              end
+              className="flex flex-col items-center gap-1 px-2 sm:px-3 py-3 rounded-2xl transition-all duration-300"
+              activeClassName="bg-primary/10"
+            >
+              {({ isActive }) => (
+                <motion.div
+                  whileTap={{ scale: 0.95 }}
+                  className="flex flex-col items-center gap-1 relative"
+                  layout
+                >
                   <motion.div
-                    whileTap={{ scale: 0.95 }}
-                    className="flex flex-col items-center gap-1 relative"
-                    layout
+                    animate={{
+                      scale: isActive ? 1.1 : 1
+                    }}
+                    transition={{ 
+                      type: 'spring', 
+                      stiffness: 400, 
+                      damping: 25,
+                      duration: 0.3
+                    }}
                   >
-                    <motion.div
-                      animate={{
-                        scale: isProfileActive ? 1.1 : 1
-                      }}
-                      transition={{ 
-                        type: 'spring', 
-                        stiffness: 400, 
-                        damping: 25,
-                        duration: 0.3
-                      }}
+                    <Avatar 
+                      className={`w-6 h-6 ring-2 transition-all duration-300 ${
+                        isActive 
+                          ? 'ring-primary' 
+                          : 'ring-border'
+                      }`}
                     >
-                      <Avatar 
-                        className={`w-6 h-6 ring-2 transition-all duration-300 ${
-                          isProfileActive 
-                            ? 'ring-primary' 
-                            : 'ring-border'
-                        }`}
-                      >
-                        <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                        <AvatarFallback className="text-xs">
-                          {currentUser.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    </motion.div>
+                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                      <AvatarFallback className="text-xs">
+                        {currentUser.name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
                   </motion.div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center" side="top" className="mb-2">
-                  <DropdownMenuItem onClick={handleViewProfile}>
-                    <UserIcon className="w-4 h-4 mr-2" />
-                    View Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <motion.span 
-                className="text-xs hidden sm:block"
-                animate={{
-                  color: isProfileActive 
-                    ? 'hsl(var(--primary))' 
-                    : 'hsl(var(--muted-foreground))',
-                  fontWeight: isProfileActive ? 700 : 500
-                }}
-                transition={{ 
-                  type: 'spring', 
-                  stiffness: 400, 
-                  damping: 25,
-                  duration: 0.3
-                }}
-              >
-                Profile
-              </motion.span>
-            </div>
+                  <motion.span 
+                    className="text-xs hidden sm:block"
+                    animate={{
+                      color: isActive 
+                        ? 'hsl(var(--primary))' 
+                        : 'hsl(var(--muted-foreground))',
+                      fontWeight: isActive ? 700 : 500
+                    }}
+                    transition={{ 
+                      type: 'spring', 
+                      stiffness: 400, 
+                      damping: 25,
+                      duration: 0.3
+                    }}
+                  >
+                    Profile
+                  </motion.span>
+                </motion.div>
+              )}
+            </NavLink>
         </div>
       </div>
     </nav>

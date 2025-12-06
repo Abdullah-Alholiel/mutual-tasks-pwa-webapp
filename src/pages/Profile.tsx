@@ -6,16 +6,29 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trophy, Target, Zap, TrendingUp } from 'lucide-react';
+import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
 import { getUserProjects } from '@/lib/projectUtils';
 import { handleError } from '@/lib/errorUtils';
+import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Profile = () => {
+  const isMobile = useIsMobile();
+  
   // Use utility to get user projects
   const userProjects = getUserProjects(mockProjects, currentUser.id);
 
   // Calculate overall total score from user stats
   const overallTotalScore = currentUser.stats?.totalscore || 0;
+
+  const handleLogout = () => {
+    toast.success('Logged out successfully', {
+      description: 'See you soon!'
+    });
+    // In a real app, this would clear auth state
+    // Redirect to auth page
+    window.location.href = '/auth';
+  };
 
   const stats = [
     {
@@ -155,6 +168,26 @@ const Profile = () => {
             </div>
           </Card>
         </motion.div>
+
+        {/* Logout Button - Mobile Only */}
+        {isMobile && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="pb-8"
+          >
+            <Button
+              onClick={handleLogout}
+              variant="destructive"
+              className="w-full"
+              size="lg"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </motion.div>
+        )}
       </div>
     </AppLayout>
   );

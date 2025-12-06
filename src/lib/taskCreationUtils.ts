@@ -111,6 +111,14 @@ export const validateProjectForTaskCreation = (
   allUsers: User[],
   minParticipants: number = 2
 ): { isValid: boolean; error?: string } => {
+  // For public projects, skip participant validation
+  // Tasks in public projects are automatically assigned to all members
+  // Only owners and managers can create tasks in public projects
+  if (project.isPublic) {
+    return { isValid: true };
+  }
+  
+  // For private projects, validate minimum participants
   const participantIds = getProjectParticipantIds(project, allUsers);
   
   if (participantIds.length < minParticipants) {
