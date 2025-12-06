@@ -1,6 +1,6 @@
 import { Home, FolderKanban, User, Bell } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { currentUser, mockNotifications } from '@/lib/mockData';
@@ -26,9 +26,12 @@ const navItems = [
 
 export const MobileNav = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [notifications, setNotifications] = useState<Notification[]>(
     mockNotifications.filter(n => n.userId === currentUser.id)
   );
+  
+  const isProfileActive = location.pathname === '/profile';
 
   const handleLogout = () => {
     toast.success('Logged out successfully', {
@@ -96,8 +99,10 @@ export const MobileNav = () => {
                     <Home className="w-5 h-5" />
                   </motion.div>
                   <span
-                    className={`text-xs font-medium transition-colors hidden sm:block ${
-                      isActive ? 'text-primary' : 'text-muted-foreground'
+                    className={`text-xs transition-colors hidden sm:block ${
+                      isActive 
+                        ? 'text-primary font-bold' 
+                        : 'text-muted-foreground font-medium'
                     }`}
                   >
                     Today
@@ -128,8 +133,10 @@ export const MobileNav = () => {
                     <FolderKanban className="w-5 h-5" />
                   </motion.div>
                   <span
-                    className={`text-xs font-medium transition-colors hidden sm:block ${
-                      isActive ? 'text-primary' : 'text-muted-foreground'
+                    className={`text-xs transition-colors hidden sm:block ${
+                      isActive 
+                        ? 'text-primary font-bold' 
+                        : 'text-muted-foreground font-medium'
                     }`}
                   >
                     Projects
@@ -160,7 +167,13 @@ export const MobileNav = () => {
                     whileTap={{ scale: 0.95 }}
                     className="flex flex-col items-center gap-1"
                   >
-                    <Avatar className="w-6 h-6 ring-2 ring-border">
+                    <Avatar 
+                      className={`w-6 h-6 ring-2 transition-all ${
+                        isProfileActive 
+                          ? 'ring-primary' 
+                          : 'ring-border'
+                      }`}
+                    >
                       <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
                       <AvatarFallback className="text-xs">
                         {currentUser.name.charAt(0)}
@@ -179,7 +192,13 @@ export const MobileNav = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <span className="text-xs font-medium text-muted-foreground hidden sm:block">
+              <span 
+                className={`text-xs hidden sm:block transition-colors ${
+                  isProfileActive 
+                    ? 'text-primary font-bold' 
+                    : 'text-muted-foreground font-medium'
+                }`}
+              >
                 Profile
               </span>
             </div>
