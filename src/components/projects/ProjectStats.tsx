@@ -12,7 +12,7 @@ interface ProjectStatsProps {
   totalTasks: number;
   activeCount: number;
   completedTasksCount: number;
-  participants: (ProjectParticipant & { user?: { id: string; name: string; avatar: string } })[];
+  participants: (ProjectParticipant & { user?: { id: string | number; name: string; avatar: string } })[];
   isOwner: boolean;
   onAddMember: () => void;
   onViewMembers: () => void;

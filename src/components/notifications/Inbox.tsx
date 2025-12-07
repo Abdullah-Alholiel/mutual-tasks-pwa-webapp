@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 
 interface InboxProps {
   notifications: Notification[];
-  onMarkAsRead: (notificationId: string) => void;
+  onMarkAsRead: (notificationId: number) => void;
   onMarkAllAsRead: () => void;
 }
 
@@ -29,12 +29,7 @@ export const Inbox = ({
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
-      case 'task_initiated':
-        return <Sparkles className="w-5 h-5 text-primary" />;
-      case 'task_accepted':
-        return <CheckCircle2 className="w-5 h-5 text-success" />;
-      case 'task_declined':
-        return <X className="w-5 h-5 text-destructive" />;
+
       case 'task_completed':
         return <CheckCircle2 className="w-5 h-5 text-success" />;
       case 'project_joined':
@@ -46,12 +41,7 @@ export const Inbox = ({
 
   const getNotificationColor = (type: Notification['type']) => {
     switch (type) {
-      case 'task_initiated':
-        return 'bg-primary/10 border-primary/20';
-      case 'task_accepted':
-        return 'bg-success/10 border-success/20';
-      case 'task_declined':
-        return 'bg-destructive/10 border-destructive/20';
+
       case 'task_completed':
         return 'bg-success/10 border-success/20';
       case 'project_joined':
@@ -179,7 +169,7 @@ export const Inbox = ({
 interface NotificationItemProps {
   notification: Notification;
   onClick: () => void;
-  onMarkAsRead: (notificationId: string) => void;
+  onMarkAsRead: (notificationId: number) => void;
   getIcon: (type: Notification['type']) => React.ReactNode;
   getColor: (type: Notification['type']) => string;
   isRead?: boolean;

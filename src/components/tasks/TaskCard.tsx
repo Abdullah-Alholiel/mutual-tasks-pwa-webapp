@@ -1,14 +1,16 @@
-import type { Task, User, TaskStatusUserStatus, TaskStatusEntity, CompletionLog } from '@/types';
+import type { Task, User, TaskStatus, TaskStatusEntity, CompletionLog } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getUserById, getProjectById, currentUser } from '@/lib/mockData';
-import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { getDatabaseClient } from '@/db';
+import { useState, useEffect, useMemo } from 'react';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { cn } from '@/lib/utils';
+import { normalizeId } from '@/lib/idUtils';
 import { 
   getRingColor, 
   canCompleteTask, 
@@ -21,46 +23,85 @@ import {
 interface TaskCardProps {
   task: Task;
   completionLogs?: CompletionLog[];
-  onAccept?: (taskId: string) => void;
-  onDecline?: (taskId: string) => void;
-  onComplete?: (taskId: string, difficultyRating?: number) => void;
-  onRecover?: (taskId: string) => void;
+  onAccept?: (taskId: string | number) => void;
+  onDecline?: (taskId: string | number) => void;
+  onComplete?: (taskId: string | number, difficultyRating?: number) => void;
+  onRecover?: (taskId: string | number) => void;
   showRecover?: boolean; // If false, hide recover button (for today's view)
 }
 
 export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, showRecover = true }: TaskCardProps) => {
+  const { user: currentUser } = useAuth();
   const [showRatingModal, setShowRatingModal] = useState(false);
-  const creator = getUserById(task.creatorId);
-  const project = getProjectById(task.projectId);
+  const [creator, setCreator] = useState<User | null>(null);
+  const [project, setProject] = useState<any>(null);
   
-  // Get task statuses for current user and other participants (avoid duplicates)
-  const myTaskStatus = task.taskStatuses?.find(ts => ts.userId === currentUser.id);
+  // Load creator and project data
+  useEffect(() => {
+    const loadData = async () => {
+      const db = getDatabaseClient();
+      const creatorId = normalizeId(task.creatorId);
+      const projectId = normalizeId(task.projectId);
+      
+      try {
+        const [creatorData, projectData] = await Promise.all([
+          db.users.getById(creatorId),
+          db.projects.getById(projectId)
+        ]);
+        setCreator(creatorData || null);
+        setProject(projectData);
+      } catch (error) {
+        console.error('Failed to load task data:', error);
+      }
+    };
+    
+    if (task) {
+      loadData();
+    }
+  }, [task]);
   
-  // Check completion via CompletionLog (use provided logs or empty array)
-  const myCompletion = completionLogs.find(
-    log => log.taskId === task.id && log.userId === currentUser.id
-  );
+  // Get task statuses for current user
+  const myTaskStatus = useMemo(() => {
+    if (!currentUser || !task.taskStatus) return undefined;
+    const userId = normalizeId(currentUser.id);
+    return task.taskStatus.find(ts => {
+      const tsUserId = normalizeId(ts.userId);
+      return tsUserId === userId;
+    });
+  }, [task.taskStatus, currentUser]);
+  
+  // Check completion via CompletionLog
+  const myCompletion = useMemo(() => {
+    if (!currentUser) return undefined;
+    const userId = normalizeId(currentUser.id);
+    const taskId = normalizeId(task.id);
+    return completionLogs.find(log => {
+      const logTaskId = normalizeId(log.taskId);
+      const logUserId = normalizeId(log.userId);
+      return logTaskId === taskId && logUserId === userId;
+    });
+  }, [completionLogs, task.id, currentUser]);
 
-// Calculate task status user status using the new utility function
-const taskStatusUserStatus = calculateTaskStatusUserStatus(myTaskStatus, myCompletion, task);
+  // Calculate task status user status using the utility function
+  const taskStatusUserStatus = calculateTaskStatusUserStatus(myTaskStatus, myCompletion, task);
   
-// Use calculated user status directly for UI
-const uiStatus: TaskStatusUserStatus = taskStatusUserStatus;
+  // Use calculated user status directly for UI
+  const uiStatus: TaskStatus = taskStatusUserStatus;
   
-const isTaskArchived = uiStatus === 'Archived';
+  const isTaskArchived = uiStatus === 'archived';
   
-// Use modular utilities for task actions
-const canComplete = canCompleteTask(myTaskStatus, myCompletion, task);
-const canRecover = canRecoverTask(myTaskStatus, myCompletion, task);
+  // Use modular utilities for task actions
+  const canComplete = canCompleteTask(myTaskStatus, myCompletion, task);
+  const canRecover = canRecoverTask(myTaskStatus, myCompletion, task);
   
-// Check if task is recovered
-const isRecovered = uiStatus === 'Recovered';
+  // Check if task is recovered
+  const isRecovered = uiStatus === 'recovered';
   
-// For archived tasks, always prioritize showing recover button (even if canComplete somehow returns true)
-// But only if showRecover is true (for project detail view)
-// Recovered tasks should show complete button, not recover button
-const shouldShowRecover = showRecover && !!onRecover && !isRecovered && canRecover;
-const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (uiStatus === 'Active' || uiStatus === 'Recovered');
+  // For archived tasks, always prioritize showing recover button
+  // But only if showRecover is true (for project detail view)
+  // Recovered tasks should show complete button, not recover button
+  const shouldShowRecover = showRecover && !!onRecover && !isRecovered && canRecover;
+  const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (uiStatus === 'active' || uiStatus === 'recovered');
 
   const handleComplete = () => {
     if (canComplete && onComplete) {
@@ -126,11 +167,11 @@ const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (ui
               <Badge 
                 variant={getStatusBadgeVariant(uiStatus)} 
                 className={`${getStatusColor(uiStatus)} capitalize shrink-0 font-bold ${
-                  uiStatus === 'Completed' 
+                  uiStatus === 'completed' 
                     ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold' 
                     : ''
                 }`}
-                style={uiStatus === 'Completed' ? {
+                style={uiStatus === 'completed' ? {
                   borderColor: 'hsl(var(--status-completed) / 0.4)',
                   backgroundColor: 'hsl(var(--status-completed) / 0.15)',
                   color: 'hsl(var(--status-completed))'
@@ -144,32 +185,47 @@ const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (ui
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* Show all unique participants */}
-                {task.taskStatuses && task.taskStatuses.length > 0 && (() => {
-                  const uniqueParticipants = new Map<string, { user: User | undefined; status: typeof myTaskStatus }>();
+                {task.taskStatus && task.taskStatus.length > 0 && (() => {
+                  const uniqueParticipants = new Map<string | number, { userId: string | number; status: TaskStatusEntity }>();
                   
                   // Add all participants
-                  task.taskStatuses.forEach(ts => {
-                    if (!uniqueParticipants.has(ts.userId)) {
-                      const user = getUserById(ts.userId);
-                      uniqueParticipants.set(ts.userId, { user, status: ts });
+                  task.taskStatus.forEach(ts => {
+                    const tsUserId = ts.userId;
+                    if (!uniqueParticipants.has(tsUserId)) {
+                      uniqueParticipants.set(tsUserId, { userId: tsUserId, status: ts });
                     }
                   });
                   
                   return Array.from(uniqueParticipants.values()).map((participant, index) => {
-                    const participantCompletion = completionLogs.find(
-                      log => log.taskId === task.id && log.userId === participant.status.userId
-                    );
+                    const participantCompletion = completionLogs.find(log => {
+                      const logTaskId = normalizeId(log.taskId);
+                      const logUserId = normalizeId(log.userId);
+                      const taskId = normalizeId(task.id);
+                      const partUserId = normalizeId(participant.userId);
+                      return logTaskId === taskId && logUserId === partUserId;
+                    });
                     
-                    // Use modular utility for ring color calculation - pass full task entity for comprehensive checks
-                    // This ensures archived/expired tasks show red rings for all participants
+                    // Use modular utility for ring color calculation
                     const ringColorClass = getRingColor(participant.status, participantCompletion, task);
                     
+                    // Get user data from status if available, otherwise placeholder
+                    const user = participant.status.user || { 
+                      id: participant.userId, 
+                      name: 'User', 
+                      avatar: '',
+                      handle: '',
+                      email: '',
+                      timezone: '',
+                      createdAt: new Date(),
+                      updatedAt: new Date()
+                    };
+                    
                     return (
-                      <div key={participant.status.userId} className="flex items-center gap-2">
+                      <div key={String(participant.userId)} className="flex items-center gap-2">
                         {index > 0 && <div className="h-6 w-px bg-border" />}
                         <Avatar className={cn("w-8 h-8 ring-2", ringColorClass)}>
-                          <AvatarImage src={participant.user?.avatar || ''} alt={participant.user?.name || ''} />
-                          <AvatarFallback>{participant.user?.name.charAt(0) || '?'}</AvatarFallback>
+                          <AvatarImage src={user.avatar || ''} alt={user.name || ''} />
+                          <AvatarFallback>{user.name.charAt(0) || '?'}</AvatarFallback>
                         </Avatar>
                         <div className="flex items-center gap-1">
                           {participantCompletion ? (
@@ -251,7 +307,7 @@ const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (ui
                 </motion.div>
               )}
 
-              {uiStatus === 'Completed' && myCompletion && (
+              {uiStatus === 'completed' && myCompletion && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -278,6 +334,3 @@ const shouldShowComplete = !!onComplete && !isTaskArchived && canComplete && (ui
     </>
   );
 };
-
-
-

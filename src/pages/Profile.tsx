@@ -1,6 +1,5 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { StreakCalendar } from '@/components/profile/StreakCalendar';
-import { currentUser, mockProjects } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -8,26 +7,38 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
 import { getUserProjects } from '@/lib/projectUtils';
-import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
+import { useCurrentUser, useCurrentUserStats } from '@/hooks/useCurrentUser';
+import { useProjects } from '@/hooks/useProjects';
+import { useMemo } from 'react';
 
 const Profile = () => {
   const isMobile = useIsMobile();
+  const { user: authUser, logout } = useAuth();
+  const { data: currentUser } = useCurrentUser();
+  const { data: userStats } = useCurrentUserStats();
+  const { data: allProjects = [] } = useProjects();
   
   // Use utility to get user projects
-  const userProjects = getUserProjects(mockProjects, currentUser.id);
+  const userProjects = useMemo(() => 
+    currentUser ? getUserProjects(allProjects, currentUser.id) : [],
+    [allProjects, currentUser]
+  );
 
   // Calculate overall total score from user stats
-  const overallTotalScore = currentUser.stats?.totalscore || 0;
+  const overallTotalScore = userStats?.totalscore || 0;
 
-  const handleLogout = () => {
-    toast.success('Logged out successfully', {
-      description: 'See you soon!'
-    });
-    // In a real app, this would clear auth state
-    // Redirect to auth page
-    window.location.href = '/auth';
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully', {
+        description: 'See you soon!'
+      });
+    } catch (error) {
+      toast.error('Failed to logout');
+    }
   };
 
   const stats = [
@@ -41,25 +52,35 @@ const Profile = () => {
     {
       icon: Target,
       label: 'Completed',
-      value: currentUser.stats.totalCompletedTasks,
+      value: userStats?.totalCompletedTasks || 0,
       color: 'text-success',
       bgColor: 'bg-success/10'
     },
     {
       icon: Zap,
       label: 'Current Streak',
-      value: currentUser.stats.currentStreak,
+      value: userStats?.currentStreak || 0,
       color: 'text-primary',
       bgColor: 'bg-primary/10'
     },
     {
       icon: TrendingUp,
       label: 'Best Streak',
-      value: currentUser.stats.longestStreak,
+      value: userStats?.longestStreak || 0,
       color: 'text-foreground',
       bgColor: 'bg-muted'
     }
   ];
+
+  if (!currentUser) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading profile...</div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

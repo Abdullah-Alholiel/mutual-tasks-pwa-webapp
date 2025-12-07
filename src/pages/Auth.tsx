@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Sparkles, Mail, ArrowRight, Zap, AtSign } from 'lucide-react';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
-import { isHandleUnique, validateHandleFormat } from '@/lib/userUtils';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { validateHandleFormat } from '@/lib/userUtils';
+import { requestLogin, requestSignup, verifyMagicLink } from '@/lib/auth';
 
 const Auth = () => {
   const [loginEmail, setLoginEmail] = useState('');
@@ -17,6 +18,34 @@ const Auth = () => {
   const [signupHandle, setSignupHandle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Handle magic link verification
+  useEffect(() => {
+    const token = searchParams.get('token');
+    
+    if (token) {
+      setIsLoading(true);
+      verifyMagicLink(token)
+        .then((result) => {
+          if (result.success) {
+            toast.success('Welcome! You are now signed in.');
+            navigate('/');
+          } else {
+            toast.error(result.error || 'Magic link verification failed. Please try again.');
+            navigate('/auth');
+          }
+        })
+        .catch((error) => {
+          console.error('Verification error:', error);
+          toast.error('Magic link verification failed. Please try again.');
+          navigate('/auth');
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }
+  }, [searchParams, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,20 +62,23 @@ const Auth = () => {
 
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const result = await requestLogin(loginEmail.trim());
+      
+      if (result.success) {
+        toast.success('Magic link sent! ✨', {
+          description: `Check your email at ${loginEmail} for the sign-in link`
+        });
+        setLoginEmail(''); // Clear form
+      } else {
+        toast.error(result.error || 'Failed to send magic link');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-      toast.success('Magic link sent! ✨', {
-        description: `Check your email at ${loginEmail} for the sign-in link`
-      });
-      // In production, this would send the actual magic link
-      // For now, we'll simulate successful login after a delay
-      setTimeout(() => {
-        // Simulate successful authentication
-        toast.success('Welcome back! 🎉');
-        navigate('/');
-      }, 2000);
-    }, 1500);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -69,30 +101,28 @@ const Auth = () => {
       return;
     }
 
-    // Check handle uniqueness
-    if (!isHandleUnique(signupHandle)) {
-      toast.error('Handle already taken', {
-        description: 'Please choose a different handle'
-      });
-      return;
-    }
-
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const result = await requestSignup(signupEmail.trim(), signupName.trim(), signupHandle.trim());
+      
+      if (result.success) {
+        toast.success('Magic link sent! ✨', {
+          description: `Check your email at ${signupEmail} to complete your registration`
+        });
+        // Clear form
+        setSignupEmail('');
+        setSignupName('');
+        setSignupHandle('');
+      } else {
+        toast.error(result.error || 'Failed to send magic link');
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
       setIsLoading(false);
-      toast.success('Magic link sent! ✨', {
-        description: `Check your email at ${signupEmail} to complete your registration`
-      });
-      // In production, this would send the actual magic link
-      // For now, we'll simulate successful signup after a delay
-      setTimeout(() => {
-        // Simulate successful authentication
-        toast.success('Account created! Welcome to Momentum! 🚀');
-        navigate('/');
-      }, 2000);
-    }, 1500);
+    }
   };
 
   return (

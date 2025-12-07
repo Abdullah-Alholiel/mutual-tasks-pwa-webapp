@@ -2,125 +2,139 @@ import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProjectCard } from '@/components/projects/ProjectCard';
 import { ProjectForm } from '@/components/projects/ProjectForm';
-import { mockProjects, mockUsers, currentUser, mockTasks, mockCompletionLogs, mockProjectParticipants } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Plus, FolderKanban, Globe, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { Project, ProjectParticipant } from '@/types';
+import type { Project } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { calculateProjectsProgress, getUserProjects, getPublicProjects, joinProject } from '@/lib/projectUtils';
-import { handleError } from '@/lib/errorUtils';
+import { useAuth } from '@/hooks/useAuth';
+import { useProjects, usePublicProjects, useCreateProject } from '@/hooks/useProjects';
+import { getUserProjects, getPublicProjects } from '@/lib/projectUtils';
+import { getDatabaseClient } from '@/db';
 
 const Projects = () => {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [projectParticipants, setProjectParticipants] = useState<ProjectParticipant[]>(mockProjectParticipants);
+  const { user, isAuthenticated } = useAuth();
+  const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
+  const { data: publicProjectsRaw = [] } = usePublicProjects();
+  const createProjectMutation = useCreateProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
   
   // Calculate user-specific progress for each project using utility
-  const projectsWithProgress = useMemo(() => 
-    calculateProjectsProgress(projects, mockTasks, mockCompletionLogs, currentUser.id),
-    [projects, mockTasks, mockCompletionLogs]
-  );
+  // Note: For now we'll use projects as-is since progress is calculated server-side
+  const projectsWithProgress = useMemo(() => allProjects, [allProjects]);
 
   // Filter projects using utilities
   const myProjects = useMemo(() => 
-    getUserProjects(projectsWithProgress, currentUser.id),
-    [projectsWithProgress]
+    user ? getUserProjects(projectsWithProgress, user.id) : [],
+    [projectsWithProgress, user]
   );
   
   const publicProjects = useMemo(() => 
-    getPublicProjects(projectsWithProgress, currentUser.id),
-    [projectsWithProgress]
+    publicProjectsRaw || [],
+    [publicProjectsRaw]
   );
 
-  const handleCreateProject = (projectData: {
+  const handleCreateProject = async (projectData: {
     name: string;
     description: string;
     participants: string[];
     color: string;
     isPublic: boolean;
   }) => {
+    if (!user || !isAuthenticated) {
+      toast.error('You must be logged in to create a project');
+      return;
+    }
+
     // For private projects: require at least 2 participants (creator + one more)
     // For public projects: can create without additional participants
     if (!projectData.isPublic && projectData.participants.length < 1) {
-      handleError('Private project requires at least one participant', 'handleCreateProject');
       toast.error('Private project requires at least one participant', {
         description: 'Add at least one friend to create a private project'
       });
       return;
     }
-    
-    const participantUsers = projectData.participants.length > 0
-      ? [currentUser, ...projectData.participants.map(id => mockUsers.find(u => u.id === id)!).filter(Boolean)]
-      : [currentUser]; // Public projects can have just the creator
-    
-    const newProject: Project = {
-      id: `p${Date.now()}`,
-      name: projectData.name,
-      description: projectData.description,
-      ownerId: currentUser.id,
-      totalTasks: 0,
-      isPublic: projectData.isPublic,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      color: projectData.color,
-      // Populated for UI
-      participants: participantUsers,
-      completedTasks: 0,
-      progress: 0
-    };
 
-    setProjects(prev => [newProject, ...prev]);
-    toast.success('Project created! 🎉', {
-      description: 'Start adding tasks to get going!'
-    });
-    setShowProjectForm(false);
-    // Navigate to the new project with project data in state
-    navigate(`/projects/${newProject.id}`, { state: { project: newProject } });
+    try {
+      // Create project with owner ID
+      const ownerId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      const newProject = await createProjectMutation.mutateAsync({
+        name: projectData.name,
+        description: projectData.description,
+        ownerId,
+        totalTasks: 0,
+        isPublic: projectData.isPublic,
+        color: projectData.color
+      });
+
+      // Add participants if provided
+      if (projectData.participants.length > 0) {
+        const db = getDatabaseClient();
+        const projectId = typeof newProject.id === 'string' ? parseInt(newProject.id) : newProject.id;
+        
+        // Add participants
+        for (const participantIdStr of projectData.participants) {
+          const participantId = typeof participantIdStr === 'string' ? parseInt(participantIdStr) : participantIdStr;
+          
+          // Check if user exists
+          const participantUser = await db.users.getById(participantId);
+          if (!participantUser) {
+            toast.error(`User with ID ${participantIdStr} not found`);
+            continue;
+          }
+
+          // Add as participant
+          await db.projects.addParticipant(projectId, participantId, 'participant');
+        }
+      }
+
+      setShowProjectForm(false);
+      // Navigate to the new project
+      navigate(`/projects/${newProject.id}`, { state: { project: newProject } });
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      toast.error('Failed to create project');
+    }
   };
 
-  const handleJoinProject = (project: Project) => {
-    // Use modular joinProject utility
-    const result = joinProject(
-      project.id,
-      currentUser.id,
-      currentUser,
-      projectParticipants,
-      project
-    );
-
-    if (!result.success) {
-      toast.error('Cannot join project', {
-        description: result.error || 'An error occurred while joining the project'
-      });
+  const handleJoinProject = async (project: Project) => {
+    if (!user || !isAuthenticated) {
+      toast.error('You must be logged in to join a project');
       return;
     }
 
-    // Update project participants state
-    setProjectParticipants(result.updatedParticipants);
+    try {
+      const db = getDatabaseClient();
+      const projectId = typeof project.id === 'string' ? parseInt(project.id) : project.id;
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
 
-    // Update projects state
-    setProjects(prev =>
-      prev.map(p => p.id === project.id ? result.updatedProject : p)
-    );
-    
-    toast.success('Joined project! 🎉', {
-      description: `You're now a member of ${project.name}`
-    });
+      await db.projects.addParticipant(projectId, userId, 'participant');
+      
+      toast.success('Joined project! 🎉', {
+        description: `You're now a member of ${project.name}`
+      });
 
-    // Navigate to project detail with updated data
-    navigate(`/projects/${project.id}`, {
-      state: {
-        project: result.updatedProject,
-        projectParticipants: result.updatedParticipants
-      }
-    });
+      // Navigate to project detail
+      navigate(`/projects/${project.id}`);
+    } catch (error) {
+      console.error('Failed to join project:', error);
+      toast.error('Failed to join project');
+    }
   };
+
+  if (projectsLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading projects...</div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -239,7 +253,6 @@ const Projects = () => {
             )}
           </TabsContent>
         </Tabs>
-
       </div>
 
       <ProjectForm

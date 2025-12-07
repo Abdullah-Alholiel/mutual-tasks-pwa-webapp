@@ -7,8 +7,8 @@
 // ============================================================================
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { db } from '@/lib/db';
-import { currentUser } from '@/lib/mockData';
+import { getDatabaseClient } from '@/db';
+import { useAuth } from './useAuth';
 import type { Project } from '@/types';
 import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
@@ -17,11 +17,18 @@ import { toast } from 'sonner';
  * Hook to fetch all projects for the current user
  */
 export const useProjects = () => {
+  const { user, isAuthenticated } = useAuth();
+
   return useQuery({
-    queryKey: ['projects', currentUser.id],
+    queryKey: ['projects', user?.id],
     queryFn: async () => {
-      return await db.getProjects({ userId: currentUser.id });
+      if (!user || !isAuthenticated) return [];
+      
+      const db = getDatabaseClient();
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      return await db.projects.getAll({ userId });
     },
+    enabled: !!user && isAuthenticated,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
@@ -29,12 +36,15 @@ export const useProjects = () => {
 /**
  * Hook to fetch a single project by ID
  */
-export const useProject = (projectId: string | undefined) => {
+export const useProject = (projectId: string | number | undefined) => {
   return useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
       if (!projectId) return null;
-      return await db.getProject(projectId);
+      
+      const db = getDatabaseClient();
+      const id = typeof projectId === 'string' ? parseInt(projectId) : projectId;
+      return await db.projects.getById(id);
     },
     enabled: !!projectId,
     staleTime: 1000 * 60 * 5,
@@ -45,16 +55,31 @@ export const useProject = (projectId: string | undefined) => {
  * Hook to fetch public projects
  */
 export const usePublicProjects = () => {
+  const { user, isAuthenticated } = useAuth();
+
   return useQuery({
-    queryKey: ['projects', 'public', currentUser.id],
+    queryKey: ['projects', 'public', user?.id],
     queryFn: async () => {
-      const allProjects = await db.getProjects({ isPublic: true });
+      const db = getDatabaseClient();
+      const allProjects = await db.projects.getAll({ isPublic: true });
+      
       // Filter out projects where user is already a participant
-      return allProjects.filter(p => 
-        !p.participants?.some(u => u.id === currentUser.id) &&
-        !p.participantRoles?.some(pr => pr.userId === currentUser.id) &&
-        p.ownerId !== currentUser.id
-      );
+      if (user && isAuthenticated) {
+        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        return allProjects.filter(p => 
+          !p.participants?.some(u => {
+            const uId = typeof u.id === 'string' ? parseInt(u.id) : u.id;
+            return uId === userId;
+          }) &&
+          !p.participantRoles?.some(pr => {
+            const prId = typeof pr.userId === 'string' ? parseInt(pr.userId) : pr.userId;
+            return prId === userId;
+          }) &&
+          (typeof p.ownerId === 'string' ? parseInt(p.ownerId) : p.ownerId) !== userId
+        );
+      }
+      
+      return allProjects;
     },
     staleTime: 1000 * 60 * 5,
   });
@@ -65,10 +90,16 @@ export const usePublicProjects = () => {
  */
 export const useCreateProject = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
-      return await db.createProject(data);
+      if (!user) {
+        throw new Error('User must be authenticated to create a project');
+      }
+      
+      const db = getDatabaseClient();
+      return await db.projects.create(data);
     },
     onSuccess: (newProject) => {
       // Invalidate and refetch projects
@@ -91,8 +122,10 @@ export const useUpdateProject = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<Project> }) => {
-      return await db.updateProject(id, data);
+    mutationFn: async ({ id, data }: { id: string | number; data: Partial<Project> }) => {
+      const db = getDatabaseClient();
+      const projectId = typeof id === 'string' ? parseInt(id) : id;
+      return await db.projects.update(projectId, data);
     },
     onSuccess: (updatedProject) => {
       // Invalidate and refetch projects
@@ -106,4 +139,25 @@ export const useUpdateProject = () => {
   });
 };
 
+/**
+ * Hook to delete a project
+ */
+export const useDeleteProject = () => {
+  const queryClient = useQueryClient();
 
+  return useMutation({
+    mutationFn: async (id: string | number) => {
+      const db = getDatabaseClient();
+      const projectId = typeof id === 'string' ? parseInt(id) : id;
+      await db.projects.delete(projectId);
+    },
+    onSuccess: () => {
+      // Invalidate and refetch projects
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success('Project deleted! 🗑️');
+    },
+    onError: (error) => {
+      handleError(error, 'useDeleteProject');
+    },
+  });
+};

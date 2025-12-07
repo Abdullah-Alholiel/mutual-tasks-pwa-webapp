@@ -6,7 +6,8 @@
 // that should be used consistently across all components.
 // ============================================================================
 
-import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatusUserStatus, Task, TaskStatus } from '@/types';
+import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatus, Task } from '@/types';
+import { normalizeId } from './idUtils';
 
 /**
  * Calculate the task status user status based on due date, completion, and recovery
@@ -27,37 +28,36 @@ export const calculateTaskStatusUserStatus = (
   taskStatus: TaskStatusEntity | undefined,
   completionLog: CompletionLog | undefined,
   task: Task
-): TaskStatusUserStatus => {
+): TaskStatus => {
   // Completed always wins
-  if (completionLog || taskStatus?.status === 'Completed') {
-    return 'Completed';
+  if (completionLog || taskStatus?.status === 'completed') {
+    return 'completed';
   }
 
   // Recovered overrides date-based status
-  if (taskStatus?.recoveredAt || taskStatus?.status === 'Recovered') {
-    return 'Recovered';
+  if (taskStatus?.recoveredAt || taskStatus?.status === 'recovered') {
+    return 'recovered';
   }
 
-  const effectiveDueDate = normalizeToStartOfDay(
-    new Date(taskStatus?.effectiveDueDate || task.dueDate)
-  );
+  // Use task dueDate (effectiveDueDate not in TaskStatusEntity type)
+  const effectiveDueDate = normalizeToStartOfDay(new Date(task.dueDate));
   const today = normalizeToStartOfDay(new Date());
 
   // Explicit archived flag from user status takes precedence over date check
-  if (taskStatus?.status === 'Archived' || taskStatus?.archivedAt) {
-    return 'Archived';
+  if (taskStatus?.status === 'archived' || taskStatus?.archivedAt) {
+    return 'archived';
   }
 
   if (effectiveDueDate.getTime() > today.getTime()) {
-    return 'Upcoming';
+    return 'upcoming';
   }
 
   if (effectiveDueDate.getTime() === today.getTime()) {
-    return 'Active';
+    return 'active';
   }
 
   // Past due and not completed/recovered -> archived
-  return 'Archived';
+  return 'archived';
 };
 
 /**
@@ -95,12 +95,16 @@ export const calculateRingColor = (
   // PRIORITY 1: If completed, determine color based on recovery and timing
   if (completionLog) {
     // Yellow: recovered task (always yellow when completed after recovery)
-    if (completionLog.recoveredCompletion || taskStatus?.recoveredAt) {
+    // Note: recoveredCompletion not in CompletionLog type, check taskStatus instead
+    if (taskStatus?.recoveredAt) {
       return 'yellow';
     }
     
-    // Green: completed on time or early
-    if (completionLog.timingStatus === 'on_time' || completionLog.timingStatus === 'early') {
+    // Green: completed on time or early (use createdAt vs task dueDate to determine timing)
+    // Note: timingStatus not in CompletionLog type, calculate from dates
+    const completionDate = normalizeToStartOfDay(new Date(completionLog.createdAt));
+    const taskDueDate = normalizeToStartOfDay(new Date(task?.dueDate || new Date()));
+    if (completionDate.getTime() <= taskDueDate.getTime()) {
       return 'green';
     }
     
@@ -134,11 +138,11 @@ export const calculateRingColor = (
     return 'red';
   }
 
-  // PRIORITY 5: Check if individual status has expired (user-specific due date)
-  const dueDate = taskStatus.effectiveDueDate || task?.dueDate;
-  if (dueDate) {
+  // PRIORITY 5: Check if individual status has expired (use task dueDate)
+  // Note: effectiveDueDate not in TaskStatusEntity type
+  if (task?.dueDate) {
     const now = new Date();
-    const dueDateOnly = new Date(dueDate);
+    const dueDateOnly = new Date(task.dueDate);
     dueDateOnly.setHours(23, 59, 59, 999); // End of due date
     
     // Task is expired if current time is past the due date
@@ -215,7 +219,7 @@ export const getRingColor = (
 
   // PRIORITY 2: If task status is completed but no completion log found, 
   // check if ringColor is set (this handles edge cases where completion log might not be passed)
-  if (taskStatus.status === 'Completed' && taskStatus.ringColor) {
+  if (taskStatus.status === 'completed' && taskStatus.ringColor) {
     switch (taskStatus.ringColor) {
       case 'green':
         return 'ring-green-500';
@@ -275,14 +279,14 @@ export const getRingColor = (
  */
 export const mapTaskStatusForUI = (status: TaskStatus): 'active' | 'completed' | 'archived' => {
   switch (status) {
-    case 'Active':
-    case 'Upcoming':
+    case 'active':
+    case 'upcoming':
       return 'active';
-    case 'Archived':
+    case 'archived':
       return 'archived';
-    case 'Completed':
+    case 'completed':
       return 'completed';
-    case 'Recovered':
+    case 'recovered':
       return 'active';
     default:
       return 'active';
@@ -309,12 +313,12 @@ export const canCompleteTask = (
   const computedStatus = task ? calculateTaskStatusUserStatus(taskStatus, completionLog, task) : taskStatus.status;
 
   // Recovered tasks can always be completed from today's view
-  if (taskStatus.recoveredAt || computedStatus === 'Recovered') {
+  if (taskStatus.recoveredAt || computedStatus === 'recovered') {
     return true;
   }
 
   // Only allow completion for active (due today) tasks
-  return computedStatus === 'Active';
+  return computedStatus === 'active';
 };
 
 /**
@@ -336,13 +340,13 @@ export const canRecoverTask = (
   if (!taskStatus && !task) return false;
 
   // Already recovered
-  if (taskStatus?.recoveredAt || taskStatus?.status === 'Recovered') return false;
+  if (taskStatus?.recoveredAt || taskStatus?.status === 'recovered') return false;
 
   const computedStatus = task
     ? calculateTaskStatusUserStatus(taskStatus, completionLog, task)
     : taskStatus?.status;
 
-  return computedStatus === 'Archived';
+  return computedStatus === 'archived';
 };
 
 /**
@@ -352,16 +356,16 @@ export const canRecoverTask = (
  * @returns Badge variant string
  */
 export const getStatusBadgeVariant = (
-  uiStatus: TaskStatusUserStatus
+  uiStatus: TaskStatus
 ): 'default' | 'secondary' | 'outline' => {
   switch (uiStatus) {
-    case 'Completed':
+    case 'completed':
       return 'default';
-    case 'Active':
-    case 'Upcoming':
-    case 'Recovered':
+    case 'active':
+    case 'upcoming':
+    case 'recovered':
       return 'secondary';
-    case 'Archived':
+    case 'archived':
       return 'outline';
     default:
       return 'outline';
@@ -375,22 +379,20 @@ export const getStatusBadgeVariant = (
  * @returns Color class string
  */
 export const getStatusColor = (
-  uiStatus: TaskStatusUserStatus
+  uiStatus: TaskStatus
 ): string => {
   switch (uiStatus) {
-    case 'Active':
+    case 'active':
       return 'text-primary';
-    case 'Upcoming':
+    case 'upcoming':
       return 'text-muted-foreground';
-    case 'Recovered':
+    case 'recovered':
       return 'text-accent';
-    case 'Completed':
+    case 'completed':
       return 'text-status-completed';
-    case 'Archived':
+    case 'archived':
       return 'text-muted-foreground';
     default:
       return 'text-muted-foreground';
   }
 };
-
-

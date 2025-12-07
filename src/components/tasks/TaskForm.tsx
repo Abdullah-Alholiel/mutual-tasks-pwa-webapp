@@ -25,7 +25,7 @@ interface TaskFormProps {
   onSubmit: (task: {
     title: string;
     description: string;
-    projectId: string;
+    projectId: string | number;
     type: TaskType;
     recurrencePattern?: RecurrencePattern;
     dueDate?: Date;
@@ -60,7 +60,7 @@ export const TaskForm = ({
 }: TaskFormProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProject?.id || '');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | number>(initialProject?.id || '');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('Daily');
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
@@ -77,7 +77,11 @@ export const TaskForm = ({
   const [showProjectForm, setShowProjectForm] = useState(false);
 
   // Use provided projects list, or fall back to initialProject
-  const project = initialProject || (selectedProjectId ? projects.find(p => p.id === selectedProjectId) : undefined);
+  const project = initialProject || (selectedProjectId ? projects.find(p => {
+    const pId = typeof p.id === 'string' ? p.id : String(p.id);
+    const sId = typeof selectedProjectId === 'string' ? selectedProjectId : String(selectedProjectId);
+    return pId === sId;
+  }) : undefined);
   const availableProjects = allowProjectSelection ? projects : [];
 
   // Reset form when dialog closes
@@ -195,12 +199,14 @@ export const TaskForm = ({
               <Label>Project *</Label>
               <div className="space-y-2">
                 <Select 
-                  value={selectedProjectId || ''} 
+                  value={typeof selectedProjectId === 'string' ? selectedProjectId : selectedProjectId.toString()} 
                   onValueChange={(value) => {
                     if (value === 'none') {
                       setSelectedProjectId('');
                     } else {
-                      setSelectedProjectId(value);
+                      // Handle both string and number IDs
+                      const numValue = parseInt(value);
+                      setSelectedProjectId(isNaN(numValue) ? value : numValue);
                     }
                   }}
                 >
@@ -231,7 +237,7 @@ export const TaskForm = ({
                     )}
                     {/* Existing projects */}
                     {availableProjects.map((proj) => (
-                      <SelectItem key={proj.id} value={proj.id}>
+                      <SelectItem key={proj.id} value={String(proj.id)}>
                         <div className="flex items-center gap-2">
                           <div
                             className="w-3 h-3 rounded-full"

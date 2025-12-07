@@ -19,14 +19,11 @@ if (!process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
 // Get connection string from environment
 const connectionString =
   process.env.SUPABASE_DB_URL ??
-  process.env.DATABASE_URL ??
   '';
 
 // Get Supabase URL for project reference extraction
 const supabaseUrl =
-  process.env.SUPABASE_URL ??
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  process.env.VITE_SUPABASE_URL ??
+  process.env.NEXT_PUBLIC_SUPABASE_URL
   '';
 
 // Helper to parse connection string and extract components
@@ -244,7 +241,7 @@ const ENUM_STATEMENTS = [
 const TABLE_STATEMENTS = [
   `
   CREATE TABLE IF NOT EXISTS public.users (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id SERIAL PRIMARY KEY,
     name text NOT NULL,
     handle text NOT NULL UNIQUE,
     email text NOT NULL UNIQUE,
@@ -257,7 +254,7 @@ const TABLE_STATEMENTS = [
   `,
   `
   CREATE TABLE IF NOT EXISTS public.user_stats (
-    user_id uuid PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    user_id integer PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     total_completed_tasks integer NOT NULL DEFAULT 0,
     current_streak integer NOT NULL DEFAULT 0,
     longest_streak integer NOT NULL DEFAULT 0,
@@ -267,12 +264,12 @@ const TABLE_STATEMENTS = [
   `,
   `
   CREATE TABLE IF NOT EXISTS public.projects (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    id SERIAL PRIMARY KEY,
     name text NOT NULL,
     description text,
     icon text,
     color text,
-    owner_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    owner_id integer NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     is_public boolean NOT NULL DEFAULT false,
     total_tasks integer NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
@@ -281,8 +278,8 @@ const TABLE_STATEMENTS = [
   `,
   `
   CREATE TABLE IF NOT EXISTS public.project_participants (
-    project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-    user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    project_id integer NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    user_id integer NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     role project_role NOT NULL DEFAULT 'participant',
     added_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     removed_at timestamptz,
@@ -291,49 +288,36 @@ const TABLE_STATEMENTS = [
   `,
   `
   CREATE TABLE IF NOT EXISTS public.tasks (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id uuid NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
-    creator_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    project_id integer NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    creator_id integer NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     title text NOT NULL,
     description text,
     type task_type NOT NULL,
     recurrence_pattern recurrence_pattern,
-    original_due_date timestamptz NOT NULL,
-    status task_status NOT NULL DEFAULT 'initiated',
-    initiated_at timestamptz,
-    completed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
+    due_date timestamptz NOT NULL,
+    created_at timestamptz DEFAULT timezone('utc', now()),
     updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
   );
   `,
   `
-  CREATE TABLE IF NOT EXISTS public.task_status (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
-    user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    status task_status_user_status NOT NULL DEFAULT 'initiated',
-    effective_due_date timestamptz NOT NULL,
-    initiated_at timestamptz,
-    accepted_at timestamptz,
-    declined_at timestamptz,
+  CREATE TABLE IF NOT EXISTS public.task_statuses (
+    id SERIAL PRIMARY KEY,
+    task_id integer NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    user_id integer NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    status task_status NOT NULL DEFAULT 'active',
     archived_at timestamptz,
     recovered_at timestamptz,
-    timing_status timing_status,
     ring_color ring_color,
-    created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
-    updated_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     UNIQUE(task_id, user_id)
   );
   `,
   `
   CREATE TABLE IF NOT EXISTS public.completion_logs (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-    task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
-    completed_at timestamptz NOT NULL,
-    difficulty_rating smallint CHECK (difficulty_rating BETWEEN 1 AND 5),
-    timing_status timing_status NOT NULL,
-    recovered_completion boolean NOT NULL DEFAULT false,
+    id SERIAL PRIMARY KEY,
+    user_id integer NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    task_id integer NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    difficulty_rating smallint CHECK (difficulty_rating IS NULL OR (difficulty_rating >= 1 AND difficulty_rating <= 5)),
     penalty_applied boolean NOT NULL DEFAULT false,
     xp_earned integer NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT timezone('utc', now())
@@ -341,12 +325,12 @@ const TABLE_STATEMENTS = [
   `,
   `
   CREATE TABLE IF NOT EXISTS public.notifications (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    user_id integer NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     type notification_type NOT NULL,
     message text NOT NULL,
-    task_id uuid REFERENCES public.tasks(id) ON DELETE SET NULL,
-    project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL,
+    task_id integer REFERENCES public.tasks(id) ON DELETE SET NULL,
+    project_id integer REFERENCES public.projects(id) ON DELETE SET NULL,
     created_at timestamptz NOT NULL DEFAULT timezone('utc', now()),
     is_read boolean NOT NULL DEFAULT false,
     email_sent boolean NOT NULL DEFAULT false
@@ -354,8 +338,8 @@ const TABLE_STATEMENTS = [
   `,
   `
   CREATE TABLE IF NOT EXISTS public.task_recurrence (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    task_id uuid NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    task_id integer NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
     recurrence_pattern recurrence_pattern NOT NULL,
     recurrence_interval integer NOT NULL,
     next_occurrence timestamptz NOT NULL,
@@ -365,28 +349,40 @@ const TABLE_STATEMENTS = [
   `
 ];
 
+// Index statements with table verification
 const INDEX_STATEMENTS = [
-  'CREATE INDEX IF NOT EXISTS idx_projects_owner ON public.projects(owner_id);',
-  'CREATE INDEX IF NOT EXISTS idx_project_participants_role ON public.project_participants(project_id, role);',
-  'CREATE INDEX IF NOT EXISTS idx_project_participants_user ON public.project_participants(user_id);',
-  'CREATE INDEX IF NOT EXISTS idx_tasks_project ON public.tasks(project_id);',
-  'CREATE INDEX IF NOT EXISTS idx_tasks_creator ON public.tasks(creator_id);',
-  'CREATE INDEX IF NOT EXISTS idx_tasks_status ON public.tasks(status);',
-  'CREATE INDEX IF NOT EXISTS idx_task_status_user_status ON public.task_status(user_id, status);',
-  'CREATE INDEX IF NOT EXISTS idx_task_status_effective_due_date ON public.task_status(user_id, effective_due_date);',
-  'CREATE INDEX IF NOT EXISTS idx_task_status_task ON public.task_status(task_id);',
-  'CREATE INDEX IF NOT EXISTS idx_completion_logs_user_completed ON public.completion_logs(user_id, completed_at);',
-  'CREATE INDEX IF NOT EXISTS idx_completion_logs_task ON public.completion_logs(task_id);',
-  'CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON public.notifications(user_id, is_read, created_at);',
-  'CREATE INDEX IF NOT EXISTS idx_task_recurrence_task ON public.task_recurrence(task_id);',
-  'CREATE INDEX IF NOT EXISTS idx_task_recurrence_next_occurrence ON public.task_recurrence(next_occurrence);'
+  { table: 'projects', statement: 'CREATE INDEX IF NOT EXISTS idx_projects_owner ON public.projects(owner_id);' },
+  { table: 'project_participants', statement: 'CREATE INDEX IF NOT EXISTS idx_project_participants_role ON public.project_participants(project_id, role);' },
+  { table: 'project_participants', statement: 'CREATE INDEX IF NOT EXISTS idx_project_participants_user ON public.project_participants(user_id);' },
+  { table: 'tasks', statement: 'CREATE INDEX IF NOT EXISTS idx_tasks_project ON public.tasks(project_id);' },
+  { table: 'tasks', statement: 'CREATE INDEX IF NOT EXISTS idx_tasks_creator ON public.tasks(creator_id);' },
+  { table: 'tasks', statement: 'CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON public.tasks(due_date);' },
+  { table: 'task_statuses', statement: 'CREATE INDEX IF NOT EXISTS idx_task_statuses_user_status ON public.task_statuses(user_id, status);' },
+  { table: 'task_statuses', statement: 'CREATE INDEX IF NOT EXISTS idx_task_statuses_task ON public.task_statuses(task_id);' },
+  { table: 'task_statuses', statement: 'CREATE INDEX IF NOT EXISTS idx_task_statuses_user ON public.task_statuses(user_id);' },
+  { table: 'completion_logs', statement: 'CREATE INDEX IF NOT EXISTS idx_completion_logs_user ON public.completion_logs(user_id);' },
+  { table: 'completion_logs', statement: 'CREATE INDEX IF NOT EXISTS idx_completion_logs_task ON public.completion_logs(task_id);' },
+  { table: 'completion_logs', statement: 'CREATE INDEX IF NOT EXISTS idx_completion_logs_created ON public.completion_logs(created_at);' },
+  { table: 'notifications', statement: 'CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON public.notifications(user_id, is_read, created_at);' },
+  { table: 'task_recurrence', statement: 'CREATE INDEX IF NOT EXISTS idx_task_recurrence_task ON public.task_recurrence(task_id);' },
+  { table: 'task_recurrence', statement: 'CREATE INDEX IF NOT EXISTS idx_task_recurrence_next_occurrence ON public.task_recurrence(next_occurrence);' }
 ];
 
+// Add a cleanup step to drop any partially created objects if needed
+const CLEANUP_STATEMENTS = [
+  // Drop indexes first (they depend on tables)
+  'DROP INDEX IF EXISTS public.idx_task_status_user_status;',
+  'DROP INDEX IF EXISTS public.idx_task_status_task;',
+  'DROP INDEX IF EXISTS public.idx_task_status_user;',
+  // Note: We don't drop tables here as they might have data
+  // If you need a fresh start, manually drop tables first
+];
+
+// Build migration statements
 const MIGRATION_STATEMENTS = [
-  'CREATE EXTENSION IF NOT EXISTS "pgcrypto";',
   ...ENUM_STATEMENTS,
   ...TABLE_STATEMENTS,
-  ...INDEX_STATEMENTS
+  // Indexes will be handled separately with table verification
 ];
 
 const tryConnection = async (connString: string, attempt: number, total: number): Promise<Client> => {
@@ -482,23 +478,119 @@ const run = async () => {
   }
 
   try {
+    // First, verify enum types exist (they're needed for table creation)
+    console.info('Verifying enum types...');
+    const enumCheck = await client.query(`
+      SELECT typname FROM pg_type 
+      WHERE typname IN ('project_role', 'task_type', 'task_status', 'recurrence_pattern', 'ring_color', 'notification_type')
+      AND typtype = 'e';
+    `);
+    console.info(`Found ${enumCheck.rows.length} enum types`);
+
     // Run migrations
-    for (const statement of MIGRATION_STATEMENTS) {
+    for (let i = 0; i < MIGRATION_STATEMENTS.length; i++) {
+      const statement = MIGRATION_STATEMENTS[i];
       const trimmed = statement.trim().split('\n')[0]?.trim().slice(0, 60) ?? 'statement';
-      console.info(`Running: ${trimmed}...`);
+      const statementType = i < ENUM_STATEMENTS.length ? 'ENUM' : 
+                           i < ENUM_STATEMENTS.length + TABLE_STATEMENTS.length ? 'TABLE' : 'INDEX';
+      
+      console.info(`[${statementType}] Running: ${trimmed}...`);
       try {
-        await client.query(statement);
+        const result = await client.query(statement);
+        console.info(`  ✓ Success`);
       } catch (error: any) {
-        // If it's a "already exists" error, that's okay for idempotent operations
-        if (error?.message?.includes('already exists') || error?.code === '42P07' || error?.code === '42710') {
+        // Only skip if it's a genuine "already exists" error for idempotent operations
+        // Be very specific about what constitutes "already exists"
+        const isAlreadyExists = 
+          (error?.code === '42P07' && error?.message?.includes('already exists')) || // duplicate_table
+          (error?.code === '42710' && error?.message?.includes('already exists')) || // duplicate_object  
+          (error?.code === '42723' && error?.message?.includes('already exists')) || // duplicate_function
+          (error?.code === '42P16' && error?.message?.includes('already exists')) || // invalid_table_definition
+          (error?.code === '23505' && error?.message?.includes('already exists')); // unique_violation for indexes
+        
+        // Explicitly exclude "does not exist" errors
+        const isDoesNotExist = 
+          error?.code === '42P01' || // undefined_table
+          error?.message?.includes('does not exist') ||
+          error?.message?.includes('relation') && error?.message?.includes('does not exist');
+        
+        if (isAlreadyExists && !isDoesNotExist) {
           console.info(`  ✓ (already exists, skipping)`);
           continue;
+        }
+        
+        // For other errors, log details and rethrow
+        console.error(`  ✗ Error [${error.code || 'UNKNOWN'}]: ${error.message}`);
+        if (error.detail) {
+          console.error(`     Detail: ${error.detail}`);
+        }
+        if (error.hint) {
+          console.error(`     Hint: ${error.hint}`);
+        }
+        if (error.where) {
+          console.error(`     Where: ${error.where}`);
         }
         throw error;
       }
     }
 
-    console.info('\nDatabase schema synced successfully ✅');
+    // Verify critical tables exist before creating indexes
+    console.info('\nVerifying tables exist before creating indexes...');
+    const tableCheck = await client.query(`
+      SELECT tablename FROM pg_tables 
+      WHERE schemaname = 'public' 
+      AND tablename IN ('users', 'projects', 'tasks', 'task_statuses', 'completion_logs', 'notifications', 'task_recurrence')
+      ORDER BY tablename;
+    `);
+    const existingTables = new Set(tableCheck.rows.map(r => r.tablename));
+    console.info(`Existing tables: ${Array.from(existingTables).join(', ')}`);
+
+    // Create indexes only for tables that exist
+    console.info('\nCreating indexes...');
+    for (const indexDef of INDEX_STATEMENTS) {
+      if (!existingTables.has(indexDef.table)) {
+        console.warn(`  ⚠ Skipping index for table '${indexDef.table}' (table does not exist)`);
+        continue;
+      }
+      
+      const trimmed = indexDef.statement.trim().split('\n')[0]?.trim().slice(0, 60) ?? 'statement';
+      console.info(`[INDEX] Running: ${trimmed}...`);
+      try {
+        await client.query(indexDef.statement);
+        console.info(`  ✓ Success`);
+      } catch (error: any) {
+        const isAlreadyExists = 
+          error?.code === '42P07' || // duplicate_table
+          error?.code === '42710' || // duplicate_object
+          error?.message?.includes('already exists');
+        
+        if (isAlreadyExists) {
+          console.info(`  ✓ (already exists, skipping)`);
+          continue;
+        }
+        
+        console.error(`  ✗ Error [${error.code || 'UNKNOWN'}]: ${error.message}`);
+        throw error;
+      }
+    }
+
+    // Final verification
+    const finalTableCheck = await client.query(`
+      SELECT tablename FROM pg_tables 
+      WHERE schemaname = 'public' 
+      AND tablename IN ('users', 'projects', 'tasks', 'task_statuses', 'completion_logs', 'notifications', 'task_recurrence')
+      ORDER BY tablename;
+    `);
+    const finalTables = finalTableCheck.rows.map(r => r.tablename);
+    console.info(`\nFinal tables: ${finalTables.join(', ')}`);
+    
+    if (finalTables.length < 7) {
+      const expected = ['users', 'projects', 'tasks', 'task_statuses', 'completion_logs', 'notifications', 'task_recurrence'];
+      const missing = expected.filter(t => !finalTables.includes(t));
+      throw new Error(`Critical tables are missing: ${missing.join(', ')}. Please check the migration errors above.`);
+    }
+
+    console.info('\n✅ Database schema synced successfully');
   } finally {
     await client.end();
   }

@@ -7,7 +7,7 @@ interface TaskSectionProps {
   icon: React.ReactNode;
   tasks: Task[];
   completionLogs: CompletionLog[];
-  onRecover?: (taskId: string) => void;
+  onRecover?: (taskId: string | number) => void;
   className?: string;
 }
 
@@ -47,7 +47,7 @@ interface ProjectTaskSectionsProps {
   completedTasks: Task[];
   archivedTasks: Task[];
   completionLogs: CompletionLog[];
-  onRecover: (taskId: string) => void;
+  onRecover: (taskId: string | number) => void;
 }
 
 export const ProjectTaskSections = ({

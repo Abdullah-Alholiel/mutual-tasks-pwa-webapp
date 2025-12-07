@@ -4,10 +4,12 @@
 // 
 // This file provides standardized utilities for filtering tasks
 // that should be used consistently across all components.
+// Supports both string and number IDs for compatibility.
 // ============================================================================
 
 import type { Task, TaskStatusEntity, CompletionLog, Project, User } from '@/types';
 import { calculateTaskStatusUserStatus, normalizeToStartOfDay } from '@/lib/taskUtils';
+import { normalizeId } from '@/lib/idUtils';
 
 /**
  * Get tasks for today (based on dueDate)
@@ -18,22 +20,25 @@ import { calculateTaskStatusUserStatus, normalizeToStartOfDay } from '@/lib/task
  */
 export const getTodayTasks = (
   tasks: Task[],
-  userId?: string
+  userId?: string | number
 ): Task[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = normalizeToStartOfDay(new Date());
   
   return tasks.filter(task => {
-    const dueDate = new Date(task.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     const isToday = dueDate.getTime() === today.getTime();
     
     if (!isToday) return false;
     
     // If userId provided, filter to tasks visible to that user
-    if (userId) {
-      const isCreator = task.creatorId === userId;
-      const hasStatus = task.taskStatuses?.some(ts => ts.userId === userId);
+    if (userId !== undefined) {
+      const userIdNum = normalizeId(userId);
+      const creatorId = normalizeId(task.creatorId);
+      const isCreator = creatorId === userIdNum;
+      const hasStatus = task.taskStatus?.some(ts => {
+        const tsUserId = normalizeId(ts.userId);
+        return tsUserId === userIdNum;
+      });
       return isCreator || hasStatus;
     }
     
@@ -48,8 +53,12 @@ export const getTodayTasks = (
  * @param projectId - Project ID to filter by
  * @returns Tasks in the project
  */
-export const getProjectTasks = (tasks: Task[], projectId: string): Task[] => {
-  return tasks.filter(task => task.projectId === projectId);
+export const getProjectTasks = (tasks: Task[], projectId: string | number): Task[] => {
+  const projectIdNum = normalizeId(projectId);
+  return tasks.filter(task => {
+    const taskProjectId = normalizeId(task.projectId);
+    return taskProjectId === projectIdNum;
+  });
 };
 
 /**
@@ -59,11 +68,56 @@ export const getProjectTasks = (tasks: Task[], projectId: string): Task[] => {
  * @param userId - User ID to filter by
  * @returns Tasks where user is creator or has task status
  */
-export const getUserTasks = (tasks: Task[], userId: string): Task[] => {
-  return tasks.filter(
-    task => task.creatorId === userId || task.taskStatuses?.some(ts => ts.userId === userId)
-  );
+export const getUserTasks = (tasks: Task[], userId: string | number): Task[] => {
+  const userIdNum = normalizeId(userId);
+  return tasks.filter(task => {
+    const creatorId = normalizeId(task.creatorId);
+    const isCreator = creatorId === userIdNum;
+    const hasStatus = task.taskStatus?.some(ts => {
+      const tsUserId = normalizeId(ts.userId);
+      return tsUserId === userIdNum;
+    });
+    return isCreator || hasStatus;
+  });
 };
+
+/**
+ * Check if a user is a participant in a task's project
+ * Helper function to determine task visibility
+ */
+function isUserInTaskProject(
+  task: Task,
+  userId: string | number,
+  projects: Project[]
+): boolean {
+  const userIdNum = normalizeId(userId);
+  const taskProjectId = normalizeId(task.projectId);
+  
+  const project = projects.find(p => {
+    const pId = normalizeId(p.id);
+    return pId === taskProjectId;
+  });
+  
+  if (!project) return false;
+  
+  // User is owner
+  const ownerId = normalizeId(project.ownerId);
+  if (ownerId === userIdNum) return true;
+  
+  // User is in participants array
+  if (project.participants?.some(p => {
+    const participantId = typeof p === 'object' && 'id' in p ? normalizeId(p.id) : normalizeId(p);
+    return participantId === userIdNum;
+  })) return true;
+  
+  // User is in participantRoles
+  if (project.participantRoles?.some(pr => {
+    const prUserId = normalizeId(pr.userId);
+    return prUserId === userIdNum && !pr.removedAt;
+  })) return true;
+  
+  return false;
+}
 
 /**
  * Get tasks that need user action (active tasks due today, not completed, not recovered)
@@ -80,61 +134,43 @@ export const getNeedsActionTasks = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string,
+  userId: string | number,
   projects?: Project[]
 ): Task[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = normalizeToStartOfDay(new Date());
+  const userIdNum = normalizeId(userId);
   
   return tasks.filter(task => {
-    const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
-    const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.find(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
     
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
-    if (userStatus !== 'Active') return false;
+    if (userStatus !== 'active') return false;
 
-    const effectiveDueDate = myStatus?.effectiveDueDate || task.dueDate;
-    const dueDate = normalizeToStartOfDay(new Date(effectiveDueDate));
+    // Use task dueDate (effectiveDueDate not in TaskStatusEntity type)
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     const isDueToday = dueDate.getTime() === today.getTime();
     if (!isDueToday) return false;
 
     if (!myStatus) {
       if (projects) {
-        const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject;
+        return isUserInTaskProject(task, userId, projects);
       }
-      return task.creatorId === userId;
+      const creatorId = normalizeId(task.creatorId);
+      return creatorId === userIdNum;
     }
 
     return true;
   });
-};
-
-/**
- * Check if a user is a participant in a task's project
- * Helper function to determine task visibility
- */
-const isUserInTaskProject = (
-  task: Task,
-  userId: string,
-  projects: Project[]
-): boolean => {
-  const project = projects.find(p => p.id === task.projectId);
-  if (!project) return false;
-  
-  // User is owner
-  if (project.ownerId === userId) return true;
-  
-  // User is in participants array
-  if (project.participants?.some(p => {
-    const participantId = typeof p === 'object' && 'id' in p ? p.id : p;
-    return participantId === userId;
-  })) return true;
-  
-  // User is in participantRoles
-  if (project.participantRoles?.some(pr => pr.userId === userId && !pr.removedAt)) return true;
-  
-  return false;
 };
 
 /**
@@ -152,25 +188,37 @@ export const getActiveTasks = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string,
+  userId: string | number,
   projects?: Project[]
 ): Task[] => {
+  const userIdNum = normalizeId(userId);
+  
   return tasks.filter(task => {
-    const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
-    const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.some(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
+    
     if (myCompletion) return false;
 
     if (!myStatus) {
-      const isCreator = task.creatorId === userId;
+      const creatorId = normalizeId(task.creatorId);
+      const isCreator = creatorId === userIdNum;
       if (projects) {
-        const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject && !myCompletion;
+        return isUserInTaskProject(task, userId, projects) && !myCompletion;
       }
       return isCreator && !myCompletion;
     }
 
     const userStatus = calculateTaskStatusUserStatus(myStatus, undefined, task);
-    return (userStatus === 'Active' || userStatus === 'Recovered');
+    return (userStatus === 'active' || userStatus === 'recovered');
   });
 };
 
@@ -190,41 +238,50 @@ export const getActiveTasksForToday = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string,
+  userId: string | number,
   projects?: Project[],
   includeRecovered: boolean = false
 ): Task[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = normalizeToStartOfDay(new Date());
+  const userIdNum = normalizeId(userId);
   
   return tasks.filter(task => {
-    const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
-    const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.find(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
     
     if (myCompletion) return false;
     
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
-    const isRecovered = myStatus?.recoveredAt !== undefined && myStatus?.recoveredAt !== null || userStatus === 'Recovered';
+    const isRecovered = myStatus?.recoveredAt !== undefined && myStatus?.recoveredAt !== null || userStatus === 'recovered';
 
     if (includeRecovered && isRecovered) {
-      return userStatus === 'Recovered';
+      return userStatus === 'recovered';
     }
 
-    const taskDueDate = myStatus?.effectiveDueDate || task.dueDate;
-    const dueDate = normalizeToStartOfDay(new Date(taskDueDate));
+    // Use task dueDate (effectiveDueDate not in TaskStatusEntity type)
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     const isDueToday = dueDate.getTime() === today.getTime();
     if (!isDueToday) return false;
 
     if (!myStatus) {
-      const isCreator = task.creatorId === userId;
+      const creatorId = normalizeId(task.creatorId);
+      const isCreator = creatorId === userIdNum;
       if (projects) {
-        const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject && !myCompletion;
+        return isUserInTaskProject(task, userId, projects) && !myCompletion;
       }
       return isCreator && !myCompletion;
     }
 
-    return userStatus === 'Active';
+    return userStatus === 'active';
   });
 };
 
@@ -239,10 +296,17 @@ export const getActiveTasksForToday = (
 export const getCompletedTasks = (
   tasks: Task[],
   completionLogs: CompletionLog[],
-  userId: string
+  userId: string | number
 ): Task[] => {
+  const userIdNum = normalizeId(userId);
+  
   return tasks.filter(task => {
-    const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myCompletion = completionLogs.find(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
     return !!myCompletion;
   });
 };
@@ -260,17 +324,22 @@ export const getCompletedTasksForToday = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string
+  userId: string | number
 ): Task[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = normalizeToStartOfDay(new Date());
+  const userIdNum = normalizeId(userId);
   
   return tasks.filter(task => {
-    const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myCompletion = completionLogs.find(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
     if (!myCompletion) return false;
     
-    // Check if completion was on today's date
-    const completionDate = normalizeToStartOfDay(new Date(myCompletion.completedAt));
+    // Check if completion was on today's date (use createdAt as completion date)
+    const completionDate = normalizeToStartOfDay(new Date(myCompletion.createdAt));
     const isCompletedToday = completionDate.getTime() === today.getTime();
     
     return isCompletedToday;
@@ -292,27 +361,37 @@ export const getRecoveredTasks = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string,
+  userId: string | number,
   projects?: Project[]
 ): Task[] => {
+  const userIdNum = normalizeId(userId);
+  
   return tasks.filter(task => {
-    const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
-    const myCompletion = completionLogs.find(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.find(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
     
     // Exclude completed tasks - they should not appear in recovered section
     if (myCompletion) return false;
     
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
-    if (userStatus !== 'Recovered') return false;
+    if (userStatus !== 'recovered') return false;
     
     // If user has no status, check if they're in the project
     if (!myStatus) {
       if (projects) {
-        const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject;
+        return isUserInTaskProject(task, userId, projects);
       }
-      // Fallback: show if creator
-      return task.creatorId === userId;
+      const creatorId = normalizeId(task.creatorId);
+      return creatorId === userIdNum;
     }
     
     return true;
@@ -333,18 +412,26 @@ export const getUpcomingTasks = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string,
+  userId: string | number,
   projects?: Project[]
 ): Task[] => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = normalizeToStartOfDay(new Date());
+  const userIdNum = normalizeId(userId);
   
   return tasks.filter(task => {
-    const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
-    const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.some(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
     
-    const dueDate = new Date(task.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     const isDueFuture = dueDate.getTime() > today.getTime();
     
     if (!isDueFuture) return false;
@@ -353,15 +440,14 @@ export const getUpcomingTasks = (
     // If user has no status, check if they're in the project
     if (!myStatus) {
       if (projects) {
-        const isInProject = isUserInTaskProject(task, userId, projects);
-        return isInProject;
+        return isUserInTaskProject(task, userId, projects);
       }
-      // Fallback: show if creator
-      return task.creatorId === userId;
+      const creatorId = normalizeId(task.creatorId);
+      return creatorId === userIdNum;
     }
     
     const userStatus = calculateTaskStatusUserStatus(myStatus, undefined, task);
-    return userStatus === 'Upcoming';
+    return userStatus === 'upcoming';
   });
 };
 
@@ -378,20 +464,31 @@ export const getArchivedTasks = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string
+  userId: string | number
 ): Task[] => {
+  const userIdNum = normalizeId(userId);
+  const today = normalizeToStartOfDay(new Date());
+  
   return tasks.filter(task => {
-    const myStatus = taskStatuses.find(ts => ts.taskId === task.id && ts.userId === userId);
-    const myCompletion = completionLogs.some(cl => cl.taskId === task.id && cl.userId === userId);
+    const taskId = normalizeId(task.id);
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.some(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
     
     // If user has no status but is creator, check if user's task status would be archived
     if (!myStatus) {
-      const isCreator = task.creatorId === userId;
+      const creatorId = normalizeId(task.creatorId);
+      const isCreator = creatorId === userIdNum;
       if (!isCreator || myCompletion) return false;
       
       // Check if task is past due (would be archived)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
       const isPastDue = dueDate.getTime() < today.getTime();
       
@@ -399,7 +496,7 @@ export const getArchivedTasks = (
     }
     
     // Only show if archived, not recovered, and not completed
-    const isArchived = myStatus.status === 'Archived' || 
+    const isArchived = myStatus.status === 'archived' || 
                       (myStatus.archivedAt !== undefined && myStatus.archivedAt !== null);
     
     return isArchived && !myStatus.recoveredAt && !myCompletion;
@@ -421,14 +518,20 @@ export const getArchivedTasks = (
  */
 export const getVisibleTasks = (
   tasks: Task[],
-  userId: string
+  userId: string | number
 ): Task[] => {
+  const userIdNum = normalizeId(userId);
+  
   return tasks.filter(task => {
-    const isCreator = task.creatorId === userId;
-    const hasStatus = task.taskStatuses?.some(ts => ts.userId === userId);
+    const creatorId = normalizeId(task.creatorId);
+    const isCreator = creatorId === userIdNum;
+    const hasStatus = task.taskStatus?.some(ts => {
+      const tsUserId = normalizeId(ts.userId);
+      return tsUserId === userIdNum;
+    });
     // Task is visible if user created it OR has a task status for it
     // If task has no statuses yet, it's still visible to the creator
-    return isCreator || hasStatus || (task.taskStatuses?.length === 0 && isCreator);
+    return isCreator || hasStatus || (task.taskStatus?.length === 0 && isCreator);
   });
 };
 
@@ -443,10 +546,16 @@ export const updateTasksWithStatuses = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[]
 ): Task[] => {
-  return tasks.map(task => ({
-    ...task,
-    taskStatuses: taskStatuses.filter(ts => ts.taskId === task.id)
-  }));
+  return tasks.map(task => {
+    const taskId = normalizeId(task.id);
+    return {
+      ...task,
+      taskStatuses: taskStatuses.filter(ts => {
+        const tsTaskId = normalizeId(ts.taskId);
+        return tsTaskId === taskId;
+      })
+    };
+  });
 };
 
 /**
@@ -464,8 +573,7 @@ export const getProjectTaskBuckets = (
   completed: Task[];
   archived: Task[];
 } => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = normalizeToStartOfDay(new Date());
   
   const active: Task[] = [];
   const upcoming: Task[] = [];
@@ -473,8 +581,7 @@ export const getProjectTaskBuckets = (
   const archived: Task[] = [];
   
   tasks.forEach(task => {
-    const dueDate = new Date(task.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     if (dueDate.getTime() <= today.getTime()) {
       active.push(task);
     } else {

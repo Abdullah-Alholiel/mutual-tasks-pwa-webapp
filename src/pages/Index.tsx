@@ -1,13 +1,12 @@
 import { AppLayout } from '@/components/layout/AppLayout';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskForm } from '@/components/tasks/TaskForm';
-import { mockTasks, mockProjects, mockUsers, currentUser, mockTaskStatuses, mockCompletionLogs, mockProjectParticipants } from '@/lib/mockData';
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState, useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, RingColor, ProjectParticipant } from '@/types';
+import type { Task, TaskStatusEntity, CompletionLog } from '@/types';
 import { 
   getTodayTasks, 
   getNeedsActionTasks, 
@@ -15,292 +14,189 @@ import {
   getRecoveredTasks,
   updateTasksWithStatuses 
 } from '@/lib/taskFilterUtils';
-import { calculateProjectProgress, getProjectsWhereCanCreateTasks } from '@/lib/projectUtils';
-import { handleError } from '@/lib/errorUtils';
-import { 
-  createTaskStatusesForAllParticipants, 
-  validateProjectForTaskCreation 
-} from '@/lib/taskCreationUtils';
-import { normalizeToStartOfDay, calculateRingColor } from '@/lib/taskUtils';
-import { recoverTask } from '@/lib/taskRecoveryUtils';
+import { getProjectsWhereCanCreateTasks } from '@/lib/projectUtils';
+import { normalizeToStartOfDay } from '@/lib/taskUtils';
+import { useAuth } from '@/hooks/useAuth';
+import { useTodayTasks } from '@/hooks/useTasks';
+import { useProjects } from '@/hooks/useProjects';
+import { useCreateTask } from '@/hooks/useTasks';
+import { useCreateCompletionLog, useUpdateTaskStatus } from '@/hooks/useTasks';
+import { getDatabaseClient } from '@/db';
 
 const Index = () => {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
-  const [taskStatuses, setTaskStatuses] = useState<TaskStatusEntity[]>(mockTaskStatuses);
-  const [completionLogs, setCompletionLogs] = useState(mockCompletionLogs);
-  const [projects, setProjects] = useState<Project[]>(mockProjects);
-  const [projectParticipants, setProjectParticipants] = useState(mockProjectParticipants);
+  const { user, isAuthenticated } = useAuth();
+  const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
+  const { data: todayTasksRaw = [], isLoading: tasksLoading } = useTodayTasks();
+  const createTaskMutation = useCreateTask();
+  const createCompletionLogMutation = useCreateCompletionLog();
+  const updateTaskStatusMutation = useUpdateTaskStatus();
+  
+  const [taskStatuses, setTaskStatuses] = useState<TaskStatusEntity[]>([]);
+  const [completionLogs, setCompletionLogs] = useState<CompletionLog[]>([]);
   const [showTaskForm, setShowTaskForm] = useState(false);
 
-  // Helper to get task status for a user
-  const getTaskStatusForUser = (taskId: string, userId: string): TaskStatusEntity | undefined => {
-    return taskStatuses.find(ts => ts.taskId === taskId && ts.userId === userId);
-  };
+  // Fetch task statuses and completion logs
+  useEffect(() => {
+    if (!user || !isAuthenticated) return;
+
+    const loadData = async () => {
+      const db = getDatabaseClient();
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      
+      try {
+        const [statuses, logs] = await Promise.all([
+          db.taskStatus.getByUserId(userId),
+          db.completionLogs.getAll({ userId })
+        ]);
+        
+        setTaskStatuses(statuses);
+        setCompletionLogs(logs);
+      } catch (error) {
+        console.error('Failed to load task data:', error);
+      }
+    };
+
+    loadData();
+  }, [user, isAuthenticated]);
 
   // Update tasks with their statuses
   const tasksWithStatuses = useMemo(() => 
-    updateTasksWithStatuses(tasks, taskStatuses),
-    [tasks, taskStatuses]
+    updateTasksWithStatuses(todayTasksRaw, taskStatuses),
+    [todayTasksRaw, taskStatuses]
   );
 
   // Update projects with participant roles for permission checking
   const projectsWithRoles = useMemo(() => 
-    projects.map(project => ({
+    allProjects.map(project => ({
       ...project,
-      participantRoles: projectParticipants.filter(pp => 
-        pp.projectId === project.id && !pp.removedAt
-      )
+      participantRoles: project.participantRoles || []
     })),
-    [projects, projectParticipants]
+    [allProjects]
   );
 
   // Get projects where user can create tasks (only owner/manager roles)
   const projectsWhereCanCreateTasks = useMemo(() => 
-    getProjectsWhereCanCreateTasks(projectsWithRoles, currentUser.id),
-    [projectsWithRoles]
+    user ? getProjectsWhereCanCreateTasks(projectsWithRoles, user.id) : [],
+    [projectsWithRoles, user]
   );
 
   // Filter tasks for today using utility
   const myTasks = useMemo(() => {
-    return getTodayTasks(tasksWithStatuses, currentUser.id).filter(task => {
-      // Get project participants
-      const project = projects.find(p => p.id === task.projectId);
-      const projectParticipants = project?.participants || project?.participantRoles?.map(pr => {
-        const user = mockUsers.find(u => u.id === pr.userId);
-        return user;
-      }).filter(Boolean) || [];
-      
+    if (!user) return [];
+    return getTodayTasks(tasksWithStatuses, user.id).filter(task => {
       // Task should appear if user is in project participants or is creator
-      const isInProject = projectParticipants.some(p => 
-        (typeof p === 'object' && 'id' in p ? p.id : p) === currentUser.id
-      ) || task.creatorId === currentUser.id;
+      const project = allProjects.find(p => p.id === task.projectId);
+      if (!project) return false;
+      
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      const creatorId = typeof task.creatorId === 'string' ? parseInt(task.creatorId) : task.creatorId;
+      const isCreator = creatorId === userId;
+      
+      const isInProject = project.participantRoles?.some(pr => {
+        const prUserId = typeof pr.userId === 'string' ? parseInt(pr.userId) : pr.userId;
+        return prUserId === userId && !pr.removedAt;
+      }) || project.ownerId === userId || isCreator;
       
       return isInProject;
     });
-  }, [tasksWithStatuses, projects, currentUser.id]);
+  }, [tasksWithStatuses, allProjects, user]);
 
+  const handleComplete = async (taskId: string | number, difficultyRating?: number) => {
+    if (!user) return;
 
-  // Note: handleRecover is removed from today's view - recovery should only be in project detail view
-
-  const handleComplete = (taskId: string, difficultyRating?: number) => {
     const now = new Date();
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasksWithStatuses.find(t => {
+      const tId = typeof t.id === 'string' ? parseInt(t.id) : t.id;
+      const searchId = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+      return tId === searchId;
+    });
+    
     if (!task) {
-      handleError('Task not found', 'handleComplete');
+      toast.error('Task not found');
       return;
     }
 
-    const myTaskStatus = getTaskStatusForUser(taskId, currentUser.id);
+    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+    const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    const myTaskStatus = taskStatuses.find(ts => {
+      const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
+      const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
+      return tsTaskId === taskIdNum && tsUserId === userId;
+    });
+    
     if (!myTaskStatus) {
-      handleError('Task status not found', 'handleComplete');
+      toast.error('Task status not found');
       return;
     }
 
-    // Check if task is recovered (completed after due date)
+    // Check if task is recovered
     const isRecovered = myTaskStatus.recoveredAt !== undefined;
-    const isBeforeDueDate = now <= myTaskStatus.effectiveDueDate;
+    const taskDueDate = task.dueDate;
+    const isBeforeDueDate = now <= taskDueDate;
     const penaltyApplied = isRecovered && !isBeforeDueDate;
 
-    // Calculate XP (base: difficulty * 100, half if penalty applied)
+    // Calculate XP
     const baseXP = (difficultyRating || 3) * 100;
     const xpEarned = penaltyApplied ? Math.floor(baseXP / 2) : baseXP;
 
-    // Determine timing status
-    // Compare dates (not times) to handle daily tasks correctly
-    // For tasks due today, completing at any time today should be 'on_time'
-    const nowDate = new Date(now);
-    nowDate.setHours(0, 0, 0, 0);
-    const dueDate = new Date(myTaskStatus.effectiveDueDate);
-    dueDate.setHours(0, 0, 0, 0);
-    
-    let timingStatus: TimingStatus = 'on_time';
-    if (nowDate < dueDate) {
-      timingStatus = 'early';
-    } else if (nowDate > dueDate) {
-      timingStatus = 'late';
-    } else {
-      // Same day - check if completed before end of due date
-      const dueDateEnd = new Date(myTaskStatus.effectiveDueDate);
-      dueDateEnd.setHours(23, 59, 59, 999);
-      if (now > dueDateEnd) {
-        timingStatus = 'late';
-      } else {
-        timingStatus = 'on_time';
-      }
-    }
-
-    // Create completion log
-    const newCompletionLog = {
-      id: `cl-${Date.now()}`,
-      userId: currentUser.id,
-      taskId: taskId,
-      completedAt: now,
-      difficultyRating: difficultyRating as DifficultyRating | undefined,
-      timingStatus,
-      recoveredCompletion: isRecovered,
-      penaltyApplied,
-      xpEarned,
-      createdAt: now
-    };
-
-    // Calculate ring color using modular utility function
-    // This ensures consistency across all task instances
-    const ringColor = calculateRingColor(newCompletionLog, myTaskStatus, task);
-
-    setCompletionLogs(prev => [...prev, newCompletionLog]);
-
-    // Update task status to 'completed' and ensure ringColor is set
-    setTaskStatuses(prev => {
-      const updated = prev.map(ts => {
-        if (ts.taskId === taskId && ts.userId === currentUser.id) {
-          return {
-            ...ts,
-            status: 'completed' as TaskStatusUserStatus,
-            ringColor, // Ensure ringColor is set using modular calculation
-            timingStatus,
-            updatedAt: now
-          };
-        }
-        return ts;
+    try {
+      // Create completion log
+      const newCompletionLog = await createCompletionLogMutation.mutateAsync({
+        userId: userId,
+        taskId: taskIdNum,
+        difficultyRating: difficultyRating as 1 | 2 | 3 | 4 | 5 | undefined,
+        penaltyApplied,
+        xpEarned
       });
 
-      // Check if all participants have completed (use updated taskStatuses)
-      const allStatuses = updated.filter(ts => ts.taskId === taskId);
-      const allCompleted = allStatuses.every(ts => 
-        ts.userId === currentUser.id || ts.status === 'Completed'
-      );
-
-      // Update task status based on all participants' completion
-      setTasks(prevTasks =>
-        prevTasks.map(t => {
-          if (t.id === taskId) {
-            // General task status only includes 'active' and 'upcoming'
-            // We don't set it to 'completed' - that's tracked via completion logs
-            return {
-              ...t,
-              completedAt: allCompleted ? now : undefined,
-              updatedAt: now
-            };
-          }
-          return t;
-        })
-      );
-
-      // Show toast
-      if (allCompleted) {
-        toast.success('Amazing work! 🎉', {
-          description: 'Task completed by everyone!'
-        });
-      } else {
-        toast.success('Great job! 💪', {
-          description: penaltyApplied 
-            ? 'Waiting for your partner to complete... (Half XP - Recovered)'
-            : 'Waiting for your partner to complete...'
-        });
-      }
-
-      return updated;
-    });
-    
-    // Update project progress using utility
-    setProjects(prev =>
-      prev.map(p => {
-        if (p.id === task.projectId) {
-          const updatedCompletionLogs = [...completionLogs, newCompletionLog];
-          const { progress, completedTasks: completedCount } = calculateProjectProgress(
-            p,
-            tasks,
-            updatedCompletionLogs,
-            currentUser.id
-          );
-          return {
-            ...p,
-            completedTasks: completedCount,
-            progress,
-            updatedAt: now
-          };
+      // Update task status to completed
+      await updateTaskStatusMutation.mutateAsync({
+        id: myTaskStatus.id,
+        data: {
+          status: 'completed',
+          ringColor: isRecovered ? 'yellow' : (isBeforeDueDate ? 'green' : 'none')
         }
-        return p;
-      })
-    );
+      });
+
+      // Update local state
+      setCompletionLogs(prev => [...prev, newCompletionLog]);
+      setTaskStatuses(prev => prev.map(ts => 
+        ts.id === myTaskStatus.id 
+          ? { ...ts, status: 'completed' as const, ringColor: isRecovered ? 'yellow' : (isBeforeDueDate ? 'green' : 'none') }
+          : ts
+      ));
+
+      toast.success('Great job! 💪', {
+        description: penaltyApplied 
+          ? 'Waiting for your partner to complete... (Half XP - Recovered)'
+          : 'Waiting for your partner to complete...'
+      });
+    } catch (error) {
+      toast.error('Failed to complete task');
+      console.error(error);
+    }
   };
 
   // Filter tasks using utilities for today's view sections
   const needsActionTasks = useMemo(() => 
-    getNeedsActionTasks(myTasks, taskStatuses, completionLogs, currentUser.id, projectsWithRoles),
-    [myTasks, taskStatuses, completionLogs, projectsWithRoles]
+    user ? getNeedsActionTasks(myTasks, taskStatuses, completionLogs, user.id, projectsWithRoles) : [],
+    [myTasks, taskStatuses, completionLogs, projectsWithRoles, user]
   );
   
   const completedTasksForToday = useMemo(() => 
-    getCompletedTasksForToday(myTasks, taskStatuses, completionLogs, currentUser.id),
-    [myTasks, taskStatuses, completionLogs]
+    user ? getCompletedTasksForToday(myTasks, taskStatuses, completionLogs, user.id) : [],
+    [myTasks, taskStatuses, completionLogs, user]
   );
   
   const recoveredTasks = useMemo(() => 
-    getRecoveredTasks(tasksWithStatuses, taskStatuses, completionLogs, currentUser.id, projectsWithRoles),
-    [tasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles]
+    user ? getRecoveredTasks(tasksWithStatuses, taskStatuses, completionLogs, user.id, projectsWithRoles) : [],
+    [tasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user]
   );
 
-  const handleCreateProject = (projectData: {
-    name: string;
-    description: string;
-    participants: string[];
-    color: string;
-    isPublic: boolean;
-  }): Project => {
-    const participantUsers = [currentUser, ...projectData.participants.map(id => mockUsers.find(u => u.id === id)!).filter(Boolean)];
-    const now = new Date();
-    
-    const newProject: Project = {
-      id: `p${Date.now()}`,
-      name: projectData.name,
-      description: projectData.description,
-      ownerId: currentUser.id,
-      totalTasks: 0,
-      isPublic: projectData.isPublic,
-      createdAt: now,
-      updatedAt: now,
-      color: projectData.color,
-      participants: participantUsers,
-      completedTasks: 0,
-      progress: 0
-    };
-
-    // Create project participant entry for the owner
-    const ownerParticipant: ProjectParticipant = {
-      projectId: newProject.id,
-      userId: currentUser.id,
-      role: 'owner',
-      addedAt: now,
-      removedAt: undefined,
-      user: currentUser
-    };
-
-    // Create participant entries for other participants
-    const otherParticipants: ProjectParticipant[] = projectData.participants.map(userId => ({
-      projectId: newProject.id,
-      userId,
-      role: 'participant' as const,
-      addedAt: now,
-      removedAt: undefined,
-      user: mockUsers.find(u => u.id === userId)
-    }));
-
-    // Add participant roles to project
-    newProject.participantRoles = [ownerParticipant, ...otherParticipants];
-
-    setProjects(prev => [newProject, ...prev]);
-    setProjectParticipants(prev => [...prev, ownerParticipant, ...otherParticipants]);
-    
-    toast.success('Project created! 🎉');
-    return newProject;
-  };
-
-
-  const handleCreateTask = (taskData: {
+  const handleCreateTask = async (taskData: {
     title: string;
     description: string;
-    projectId: string;
+    projectId: string | number;
     type: 'one_off' | 'habit';
     recurrencePattern?: 'Daily' | 'weekly' | 'custom';
     dueDate?: Date;
@@ -313,176 +209,78 @@ const Index = () => {
       occurrenceCount: number;
     };
   }) => {
-    const newTasks: Task[] = [];
-    const newTaskStatuses: TaskStatusEntity[] = [];
-    const now = new Date();
-    const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
-
-    if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
-      // Generate recurring tasks
-      const startDate = normalizeToStartOfDay(taskData.dueDate);
+    try {
+      const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
       
-      let endDate: Date;
-      if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-        if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
-          endDate = new Date(taskData.customRecurrence.endDate);
-          endDate.setHours(23, 59, 59, 999);
-        } else {
-          endDate = new Date(startDate);
-          const maxOccurrences = taskData.customRecurrence.occurrenceCount || 10;
-          endDate.setDate(endDate.getDate() + (maxOccurrences * 30));
+      if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
+        // For habits, create multiple tasks
+        // Note: This is simplified - in a real app you might want to create a recurrence entity
+        const startDate = normalizeToStartOfDay(taskData.dueDate);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 28); // 28 days for habits
+        
+        const tasksToCreate: Array<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>> = [];
+        let currentDate = new Date(startDate);
+        
+        while (currentDate <= endDate) {
+          tasksToCreate.push({
+            projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId,
+            creatorId: typeof user!.id === 'string' ? parseInt(user!.id) : user!.id,
+            type: taskData.type,
+            recurrencePattern: taskData.recurrencePattern,
+            title: taskData.title,
+            description: taskData.description,
+            dueDate: normalizeToStartOfDay(new Date(currentDate))
+          });
+          
+          if (taskData.recurrencePattern === 'Daily') {
+            currentDate.setDate(currentDate.getDate() + 1);
+          } else if (taskData.recurrencePattern === 'weekly') {
+            currentDate.setDate(currentDate.getDate() + 7);
+          } else {
+            break;
+          }
         }
+        
+        // Create all habit tasks
+        await Promise.all(tasksToCreate.map(task => createTaskMutation.mutateAsync(task)));
+        
+        toast.success(`${tasksToCreate.length} habit tasks created! 🚀`, {
+          description: 'Your friend has been notified to accept'
+        });
       } else {
-        endDate = new Date(startDate);
-        if (taskData.recurrencePattern === 'Daily') {
-          endDate.setDate(endDate.getDate() + 28);
-        } else if (taskData.recurrencePattern === 'weekly') {
-          endDate.setDate(endDate.getDate() + 28);
-        }
-        endDate.setHours(23, 59, 59, 999);
-      }
-      
-      let currentDate = new Date(startDate);
-      let taskIndex = 0;
-      let occurrenceCount = 0;
-      const maxOccurrences = taskData.customRecurrence?.occurrenceCount || 
-        (taskData.recurrencePattern === 'Daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
-
-      while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
-        const taskDueDate = normalizeToStartOfDay(currentDate);
-
-        const taskId = `t${Date.now()}-${taskIndex}`;
-        const newTask: Task = {
-          id: taskId,
-          projectId: taskData.projectId,
-          creatorId: currentUser.id,
+        // One-off task
+        await createTaskMutation.mutateAsync({
+          projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId,
+          creatorId: typeof user!.id === 'string' ? parseInt(user!.id) : user!.id,
           type: taskData.type,
           recurrencePattern: taskData.recurrencePattern,
           title: taskData.title,
           description: taskData.description,
-          dueDate: taskDueDate,
-          createdAt: now,
-          updatedAt: now
-        };
-
-        // Get project and validate
-        const project = projects.find(p => p.id === taskData.projectId);
-        if (!project) {
-          handleError('Project not found', 'handleCreateTask');
-          return;
-        }
-        
-        // Validate project has enough participants
-        const validation = validateProjectForTaskCreation(project, mockUsers, 2);
-        if (!validation.isValid) {
-          toast.error('Cannot create task', {
-            description: validation.error
-          });
-          return;
-        }
-        
-        // Create task statuses for all participants (automatically includes creator)
-        const statuses = createTaskStatusesForAllParticipants(
-          taskId,
-          project,
-          mockUsers,
-          taskDueDate,
-          now
-        );
-        newTaskStatuses.push(...statuses);
-
-        newTasks.push(newTask);
-        taskIndex++;
-        occurrenceCount++;
-
-        // Move to next occurrence
-        if (taskData.recurrencePattern === 'Daily') {
-          currentDate.setDate(currentDate.getDate() + 1);
-        } else if (taskData.recurrencePattern === 'weekly') {
-          currentDate.setDate(currentDate.getDate() + 7);
-        } else if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-          const { frequency, interval } = taskData.customRecurrence;
-          if (frequency === 'days') {
-            currentDate.setDate(currentDate.getDate() + interval);
-          } else if (frequency === 'weeks') {
-            currentDate.setDate(currentDate.getDate() + (interval * 7));
-          } else if (frequency === 'months') {
-            currentDate.setMonth(currentDate.getMonth() + interval);
-          }
-        }
-      }
-    } else {
-      // One-off task
-      const taskId = `t${Date.now()}`;
-      const newTask: Task = {
-        id: taskId,
-        projectId: taskData.projectId,
-        creatorId: currentUser.id,
-        type: taskData.type,
-        recurrencePattern: taskData.recurrencePattern,
-        title: taskData.title,
-        description: taskData.description,
-        dueDate: defaultDueDate,
-        createdAt: now,
-        updatedAt: now
-      };
-
-      // Get project and validate
-      const project = projects.find(p => p.id === taskData.projectId);
-      if (!project) {
-        handleError('Project not found', 'handleCreateTask');
-        return;
-      }
-      
-      // Validate project has enough participants
-      const validation = validateProjectForTaskCreation(project, mockUsers, 2);
-      if (!validation.isValid) {
-        toast.error('Cannot create task', {
-          description: validation.error
+          dueDate: defaultDueDate
         });
-        return;
+        
+        toast.success('Task initiated! 🚀', {
+          description: 'Your friend has been notified to accept'
+        });
       }
       
-      // Create task statuses for all participants (automatically includes creator)
-      const statuses = createTaskStatusesForAllParticipants(
-        taskId,
-        project,
-        mockUsers,
-        defaultDueDate,
-        now
-      );
-      newTaskStatuses.push(...statuses);
-
-      newTasks.push(newTask);
+      setShowTaskForm(false);
+    } catch (error) {
+      toast.error('Failed to create task');
+      console.error(error);
     }
-
-    setTasks(prev => [...newTasks, ...prev]);
-    setTaskStatuses(prev => [...newTaskStatuses, ...prev]);
-    
-    // Update project totalTasks
-    setProjects(prev =>
-      prev.map(project => {
-        if (project.id === taskData.projectId) {
-          const projectTasks = [...newTasks, ...tasks].filter(t => t.projectId === project.id);
-          return {
-            ...project,
-            totalTasks: projectTasks.length,
-            updatedAt: new Date()
-          };
-        }
-        return project;
-      })
-    );
-    
-    const toastTitle = newTasks.length > 1
-      ? `${newTasks.length} habit tasks created! 🚀`
-      : 'Task initiated! 🚀';
-
-    toast.success(toastTitle, {
-      description: 'Your friend has been notified. to accept'
-    });
-    setShowTaskForm(false);
   };
+
+  if (tasksLoading || projectsLoading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -587,7 +385,7 @@ const Index = () => {
         {completedTasksForToday.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-accent" />
+              <CheckCircle2 className="w-5 h-5 text-accent" />
               <h2 className="text-xl font-semibold">Done for the Day</h2>
             </div>
             <div className="space-y-3 opacity-60">
@@ -652,7 +450,6 @@ const Index = () => {
         onSubmit={handleCreateTask}
         projects={projectsWhereCanCreateTasks}
         allowProjectSelection={true}
-        onCreateProject={handleCreateProject}
       />
     </AppLayout>
   );

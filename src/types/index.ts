@@ -68,7 +68,7 @@ export interface User {
 }
 
 export interface UserStats {
-  userId: number;
+  userId: User['id'];
   totalCompletedTasks: number;
   currentStreak: number;
   longestStreak: number;
@@ -97,8 +97,8 @@ export interface Project {
 }
 
 export interface ProjectParticipant {
-  projectId: number;
-  userId: number;
+  projectId: Project['id'];
+  userId: User['id'];
   role: ProjectRole;
   addedAt: Date;
   removedAt?: Date;
@@ -109,8 +109,8 @@ export interface ProjectParticipant {
 
 export interface Task {
   id: number;
-  projectId: number;
-  creatorId: number;
+  projectId: Project['id'];
+  creatorId: User['id'];
   title: string;
   description?: string;
   type: TaskType;
@@ -127,8 +127,8 @@ export interface Task {
 // TaskStatus Entity - Per-user task status tracking (replaces TaskAssignment)
 export interface TaskStatusEntity {
   id: number;
-  taskId: number;
-  userId: number;
+  taskId: Task['id'];
+  userId: User['id'];
   status: TaskStatus;
   archivedAt?: Date;
   recoveredAt?: Date;
@@ -146,7 +146,7 @@ export interface TaskStatusEntity {
  
 export interface TaskRecurrence {
   id: number;
-  taskId: number;
+  taskId: Task['id'];
   recurrencePattern: RecurrencePattern;
   recurrenceInterval: number;
   nextOccurrence: Date;
@@ -159,8 +159,8 @@ export interface TaskRecurrence {
 // CompletionLog Entity - Records individual task completions for score and streak calculation 
 export interface CompletionLog {
   id: number;
-  userId: number;
-  taskId: number;
+  userId: User['id'];
+  taskId: Task['id'];
   // completedAt: Date; keyword
   difficultyRating?: DifficultyRating;
   // recoveredCompletion: boolean; keyword
@@ -173,11 +173,11 @@ export interface CompletionLog {
 
 export interface Notification {
   id: number;
-  userId: number;
+  userId: User['id'];
   type: NotificationType;
   message: string;
-  taskId?: number;
-  projectId?: number;
+  taskId?: Task['id'];
+  projectId?: Project['id'];
   createdAt: Date;
   isRead: boolean;
   emailSent: boolean;

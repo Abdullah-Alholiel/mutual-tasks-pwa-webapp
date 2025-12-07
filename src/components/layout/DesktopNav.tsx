@@ -2,7 +2,6 @@ import { Home, FolderKanban, User } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { currentUser, mockNotifications } from '@/lib/mockData';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +13,10 @@ import { toast } from 'sonner';
 import { Inbox } from '@/components/notifications/Inbox';
 import { useState, useEffect, useRef } from 'react';
 import type { Notification } from '@/types';
-import { db } from '@/lib/db';
+import { getDatabaseClient } from '@/db';
 import { handleError } from '@/lib/errorUtils';
+import { useAuth } from '@/hooks/useAuth';
+
 
 const navItems = [
   { to: '/', icon: Home, label: 'Today' },
@@ -24,9 +25,8 @@ const navItems = [
 ];
 
 export const DesktopNav = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(
-    mockNotifications.filter(n => n.userId === currentUser.id)
-  );
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const scrollThreshold = 10; // Minimum scroll distance to trigger hide/show
@@ -40,12 +40,14 @@ export const DesktopNav = () => {
     window.location.href = '/auth';
   };
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  const handleMarkAsRead = async (notificationId: string | number) => {
     setNotifications(prev =>
       prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
     );
     try {
-      await db.markNotificationRead(notificationId);
+      const db = getDatabaseClient();
+      const id = typeof notificationId === 'string' ? parseInt(notificationId) : notificationId;
+      await db.notifications.markAsRead(id);
     } catch (error) {
       handleError(error, 'markNotificationRead');
     }
@@ -55,8 +57,12 @@ export const DesktopNav = () => {
     const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     try {
-      await Promise.all(unreadIds.map(id => db.markNotificationRead(id)));
-    toast.success('All notifications marked as read');
+      const db = getDatabaseClient();
+      if (user) {
+        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        await db.notifications.markAllAsRead(userId);
+        toast.success('All notifications marked as read');
+      }
     } catch (error) {
       handleError(error, 'markAllNotificationsRead');
     }
@@ -162,8 +168,8 @@ export const DesktopNav = () => {
                 <button className="ml-2">
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Avatar className="w-8 h-8 ring-2 ring-border hover:ring-primary transition-all">
-                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                      <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+                      <AvatarImage src={user?.avatar} alt={user?.name} />
+                      <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                   </motion.div>
                 </button>

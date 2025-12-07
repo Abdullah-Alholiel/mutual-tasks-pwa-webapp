@@ -3,26 +3,31 @@
 // ============================================================================
 // 
 // This hook provides access to the current user and their stats.
+// Uses authentication system to get the current user.
 // ============================================================================
 
 import { useQuery } from '@tanstack/react-query';
-import { db } from '@/lib/db';
-import { currentUser as mockCurrentUser } from '@/lib/mockData';
+import { getDatabaseClient } from '@/db';
+import { useAuth } from './useAuth';
 
 /**
- * Hook to fetch current user
- * In a real app, this would get the user from auth context
+ * Hook to fetch current user from auth context
  */
 export const useCurrentUser = () => {
+  const { user, isAuthenticated } = useAuth();
+
   return useQuery({
-    queryKey: ['user', 'current'],
+    queryKey: ['user', 'current', user?.id],
     queryFn: async () => {
-      // For now, use mock current user
-      // In production, this would fetch from auth context or API
-      return await db.getUser(mockCurrentUser.id);
+      if (!user || !isAuthenticated) return null;
+      
+      const db = getDatabaseClient();
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      return await db.users.getById(userId);
     },
+    enabled: !!user && isAuthenticated,
     staleTime: 1000 * 60 * 10, // 10 minutes
-    initialData: mockCurrentUser, // Use mock as initial data
+    initialData: user || undefined, // Use auth user as initial data
   });
 };
 
@@ -30,14 +35,19 @@ export const useCurrentUser = () => {
  * Hook to fetch current user stats
  */
 export const useCurrentUserStats = () => {
+  const { user, isAuthenticated } = useAuth();
+
   return useQuery({
-    queryKey: ['user', 'current', 'stats'],
+    queryKey: ['user', 'current', 'stats', user?.id],
     queryFn: async () => {
-      return await db.getUserStats(mockCurrentUser.id);
+      if (!user || !isAuthenticated) return null;
+      
+      const db = getDatabaseClient();
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      return await db.users.getStats(userId);
     },
+    enabled: !!user && isAuthenticated,
     staleTime: 1000 * 60 * 5, // 5 minutes
-    initialData: mockCurrentUser.stats, // Use mock as initial data
+    initialData: user?.stats || undefined, // Use auth user stats as initial data
   });
 };
-
-

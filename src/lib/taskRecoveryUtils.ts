@@ -6,8 +6,9 @@
 // that should be used consistently across all components.
 // ============================================================================
 
-import type { Task, TaskStatusEntity, TaskStatusUserStatus, TimingStatus, RingColor } from '@/types';
+import type { Task, TaskStatusEntity, TaskStatus, RingColor } from '@/types';
 import { calculateTaskStatusUserStatus } from './taskUtils';
+import { normalizeId } from './idUtils';
 
 /**
  * Recover a task - Single Source of Truth for Task Recovery Logic
@@ -19,19 +20,18 @@ import { calculateTaskStatusUserStatus } from './taskUtils';
  * - recoveredAt is set to current time
  * - archivedAt is cleared
  * - ringColor is set to 'yellow' (indicates recovered task)
- * - timingStatus is set to 'late'
  * 
  * Recovered tasks should appear in Active section (NOT Needs Action).
  * 
- * @param taskId - The task ID to recover
- * @param userId - The user ID recovering the task
+ * @param taskId - The task ID to recover (string or number)
+ * @param userId - The user ID recovering the task (string or number)
  * @param tasks - Array of all tasks
  * @param taskStatuses - Array of all task statuses
  * @returns Object with updated task and taskStatus, or null if recovery failed
  */
 export const recoverTask = (
-  taskId: string,
-  userId: string,
+  taskId: string | number,
+  userId: string | number,
   tasks: Task[],
   taskStatuses: TaskStatusEntity[]
 ): {
@@ -40,19 +40,29 @@ export const recoverTask = (
   success: boolean;
 } | null => {
   const now = new Date();
-  const task = tasks.find(t => t.id === taskId);
+  const taskIdNum = normalizeId(taskId);
+  const userIdNum = normalizeId(userId);
+  
+  const task = tasks.find(t => {
+    const tId = normalizeId(t.id);
+    return tId === taskIdNum;
+  });
   
   if (!task) {
     return null;
   }
 
   // Find user's task status
-  const userTaskStatus = taskStatuses.find(ts => ts.taskId === taskId && ts.userId === userId);
+  const userTaskStatus = taskStatuses.find(ts => {
+    const tsTaskId = normalizeId(ts.taskId);
+    const tsUserId = normalizeId(ts.userId);
+    return tsTaskId === taskIdNum && tsUserId === userIdNum;
+  });
 
   const computedStatus = calculateTaskStatusUserStatus(userTaskStatus, undefined, task);
 
   // Check if task can be recovered (only archived tasks)
-  const canRecover = computedStatus === 'Archived';
+  const canRecover = computedStatus === 'archived';
 
   if (!canRecover) {
     return null;
@@ -71,27 +81,21 @@ export const recoverTask = (
     // Update existing task status
     updatedTaskStatus = {
       ...userTaskStatus,
-      status: 'Recovered' as TaskStatusUserStatus,
+      status: 'recovered' as TaskStatus,
       recoveredAt: now, // Set recoveredAt to now (even if it was previously set)
       archivedAt: undefined, // Clear archivedAt
-      ringColor: 'yellow' as RingColor, // Yellow ring for recovered tasks
-      timingStatus: 'late' as TimingStatus,
-      updatedAt: now
+      ringColor: 'yellow' as RingColor // Yellow ring for recovered tasks
     };
   } else {
     // Edge case: user has no status yet, create recovered status entry
     updatedTaskStatus = {
-      id: `ts-recover-${Date.now()}-${userId}`,
-      taskId: taskId,
-      userId: userId,
-      status: 'Recovered' as TaskStatusUserStatus,
-      effectiveDueDate: task.dueDate,
+      id: Date.now(),
+      taskId: taskIdNum,
+      userId: userIdNum,
+      status: 'recovered' as TaskStatus,
       recoveredAt: now,
       archivedAt: undefined,
-      ringColor: 'yellow' as RingColor,
-      timingStatus: 'late' as TimingStatus,
-      createdAt: now,
-      updatedAt: now
+      ringColor: 'yellow' as RingColor
     };
   }
 
@@ -101,4 +105,3 @@ export const recoverTask = (
     success: true
   };
 };
-

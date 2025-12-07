@@ -6,7 +6,7 @@
 // that should be used consistently across all components.
 // ============================================================================
 
-import type { Task, TaskStatusEntity, Project, User, TaskStatusUserStatus } from '@/types';
+import type { Task, TaskStatusEntity, Project, User, TaskStatus } from '@/types';
 
 /**
  * Get all project participant IDs (including owner/creator)
@@ -18,8 +18,8 @@ import type { Task, TaskStatusEntity, Project, User, TaskStatusUserStatus } from
 export const getProjectParticipantIds = (
   project: Project,
   allUsers: User[]
-): string[] => {
-  const participantIds = new Set<string>();
+): number[] => {
+  const participantIds = new Set<number>();
   
   // Always include the owner
   if (project.ownerId) {
@@ -60,18 +60,15 @@ export const getProjectParticipantIds = (
  */
 export const buildTaskStatus = (
   taskId: string,
-  userId: string,
-  status: TaskStatusUserStatus,
+  userId: number,
+  status: TaskStatus,
   dueDate: Date,
   timestamp: Date
 ): TaskStatusEntity => ({
-  id: `${taskId}-${userId}`,
-  taskId,
+  id: Date.now(),
+  taskId: Number(taskId),
   userId,
-  status,
-  effectiveDueDate: new Date(dueDate),
-  createdAt: timestamp,
-  updatedAt: timestamp
+  status
 });
 
 /**
@@ -94,7 +91,7 @@ export const createTaskStatusesForAllParticipants = (
   const participantIds = getProjectParticipantIds(project, allUsers);
   
   return participantIds.map(userId =>
-    buildTaskStatus(taskId, userId, 'Active', dueDate, timestamp)
+    buildTaskStatus(taskId, userId, 'active', dueDate, timestamp)
   );
 };
 

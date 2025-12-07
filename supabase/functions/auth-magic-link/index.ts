@@ -1,0 +1,312 @@
+// @ts-nocheck
+// ============================================================================
+// Supabase Edge Function: Magic Link Authentication
+// ============================================================================
+// Handles magic link generation, verification, and session creation
+// Note: This file runs on Deno runtime, not Node.js. TypeScript errors are expected
+// in the IDE but will work correctly when deployed to Supabase Edge Functions.
+// ============================================================================
+
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+// Session expiration: 2 months
+const SESSION_EXPIRY_DAYS = 60;
+const SESSION_EXPIRY_MS = SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+// Magic link expiration: 15 minutes
+const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000;
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { 
+      status: 204,
+      headers: corsHeaders 
+    });
+  }
+
+  try {
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    const { action, ...data } = await req.json();
+
+    // Generate secure random token
+    const generateToken = (): string => {
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    };
+
+    if (action === 'request-login') {
+      const { email } = data;
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return new Response(
+          JSON.stringify({ error: 'Valid email address is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if user exists
+      const { data: user, error: userError } = await supabaseClient
+        .from('users')
+        .select('id, name, email')
+        .eq('email', email)
+        .single();
+
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'User not found. Please sign up first.' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Generate magic link token
+      const token = generateToken();
+      const expiresAt = new Date(Date.now() + MAGIC_LINK_EXPIRY_MS);
+
+      // Store magic link
+      const { error: linkError } = await supabaseClient
+        .from('magic_links')
+        .insert({
+          token,
+          user_id: user.id,
+          email,
+          is_signup: false,
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (linkError) throw linkError;
+
+      // Call email function to send magic link
+      const appUrl = Deno.env.get('VITE_APP_URL') || 'http://localhost:8080';
+      const magicLink = `${appUrl}/auth/verify?token=${token}`;
+
+      // Invoke email function
+      const { error: emailError } = await supabaseClient.functions.invoke('send-email', {
+        body: {
+          type: 'signin',
+          to: email,
+          magicLink,
+          userName: user.name,
+        },
+      });
+
+      if (emailError) {
+        console.error('Failed to send email:', emailError);
+        // Don't fail the request if email fails
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Magic link sent to your email' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'request-signup') {
+      const { email, name, handle } = data;
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return new Response(
+          JSON.stringify({ error: 'Valid email address is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!name || !handle) {
+        return new Response(
+          JSON.stringify({ error: 'Name and handle are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if user already exists
+      const { data: existingUser } = await supabaseClient
+        .from('users')
+        .select('id')
+        .or(`email.eq.${email},handle.eq.${handle}`)
+        .limit(1);
+
+      if (existingUser && existingUser.length > 0) {
+        return new Response(
+          JSON.stringify({ error: 'User with this email or handle already exists' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Generate magic link token
+      const token = generateToken();
+      const expiresAt = new Date(Date.now() + MAGIC_LINK_EXPIRY_MS);
+
+      // Store magic link with signup data
+      const { error: linkError } = await supabaseClient
+        .from('magic_links')
+        .insert({
+          token,
+          email,
+          is_signup: true,
+          signup_name: name,
+          signup_handle: handle,
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (linkError) throw linkError;
+
+      // Call email function to send magic link
+      const appUrl = Deno.env.get('VITE_APP_URL') || 'http://localhost:8080';
+      const magicLink = `${appUrl}/auth/verify?token=${token}`;
+
+      // Invoke email function
+      const { error: emailError } = await supabaseClient.functions.invoke('send-email', {
+        body: {
+          type: 'signup',
+          to: email,
+          magicLink,
+          userName: name,
+        },
+      });
+
+      if (emailError) {
+        console.error('Failed to send email:', emailError);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Magic link sent to your email' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'verify') {
+      const { token } = data;
+
+      if (!token) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid token' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get magic link
+      const { data: magicLink, error: linkError } = await supabaseClient
+        .from('magic_links')
+        .select('*')
+        .eq('token', token)
+        .is('used_at', null)
+        .single();
+
+      if (linkError || !magicLink) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired magic link' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if expired
+      if (new Date(magicLink.expires_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ error: 'Magic link has expired' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let userId: number;
+
+      if (magicLink.is_signup) {
+        // Create new user
+        if (!magicLink.signup_name || !magicLink.signup_handle) {
+          return new Response(
+            JSON.stringify({ error: 'Missing user information' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Generate avatar URL
+        const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(magicLink.signup_name)}&background=0EA5E9&color=fff`;
+
+        const { data: newUser, error: userError } = await supabaseClient
+          .from('users')
+          .insert({
+            name: magicLink.signup_name,
+            handle: magicLink.signup_handle,
+            email: magicLink.email,
+            avatar,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          })
+          .select()
+          .single();
+
+        if (userError) throw userError;
+        userId = newUser.id;
+
+        // Create user stats
+        await supabaseClient.from('user_stats').insert({
+          user_id: userId,
+          total_completed_tasks: 0,
+          current_streak: 0,
+          longest_streak: 0,
+          totalscore: 0,
+        });
+      } else {
+        userId = magicLink.user_id;
+      }
+
+      // Mark magic link as used
+      await supabaseClient
+        .from('magic_links')
+        .update({ used_at: new Date().toISOString() })
+        .eq('token', token);
+
+      // Create session
+      const sessionToken = generateToken();
+      const sessionExpiresAt = new Date(Date.now() + SESSION_EXPIRY_MS);
+
+      const { error: sessionError } = await supabaseClient
+        .from('sessions')
+        .insert({
+          user_id: userId,
+          token: sessionToken,
+          expires_at: sessionExpiresAt.toISOString(),
+          last_accessed_at: new Date().toISOString(),
+        });
+
+      if (sessionError) throw sessionError;
+
+      // Return session token (client will store in cookie/localStorage)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          sessionToken,
+          expiresAt: sessionExpiresAt.toISOString(),
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Invalid action' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

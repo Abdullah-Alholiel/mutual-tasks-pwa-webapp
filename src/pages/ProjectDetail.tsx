@@ -23,10 +23,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Trash2, UserPlus, LogOut, Settings } from 'lucide-react';
 import { getAvailableRoles } from '@/lib/projectUtils';
 import { useState } from 'react';
-import { currentUser } from '@/lib/mockData';
+import { useAuth } from '@/hooks/useAuth';
 import type { Project } from '@/types';
 
 const ProjectDetail = () => {
+  const { user: currentUser } = useAuth();
   const {
     project,
     currentProject,
@@ -74,6 +75,12 @@ const ProjectDetail = () => {
     navigate,
     completionLogs,
   } = useProjectDetail();
+
+  // Wrapper function to handle ID type conversion for TaskCard compatibility
+  const handleRecoverWrapper = (taskId: string | number) => {
+    const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    handleRecover(taskIdNum);
+  };
 
   if (!project || !currentProject) {
     return (
@@ -135,7 +142,7 @@ const ProjectDetail = () => {
                 completedTasks={completedSectionTasks}
                 archivedTasks={archivedSectionTasks}
                 completionLogs={completionLogs}
-                onRecover={handleRecover}
+                onRecover={handleRecoverWrapper}
               />
             ) : (
               projectTasks.length === 0 ? (
@@ -152,7 +159,7 @@ const ProjectDetail = () => {
                         key={task.id}
                         task={task}
                         completionLogs={completionLogs}
-                        onRecover={handleRecover}
+                        onRecover={handleRecoverWrapper}
                       />
                     ))}
                   </div>
@@ -169,7 +176,7 @@ const ProjectDetail = () => {
                     key={task.id}
                     task={task}
                     completionLogs={completionLogs}
-                    onRecover={handleRecover}
+                    onRecover={handleRecoverWrapper}
                   />
                 ))
               ) : (
@@ -227,7 +234,7 @@ const ProjectDetail = () => {
                     key={task.id}
                     task={task}
                     completionLogs={completionLogs}
-                    onRecover={handleRecover}
+                    onRecover={handleRecoverWrapper}
                   />
                 ))
               ) : (
@@ -252,7 +259,7 @@ const ProjectDetail = () => {
                     key={task.id}
                     task={task}
                     completionLogs={completionLogs}
-                    onRecover={handleRecover}
+                    onRecover={handleRecoverWrapper}
                   />
                 ))
               ) : (
@@ -269,7 +276,12 @@ const ProjectDetail = () => {
       <TaskForm
         open={showTaskForm}
         onOpenChange={setShowTaskForm}
-        onSubmit={handleCreateTask}
+        onSubmit={(taskData) => {
+          handleCreateTask({
+            ...taskData,
+            projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId
+          });
+        }}
         project={project}
       />
 
@@ -449,7 +461,7 @@ const ProjectDetail = () => {
                       <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
                     </div>
                   </div>
-                  {isOwner && participant.userId !== currentUser.id ? (
+                  {isOwner && currentUser && participant.userId !== currentUser.id ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-8">

@@ -4,10 +4,12 @@
 // 
 // This file provides standardized utilities for project-related calculations
 // and filtering that should be used consistently across all components.
+// Supports both string and number IDs for compatibility.
 // ============================================================================
 
-import type { Project, Task, CompletionLog, User, ProjectParticipant, ProjectRole } from '@/types';
+import type { Project, Task, CompletionLog, User, ProjectRole } from '@/types';
 import { PROJECT_ROLES } from '@/types';
+import { normalizeId } from './idUtils';
 
 /**
  * Calculate project progress for a specific user
@@ -22,14 +24,25 @@ export const calculateProjectProgress = (
   project: Project,
   tasks: Task[],
   completionLogs: CompletionLog[],
-  userId: string
+  userId: string | number
 ): { progress: number; completedTasks: number; totalTasks: number } => {
-  const projectTasks = tasks.filter(t => t.projectId === project.id);
+  const projectId = normalizeId(project.id);
+  const userIdNum = normalizeId(userId);
+  
+  const projectTasks = tasks.filter(t => {
+    const tProjectId = normalizeId(t.projectId);
+    return tProjectId === projectId;
+  });
   const totalTasks = projectTasks.length;
   
-  const completedTasks = projectTasks.filter(t => 
-    completionLogs.some(cl => cl.taskId === t.id && cl.userId === userId)
-  ).length;
+  const completedTasks = projectTasks.filter(t => {
+    const tId = normalizeId(t.id);
+    return completionLogs.some(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === tId && clUserId === userIdNum;
+    });
+  }).length;
   
   const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
   
@@ -49,7 +62,7 @@ export const calculateProjectsProgress = (
   projects: Project[],
   tasks: Task[],
   completionLogs: CompletionLog[],
-  userId: string
+  userId: string | number
 ): Project[] => {
   return projects.map(project => {
     const { progress, completedTasks, totalTasks } = calculateProjectProgress(
@@ -75,12 +88,25 @@ export const calculateProjectsProgress = (
  * @param userId - The user ID to filter by
  * @returns Projects where user is owner or participant
  */
-export const getUserProjects = (projects: Project[], userId: string): Project[] => {
-  return projects.filter(p =>
-    p.participants?.some(u => u.id === userId) ||
-    p.participantRoles?.some(pr => pr.userId === userId) ||
-    p.ownerId === userId
-  );
+export const getUserProjects = (projects: Project[], userId: string | number): Project[] => {
+  const userIdNum = normalizeId(userId);
+  
+  return projects.filter(p => {
+    const ownerId = normalizeId(p.ownerId);
+    if (ownerId === userIdNum) return true;
+    
+    if (p.participants?.some(u => {
+      const participantId = typeof u === 'object' && 'id' in u ? normalizeId(u.id) : normalizeId(u);
+      return participantId === userIdNum;
+    })) return true;
+    
+    if (p.participantRoles?.some(pr => {
+      const prUserId = normalizeId(pr.userId);
+      return prUserId === userIdNum && !pr.removedAt;
+    })) return true;
+    
+    return false;
+  });
 };
 
 /**
@@ -90,13 +116,64 @@ export const getUserProjects = (projects: Project[], userId: string): Project[] 
  * @param userId - The user ID to filter by
  * @returns Public projects where user is not a participant
  */
-export const getPublicProjects = (projects: Project[], userId: string): Project[] => {
-  return projects.filter(p => 
-    p.isPublic && 
-    !p.participants?.some(u => u.id === userId) &&
-    !p.participantRoles?.some(pr => pr.userId === userId) &&
-    p.ownerId !== userId
-  );
+export const getPublicProjects = (projects: Project[], userId: string | number): Project[] => {
+  const userIdNum = normalizeId(userId);
+  
+  return projects.filter(p => {
+    if (!p.isPublic) return false;
+    
+    const ownerId = normalizeId(p.ownerId);
+    if (ownerId === userIdNum) return false;
+    
+    if (p.participants?.some(u => {
+      const participantId = typeof u === 'object' && 'id' in u ? normalizeId(u.id) : normalizeId(u);
+      return participantId === userIdNum;
+    })) return false;
+    
+    if (p.participantRoles?.some(pr => {
+      const prUserId = normalizeId(pr.userId);
+      return prUserId === userIdNum;
+    })) return false;
+    
+    return true;
+  });
 };
 
+/**
+ * Get projects where user can create tasks (only owner/manager roles)
+ * 
+ * @param projects - Array of projects
+ * @param userId - The user ID to filter by
+ * @returns Projects where user has owner or manager role
+ */
+export const getProjectsWhereCanCreateTasks = (
+  projects: Project[],
+  userId: string | number
+): Project[] => {
+  const userIdNum = normalizeId(userId);
+  
+  return projects.filter(p => {
+    const ownerId = normalizeId(p.ownerId);
+    if (ownerId === userIdNum) return true;
+    
+    return p.participantRoles?.some(pr => {
+      const prUserId = normalizeId(pr.userId);
+      return prUserId === userIdNum && 
+             (pr.role === 'owner' || pr.role === 'manager') && 
+             !pr.removedAt;
+    }) || false;
+  });
+};
 
+/**
+ * Get available roles that can be assigned to a participant
+ * 
+ * @param currentRole - The current role of the participant
+ * @returns Array of available roles
+ */
+export const getAvailableRoles = (currentRole: ProjectRole): ProjectRole[] => {
+  const allRoles: ProjectRole[] = ['owner', 'manager', 'participant'];
+  
+  // For now, allow any role change (you can add restrictions here)
+  return allRoles.filter(role => role !== currentRole);
+};
