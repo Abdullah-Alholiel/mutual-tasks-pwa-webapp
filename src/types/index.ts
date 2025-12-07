@@ -1,7 +1,6 @@
 // ============================================================================
 // Database Entity Types - Single Source of Truth
 // ============================================================================
-// 
 // This file defines the canonical types used throughout the application.
 // All types use camelCase naming and Date objects for optimal frontend DX.
 //
@@ -11,29 +10,22 @@
 // - Components never see database-specific formats
 // ============================================================================
 
-// Task status is user-dependent; per-user status only
-export type TaskStatus = 'Active' | 'Completed' | 'Archived' | 'Recovered' | 'Upcoming';
-
+export type TaskStatus = |'active'| 'upcoming'|'completed'|'archived' |'recovered';
 export type TaskType = 'one_off' | 'habit';
 export type RecurrencePattern = 'Daily' | 'weekly' | 'custom';
 export type DifficultyRating = 1 | 2 | 3 | 4 | 5;
 export type ProjectRole = 'owner' | 'manager' | 'participant';
-export type TaskStatusUserStatus = TaskStatus;
-export type TimingStatus = 'early' | 'on_time' | 'late';
 export type RingColor = 'green' | 'yellow' | 'red' | 'none';
 
-export const TASK_STATUSES: TaskStatus[] = ['Active', 'Completed', 'Archived', 'Recovered', 'Upcoming'];
+export const TASK_STATUS: TaskStatus[] = ['active', 'upcoming', 'completed', 'archived', 'recovered'];
 export const TASK_TYPES: TaskType[] = ['one_off', 'habit'];
 export const RECURRENCE_PATTERNS: RecurrencePattern[] = ['Daily', 'weekly', 'custom'];
 export const DIFFICULTY_RATINGS: DifficultyRating[] = [1, 2, 3, 4, 5];
 export const PROJECT_ROLES: ProjectRole[] = ['owner', 'manager', 'participant'];
-export const TIMING_STATUSES: TimingStatus[] = ['early', 'on_time', 'late'];
 export const RING_COLORS: RingColor[] = ['green', 'yellow', 'red', 'none'];
 
 export type NotificationType =
-  | 'task_initiated'
-  | 'task_accepted'
-  | 'task_declined'
+  | 'task_created'
   | 'task_completed'
   | 'task_recovered'
   | 'task_deleted'
@@ -45,9 +37,7 @@ export type NotificationType =
   | 'streak_reminder';
 
 export const NOTIFICATION_TYPES: NotificationType[] = [
-  'task_initiated',
-  'task_accepted',
-  'task_declined',
+  'task_created',
   'task_completed',
   'task_recovered',
   'task_deleted',
@@ -63,12 +53,9 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
 // Core Entity Types
 // ============================================================================
 
-/**
- * User Entity
- * Core user information and summary statistics
- */
+// User Entity - Core user information and summary statistics
 export interface User {
-  id: string;
+  id: number;
   name: string;
   handle: string;
   email: string;
@@ -81,7 +68,7 @@ export interface User {
 }
 
 export interface UserStats {
-  userId: string;
+  userId: number;
   totalCompletedTasks: number;
   currentStreak: number;
   longestStreak: number;
@@ -89,17 +76,14 @@ export interface UserStats {
   updatedAt: Date;
 }
 
-/**
- * Project Entity
- * Collaborative projects with participants
- */
+// Project Entity - Collaborative projects with participants
 export interface Project {
-  id: string;
+  id: number;
   name: string;
   description: string;
   icon?: string;
   color?: string;
-  ownerId: string;
+  ownerId: number;
   isPublic: boolean;
   totalTasks: number;
   createdAt: Date;
@@ -113,98 +97,56 @@ export interface Project {
 }
 
 export interface ProjectParticipant {
-  projectId: string;
-  userId: string;
+  projectId: number;
+  userId: number;
   role: ProjectRole;
   addedAt: Date;
   removedAt?: Date;
-  user?: User; // Computed/derived field for frontend convenience
+  // user?: User; // Computed/derived field for frontend convenience keyword
 }
 
-/**
- * Task Entity
- * Individual tasks within a project
- */
+ // Task Entity - Individual tasks within a project
+
 export interface Task {
-  id: string;
-  projectId: string;
-  creatorId: string;
+  id: number;
+  projectId: number;
+  creatorId: number;
   title: string;
   description?: string;
   type: TaskType;
   recurrencePattern?: RecurrencePattern;
   dueDate: Date;
-  completedAt?: Date;
-  createdAt: Date;
+  createdAt?: Date;
   updatedAt: Date;
   
   // Computed/derived fields (not stored in DB, calculated on the fly)
-  taskStatuses?: TaskStatusEntity[];
+  taskStatus?: TaskStatusEntity[];
   recurrence?: TaskRecurrence;
 }
 
-/**
- * TaskStatus Entity
- * Per-user task status tracking (replaces TaskAssignment)
- */
+// TaskStatus Entity - Per-user task status tracking (replaces TaskAssignment)
 export interface TaskStatusEntity {
-  id: string;
-  taskId: string;
-  userId: string;
-  status: TaskStatusUserStatus;
-  effectiveDueDate: Date;
+  id: number;
+  taskId: number;
+  userId: number;
+  status: TaskStatus;
   archivedAt?: Date;
   recoveredAt?: Date;
-  timingStatus?: TimingStatus;
   ringColor?: RingColor;
-  createdAt: Date;
-  updatedAt: Date;
+  // dueDate?: Date; keyword
+  // createdAt?: Date; keyword
+  // updatedAt: Date; keyword
   
   // Computed/derived fields
   user?: User;
   task?: Task;
 }
 
-/**
- * CompletionLog Entity
- * Records individual task completions for streak calculation
- */
-export interface CompletionLog {
-  id: string;
-  userId: string;
-  taskId: string;
-  completedAt: Date;
-  difficultyRating?: DifficultyRating;
-  timingStatus: TimingStatus;
-  recoveredCompletion: boolean;
-  penaltyApplied: boolean;
-  xpEarned: number;
-  createdAt: Date;
-}
-
-/**
- * Notification Entity
- * User notifications (email-ready)
- */
-export interface Notification {
-  id: string;
-  userId: string;
-  type: NotificationType;
-  message: string;
-  taskId?: string;
-  projectId?: string;
-  createdAt: Date;
-  isRead: boolean;
-  emailSent: boolean;
-}
-
-/**
- * TaskRecurrence Entity
- * Handles recurring tasks (habits)
- */
+// TaskRecurrence Entity - Handles recurring tasks (habits)
+ 
 export interface TaskRecurrence {
-  id: string;
-  taskId: string;
+  id: number;
+  taskId: number;
   recurrencePattern: RecurrencePattern;
   recurrenceInterval: number;
   nextOccurrence: Date;
@@ -214,30 +156,34 @@ export interface TaskRecurrence {
   task?: Task;
 }
 
-// ============================================================================
-// Backward Compatibility Aliases
-// ============================================================================
+// CompletionLog Entity - Records individual task completions for score and streak calculation 
+export interface CompletionLog {
+  id: number;
+  userId: number;
+  taskId: number;
+  // completedAt: Date; keyword
+  difficultyRating?: DifficultyRating;
+  // recoveredCompletion: boolean; keyword
+  penaltyApplied: boolean;
+  xpEarned: number;
+  createdAt: Date;
+}
 
-/**
- * @deprecated Use TaskStatusEntity instead
- * Kept for backward compatibility with existing components
- */
+// Notification Entity - User notifications (email-ready)
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: NotificationType;
+  message: string;
+  taskId?: number;
+  projectId?: number;
+  createdAt: Date;
+  isRead: boolean;
+  emailSent: boolean;
+}
+
 export type TaskAssignment = TaskStatusEntity;
-
-/**
- * @deprecated Use TaskStatusUserStatus instead
- * Kept for backward compatibility with existing components
- */
-export type AssignmentStatus = TaskStatusUserStatus;
-
-/**
- * @deprecated Use TASK_STATUSES instead
- * Kept for backward compatibility with migration scripts
- */
-export const ASSIGNMENT_STATUSES = TASK_STATUSES;
-
-// ============================================================================
-// Helper Types for Forms and UI
-// ============================================================================
-
-export type TaskStatusDisplay = 'Active' | 'Completed' | 'Archived';
+export type AssignmentStatus = TaskStatus;
+export const ASSIGNMENT_STATUSES = TASK_STATUS;
+export type TaskStatusDisplay = 'active' |'completed' |'archived' |'recovered'|'upcoming';

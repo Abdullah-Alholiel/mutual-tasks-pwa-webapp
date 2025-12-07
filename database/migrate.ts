@@ -4,9 +4,8 @@ import {
   NOTIFICATION_TYPES,
   PROJECT_ROLES,
   RECURRENCE_PATTERNS,
-  TASK_STATUSES,
+  TASK_STATUS,
   TASK_TYPES,
-  TIMING_STATUSES,
   RING_COLORS
 } from '../src/types';
 
@@ -236,9 +235,8 @@ $$;
 const ENUM_STATEMENTS = [
   buildEnumStatement('project_role', PROJECT_ROLES),
   buildEnumStatement('task_type', TASK_TYPES),
-  buildEnumStatement('task_status', TASK_STATUSES),
+  buildEnumStatement('task_status', TASK_STATUS),
   buildEnumStatement('recurrence_pattern', RECURRENCE_PATTERNS),
-  buildEnumStatement('timing_status', TIMING_STATUSES),
   buildEnumStatement('ring_color', RING_COLORS),
   buildEnumStatement('notification_type', NOTIFICATION_TYPES)
 ];
