@@ -86,3 +86,4 @@ export function useAuth(): UseAuthReturn {
     isAuthenticated: user !== null && !loading,
   };
 }
+

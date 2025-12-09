@@ -33,9 +33,20 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing Supabase configuration');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      supabaseServiceKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -99,18 +110,54 @@ serve(async (req) => {
       const magicLink = `${appUrl}/auth/verify?token=${token}`;
 
       // Invoke email function
-      const { error: emailError } = await supabaseClient.functions.invoke('send-email', {
-        body: {
-          type: 'signin',
-          to: email,
-          magicLink,
-          userName: user.name,
-        },
-      });
+      try {
+        const { data: emailData, error: emailError } = await supabaseClient.functions.invoke('send-email', {
+          body: {
+            type: 'signin',
+            to: email,
+            magicLink,
+            userName: user.name,
+          },
+        });
 
-      if (emailError) {
-        console.error('Failed to send email:', emailError);
-        // Don't fail the request if email fails
+        if (emailError) {
+          // Try to extract response body for better error details
+          let errorDetails: any = {
+            message: emailError.message,
+            context: emailError.context,
+          };
+          
+          // If context contains a Response, try to read its body
+          if (emailError.context?.response) {
+            try {
+              const responseBody = await emailError.context.response.text();
+              try {
+                errorDetails.responseBody = JSON.parse(responseBody);
+              } catch {
+                errorDetails.responseBody = responseBody;
+              }
+            } catch {
+              // Ignore if we can't read the response
+            }
+          }
+          
+          console.error('Failed to send email:', errorDetails);
+          // Log the error but don't fail the request - magic link is still valid
+        } else {
+          console.log('Email sent successfully:', emailData);
+        }
+      } catch (emailErr: any) {
+        console.error('Exception while sending email:', {
+          error: emailErr,
+          message: emailErr instanceof Error ? emailErr.message : String(emailErr),
+          stack: emailErr instanceof Error ? emailErr.stack : undefined,
+          context: emailErr?.context,
+          response: emailErr?.context?.response ? {
+            status: emailErr.context.response.status,
+            statusText: emailErr.context.response.statusText,
+          } : undefined,
+        });
+        // Don't fail the request if email fails - magic link is still valid
       }
 
       return new Response(
@@ -173,17 +220,54 @@ serve(async (req) => {
       const magicLink = `${appUrl}/auth/verify?token=${token}`;
 
       // Invoke email function
-      const { error: emailError } = await supabaseClient.functions.invoke('send-email', {
-        body: {
-          type: 'signup',
-          to: email,
-          magicLink,
-          userName: name,
-        },
-      });
+      try {
+        const { data: emailData, error: emailError } = await supabaseClient.functions.invoke('send-email', {
+          body: {
+            type: 'signup',
+            to: email,
+            magicLink,
+            userName: name,
+          },
+        });
 
-      if (emailError) {
-        console.error('Failed to send email:', emailError);
+        if (emailError) {
+          // Try to extract response body for better error details
+          let errorDetails: any = {
+            message: emailError.message,
+            context: emailError.context,
+          };
+          
+          // If context contains a Response, try to read its body
+          if (emailError.context?.response) {
+            try {
+              const responseBody = await emailError.context.response.text();
+              try {
+                errorDetails.responseBody = JSON.parse(responseBody);
+              } catch {
+                errorDetails.responseBody = responseBody;
+              }
+            } catch {
+              // Ignore if we can't read the response
+            }
+          }
+          
+          console.error('Failed to send email:', errorDetails);
+          // Log the error but don't fail the request - magic link is still valid
+        } else {
+          console.log('Email sent successfully:', emailData);
+        }
+      } catch (emailErr: any) {
+        console.error('Exception while sending email:', {
+          error: emailErr,
+          message: emailErr instanceof Error ? emailErr.message : String(emailErr),
+          stack: emailErr instanceof Error ? emailErr.stack : undefined,
+          context: emailErr?.context,
+          response: emailErr?.context?.response ? {
+            status: emailErr.context.response.status,
+            statusText: emailErr.context.response.statusText,
+          } : undefined,
+        });
+        // Don't fail the request if email fails - magic link is still valid
       }
 
       return new Response(
@@ -310,3 +394,4 @@ serve(async (req) => {
     );
   }
 });
+

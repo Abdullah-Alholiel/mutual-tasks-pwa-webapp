@@ -8,8 +8,36 @@ import type { Notification, Task, Project, User } from '@/types';
 import { getDatabaseClient } from '@/db';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 
-const SUPABASE_URL = getSupabaseUrl();
-const SUPABASE_ANON_KEY = getSupabaseAnonKey();
+/**
+ * Get Supabase URL lazily (called inside functions, not at module load)
+ * This ensures environment variables are available in Vite
+ */
+function getSupabaseUrlLazy(): string {
+  const url = getSupabaseUrl();
+  if (!url) {
+    console.warn('Supabase URL not configured. Email notifications disabled.');
+    throw new Error(
+      'Supabase URL not configured. Please set VITE_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL in your .env file.'
+    );
+  }
+  // Ensure URL doesn't have trailing slash
+  return url.endsWith('/') ? url.slice(0, -1) : url;
+}
+
+/**
+ * Get Supabase Anon Key lazily (called inside functions, not at module load)
+ * This ensures environment variables are available in Vite
+ */
+function getSupabaseAnonKeyLazy(): string {
+  const key = getSupabaseAnonKey();
+  if (!key) {
+    console.warn('Supabase Anon Key not configured. Email notifications disabled.');
+    throw new Error(
+      'Supabase Anon Key not configured. Please set VITE_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env file.'
+    );
+  }
+  return key;
+}
 
 /**
  * Notification Service
@@ -141,11 +169,6 @@ export class NotificationService {
     completer: User,
     recipient: User
   ): Promise<Notification | null> {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      console.warn('Supabase not configured. Email notifications disabled.');
-      // Still create notification in database
-    }
-
     try {
       const db = getDatabaseClient();
       
@@ -161,47 +184,58 @@ export class NotificationService {
       });
 
       // Send email via Supabase Edge Function
-      if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-        try {
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            },
-            body: JSON.stringify({
-              type: 'task-completed',
-              to: recipient.email,
-              task: {
-                id: task.id,
-                title: task.title,
-                description: task.description,
-                dueDate: task.dueDate,
-              },
-              project: {
-                id: project.id,
-                name: project.name,
-              },
-              completer: {
-                id: completer.id,
-                name: completer.name,
-                email: completer.email,
-              },
-              recipient: {
-                id: recipient.id,
-                name: recipient.name,
-                email: recipient.email,
-              },
-            }),
-          });
+      // Get Supabase configuration lazily (when function is called, not at module load)
+      try {
+        const supabaseUrl = getSupabaseUrlLazy();
+        const supabaseAnonKey = getSupabaseAnonKeyLazy();
 
-          if (response.ok && notification.id) {
-            await db.notifications.markEmailSent(typeof notification.id === 'string' ? parseInt(notification.id) : notification.id);
-            // Update notification object
-            notification.emailSent = true;
-          }
-        } catch (error) {
-          console.error('Failed to send task completed email:', error);
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'apikey': supabaseAnonKey,
+          },
+          body: JSON.stringify({
+            type: 'task-completed',
+            to: recipient.email,
+            task: {
+              id: task.id,
+              title: task.title,
+              description: task.description,
+              dueDate: task.dueDate,
+            },
+            project: {
+              id: project.id,
+              name: project.name,
+            },
+            completer: {
+              id: completer.id,
+              name: completer.name,
+              email: completer.email,
+            },
+            recipient: {
+              id: recipient.id,
+              name: recipient.name,
+              email: recipient.email,
+            },
+          }),
+        });
+
+        if (response.ok && notification.id) {
+          await db.notifications.markEmailSent(typeof notification.id === 'string' ? parseInt(notification.id) : notification.id);
+          // Update notification object
+          notification.emailSent = true;
+        } else {
+          const errorText = await response.text();
+          console.error(`Failed to send task completed email to ${recipient.email}:`, response.status, errorText);
+        }
+      } catch (emailError) {
+        // Only log warning if it's a configuration error (which we've already logged)
+        if (emailError instanceof Error && emailError.message.includes('not configured')) {
+          // Configuration error already logged in lazy getters
+        } else {
+          console.error('Failed to send task completed email:', emailError);
         }
       }
 

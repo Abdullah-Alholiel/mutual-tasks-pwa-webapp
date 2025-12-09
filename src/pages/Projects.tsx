@@ -5,6 +5,7 @@ import { ProjectForm } from '@/components/projects/ProjectForm';
 import { motion } from 'framer-motion';
 import { Plus, FolderKanban, Globe, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { InlineLoader } from '@/components/ui/loader';
 import type { Project } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -129,9 +130,7 @@ const Projects = () => {
   if (projectsLoading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading projects...</div>
-        </div>
+        <InlineLoader text="Loading projects..." />
       </AppLayout>
     );
   }

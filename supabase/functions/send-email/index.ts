@@ -11,25 +11,86 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// Helper to escape HTML to prevent XSS
+function escapeHtml(text: string | null | undefined): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { 
+      status: 204,
+      headers: corsHeaders 
+    });
   }
 
+  // Log request details for debugging
+  console.log('Email function called:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries()),
+  });
+
   try {
-    const { type, to, magicLink, userName, task, project, creator, recipient } = await req.json();
+    let requestBody;
+    try {
+      const bodyText = await req.text();
+      console.log('Request body received:', bodyText.substring(0, 500)); // Log first 500 chars
+      
+      if (!bodyText || bodyText.trim() === '') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Empty request body' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      requestBody = JSON.parse(bodyText);
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid JSON in request body', details: String(parseError) }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { type, to, magicLink, userName, task, project, creator, recipient } = requestBody;
+
+    // Validate required fields
+    if (!type || !to) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing required fields: type and to' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate magic link for signup/signin
+    if ((type === 'signup' || type === 'signin') && !magicLink) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing required field: magicLink (required for signup/signin emails)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const apiKey = Deno.env.get('MailJet_API_Key') || Deno.env.get('MAILJET_API_KEY') || '';
     const apiSecret = Deno.env.get('MailJet_API_Secret') || Deno.env.get('MAILJET_API_SECRET') || '';
     const fromEmail = Deno.env.get('MailJet_From_Email') || Deno.env.get('MAILJET_FROM_EMAIL') || 'noreply@momentum.app';
     const fromName = Deno.env.get('MailJet_From_Name') || Deno.env.get('MAILJET_FROM_NAME') || 'Momentum';
 
+    console.log('Email request:', { type, to, hasApiKey: !!apiKey, hasApiSecret: !!apiSecret, fromEmail, fromName });
+
     if (!apiKey || !apiSecret) {
-      console.warn('MailJet credentials not configured');
+      console.error('MailJet credentials not configured. Please set MailJet_API_Key and MailJet_API_Secret in Supabase Edge Function secrets.');
       return new Response(
-        JSON.stringify({ success: false, error: 'Email service not configured' }),
+        JSON.stringify({ success: false, error: 'Email service not configured. Please contact support.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -37,7 +98,9 @@ serve(async (req) => {
     let emailData: { subject: string; html: string; text: string };
 
     if (type === 'signup') {
-      const greeting = userName ? `Hi ${userName},` : 'Hi there,';
+      const safeUserName = escapeHtml(userName);
+      const greeting = safeUserName ? `Hi ${safeUserName},` : 'Hi there,';
+      const safeMagicLink = escapeHtml(magicLink);
       emailData = {
         subject: 'Welcome to Momentum! Complete your signup',
         html: `
@@ -53,10 +116,10 @@ serve(async (req) => {
                 <h2 style="color: #1a1a1a; margin-top: 0;">${greeting}</h2>
                 <p style="color: #666; font-size: 16px;">Thank you for signing up! Click the button below to verify your email and complete your registration. This link will expire in 15 minutes.</p>
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${magicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">Complete Signup</a>
+                  <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">Complete Signup</a>
                 </div>
                 <p style="color: #999; font-size: 14px; margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">${magicLink}</p>
+                <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">${safeMagicLink}</p>
               </div>
             </body>
           </html>
@@ -64,7 +127,9 @@ serve(async (req) => {
         text: `${greeting}\n\nThank you for signing up! Click the link below to verify your email:\n\n${magicLink}\n\nThis link will expire in 15 minutes.`,
       };
     } else if (type === 'signin') {
-      const greeting = userName ? `Hi ${userName},` : 'Hi there,';
+      const safeUserName = escapeHtml(userName);
+      const greeting = safeUserName ? `Hi ${safeUserName},` : 'Hi there,';
+      const safeMagicLink = escapeHtml(magicLink);
       emailData = {
         subject: 'Sign in to Momentum',
         html: `
@@ -80,10 +145,10 @@ serve(async (req) => {
                 <h2 style="color: #1a1a1a; margin-top: 0;">${greeting}</h2>
                 <p style="color: #666; font-size: 16px;">Click the button below to sign in to your Momentum account. This link will expire in 15 minutes.</p>
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${magicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">Sign In to Momentum</a>
+                  <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">Sign In to Momentum</a>
                 </div>
                 <p style="color: #999; font-size: 14px; margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">${magicLink}</p>
+                <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">${safeMagicLink}</p>
               </div>
             </body>
           </html>
@@ -91,10 +156,26 @@ serve(async (req) => {
         text: `${greeting}\n\nClick the link below to sign in:\n\n${magicLink}\n\nThis link will expire in 15 minutes.`,
       };
     } else if (type === 'task-created') {
+      // Validate required fields for task-created
+      if (!task || !project || !creator || !recipient) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing required fields for task-created: task, project, creator, recipient' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const appUrl = Deno.env.get('VITE_APP_URL') || 'https://momentum.app';
       const taskUrl = `${appUrl}/projects/${project.id}`;
+      
+      // Escape HTML in dynamic content
+      const safeTaskTitle = escapeHtml(task.title);
+      const safeTaskDescription = escapeHtml(task.description);
+      const safeProjectName = escapeHtml(project.name);
+      const safeCreatorName = escapeHtml(creator.name);
+      const safeRecipientName = escapeHtml(recipient.name);
+      
       emailData = {
-        subject: `New task: "${task.title}" in ${project.name}`,
+        subject: `New task: "${safeTaskTitle}" in ${safeProjectName}`,
         html: `
           <!DOCTYPE html>
           <html>
@@ -105,12 +186,12 @@ serve(async (req) => {
                 <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">${project.name}</p>
               </div>
               <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <p style="font-size: 16px; color: #666;">Hi <strong>${recipient.name}</strong>,</p>
-                <p style="font-size: 16px; color: #666;"><strong>${creator.name}</strong> has created a new task in <strong>${project.name}</strong>:</p>
+                <p style="font-size: 16px; color: #666;">Hi <strong>${safeRecipientName}</strong>,</p>
+                <p style="font-size: 16px; color: #666;"><strong>${safeCreatorName}</strong> has created a new task in <strong>${safeProjectName}</strong>:</p>
                 <div style="background: #f5f5f5; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                  <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 18px;">${task.title}</h3>
-                  ${task.description ? `<p style="margin: 0; color: #666; font-size: 14px;">${task.description}</p>` : ''}
-                  <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">Due: ${new Date(task.dueDate || task.due_date).toLocaleDateString()}</p>
+                  <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 18px;">${safeTaskTitle}</h3>
+                  ${safeTaskDescription ? `<p style="margin: 0; color: #666; font-size: 14px;">${safeTaskDescription}</p>` : ''}
+                  <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">Due: ${new Date(task.dueDate || task.due_date || Date.now()).toLocaleDateString()}</p>
                 </div>
                 <p style="font-size: 16px; color: #666;">You're a participant in this project, so this task has been assigned to you. Click below to view and get started!</p>
                 <div style="text-align: center; margin: 30px 0;">
@@ -120,7 +201,7 @@ serve(async (req) => {
             </body>
           </html>
         `,
-        text: `Hi ${recipient.name},\n\n${creator.name} has created a new task "${task.title}" in ${project.name}.\n\n${task.description ? `Description: ${task.description}\n\n` : ''}Due: ${new Date(task.dueDate || task.due_date).toLocaleDateString()}\n\nView the task: ${taskUrl}`,
+        text: `Hi ${safeRecipientName},\n\n${safeCreatorName} has created a new task "${safeTaskTitle}" in ${safeProjectName}.\n\n${safeTaskDescription ? `Description: ${safeTaskDescription}\n\n` : ''}Due: ${new Date(task.dueDate || task.due_date || Date.now()).toLocaleDateString()}\n\nView the task: ${taskUrl}`,
       };
     } else {
       return new Response(
@@ -130,14 +211,9 @@ serve(async (req) => {
     }
 
     // Send via MailJet
-    const auth = btoa(`${apiKey}:${apiSecret}`);
-    const response = await fetch('https://api.mailjet.com/v3.1/send', {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      const auth = btoa(`${apiKey}:${apiSecret}`);
+      const mailjetPayload = {
         Messages: [
           {
             From: { Email: fromEmail, Name: fromName },
@@ -147,24 +223,83 @@ serve(async (req) => {
             TextPart: emailData.text,
           },
         ],
-      }),
-    });
+      };
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('MailJet error:', error);
-      throw new Error(`MailJet API error: ${response.status}`);
+      console.log('Sending email via MailJet:', { 
+        to, 
+        from: fromEmail,
+        subject: emailData.subject,
+        payloadSize: JSON.stringify(mailjetPayload).length 
+      });
+
+      const response = await fetch('https://api.mailjet.com/v3.1/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(mailjetPayload),
+      });
+
+      const responseText = await response.text();
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch {
+        responseData = { text: responseText };
+      }
+
+      if (!response.ok) {
+        console.error('MailJet API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: responseData,
+        });
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `MailJet API error: ${response.status} - ${response.statusText}`,
+            details: responseData 
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Email sent successfully via MailJet:', responseData);
+
+      return new Response(
+        JSON.stringify({ success: true, mailjetResponse: responseData }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (fetchError) {
+      console.error('Error calling MailJet API:', fetchError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to send email via MailJet',
+          details: fetchError instanceof Error ? fetchError.message : String(fetchError)
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
   } catch (error) {
-    console.error('Error sending email:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('Error sending email:', {
+      message: errorMessage,
+      stack: errorStack,
+      type: typeof error,
+    });
+    
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      JSON.stringify({ 
+        success: false,
+        error: errorMessage || 'Internal server error',
+        details: errorStack ? 'Check server logs for details' : undefined
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+

@@ -30,7 +30,7 @@ export const useProjectDetail = () => {
   const projectParticipantsFromState = location.state?.projectParticipants as ProjectParticipant[] | undefined;
   
   // Fetch project from database
-  const { data: projectFromDb } = useProject(id);
+  const { data: projectFromDb, isLoading: projectLoading } = useProject(id);
   const currentProject = projectFromState || projectFromDb;
 
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -42,7 +42,7 @@ export const useProjectDetail = () => {
   const [memberIdentifier, setMemberIdentifier] = useState('');
 
   // Fetch project tasks
-  const { data: projectTasksFromDb = [] } = useProjectTasks(id);
+  const { data: projectTasksFromDb = [], isLoading: tasksLoading } = useProjectTasks(id);
   const [tasks, setTasks] = useState<Task[]>(projectTasksFromDb);
   const [taskStatuses, setTaskStatuses] = useState<TaskStatusEntity[]>([]);
   const [completionLogs, setCompletionLogs] = useState<CompletionLog[]>([]);
@@ -498,10 +498,10 @@ export const useProjectDetail = () => {
     
     const toastTitle = newTasks.length > 1
       ? `${newTasks.length} habit tasks created! 🚀`
-      : 'Task initiated! 🚀';
+      : 'Task created! 🚀';
 
     toast.success(toastTitle, {
-      description: 'Your friend has been notified. to accept'
+      description: 'Persuade your friends to complete this task with you'
     });
     
     // Send email notifications for task creation
@@ -791,6 +791,9 @@ export const useProjectDetail = () => {
     progress,
     completedCount,
     totalTasks,
+    
+    // Loading states
+    isLoading: projectLoading || tasksLoading,
     
     // Task lists
     activeTasks,

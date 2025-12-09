@@ -25,19 +25,43 @@ const navItems = [
 ];
 
 export const DesktopNav = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const scrollThreshold = 10; // Minimum scroll distance to trigger hide/show
 
-  const handleLogout = () => {
-    toast.success('Logged out successfully', {
-      description: 'See you soon!'
-    });
-    // In a real app, this would clear auth state
-    // Redirect to auth page
-    window.location.href = '/auth';
+  // Load notifications from database when user is available
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!user) return;
+      
+      try {
+        const db = getDatabaseClient();
+        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        const userNotifications = await db.notifications.getByUserId(userId, {
+          limit: 50,
+          isRead: undefined, // Get both read and unread
+        });
+        setNotifications(userNotifications);
+      } catch (error) {
+        handleError(error, 'loadNotifications');
+      }
+    };
+
+    loadNotifications();
+  }, [user]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully', {
+        description: 'See you soon!'
+      });
+    } catch (error) {
+      handleError(error, 'logout');
+      toast.error('Failed to logout. Please try again.');
+    }
   };
 
   const handleMarkAsRead = async (notificationId: string | number) => {

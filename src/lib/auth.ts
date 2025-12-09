@@ -360,3 +360,4 @@ export function getSessionTokenForAPI(
 ): string | null {
   return getSessionToken(request, nextCookies);
 }
+

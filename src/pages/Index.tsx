@@ -4,6 +4,7 @@ import { TaskForm } from '@/components/tasks/TaskForm';
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { InlineLoader } from '@/components/ui/loader';
 import { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import type { Task, TaskStatusEntity, CompletionLog } from '@/types';
@@ -275,9 +276,7 @@ const Index = () => {
   if (tasksLoading || projectsLoading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading...</div>
-        </div>
+        <InlineLoader text="Loading tasks..." />
       </AppLayout>
     );
   }

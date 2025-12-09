@@ -59,3 +59,4 @@ export function getSupabaseAnonKey(): string | undefined {
     (typeof process !== 'undefined' ? process.env.SUPABASE_ANON_KEY : undefined)
   );
 }
+

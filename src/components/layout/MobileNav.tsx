@@ -3,7 +3,7 @@ import { NavLink } from '@/components/NavLink';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Inbox } from '@/components/notifications/Inbox';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Notification } from '@/types';
 import { getDatabaseClient } from '@/db';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,7 +11,29 @@ import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
 export const MobileNav = () => {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);  
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  // Load notifications from database when user is available
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!user) return;
+      
+      try {
+        const db = getDatabaseClient();
+        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        const userNotifications = await db.notifications.getByUserId(userId, {
+          limit: 50,
+          isRead: undefined, // Get both read and unread
+        });
+        setNotifications(userNotifications);
+      } catch (error) {
+        handleError(error, 'loadNotifications');
+      }
+    };
+
+    loadNotifications();
+  }, [user]);
+  
   const handleMarkAsRead = async (notificationId: number) => {
     setNotifications(prev =>
       prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)

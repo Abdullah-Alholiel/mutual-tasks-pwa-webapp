@@ -147,3 +147,4 @@ export function clearSessionToken(): void {
     console.warn('Failed to clear session token from localStorage:', error);
   }
 }
+

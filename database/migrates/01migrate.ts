@@ -23,7 +23,8 @@ const connectionString =
 
 // Get Supabase URL for project reference extraction
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  process.env.VITE_SUPABASE_URL ??
   '';
 
 // Helper to parse connection string and extract components

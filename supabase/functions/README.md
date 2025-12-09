@@ -60,3 +60,4 @@ supabase start
 supabase functions serve auth-magic-link --env-file .env.local
 supabase functions serve send-email --env-file .env.local
 ```
+

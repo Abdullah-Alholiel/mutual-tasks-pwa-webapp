@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
+import { InlineLoader } from '@/components/ui/loader';
 import { getUserProjects } from '@/lib/projectUtils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -75,9 +76,7 @@ const Profile = () => {
   if (!currentUser) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-muted-foreground">Loading profile...</div>
-        </div>
+        <InlineLoader text="Loading profile..." />
       </AppLayout>
     );
   }

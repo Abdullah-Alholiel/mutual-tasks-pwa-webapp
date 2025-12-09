@@ -275,3 +275,4 @@ The code automatically detects:
 - **Server-side**: Uses `process.env.*`
 
 No code changes needed - it works automatically!
+

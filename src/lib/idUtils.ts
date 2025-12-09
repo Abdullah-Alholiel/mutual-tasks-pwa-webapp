@@ -27,3 +27,4 @@ export function normalizeId(id: string | number): number {
 export function compareIds(id1: string | number, id2: string | number): boolean {
   return normalizeId(id1) === normalizeId(id2);
 }
+

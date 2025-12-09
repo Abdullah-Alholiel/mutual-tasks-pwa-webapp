@@ -246,3 +246,4 @@ supabase functions serve send-email --env-file .env.local
 - [ ] Add rate limiting for magic link requests (via Supabase)
 - [ ] Implement email verification on signup
 - [ ] Add password reset functionality if needed
+

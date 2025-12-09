@@ -9,6 +9,7 @@ import { ProjectHeader } from '@/components/projects/ProjectHeader';
 import { ProjectStats } from '@/components/projects/ProjectStats';
 import { ProjectTaskSections } from '@/components/projects/ProjectTaskSections';
 import { useProjectDetail } from '@/hooks/useProjectDetail';
+import { InlineLoader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +36,7 @@ const ProjectDetail = () => {
     progress,
     completedCount,
     totalTasks,
+    isLoading,
     activeTasks,
     upcomingTasks,
     completedTasks,
@@ -81,6 +83,14 @@ const ProjectDetail = () => {
     const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
     handleRecover(taskIdNum);
   };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <InlineLoader text="Loading project..." />
+      </AppLayout>
+    );
+  }
 
   if (!project || !currentProject) {
     return (

@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { validateHandleFormat } from '@/lib/userUtils';
 import { requestLogin, requestSignup, verifyMagicLink } from '@/lib/auth';
+import { PageLoader } from '@/components/ui/loader';
 
 const Auth = () => {
   const [loginEmail, setLoginEmail] = useState('');
@@ -17,6 +18,7 @@ const Auth = () => {
   const [signupName, setSignupName] = useState('');
   const [signupHandle, setSignupHandle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -25,7 +27,7 @@ const Auth = () => {
     const token = searchParams.get('token');
     
     if (token) {
-      setIsLoading(true);
+      setIsVerifying(true);
       verifyMagicLink(token)
         .then((result) => {
           if (result.success) {
@@ -42,10 +44,15 @@ const Auth = () => {
           navigate('/auth');
         })
         .finally(() => {
-          setIsLoading(false);
+          setIsVerifying(false);
         });
     }
   }, [searchParams, navigate]);
+
+  // Show full page loader during magic link verification
+  if (isVerifying) {
+    return <PageLoader text="Verifying magic link..." />;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
