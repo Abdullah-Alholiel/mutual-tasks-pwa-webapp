@@ -22,10 +22,17 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   );
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="min-h-[100dvh] min-h-screen bg-background overflow-x-hidden w-full">
       <DesktopNav />
       <SwipeableContainer>
-        <main className="pt-4 md:pt-28 pb-20 md:pb-8 px-4 md:px-6 max-w-7xl mx-auto overflow-x-hidden">
+        <main 
+          className="pt-4 md:pt-28 md:pb-8 px-4 md:px-6 max-w-7xl mx-auto overflow-x-hidden w-full"
+          style={{ 
+            paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+            paddingLeft: 'max(1rem, env(safe-area-inset-left, 0px))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right, 0px))'
+          }}
+        >
           {shouldAnimate ? (
             <AnimatePresence mode="wait" initial={false}>
               <motion.div

@@ -111,11 +111,14 @@ serve(async (req) => {
         );
       }
 
+      // Normalize email to lowercase for case-insensitive comparison
+      const normalizedEmail = email.trim().toLowerCase();
+
       // Check if user exists
       const { data: user, error: userError } = await supabaseClient
         .from('users')
         .select('id, name, email')
-        .eq('email', email)
+        .eq('email', normalizedEmail)
         .single();
 
       if (userError || !user) {
@@ -129,13 +132,13 @@ serve(async (req) => {
       const token = generateToken();
       const expiresAt = new Date(Date.now() + MAGIC_LINK_EXPIRY_MS);
 
-      // Store magic link
+      // Store magic link (use normalized email)
       const { error: linkError } = await supabaseClient
         .from('magic_links')
         .insert({
           token,
           user_id: user.id,
-          email,
+          email: normalizedEmail,
           is_signup: false,
           expires_at: expiresAt.toISOString(),
         });
@@ -152,7 +155,7 @@ serve(async (req) => {
         const { data: emailData, error: emailError } = await supabaseClient.functions.invoke('send-email', {
           body: {
             type: 'signin',
-            to: email,
+            to: normalizedEmail,
             magicLink,
             userName: user.name,
           },
@@ -221,11 +224,14 @@ serve(async (req) => {
         );
       }
 
+      // Normalize email to lowercase for case-insensitive comparison
+      const normalizedEmail = email.trim().toLowerCase();
+
       // Check if user already exists
       const { data: existingUser } = await supabaseClient
         .from('users')
         .select('id')
-        .or(`email.eq.${email},handle.eq.${handle}`)
+        .or(`email.eq.${normalizedEmail},handle.eq.${handle}`)
         .limit(1);
 
       if (existingUser && existingUser.length > 0) {
@@ -239,12 +245,12 @@ serve(async (req) => {
       const token = generateToken();
       const expiresAt = new Date(Date.now() + MAGIC_LINK_EXPIRY_MS);
 
-      // Store magic link with signup data
+      // Store magic link with signup data (use normalized email)
       const { error: linkError } = await supabaseClient
         .from('magic_links')
         .insert({
           token,
-          email,
+          email: normalizedEmail,
           is_signup: true,
           signup_name: name,
           signup_handle: handle,
@@ -263,7 +269,7 @@ serve(async (req) => {
         const { data: emailData, error: emailError } = await supabaseClient.functions.invoke('send-email', {
           body: {
             type: 'signup',
-            to: email,
+            to: normalizedEmail,
             magicLink,
             userName: name,
           },
@@ -325,22 +331,21 @@ serve(async (req) => {
         );
       }
 
-      // Get magic link
+      // Get magic link (allow reuse within 15 minute window)
       const { data: magicLink, error: linkError } = await supabaseClient
         .from('magic_links')
         .select('*')
         .eq('token', token)
-        .is('used_at', null)
         .single();
 
       if (linkError || !magicLink) {
         return new Response(
-          JSON.stringify({ error: 'Invalid or expired magic link' }),
+          JSON.stringify({ error: 'Invalid magic link' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Check if expired
+      // Check if expired (only check expiration, allow reuse within 15 minutes)
       if (new Date(magicLink.expires_at) < new Date()) {
         return new Response(
           JSON.stringify({ error: 'Magic link has expired' }),
@@ -351,7 +356,7 @@ serve(async (req) => {
       let userId: number;
 
       if (magicLink.is_signup) {
-        // Create new user
+        // Create new user (check if already exists first)
         if (!magicLink.signup_name || !magicLink.signup_handle) {
           return new Response(
             JSON.stringify({ error: 'Missing user information' }),
@@ -359,41 +364,59 @@ serve(async (req) => {
           );
         }
 
-        // Generate avatar URL
-        const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(magicLink.signup_name)}&background=0EA5E9&color=fff`;
+        // Normalize email to lowercase
+        const normalizedEmail = magicLink.email.toLowerCase().trim();
 
-        const { data: newUser, error: userError } = await supabaseClient
+        // Check if user already exists (to handle reuse of magic link)
+        const { data: existingUser } = await supabaseClient
           .from('users')
-          .insert({
-            name: magicLink.signup_name,
-            handle: magicLink.signup_handle,
-            email: magicLink.email,
-            avatar,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          })
-          .select()
+          .select('id')
+          .eq('email', normalizedEmail)
           .single();
 
-        if (userError) throw userError;
-        userId = newUser.id;
+        if (existingUser) {
+          // User already exists, use existing user ID
+          userId = existingUser.id;
+        } else {
+          // Create new user
+          const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(magicLink.signup_name)}&background=0EA5E9&color=fff`;
 
-        // Create user stats
-        await supabaseClient.from('user_stats').insert({
-          user_id: userId,
-          total_completed_tasks: 0,
-          current_streak: 0,
-          longest_streak: 0,
-          totalscore: 0,
-        });
+          const { data: newUser, error: userError } = await supabaseClient
+            .from('users')
+            .insert({
+              name: magicLink.signup_name,
+              handle: magicLink.signup_handle,
+              email: normalizedEmail,
+              avatar,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            })
+            .select()
+            .single();
+
+          if (userError) throw userError;
+          userId = newUser.id;
+
+          // Create user stats (only if new user)
+          await supabaseClient.from('user_stats').insert({
+            user_id: userId,
+            total_completed_tasks: 0,
+            current_streak: 0,
+            longest_streak: 0,
+            totalscore: 0,
+          });
+        }
       } else {
         userId = magicLink.user_id;
       }
 
-      // Mark magic link as used
-      await supabaseClient
-        .from('magic_links')
-        .update({ used_at: new Date().toISOString() })
-        .eq('token', token);
+      // Don't mark as used - allow reuse within 15 minute window
+      // Only mark used_at on first use (if not already set) to track usage
+      if (!magicLink.used_at) {
+        await supabaseClient
+          .from('magic_links')
+          .update({ used_at: new Date().toISOString() })
+          .eq('token', token);
+      }
 
       // Create session
       const sessionToken = generateToken();

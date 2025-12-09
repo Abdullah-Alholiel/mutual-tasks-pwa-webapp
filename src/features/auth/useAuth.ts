@@ -6,6 +6,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getCurrentUser, logout, refreshSession } from '@/lib/auth/auth';
+import { setSessionToken } from '@/lib/auth/sessionStorage';
+import { toast } from 'sonner';
 import type { User } from '@/types';
 
 export interface UseAuthReturn {
@@ -95,14 +97,75 @@ export function useAuth(): UseAuthReturn {
   }, []);
 
   useEffect(() => {
+    // Handle handoff token from URL (e.g., from "Continue to App" flow)
+    // This allows transferring session from Safari to PWA on iOS
+    const handleHandoffToken = (): boolean => {
+      if (typeof window === 'undefined') return false;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const handoffToken = urlParams.get('handoff_token');
+      
+      if (handoffToken) {
+        // Get expiry from URL or set to 60 days from now
+        const expiresAt = urlParams.get('expires_at') || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+        
+        // Store the session token in localStorage (PWA context)
+        setSessionToken(handoffToken, expiresAt);
+        
+        // Clean up URL by removing the handoff_token parameter
+        urlParams.delete('handoff_token');
+        urlParams.delete('expires_at');
+        const newSearch = urlParams.toString();
+        const newUrl = newSearch 
+          ? `${window.location.pathname}?${newSearch}`
+          : window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+        
+        // Show success notification
+        toast.success('Successfully signed in!');
+        
+        // Token was handled - return true
+        return true;
+      }
+      
+      return false;
+    };
+
+    // Check for handoff token first
+    const hadHandoffToken = handleHandoffToken();
+
+    // Load user (either with new handoff token or existing token)
     loadUser();
 
-    // Refresh session on mount and periodically
+    // Refresh session on mount and periodically (every 10 minutes for better reliability)
     const refreshInterval = setInterval(async () => {
       await refreshSession();
-    }, 30 * 60 * 1000); // Refresh every 30 minutes
+    }, 10 * 60 * 1000); // Refresh every 10 minutes
 
-    return () => clearInterval(refreshInterval);
+    // Refresh session when app regains focus/visibility
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSession();
+        // Also reload user to ensure state is fresh
+        loadUser();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Refresh session when window regains focus
+    const handleFocus = () => {
+      refreshSession();
+      loadUser();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [loadUser]);
 
   const handleLogout = useCallback(async () => {

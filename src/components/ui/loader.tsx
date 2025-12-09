@@ -36,7 +36,7 @@ interface LoaderProps {
    */
   fullScreen?: boolean;
   /**
-   * Custom container height (default: 'h-64' for inline, 'min-h-screen' for fullScreen)
+   * Custom container height (default: 'h-64' for inline, 'min-h-[100dvh] min-h-screen' for fullScreen)
    */
   containerHeight?: string;
 }
@@ -71,7 +71,7 @@ export function Loader({
   fullScreen = false,
   containerHeight,
 }: LoaderProps) {
-  const defaultHeight = fullScreen ? 'min-h-screen' : 'h-64';
+  const defaultHeight = fullScreen ? 'min-h-[100dvh] min-h-screen' : 'h-64';
   const height = containerHeight || defaultHeight;
 
   return (

@@ -106,25 +106,94 @@ serve(async (req) => {
         html: `
           <!DOCTYPE html>
           <html>
-            <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
-                <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Momentum! 🎉</h1>
-                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Collaborative Tasks</p>
-              </div>
-              <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h2 style="color: #1a1a1a; margin-top: 0;">${greeting}</h2>
-                <p style="color: #666; font-size: 16px;">Thank you for signing up! Click the button below to verify your email and complete your registration. This link will expire in 15 minutes.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">Complete Signup</a>
-                </div>
-                <p style="color: #999; font-size: 14px; margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">${safeMagicLink}</p>
-              </div>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f7f9fc;">
+              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f7f9fc; padding: 20px;">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); padding: 40px 30px; text-align: center;">
+                          <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Welcome to Momentum! 🎉</h1>
+                          <p style="color: rgba(255,255,255,0.95); margin: 12px 0 0 0; font-size: 16px; font-weight: 400;">Collaborative Tasks</p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Content -->
+                      <tr>
+                        <td style="padding: 40px 30px;">
+                          <h2 style="color: #1a1a1a; margin: 0 0 24px 0; font-size: 24px; font-weight: 600; line-height: 1.3;">${greeting}</h2>
+                          
+                          <!-- PWA Bookmarking Disclaimer (NEW - Most Important) -->
+                          <div style="background: #E0F2FE; border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0 0 28px 0;">
+                            <p style="color: #0C4A6E; font-size: 16px; font-weight: 700; margin: 0 0 10px 0;">
+                              💡 <span style="margin-left: 4px;">Recommended: Sign In First, Then Bookmark</span>
+                            </p>
+                            <p style="color: #0C4A6E; font-size: 14px; margin: 0; line-height: 1.7;">
+                              For the best experience on your phone, we recommend signing in on your browser first, then adding Momentum to your home screen. This ensures your session stays active and you won't need to sign in again!
+                            </p>
+                          </div>
+                          
+                          <!-- Home Screen App Warning -->
+                          <div style="background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: 10px; padding: 18px; margin: 0 0 28px 0;">
+                            <p style="color: #92400E; font-size: 15px; font-weight: 700; margin: 0 0 10px 0;">
+                              📱 <span style="margin-left: 4px;">Using the Home Screen App?</span>
+                            </p>
+                            <p style="color: #92400E; font-size: 14px; margin: 0 0 8px 0; line-height: 1.6;">
+                              Copy the link below and paste it in the app using "Sign In with Link".
+                            </p>
+                            <p style="color: #92400E; font-size: 13px; margin: 0; font-weight: 600;">
+                              ⚠️ Do NOT tap the signup button if you want to log in on the bookmarked app!
+                            </p>
+                          </div>
+                          
+                          <!-- Magic Link Section -->
+                          <div style="margin: 0 0 32px 0;">
+                            <p style="color: #666; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">Your Signup Link</p>
+                            <p style="color: #999; font-size: 12px; margin: 0 0 16px 0;">Valid for 15 minutes • Can be used multiple times</p>
+                            <div style="background: linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%); border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0;">
+                              <p style="color: #0EA5E9; font-size: 13px; word-break: break-all; margin: 0 0 14px 0; font-family: 'Courier New', 'Monaco', monospace; background: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #0EA5E9; line-height: 1.5; user-select: all; -webkit-user-select: all;">${safeMagicLink}</p>
+                              <p style="color: #666; font-size: 12px; margin: 0; text-align: center; font-style: italic;">📋 Long-press the link above to copy it</p>
+                            </div>
+                          </div>
+                          
+                          <!-- Warning Before Button -->
+                          <div style="background: #FFF7ED; border-left: 4px solid #F59E0B; padding: 16px 20px; margin: 0 0 28px 0; border-radius: 6px;">
+                            <p style="color: #92400E; font-size: 14px; font-weight: 600; margin: 0; text-align: center;">
+                              ⚠️ Do NOT press the button below if you want to log in on the bookmarked app!
+                            </p>
+                          </div>
+                          
+                          <!-- CTA Button -->
+                          <div style="text-align: center; margin: 32px 0 0 0;">
+                            <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); transition: all 0.2s ease;">Complete Signup</a>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f7f9fc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                          <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0;">
+                            <strong style="color: #1a1a1a;">Momentum</strong> - Collaborative Tasks
+                          </p>
+                          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                            If you didn't request this email, you can safely ignore it.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </body>
           </html>
         `,
-        text: `${greeting}\n\nThank you for signing up! Click the link below to verify your email:\n\n${magicLink}\n\nThis link will expire in 15 minutes.`,
+        text: `${greeting}\n\n💡 RECOMMENDED: SIGN IN FIRST, THEN BOOKMARK\n\nFor the best experience on your phone, we recommend signing in on your browser first, then adding Momentum to your home screen. This ensures your session stays active and you won't need to sign in again!\n\n📱 USING THE HOME SCREEN APP?\nDo NOT click the signup button if you want to log in on the bookmarked app!\n\nCopy the link below and paste it in the app using "Sign In with Link":\n\n${magicLink}\n\nThis link is valid for 15 minutes and can be used multiple times.\n\n---\n\n⚠️ Do NOT press the button if you want to log in on the bookmarked app!\n\nTo sign up in your browser, click the link above.\n\n---\n\nMomentum - Collaborative Tasks\nIf you didn't request this email, you can safely ignore it.`,
       };
     } else if (type === 'signin') {
       const safeUserName = escapeHtml(userName);
@@ -135,25 +204,94 @@ serve(async (req) => {
         html: `
           <!DOCTYPE html>
           <html>
-            <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-            <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
-                <h1 style="color: white; margin: 0; font-size: 28px;">Momentum</h1>
-                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Collaborative Tasks</p>
-              </div>
-              <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h2 style="color: #1a1a1a; margin-top: 0;">${greeting}</h2>
-                <p style="color: #666; font-size: 16px;">Click the button below to sign in to your Momentum account. This link will expire in 15 minutes.</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">Sign In to Momentum</a>
-                </div>
-                <p style="color: #999; font-size: 14px; margin-top: 30px;">If the button doesn't work, copy and paste this link into your browser:</p>
-                <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">${safeMagicLink}</p>
-              </div>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f7f9fc;">
+              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f7f9fc; padding: 20px;">
+                <tr>
+                  <td align="center" style="padding: 20px 0;">
+                    <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
+                      <!-- Header -->
+                      <tr>
+                        <td style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); padding: 40px 30px; text-align: center;">
+                          <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Momentum</h1>
+                          <p style="color: rgba(255,255,255,0.95); margin: 12px 0 0 0; font-size: 16px; font-weight: 400;">Collaborative Tasks</p>
+                        </td>
+                      </tr>
+                      
+                      <!-- Content -->
+                      <tr>
+                        <td style="padding: 40px 30px;">
+                          <h2 style="color: #1a1a1a; margin: 0 0 24px 0; font-size: 24px; font-weight: 600; line-height: 1.3;">${greeting}</h2>
+                          
+                          <!-- PWA Bookmarking Disclaimer (NEW - Most Important) -->
+                          <div style="background: #E0F2FE; border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0 0 28px 0;">
+                            <p style="color: #0C4A6E; font-size: 16px; font-weight: 700; margin: 0 0 10px 0;">
+                              💡 <span style="margin-left: 4px;">Recommended: Sign In First, Then Bookmark</span>
+                            </p>
+                            <p style="color: #0C4A6E; font-size: 14px; margin: 0; line-height: 1.7;">
+                              For the best experience on your phone, we recommend signing in on your browser first, then adding Momentum to your home screen. This ensures your session stays active and you won't need to sign in again!
+                            </p>
+                          </div>
+                          
+                          <!-- Home Screen App Warning -->
+                          <div style="background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: 10px; padding: 18px; margin: 0 0 28px 0;">
+                            <p style="color: #92400E; font-size: 15px; font-weight: 700; margin: 0 0 10px 0;">
+                              📱 <span style="margin-left: 4px;">Using the Home Screen App?</span>
+                            </p>
+                            <p style="color: #92400E; font-size: 14px; margin: 0 0 8px 0; line-height: 1.6;">
+                              Copy the link below and paste it in the app using "Sign In with Link".
+                            </p>
+                            <p style="color: #92400E; font-size: 13px; margin: 0; font-weight: 600;">
+                              ⚠️ Do NOT tap the sign-in button if you want to log in on the bookmarked app!
+                            </p>
+                          </div>
+                          
+                          <!-- Magic Link Section -->
+                          <div style="margin: 0 0 32px 0;">
+                            <p style="color: #666; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">Your Sign-In Link</p>
+                            <p style="color: #999; font-size: 12px; margin: 0 0 16px 0;">Valid for 15 minutes • Can be used multiple times</p>
+                            <div style="background: linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%); border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0;">
+                              <p style="color: #0EA5E9; font-size: 13px; word-break: break-all; margin: 0 0 14px 0; font-family: 'Courier New', 'Monaco', monospace; background: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #0EA5E9; line-height: 1.5; user-select: all; -webkit-user-select: all;">${safeMagicLink}</p>
+                              <p style="color: #666; font-size: 12px; margin: 0; text-align: center; font-style: italic;">📋 Long-press the link above to copy it</p>
+                            </div>
+                          </div>
+                          
+                          <!-- Warning Before Button -->
+                          <div style="background: #FFF7ED; border-left: 4px solid #F59E0B; padding: 16px 20px; margin: 0 0 28px 0; border-radius: 6px;">
+                            <p style="color: #92400E; font-size: 14px; font-weight: 600; margin: 0; text-align: center;">
+                              ⚠️ Do NOT press the button below if you want to log in on the bookmarked app!
+                            </p>
+                          </div>
+                          
+                          <!-- CTA Button -->
+                          <div style="text-align: center; margin: 32px 0 0 0;">
+                            <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); transition: all 0.2s ease;">Sign In to Momentum</a>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      <!-- Footer -->
+                      <tr>
+                        <td style="background-color: #f7f9fc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                          <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0;">
+                            <strong style="color: #1a1a1a;">Momentum</strong> - Collaborative Tasks
+                          </p>
+                          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+                            If you didn't request this email, you can safely ignore it.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </body>
           </html>
         `,
-        text: `${greeting}\n\nClick the link below to sign in:\n\n${magicLink}\n\nThis link will expire in 15 minutes.`,
+        text: `${greeting}\n\n💡 RECOMMENDED: SIGN IN FIRST, THEN BOOKMARK\n\nFor the best experience on your phone, we recommend signing in on your browser first, then adding Momentum to your home screen. This ensures your session stays active and you won't need to sign in again!\n\n📱 USING THE HOME SCREEN APP?\nDo NOT click the sign-in button if you want to log in on the bookmarked app!\n\nCopy the link below and paste it in the app using "Sign In with Link":\n\n${magicLink}\n\nThis link is valid for 15 minutes and can be used multiple times.\n\n---\n\n⚠️ Do NOT press the button if you want to log in on the bookmarked app!\n\nTo sign in in your browser, click the link above.\n\n---\n\nMomentum - Collaborative Tasks\nIf you didn't request this email, you can safely ignore it.`,
       };
     } else if (type === 'task-created') {
       // Validate required fields for task-created

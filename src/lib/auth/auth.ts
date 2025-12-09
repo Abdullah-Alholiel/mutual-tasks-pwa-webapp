@@ -305,7 +305,7 @@ export async function requestLogin(email: string): Promise<{ success: boolean; m
       },
       body: JSON.stringify({
         action: 'request-login',
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
       }),
     });
 
@@ -361,7 +361,7 @@ export async function requestSignup(
       },
       body: JSON.stringify({
         action: 'request-signup',
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         name: name.trim(),
         handle: handle.trim(),
       }),
@@ -399,9 +399,14 @@ export async function requestSignup(
 
 /**
  * Verify magic link token and create session
- * Client-side only - stores session token in localStorage
+ * Client-side only - stores session token in cookies and localStorage
  */
-export async function verifyMagicLink(token: string): Promise<{ success: boolean; error?: string }> {
+export async function verifyMagicLink(token: string): Promise<{ 
+  success: boolean; 
+  error?: string; 
+  sessionToken?: string;
+  expiresAt?: string;
+}> {
   if (!isBrowser()) {
     return { success: false, error: 'Magic link verification must be done in the browser' };
   }
@@ -442,12 +447,16 @@ export async function verifyMagicLink(token: string): Promise<{ success: boolean
       return { success: false, error: data.error || 'Verification failed' };
     }
 
-    // Store session token (client-side only)
+    // Store session token (client-side only) in both cookies and localStorage
     if (data.sessionToken && data.expiresAt) {
       setSessionToken(data.sessionToken, data.expiresAt);
     }
     
-    return { success: true };
+    return { 
+      success: true, 
+      sessionToken: data.sessionToken,
+      expiresAt: data.expiresAt
+    };
   } catch (error) {
     console.error('Failed to verify magic link:', error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {

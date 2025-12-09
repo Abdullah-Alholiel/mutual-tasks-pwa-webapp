@@ -64,6 +64,11 @@ export const MobileNav = () => {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t border-border"
+      style={{ 
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)'
+      }}
     >
       <div className="glass-strong p-2">
         <div className="flex items-center justify-around gap-1">

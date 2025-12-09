@@ -10,6 +10,7 @@ import Profile from "../features/profile/Profile";
 import Auth from "../features/auth/Auth";
 import NotFound from "../features/pages/NotFound";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
+import { ToastTest } from "../../tests/toasts/ToastTest";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,9 @@ const App = () => (
           {/* Public routes - no authentication required */}
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/verify" element={<Auth />} />
+          
+          {/* Test routes - accessible in development */}
+          <Route path="/test/toasts" element={<ToastTest />} />
           
           {/* Protected routes - require authentication */}
           <Route

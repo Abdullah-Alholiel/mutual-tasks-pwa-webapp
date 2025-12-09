@@ -3,7 +3,7 @@
 // ============================================================================
 // Handles session token storage/retrieval for both client and server contexts
 // Primary: localStorage (client-side)
-// Fallback: Cookies/Headers (server-side)
+// Note: iOS Safari and PWA have isolated storage. Session transfer uses URL handoff.
 // ============================================================================
 
 export const SESSION_TOKEN_KEY = 'momentum_session_token';
@@ -18,37 +18,14 @@ function isBrowser(): boolean {
 
 /**
  * Get session token from localStorage (client-side only)
- * 
- * Note: We allow a grace period for expired tokens to handle:
- * - Clock skew between client and server
- * - Server-side session extensions
- * - Network delays during verification
+ * Note: Don't check expiry client-side - let server determine validity
+ * Server can extend sessions, so we should always check with server
  */
 function getSessionTokenFromStorage(): string | null {
   if (!isBrowser()) return null;
   
   try {
     const token = localStorage.getItem(SESSION_TOKEN_KEY);
-    const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
-    
-    if (!token || !expiry) return null;
-    
-    // Check if expired (with 5 minute grace period to handle clock skew)
-    const expiryDate = new Date(expiry);
-    const now = new Date();
-    const gracePeriod = 5 * 60 * 1000; // 5 minutes in milliseconds
-    
-    // Only remove if expired beyond grace period
-    // This allows the server to verify and potentially extend the session
-    if (expiryDate.getTime() + gracePeriod < now.getTime()) {
-      // Token is significantly expired - remove it
-      localStorage.removeItem(SESSION_TOKEN_KEY);
-      localStorage.removeItem(SESSION_EXPIRY_KEY);
-      return null;
-    }
-    
-    // Token exists and is not significantly expired
-    // Let the server verify if it's still valid (it might have been extended)
     return token;
   } catch (error) {
     // localStorage may not be available (e.g., in SSR or incognito mode)
@@ -107,10 +84,10 @@ export function getSessionToken(
   request?: Request | { headers: Headers },
   nextCookies?: { get: (name: string) => { value: string } | undefined }
 ): string | null {
-  // Client-side: try localStorage first
+  // Client-side: try localStorage
   if (isBrowser()) {
-    const token = getSessionTokenFromStorage();
-    if (token) return token;
+    const storageToken = getSessionTokenFromStorage();
+    if (storageToken) return storageToken;
   }
 
   // Server-side: try request cookies/headers
@@ -130,6 +107,9 @@ export function getSessionToken(
 
 /**
  * Store session token in localStorage (client-side only)
+ * Note: iOS Safari and PWA have isolated storage. Cross-context transfer uses URL handoff.
+ * 
+ * Session expires in 60 days as set by the server
  */
 export function setSessionToken(token: string, expiresAt: string): void {
   if (!isBrowser()) {
