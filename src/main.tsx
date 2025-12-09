@@ -1,8 +1,7 @@
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import "./index.css";
+import App from "./core/App.tsx";
+import "./core/index.css";
 
-// Service worker registration is handled automatically by vite-plugin-pwa
-// with registerType: 'autoUpdate' - no manual registration needed
-
+// Entry point for Vite; delegates to core App setup
 createRoot(document.getElementById("root")!).render(<App />);
+

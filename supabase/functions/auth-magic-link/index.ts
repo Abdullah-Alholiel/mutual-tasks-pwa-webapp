@@ -23,6 +23,43 @@ const SESSION_EXPIRY_MS = SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 // Magic link expiration: 15 minutes
 const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000;
 
+/**
+ * Get the application URL based on environment
+ * Priority:
+ * 1. APP_URL environment variable (set in Supabase Edge Function secrets) - recommended
+ * 2. VITE_APP_URL environment variable (fallback for compatibility)
+ * 3. Auto-detect from Supabase URL (fallback for development)
+ * 
+ * Production: https://mutualtask-pwa.netlify.app
+ * Development: http://localhost:8080
+ */
+function getAppUrl(): string {
+  // Priority 1: Check APP_URL (recommended - set in Supabase secrets)
+  const appUrl = Deno.env.get('APP_URL');
+  if (appUrl) {
+    return appUrl;
+  }
+
+  // Priority 2: Check VITE_APP_URL (for backward compatibility)
+  const viteAppUrl = Deno.env.get('VITE_APP_URL');
+  if (viteAppUrl) {
+    return viteAppUrl;
+  }
+
+  // Priority 3: Auto-detect from Supabase URL (fallback for local development)
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  
+  // If Supabase URL is a production URL (contains .supabase.co and not localhost)
+  const isProduction = supabaseUrl.includes('.supabase.co') && 
+                      !supabaseUrl.includes('localhost') &&
+                      !supabaseUrl.includes('127.0.0.1');
+
+  // Return production URL if in production, otherwise development URL
+  return isProduction 
+    ? 'https://mutualtask-pwa.netlify.app'
+    : 'http://localhost:8080';
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -106,7 +143,8 @@ serve(async (req) => {
       if (linkError) throw linkError;
 
       // Call email function to send magic link
-      const appUrl = Deno.env.get('VITE_APP_URL') || 'http://localhost:8080';
+      // Get app URL: check environment variable first, then detect from Supabase URL
+      const appUrl = getAppUrl();
       const magicLink = `${appUrl}/auth/verify?token=${token}`;
 
       // Invoke email function
@@ -216,7 +254,8 @@ serve(async (req) => {
       if (linkError) throw linkError;
 
       // Call email function to send magic link
-      const appUrl = Deno.env.get('VITE_APP_URL') || 'http://localhost:8080';
+      // Get app URL: check environment variable first, then detect from Supabase URL
+      const appUrl = getAppUrl();
       const magicLink = `${appUrl}/auth/verify?token=${token}`;
 
       // Invoke email function

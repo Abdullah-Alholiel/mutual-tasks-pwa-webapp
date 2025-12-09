@@ -21,11 +21,11 @@ import { createClient } from '@supabase/supabase-js';
 
 // Import repositories
 import { UsersRepository } from './users';
-import { ProjectsRepository } from './projects';
-import { TasksRepository } from './tasks';
-import { TaskStatusRepository } from './taskStatus';
+import { ProjectsRepository } from '../features/projects/api/projects';
+import { TasksRepository } from '../features/tasks/api/tasks';
+import { TaskStatusRepository } from '../features/tasks/api/taskStatus';
 import { CompletionLogsRepository } from './completionLogs';
-import { NotificationsRepository } from './notifications';
+import { NotificationsRepository } from '../features/notifications/api/notifications';
 import { MagicLinksRepository } from './magicLinks';
 import { SessionsRepository } from './sessions';
 
@@ -166,11 +166,11 @@ export function initializeDatabase(supabase: SupabaseClient): DatabaseClient {
 // ============================================================================
 
 export { UsersRepository } from './users';
-export { ProjectsRepository } from './projects';
-export { TasksRepository } from './tasks';
-export { TaskStatusRepository } from './taskStatus';
+export { ProjectsRepository } from '../features/projects/api/projects';
+export { TasksRepository } from '../features/tasks/api/tasks';
+export { TaskStatusRepository } from '../features/tasks/api/taskStatus';
 export { CompletionLogsRepository } from './completionLogs';
-export { NotificationsRepository } from './notifications';
+export { NotificationsRepository } from '../features/notifications/api/notifications';
 export { MagicLinksRepository } from './magicLinks';
 export { SessionsRepository } from './sessions';
 
