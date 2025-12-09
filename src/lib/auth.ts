@@ -60,8 +60,26 @@ function isBrowser(): boolean {
 }
 
 /**
+ * Custom error class for session verification failures
+ */
+export class SessionVerificationError extends Error {
+  constructor(
+    message: string,
+    public readonly isTransient: boolean = false,
+    public readonly cause?: unknown
+  ) {
+    super(message);
+    this.name = 'SessionVerificationError';
+  }
+}
+
+/**
  * Verify a session token and return the user
  * This is the core session verification logic used by all auth functions
+ * 
+ * @throws SessionVerificationError if verification fails
+ *   - isTransient: true for network/database errors (should retry)
+ *   - isTransient: false for invalid/expired tokens (should clear)
  */
 async function verifySessionToken(token: string): Promise<User | null> {
   try {
@@ -69,18 +87,73 @@ async function verifySessionToken(token: string): Promise<User | null> {
     const userId = await db.sessions.getUserIdFromToken(token);
     
     if (!userId) {
+      // Token is invalid or expired - not a transient error
       return null;
     }
 
     // Update last accessed time
-    await db.sessions.updateLastAccessed(token);
+    try {
+      await db.sessions.updateLastAccessed(token);
+    } catch (error) {
+      // If update fails but we have a valid userId, it's likely a transient error
+      // Log it but don't fail the verification
+      console.warn('Failed to update last accessed time (non-critical):', error);
+    }
     
     // Get user details
     const user = await db.users.getById(userId);
+    
+    if (!user) {
+      // User not found - token might be invalid, but could also be transient
+      // Return null but don't throw - let caller decide
+      return null;
+    }
+    
     return user;
   } catch (error) {
-    console.error('Failed to verify session token:', error);
-    return null;
+    // Check if it's a network/database connection error (transient)
+    const isNetworkError = 
+      error instanceof TypeError && error.message.includes('fetch') ||
+      error instanceof Error && (
+        error.message.includes('network') ||
+        error.message.includes('connection') ||
+        error.message.includes('timeout') ||
+        error.message.includes('ECONNREFUSED') ||
+        error.message.includes('Failed to fetch')
+      );
+    
+    if (isNetworkError) {
+      // This is a transient error - don't clear the token
+      throw new SessionVerificationError(
+        'Network error during session verification',
+        true,
+        error
+      );
+    }
+    
+    // For other errors, check if it's a database configuration issue
+    const isConfigError = 
+      error instanceof Error && (
+        error.message.includes('Supabase configuration') ||
+        error.message.includes('not configured') ||
+        error.message.includes('environment')
+      );
+    
+    if (isConfigError) {
+      // Configuration error - likely transient during dev server restart
+      throw new SessionVerificationError(
+        'Database configuration error during session verification',
+        true,
+        error
+      );
+    }
+    
+    // Unknown error - assume transient to be safe
+    throw new SessionVerificationError(
+      'Unknown error during session verification',
+      true,
+      error
+    );
   }
 }
 
@@ -91,22 +164,58 @@ async function verifySessionToken(token: string): Promise<User | null> {
  * 
  * @param request - Optional Request object for server-side token extraction
  * @param nextCookies - Optional Next.js cookies helper for server-side
+ * @param retryOnTransientError - Whether to retry on transient errors (default: false)
  */
 export async function getCurrentUser(
   request?: Request | { headers: Headers },
-  nextCookies?: { get: (name: string) => { value: string } | undefined }
+  nextCookies?: { get: (name: string) => { value: string } | undefined },
+  retryOnTransientError: boolean = false
 ): Promise<User | null> {
   const token = getSessionToken(request, nextCookies);
   if (!token) return null;
 
-  const user = await verifySessionToken(token);
-  
-  // If token is invalid and we're client-side, clear it
-  if (!user && isBrowser()) {
-    clearSessionToken();
+  try {
+    const user = await verifySessionToken(token);
+    
+    // If token is invalid (not expired, just invalid), clear it
+    if (!user && isBrowser()) {
+      // Only clear if we're sure it's invalid (not a transient error)
+      clearSessionToken();
+    }
+    
+    return user;
+  } catch (error) {
+    // Handle SessionVerificationError
+    if (error instanceof SessionVerificationError) {
+      // If it's a transient error, preserve the token and optionally retry
+      if (error.isTransient) {
+        if (retryOnTransientError) {
+          // Retry once after a short delay
+          await new Promise(resolve => setTimeout(resolve, 500));
+          try {
+            return await getCurrentUser(request, nextCookies, false);
+          } catch (retryError) {
+            // If retry also fails, return null but preserve token
+            console.warn('Session verification retry failed:', retryError);
+            return null;
+          }
+        }
+        // Transient error - preserve token, return null
+        console.warn('Session verification failed (transient error, preserving token):', error.message);
+        return null;
+      } else {
+        // Non-transient error - token is invalid, clear it
+        if (isBrowser()) {
+          clearSessionToken();
+        }
+        return null;
+      }
+    }
+    
+    // Unknown error - be conservative and preserve token
+    console.error('Unexpected error during session verification:', error);
+    return null;
   }
-  
-  return user;
 }
 
 /**

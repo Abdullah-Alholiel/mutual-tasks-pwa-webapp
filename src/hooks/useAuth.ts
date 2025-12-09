@@ -34,16 +34,62 @@ export function useAuth(): UseAuthReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const loadUser = useCallback(async () => {
-    try {
+  const loadUser = useCallback(async (retryCount: number = 0): Promise<void> => {
+    // Only set loading on first call
+    if (retryCount === 0) {
       setLoading(true);
       setError(null);
-      const currentUser = await getCurrentUser();
-      setUser(currentUser);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load user'));
+    }
+    
+    try {
+      // Try to get current user with retry on transient errors
+      const currentUser = await getCurrentUser(undefined, undefined, retryCount < 2);
+      
+      if (currentUser) {
+        setUser(currentUser);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      
+      // If no user but we have a token, it might be a transient error
+      // Check if token exists in localStorage
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('momentum_session_token');
+        if (token && retryCount < 2) {
+          // Token exists but verification failed - likely transient error
+          // Retry after a delay
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+          return loadUser(retryCount + 1);
+        }
+      }
+      
+      // No user and no token (or max retries reached)
       setUser(null);
-    } finally {
+      setLoading(false);
+    } catch (err) {
+      // Only set error if it's not a transient verification error
+      const isTransientError = 
+        err instanceof Error && 
+        (err.name === 'SessionVerificationError' || 
+         err.message.includes('transient') ||
+         err.message.includes('network') ||
+         err.message.includes('connection'));
+      
+      if (!isTransientError) {
+        setError(err instanceof Error ? err : new Error('Failed to load user'));
+      }
+      
+      // If we have a token, try one more time after delay
+      if (typeof window !== 'undefined' && retryCount < 2) {
+        const token = localStorage.getItem('momentum_session_token');
+        if (token) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+          return loadUser(retryCount + 1);
+        }
+      }
+      
+      setUser(null);
       setLoading(false);
     }
   }, []);

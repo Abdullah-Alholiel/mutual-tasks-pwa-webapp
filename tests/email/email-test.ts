@@ -8,8 +8,8 @@
 import 'dotenv/config';
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('❌ Missing required environment variables:');
@@ -34,8 +34,8 @@ async function testEmailSending() {
     const { data, error } = await supabase.functions.invoke('send-email', {
       body: {
         type: 'signup',
-        to: 'nada.abdelhadyy1601@gmail.com', // Replace with your test email
-        magicLink: 'https://localhost:8080/auth/verify?token=test-token-123',
+        to: 'test@example.com', // Replace with your test email
+        magicLink: 'https://yourdomain.com/auth/verify?token=test-token-123',
         userName: 'Test User',
       },
     });
@@ -61,8 +61,8 @@ async function testEmailSending() {
     const { data, error } = await supabase.functions.invoke('send-email', {
       body: {
         type: 'signin',
-        to: 'nada.abdelhadyy1601@gmail.com', // Replace with your test email
-        magicLink: 'https://localhost:8080/auth/verify?token=test-token-456',
+        to: 'test@example.com', // Replace with your test email
+        magicLink: 'https://yourdomain.com/auth/verify?token=test-token-456',
         userName: 'Test User',
       },
     });
