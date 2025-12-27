@@ -23,15 +23,15 @@ export const useTasks = (filters?: { projectId?: string | number; userId?: strin
     queryFn: async () => {
       const db = getDatabaseClient();
       const dbFilters: { projectId?: number; userId?: number } = {};
-      
+
       if (filters?.projectId) {
         dbFilters.projectId = typeof filters.projectId === 'string' ? parseInt(filters.projectId) : filters.projectId;
       }
-      
+
       if (filters?.userId) {
         dbFilters.userId = typeof filters.userId === 'string' ? parseInt(filters.userId) : filters.userId;
       }
-      
+
       return await db.tasks.getAll(dbFilters);
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -46,7 +46,7 @@ export const useTask = (taskId: string | number | undefined) => {
     queryKey: ['task', taskId],
     queryFn: async () => {
       if (!taskId) return null;
-      
+
       const db = getDatabaseClient();
       const id = typeof taskId === 'string' ? parseInt(taskId) : taskId;
       return await db.tasks.getById(id);
@@ -66,7 +66,7 @@ export const useTodayTasks = () => {
     queryKey: ['tasks', 'today', user?.id],
     queryFn: async () => {
       if (!user || !isAuthenticated) return [];
-      
+
       const db = getDatabaseClient();
       const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
       const allTasks = await db.tasks.getAll({ userId });
@@ -85,7 +85,7 @@ export const useProjectTasks = (projectId: string | number | undefined) => {
     queryKey: ['tasks', 'project', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      
+
       const db = getDatabaseClient();
       const id = typeof projectId === 'string' ? parseInt(projectId) : projectId;
       const allTasks = await db.tasks.getAll({ projectId: id });
@@ -108,7 +108,7 @@ export const useCreateTask = () => {
       if (!user) {
         throw new Error('User must be authenticated to create a task');
       }
-      
+
       const db = getDatabaseClient();
       return await db.tasks.create(data);
     },
@@ -124,6 +124,135 @@ export const useCreateTask = () => {
     },
     onError: (error) => {
       handleError(error, 'useCreateTask');
+    },
+  });
+};
+
+/**
+ * Input type for creating a task with statuses
+ */
+export interface CreateTaskWithStatusesInput {
+  task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>;
+  participantUserIds: number[];
+  dueDate: Date;
+}
+
+/**
+ * Hook to create a task with statuses for all participants - atomic operation
+ * This ensures tasks are properly persisted to the database
+ */
+export const useCreateTaskWithStatuses = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: CreateTaskWithStatusesInput) => {
+      if (!user) {
+        throw new Error('User must be authenticated to create a task');
+      }
+
+      const db = getDatabaseClient();
+      
+      // 1. Create the task in the database
+      const createdTask = await db.tasks.create(input.task);
+      
+      // 2. Create task statuses for all participants
+      const now = new Date();
+      const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
+        taskId: createdTask.id,
+        userId: userId,
+        status: 'active' as const,
+        effectiveDueDate: input.dueDate,
+        createdAt: now,
+        updatedAt: now,
+      }));
+      
+      // Create all statuses in the database
+      const createdStatuses = await db.taskStatus.createMany(taskStatuses);
+      
+      return {
+        task: createdTask,
+        taskStatuses: createdStatuses,
+      };
+    },
+    onSuccess: (result) => {
+      // Invalidate all relevant queries for proper refetching
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'project', result.task.projectId] });
+      queryClient.invalidateQueries({ queryKey: ['project', result.task.projectId] });
+      queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+      return result;
+    },
+    onError: (error) => {
+      handleError(error, 'useCreateTaskWithStatuses');
+    },
+  });
+};
+
+/**
+ * Hook to create multiple tasks with statuses (for habit tasks)
+ * Creates all tasks atomically in the database
+ */
+export const useCreateMultipleTasksWithStatuses = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (inputs: CreateTaskWithStatusesInput[]) => {
+      if (!user) {
+        throw new Error('User must be authenticated to create tasks');
+      }
+
+      if (inputs.length === 0) {
+        throw new Error('No tasks to create');
+      }
+
+      const db = getDatabaseClient();
+      const results: { task: Task; taskStatuses: TaskStatusEntity[] }[] = [];
+
+      // Create each task with its statuses
+      for (const input of inputs) {
+        // Create the task
+        const createdTask = await db.tasks.create(input.task);
+        
+        // Create task statuses for all participants
+        const now = new Date();
+        const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
+          taskId: createdTask.id,
+          userId: userId,
+          status: 'active' as const,
+          effectiveDueDate: input.dueDate,
+          createdAt: now,
+          updatedAt: now,
+        }));
+        
+        const createdStatuses = await db.taskStatus.createMany(taskStatuses);
+        
+        results.push({
+          task: createdTask,
+          taskStatuses: createdStatuses,
+        });
+      }
+
+      return results;
+    },
+    onSuccess: (results) => {
+      // Get unique project IDs
+      const projectIds = [...new Set(results.map(r => r.task.projectId))];
+      
+      // Invalidate all relevant queries
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+      
+      projectIds.forEach(projectId => {
+        queryClient.invalidateQueries({ queryKey: ['tasks', 'project', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      });
+      
+      return results;
+    },
+    onError: (error) => {
+      handleError(error, 'useCreateMultipleTasksWithStatuses');
     },
   });
 };
@@ -210,7 +339,7 @@ export const useCreateCompletionLog = () => {
       if (!user) {
         throw new Error('User must be authenticated to complete a task');
       }
-      
+
       const db = getDatabaseClient();
       return await db.completionLogs.create(data);
     },
@@ -223,5 +352,73 @@ export const useCreateCompletionLog = () => {
     onError: (error) => {
       handleError(error, 'useCreateCompletionLog');
     },
+  });
+};
+
+/**
+ * Hook to fetch all task statuses for the current user
+ */
+export const useTaskStatuses = () => {
+  const { user, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: ['taskStatuses', user?.id],
+    queryFn: async () => {
+      if (!user || !isAuthenticated) return [];
+
+      const db = getDatabaseClient();
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      return await db.taskStatus.getByUserId(userId);
+    },
+    enabled: !!user && isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+/**
+ * Hook to fetch all completion logs for the current user
+ */
+export const useCompletionLogs = () => {
+  const { user, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: ['completionLogs', user?.id],
+    queryFn: async () => {
+      if (!user || !isAuthenticated) return [];
+
+      const db = getDatabaseClient();
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      return await db.completionLogs.getAll({ userId });
+    },
+    enabled: !!user && isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};
+
+/**
+ * Hook to fetch completion logs for specific task IDs
+ */
+export const useProjectCompletionLogs = (taskIds: number[]) => {
+  return useQuery({
+    queryKey: ['completionLogs', 'tasks', taskIds],
+    queryFn: async () => {
+      if (taskIds.length === 0) return [];
+
+      const db = getDatabaseClient();
+      // Fetch completion logs for all tasks in the project
+      const allLogs: CompletionLog[] = [];
+      
+      // Batch fetch - get logs for each task
+      const logPromises = taskIds.map(taskId => 
+        db.completionLogs.getAll({ taskId })
+      );
+      
+      const results = await Promise.all(logPromises);
+      results.forEach(logs => allLogs.push(...logs));
+      
+      return allLogs;
+    },
+    enabled: taskIds.length > 0,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 };

@@ -7,14 +7,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   transformProjectRow,
   transformProjectParticipantRow,
+  transformUserRow,
   toProjectRow,
+  toNumberId,
   toStringId,
   type ProjectRow,
   type ProjectParticipantRow,
 } from '../../../db/transformers';
 
 export class ProjectsRepository {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient) { }
 
   /**
    * Get a project by ID with participants
@@ -152,7 +154,26 @@ export class ProjectsRepository {
       .order('added_at', { ascending: true });
 
     if (error || !data) return [];
-    return data.map((row: ProjectParticipantRow) => transformProjectParticipantRow(row));
+
+    const participants = data.map((row: ProjectParticipantRow) => transformProjectParticipantRow(row));
+
+    // Fetch user data for each participant
+    const userIds = participants.map(p => p.userId);
+    if (userIds.length > 0) {
+      const { data: userData, error: userError } = await this.supabase
+        .from('users')
+        .select('*')
+        .in('id', userIds.map(toStringId));
+
+      if (!userError && userData) {
+        const userMap = new Map(userData.map((u: any) => [toNumberId(u.id), transformUserRow(u)]));
+        participants.forEach(p => {
+          p.user = userMap.get(p.userId);
+        });
+      }
+    }
+
+    return participants;
   }
 
   /**
@@ -168,7 +189,26 @@ export class ProjectsRepository {
       .is('removed_at', null);
 
     if (error || !data) return [];
-    return data.map((row: ProjectParticipantRow) => transformProjectParticipantRow(row));
+
+    const participants = data.map((row: ProjectParticipantRow) => transformProjectParticipantRow(row));
+
+    // Fetch user data for each participant
+    const userIds = [...new Set(participants.map(p => p.userId))];
+    if (userIds.length > 0) {
+      const { data: userData, error: userError } = await this.supabase
+        .from('users')
+        .select('*')
+        .in('id', userIds.map(toStringId));
+
+      if (!userError && userData) {
+        const userMap = new Map(userData.map((u: any) => [toNumberId(u.id), transformUserRow(u)]));
+        participants.forEach(p => {
+          p.user = userMap.get(p.userId);
+        });
+      }
+    }
+
+    return participants;
   }
 
   /**

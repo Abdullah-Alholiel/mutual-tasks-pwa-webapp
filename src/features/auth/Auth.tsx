@@ -33,7 +33,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, refresh } = useAuth();
 
   // Redirect authenticated users to home (but not during magic link verification)
   useEffect(() => {
@@ -187,6 +187,8 @@ const Auth = () => {
         // This is a handoff token - use it directly
         const expiry = expiresAt || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
         setSessionToken(handoffToken, expiry);
+        // Refresh auth state to fetch user data
+        await refresh();
         toast.success('Successfully signed in!');
         navigate('/');
         return;
@@ -201,6 +203,8 @@ const Auth = () => {
         const result = await verifyMagicLink(magicLinkToken);
         
         if (result.success && result.sessionToken) {
+          // Refresh auth state to fetch user data
+          await refresh();
           toast.success('Successfully signed in!');
           navigate('/');
         } else {

@@ -10,7 +10,7 @@
 // - Components never see database-specific formats
 // ============================================================================
 
-export type TaskStatus = |'active'| 'upcoming'|'completed'|'archived' |'recovered';
+export type TaskStatus = | 'active' | 'upcoming' | 'completed' | 'archived' | 'recovered';
 export type TaskType = 'one_off' | 'habit';
 export type RecurrencePattern = 'Daily' | 'weekly' | 'custom';
 export type DifficultyRating = 1 | 2 | 3 | 4 | 5;
@@ -88,7 +88,7 @@ export interface Project {
   totalTasks: number;
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Computed/derived fields (not stored in DB, calculated on the fly)
   participants?: User[];
   participantRoles?: ProjectParticipant[];
@@ -102,10 +102,10 @@ export interface ProjectParticipant {
   role: ProjectRole;
   addedAt: Date;
   removedAt?: Date;
-  // user?: User; // Computed/derived field for frontend convenience keyword
+  user?: User; // Computed/derived field for frontend convenience
 }
 
- // Task Entity - Individual tasks within a project
+// Task Entity - Individual tasks within a project
 
 export interface Task {
   id: number;
@@ -118,7 +118,7 @@ export interface Task {
   dueDate: Date;
   createdAt?: Date;
   updatedAt: Date;
-  
+
   // Computed/derived fields (not stored in DB, calculated on the fly)
   taskStatus?: TaskStatusEntity[];
   recurrence?: TaskRecurrence;
@@ -136,14 +136,14 @@ export interface TaskStatusEntity {
   // dueDate?: Date; keyword
   // createdAt?: Date; keyword
   // updatedAt: Date; keyword
-  
+
   // Computed/derived fields
   user?: User;
   task?: Task;
 }
 
 // TaskRecurrence Entity - Handles recurring tasks (habits)
- 
+
 export interface TaskRecurrence {
   id: number;
   taskId: Task['id'];
@@ -151,7 +151,7 @@ export interface TaskRecurrence {
   recurrenceInterval: number;
   nextOccurrence: Date;
   endOfRecurrence?: Date;
-  
+
   // Computed/derived fields
   task?: Task;
 }
@@ -186,4 +186,4 @@ export interface Notification {
 export type TaskAssignment = TaskStatusEntity;
 export type AssignmentStatus = TaskStatus;
 export const ASSIGNMENT_STATUSES = TASK_STATUS;
-export type TaskStatusDisplay = 'active' |'completed' |'archived' |'recovered'|'upcoming';
+export type TaskStatusDisplay = 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming';

@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { Project, User } from '@/types';
-import { mockUsers, currentUser } from '@/lib/mock/mockData';
 import { motion } from 'framer-motion';
 import { FolderKanban, Users, Sparkles, Globe, Lock, AtSign, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,9 +33,11 @@ interface ProjectFormProps {
     color: string;
     isPublic: boolean;
   }) => void;
+  currentUser: User;
+  availableUsers?: User[];
 }
 
-export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) => {
+export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availableUsers = [] }: ProjectFormProps) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
@@ -44,30 +45,30 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
   const [isPublic, setIsPublic] = useState(true);
   const [friendHandle, setFriendHandle] = useState('');
   const [highlightedFriendIds, setHighlightedFriendIds] = useState<Set<string>>(new Set());
+  const [addedUsers, setAddedUsers] = useState<User[]>([]);
 
   // Get all available friends (existing users excluding current user)
-  const availableFriends = mockUsers.filter(u => u.id !== currentUser.id);
+  const availableFriends = availableUsers.filter(u => u.id !== currentUser.id);
 
   // Get friends that are selected or added by handle
   const allFriends = useMemo(() => {
     // Get all unique friends (available + highlighted)
     const friendMap = new Map<string, User>();
-    
+
     // Add all available friends
     availableFriends.forEach(friend => {
       friendMap.set(friend.id, friend);
     });
-    
-    // Add highlighted friends (those added by handle)
-    highlightedFriendIds.forEach(friendId => {
-      const friend = mockUsers.find(u => u.id === friendId && u.id !== currentUser.id);
-      if (friend) {
-        friendMap.set(friend.id, friend);
+
+    // Add users that were found by handle search
+    addedUsers.forEach(user => {
+      if (user.id !== currentUser.id) {
+        friendMap.set(String(user.id), user);
       }
     });
-    
+
     return Array.from(friendMap.values());
-  }, [availableFriends, highlightedFriendIds]);
+  }, [availableFriends, addedUsers, currentUser.id]);
 
   const toggleParticipant = (userId: string) => {
     setSelectedParticipants(prev =>
@@ -90,44 +91,54 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
       return;
     }
 
-    // Find user by handle
-    const user = findUserByIdentifier(friendHandle);
-    if (!user) {
-      toast.error('User not found', {
-        description: 'No user with this handle exists in the system'
-      });
-      return;
-    }
+    // Find user by handle (async search)
+    const searchUser = async () => {
+      const user = await findUserByIdentifier(friendHandle);
+      if (!user) {
+        toast.error('User not found', {
+          description: 'No user with this handle exists in the system'
+        });
+        return;
+      }
 
-    if (user.id === currentUser.id) {
-      toast.error('Cannot add yourself', {
-        description: 'You are already the project owner'
-      });
-      return;
-    }
+      if (user.id === currentUser.id) {
+        toast.error('Cannot add yourself', {
+          description: 'You are already the project owner'
+        });
+        return;
+      }
 
-    // Add to highlighted friends (so they appear in the list with highlighting)
-    setHighlightedFriendIds(prev => new Set([...prev, user.id]));
-    
-    // Add to selected participants if not already selected
-    if (!selectedParticipants.includes(user.id)) {
-      setSelectedParticipants(prev => [...prev, user.id]);
-      toast.success('Friend added!', {
-        description: `${user.name} (${user.handle}) has been added`
-      });
-    } else {
-      toast.info('Friend already added', {
-        description: `${user.name} is already in the list`
-      });
-    }
+      const userIdStr = String(user.id);
 
-    // Clear handle input
-    setFriendHandle('');
+      // Add to addedUsers list (so they appear in the grid)
+      setAddedUsers(prev => {
+        if (prev.some(u => u.id === user.id)) return prev;
+        return [...prev, user];
+      });
+      setHighlightedFriendIds(prev => new Set([...prev, userIdStr]));
+
+      // Add to selected participants if not already selected
+      if (!selectedParticipants.includes(userIdStr)) {
+        setSelectedParticipants(prev => [...prev, userIdStr]);
+        toast.success('Friend added!', {
+          description: `${user.name} (${user.handle}) has been added`
+        });
+      } else {
+        toast.info('Friend already added', {
+          description: `${user.name} is already in the list`
+        });
+      }
+
+      // Clear handle input
+      setFriendHandle('');
+    };
+
+    searchUser();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!name.trim()) {
       return;
     }
@@ -271,11 +282,11 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
           <div className="space-y-2">
             <Label>Add Friends {!isPublic && '*'}</Label>
             <p className="text-xs text-muted-foreground">
-              {isPublic 
+              {isPublic
                 ? 'Optional: Add friends to collaborate (or add them later)'
                 : 'Required: Add at least one friend to create a private project'}
             </p>
-            
+
             {/* Add Friend by Handle */}
             <div className="space-y-2">
               <Label htmlFor="friend-handle" className="text-sm">Add Friend by Handle</Label>
@@ -321,23 +332,24 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
               <Label className="text-sm">Select Friends</Label>
               <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
                 {allFriends.map((user) => {
-                  const isSelected = selectedParticipants.includes(user.id);
-                  const isHighlighted = highlightedFriendIds.has(user.id);
-                  
+                  const userIdStr = String(user.id);
+                  const isSelected = selectedParticipants.includes(userIdStr);
+                  const isHighlighted = highlightedFriendIds.has(userIdStr);
+
                   return (
                     <motion.button
                       key={user.id}
                       type="button"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => toggleParticipant(user.id)}
+                      onClick={() => toggleParticipant(userIdStr)}
                       className={cn(
                         "flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left relative",
                         isSelected
                           ? "border-primary bg-primary/5 shadow-primary"
                           : isHighlighted
-                          ? "border-accent bg-accent/5 shadow-accent/20"
-                          : "border-border hover:border-primary/50"
+                            ? "border-accent bg-accent/5 shadow-accent/20"
+                            : "border-border hover:border-primary/50"
                       )}
                     >
                       {isHighlighted && !isSelected && (
@@ -372,7 +384,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit }: ProjectFormProps) 
           {/* Info Badge */}
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Note:</span> You can add more participants 
+              <span className="font-medium text-foreground">Note:</span> You can add more participants
               and tasks later. Projects help you organize and track your collaborative goals! 🎯
             </p>
           </div>

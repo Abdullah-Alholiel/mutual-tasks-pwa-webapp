@@ -23,7 +23,7 @@ function isBrowser(): boolean {
  */
 function getSessionTokenFromStorage(): string | null {
   if (!isBrowser()) return null;
-  
+
   try {
     const token = localStorage.getItem(SESSION_TOKEN_KEY);
     return token;
@@ -41,7 +41,7 @@ function getSessionTokenFromRequest(request?: Request | { headers: Headers }): s
   if (!request) return null;
 
   const headers = 'headers' in request ? request.headers : (request as Request).headers;
-  
+
   // Try Authorization header first
   const authHeader = headers.get('authorization');
   if (authHeader?.startsWith('Bearer ')) {
@@ -116,12 +116,109 @@ export function setSessionToken(token: string, expiresAt: string): void {
     console.warn('setSessionToken can only be called client-side');
     return;
   }
-  
+
   try {
     localStorage.setItem(SESSION_TOKEN_KEY, token);
     localStorage.setItem(SESSION_EXPIRY_KEY, expiresAt);
   } catch (error) {
     console.warn('Failed to save session token to localStorage:', error);
+  }
+}
+
+export const USER_CACHE_KEY = 'momentum_user_cache';
+
+/**
+ * Cached user type - stores all essential fields for synchronous hydration.
+ * This ensures the user is immediately available on page load without async operations.
+ */
+export interface CachedUser {
+  id: number;
+  name: string;
+  handle: string;
+  email: string;
+  avatar: string;
+  timezone: string;
+  createdAt: string; // Stored as ISO string
+  updatedAt: string; // Stored as ISO string
+}
+
+/**
+ * Store complete user data for synchronous hydration.
+ * This is called whenever the user data is updated (login, refresh, etc.)
+ * to ensure we always have fresh cached data available.
+ */
+export function setStoredUserSync(user: CachedUser | { id: number | string; name: string; handle: string; email?: string; avatar?: string; timezone?: string; createdAt?: Date | string; updatedAt?: Date | string } | null | undefined): void {
+  if (!isBrowser()) return;
+
+  try {
+    if (user) {
+      // Normalize the user object to ensure all fields are serializable
+      const normalizedUser: CachedUser = {
+        id: typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
+        name: user.name || '',
+        handle: user.handle || '',
+        email: (user as any).email || '',
+        avatar: (user as any).avatar || '',
+        timezone: (user as any).timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        createdAt: (user as any).createdAt instanceof Date 
+          ? (user as any).createdAt.toISOString() 
+          : ((user as any).createdAt || new Date().toISOString()),
+        updatedAt: (user as any).updatedAt instanceof Date 
+          ? (user as any).updatedAt.toISOString() 
+          : ((user as any).updatedAt || new Date().toISOString()),
+      };
+      localStorage.setItem(USER_CACHE_KEY, JSON.stringify(normalizedUser));
+    } else {
+      localStorage.removeItem(USER_CACHE_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to save user cache to localStorage:', error);
+  }
+}
+
+/**
+ * Get stored user data synchronously.
+ * Returns the cached user with Date objects for createdAt/updatedAt.
+ * This is the key function that enables instant user display on page load.
+ */
+export function getStoredUserSync(): {
+  id: number;
+  name: string;
+  handle: string;
+  email: string;
+  avatar: string;
+  timezone: string;
+  createdAt: Date;
+  updatedAt: Date;
+} | null {
+  if (!isBrowser()) return null;
+
+  try {
+    const cached = localStorage.getItem(USER_CACHE_KEY);
+    if (!cached) return null;
+
+    const parsed = JSON.parse(cached) as CachedUser;
+    
+    // Validate that essential fields exist
+    if (!parsed.id || !parsed.name) {
+      console.warn('Invalid cached user data, missing required fields');
+      return null;
+    }
+
+    // Convert ISO strings back to Date objects
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      handle: parsed.handle || '',
+      email: parsed.email || '',
+      avatar: parsed.avatar || '',
+      timezone: parsed.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      createdAt: new Date(parsed.createdAt),
+      updatedAt: new Date(parsed.updatedAt),
+    };
+  } catch (error) {
+    console.warn('Failed to read user cache from localStorage:', error);
+    return null;
   }
 }
 
@@ -133,10 +230,11 @@ export function clearSessionToken(): void {
     console.warn('clearSessionToken can only be called client-side');
     return;
   }
-  
+
   try {
     localStorage.removeItem(SESSION_TOKEN_KEY);
     localStorage.removeItem(SESSION_EXPIRY_KEY);
+    localStorage.removeItem(USER_CACHE_KEY);
   } catch (error) {
     console.warn('Failed to clear session token from localStorage:', error);
   }

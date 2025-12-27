@@ -82,3 +82,6 @@ http://localhost:5173/test/toasts
 - All toasts use the Sonner library configured in `src/components/ui/sonner.tsx`
 - Toast styling is defined in `src/core/index.css`
 - Mobile positioning is handled via CSS media queries and React state
+
+
+

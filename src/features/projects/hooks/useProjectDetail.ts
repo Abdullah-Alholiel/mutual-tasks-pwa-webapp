@@ -1,34 +1,49 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import type { Task, Project, DifficultyRating, TaskStatusEntity, TaskStatus, ProjectParticipant, CompletionLog, User } from '@/types';
-import { 
-  getProjectTasks, 
+import type {
+  Task,
+  Project,
+  DifficultyRating,
+  TaskStatusEntity,
+  TaskStatus,
+  ProjectParticipant,
+  CompletionLog,
+  User,
+  ProjectRole
+} from '@/types';
+import {
+  getProjectTasks,
   updateTasksWithStatuses
 } from '@/lib/tasks/taskFilterUtils';
 import { calculateProjectProgress } from '@/lib/projects/projectUtils';
 import { normalizeToStartOfDay, calculateRingColor, calculateTaskStatusUserStatus } from '@/lib/tasks/taskUtils';
 import { recoverTask } from '../../../lib/tasks/taskRecoveryUtils';
-import { 
-  createTaskStatusesForAllParticipants, 
-  validateProjectForTaskCreation 
-} from '@/lib/tasks/taskCreationUtils';
+import { validateProjectForTaskCreation } from '@/lib/tasks/taskCreationUtils';
 import { handleError } from '@/lib/errorUtils';
 import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
 import { notifyTaskCreated } from '@/lib/tasks/taskEmailNotifications';
 import { useAuth } from '../../auth/useAuth';
 import { useProject } from './useProjects';
-import { useProjectTasks } from '../../tasks/hooks/useTasks';
+import { 
+  useProjectTasks, 
+  useProjectCompletionLogs,
+  useCreateTaskWithStatuses,
+  useCreateMultipleTasksWithStatuses,
+  type CreateTaskWithStatusesInput
+} from '../../tasks/hooks/useTasks';
 import { getDatabaseClient } from '@/db';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useProjectDetail = () => {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const projectFromState = location.state?.project as Project | undefined;
   const projectParticipantsFromState = location.state?.projectParticipants as ProjectParticipant[] | undefined;
-  
+
   // Fetch project from database
   const { data: projectFromDb, isLoading: projectLoading } = useProject(id);
   const currentProject = projectFromState || projectFromDb;
@@ -41,14 +56,71 @@ export const useProjectDetail = () => {
   const [showMembersDialog, setShowMembersDialog] = useState(false);
   const [memberIdentifier, setMemberIdentifier] = useState('');
 
-  // Fetch project tasks
-  const { data: projectTasksFromDb = [], isLoading: tasksLoading } = useProjectTasks(id);
-  const [tasks, setTasks] = useState<Task[]>(projectTasksFromDb);
-  const [taskStatuses, setTaskStatuses] = useState<TaskStatusEntity[]>([]);
-  const [completionLogs, setCompletionLogs] = useState<CompletionLog[]>([]);
+  // Fetch project tasks from database
+  const { data: projectTasksFromDb = [], isLoading: tasksLoading, isFetched: tasksFetched } = useProjectTasks(id);
+  
+  // Local state for optimistic updates (initialized from React Query data)
+  const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [localTaskStatuses, setLocalTaskStatuses] = useState<TaskStatusEntity[]>([]);
+  const [localCompletionLogs, setLocalCompletionLogs] = useState<CompletionLog[]>([]);
   const [projectParticipants, setProjectParticipants] = useState<ProjectParticipant[]>(
     projectParticipantsFromState || (currentProject?.participantRoles || [])
   );
+  
+  // Extract task IDs for fetching completion logs
+  const taskIdsForLogs = useMemo(() => 
+    projectTasksFromDb.map(t => typeof t.id === 'string' ? parseInt(t.id) : t.id),
+    [projectTasksFromDb]
+  );
+  
+  // Fetch completion logs for all project tasks
+  const { data: completionLogsFromDb = [], isLoading: completionLogsLoading } = useProjectCompletionLogs(taskIdsForLogs);
+  
+  // Mutations for creating tasks in the database
+  const createTaskMutation = useCreateTaskWithStatuses();
+  const createMultipleTasksMutation = useCreateMultipleTasksWithStatuses();
+  
+  // Sync tasks from database to local state when React Query data changes
+  // This ensures tasks persist across page refreshes
+  useEffect(() => {
+    if (projectTasksFromDb.length > 0) {
+      setLocalTasks(projectTasksFromDb);
+      
+      // Extract task statuses from the fetched tasks
+      const allStatuses: TaskStatusEntity[] = [];
+      projectTasksFromDb.forEach(task => {
+        if (task.taskStatus && Array.isArray(task.taskStatus)) {
+          allStatuses.push(...task.taskStatus);
+        }
+      });
+      setLocalTaskStatuses(allStatuses);
+    }
+  }, [projectTasksFromDb]);
+  
+  // Sync completion logs from database to local state
+  useEffect(() => {
+    if (completionLogsFromDb.length > 0) {
+      setLocalCompletionLogs(completionLogsFromDb);
+    }
+  }, [completionLogsFromDb]);
+  
+  // Merged data: use local state for UI (includes optimistic updates)
+  // Fall back to database data on initial load
+  const tasks = localTasks.length > 0 ? localTasks : projectTasksFromDb;
+  const taskStatuses = localTaskStatuses;
+  const completionLogs = localCompletionLogs.length > 0 ? localCompletionLogs : completionLogsFromDb;
+
+  // Sync project participants with database data whenever it updates
+  useEffect(() => {
+    // If we have data from the database, it is the source of truth
+    if (projectFromDb?.participantRoles) {
+      setProjectParticipants(projectFromDb.participantRoles);
+    }
+    // Otherwise, if we have data from state (navigation), use it as initial fallback
+    else if (projectParticipantsFromState && projectParticipants.length === 0) {
+      setProjectParticipants(projectParticipantsFromState);
+    }
+  }, [projectFromDb?.participantRoles]);
 
   // Get project participants with user data
   const participants = useMemo(() => {
@@ -61,7 +133,7 @@ export const useProjectDetail = () => {
       })
       .map(pp => ({
         ...pp,
-        user: currentProject.participants?.find(u => {
+        user: pp.user || currentProject.participants?.find(u => {
           const uId = typeof u.id === 'string' ? parseInt(u.id) : u.id;
           const ppUserId = typeof pp.userId === 'string' ? parseInt(pp.userId) : pp.userId;
           return uId === ppUserId;
@@ -80,12 +152,12 @@ export const useProjectDetail = () => {
   }, [currentProject, participants]);
 
   // Get project tasks using utility - show ALL tasks in the project
-  const projectTasksRaw = useMemo(() => 
+  const projectTasksRaw = useMemo(() =>
     currentProject ? getProjectTasks(tasks, String(currentProject.id)) : [],
     [tasks, currentProject]
   );
-  
-  const projectTasks = useMemo(() => 
+
+  const projectTasks = useMemo(() =>
     updateTasksWithStatuses(projectTasksRaw, taskStatuses),
     [projectTasksRaw, taskStatuses]
   );
@@ -120,7 +192,7 @@ export const useProjectDetail = () => {
     };
 
     if (!user) return { activeTasks: [], upcomingTasks: [], completedTasks: [], archivedTasks: [] };
-    
+
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
     projectTasks.forEach(task => {
       const myStatus = taskStatuses.find(ts => {
@@ -162,7 +234,7 @@ export const useProjectDetail = () => {
   }, [projectTasks, taskStatuses, completionLogs]);
 
   // Habits: all habit tasks in the project (all participants see all habit tasks)
-  const habitTasks = useMemo(() => 
+  const habitTasks = useMemo(() =>
     projectTasks.filter(t => t.type === 'habit'),
     [projectTasks]
   );
@@ -172,7 +244,7 @@ export const useProjectDetail = () => {
   const completedSectionTasks = completedTasks;
   const archivedSectionTasks = archivedTasks;
 
-  const hasAnyAllTabContent = useMemo(() => 
+  const hasAnyAllTabContent = useMemo(() =>
     Boolean(
       activeSectionTasks.length ||
       upcomingSectionTasks.length ||
@@ -182,13 +254,13 @@ export const useProjectDetail = () => {
     [activeSectionTasks, upcomingSectionTasks, completedSectionTasks, archivedSectionTasks]
   );
 
-  const handleRecover = (taskId: number) => {
+  const handleRecover = useCallback((taskId: number) => {
     if (!user) return;
-    
+
     // Use centralized recovery utility - single source of truth
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
     const result = recoverTask(String(taskId), String(userId), tasks, taskStatuses);
-    
+
     if (!result || !result.success) {
       handleError('Task not found or cannot be recovered', 'handleRecover');
       return;
@@ -196,7 +268,7 @@ export const useProjectDetail = () => {
 
     // Update task state
     if (result.updatedTask) {
-      setTasks(prev =>
+      setLocalTasks(prev =>
         prev.map(t => t.id === taskId ? result.updatedTask! : t)
       );
     }
@@ -204,13 +276,13 @@ export const useProjectDetail = () => {
     // Update task status state
     if (result.updatedTaskStatus && user) {
       const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-      setTaskStatuses(prev => {
+      setLocalTaskStatuses(prev => {
         const existingIndex = prev.findIndex(ts => {
           const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
           const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
           return tsTaskId === taskId && tsUserId === userId;
         });
-        
+
         if (existingIndex >= 0) {
           // Update existing task status
           return prev.map((ts, index) =>
@@ -226,11 +298,11 @@ export const useProjectDetail = () => {
     toast.success('Task recovered! 💪', {
       description: 'Complete it to earn half XP'
     });
-  };
+  }, [user, tasks, taskStatuses]);
 
-  const handleComplete = (taskId: number, difficultyRating?: number) => {
+  const handleComplete = useCallback((taskId: number, difficultyRating?: number) => {
     if (!user) return;
-    
+
     const now = new Date();
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -252,7 +324,7 @@ export const useProjectDetail = () => {
     nowDate.setHours(0, 0, 0, 0);
     const dueDate = new Date(taskDueDate);
     dueDate.setHours(0, 0, 0, 0);
-    
+
     let timingStatus: 'early' | 'on_time' | 'late' = 'on_time';
     if (nowDate < dueDate) {
       timingStatus = 'early';
@@ -279,9 +351,9 @@ export const useProjectDetail = () => {
 
     const ringColor = calculateRingColor(newCompletionLog, myTaskStatus, task);
 
-    setCompletionLogs(prev => [...prev, newCompletionLog]);
+    setLocalCompletionLogs(prev => [...prev, newCompletionLog]);
 
-    setTaskStatuses(prev => {
+    setLocalTaskStatuses(prev => {
       const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
       const updated = prev.map(ts => {
         const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
@@ -306,7 +378,7 @@ export const useProjectDetail = () => {
         return tsUserId === userId || ts.status === 'completed';
       });
 
-      setTasks(prevTasks =>
+      setLocalTasks(prevTasks =>
         prevTasks.map(t => {
           if (t.id === taskId) {
             // General task status only includes 'active' and 'upcoming'
@@ -327,7 +399,7 @@ export const useProjectDetail = () => {
         });
       } else {
         toast.success('Great job! 💪', {
-          description: penaltyApplied 
+          description: penaltyApplied
             ? 'Waiting for your partner to complete... (Half XP - Recovered)'
             : 'Waiting for your partner to complete...'
         });
@@ -335,11 +407,11 @@ export const useProjectDetail = () => {
 
       return updated;
     });
-    
-    // Project progress is calculated on-the-fly, no need to update local state
-  };
 
-  const handleCreateTask = (taskData: {
+    // Project progress is calculated on-the-fly, no need to update local state
+  }, [user, tasks, taskStatuses]);
+
+  const handleCreateTask = async (taskData: {
     title: string;
     description: string;
     projectId: number;
@@ -355,170 +427,141 @@ export const useProjectDetail = () => {
       occurrenceCount: number;
     };
   }) => {
-    if (!projectWithParticipants) return;
+    if (!projectWithParticipants || !user) return;
 
-    const newTasks: Task[] = [];
-    const newTaskStatuses: TaskStatusEntity[] = [];
-    const now = new Date();
+    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
     const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
 
-    if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
-      const startDate = normalizeToStartOfDay(taskData.dueDate);
-      
-      let endDate: Date;
-      if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-        if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
-          endDate = new Date(taskData.customRecurrence.endDate);
-          endDate.setHours(23, 59, 59, 999);
+    // Get all participant user IDs
+    const participantUserIds = projectWithParticipants?.participantRoles
+      ?.filter(pr => !pr.removedAt)
+      ?.map(pr => typeof pr.userId === 'string' ? parseInt(pr.userId) : pr.userId) || [];
+
+    // Validate project for task creation
+    const allParticipants = participantUserIds.map(id => ({ id } as User));
+    const validation = validateProjectForTaskCreation(projectWithParticipants, allParticipants, 2);
+    if (!validation.isValid) {
+      toast.error('Cannot create task', {
+        description: validation.error
+      });
+      return;
+    }
+
+    try {
+      if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
+        // Handle habit tasks (multiple recurring tasks)
+        const startDate = normalizeToStartOfDay(taskData.dueDate);
+        let endDate: Date;
+
+        if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
+          if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
+            endDate = new Date(taskData.customRecurrence.endDate);
+            endDate.setHours(23, 59, 59, 999);
+          } else {
+            endDate = new Date(startDate);
+            const maxOccurrences = taskData.customRecurrence.occurrenceCount || 10;
+            endDate.setDate(endDate.getDate() + (maxOccurrences * 30));
+          }
         } else {
           endDate = new Date(startDate);
-          const maxOccurrences = taskData.customRecurrence.occurrenceCount || 10;
-          endDate.setDate(endDate.getDate() + (maxOccurrences * 30));
+          if (taskData.recurrencePattern === 'Daily') {
+            endDate.setDate(endDate.getDate() + 28);
+          } else if (taskData.recurrencePattern === 'weekly') {
+            endDate.setDate(endDate.getDate() + 28);
+          }
+          endDate.setHours(23, 59, 59, 999);
         }
-      } else {
-        endDate = new Date(startDate);
-        if (taskData.recurrencePattern === 'Daily') {
-          endDate.setDate(endDate.getDate() + 28);
-        } else if (taskData.recurrencePattern === 'weekly') {
-          endDate.setDate(endDate.getDate() + 28);
-        }
-        endDate.setHours(23, 59, 59, 999);
-      }
-      
-      // Get all participants from project (once, outside the loop)
-      const allParticipants = projectWithParticipants?.participantRoles?.map(pr => {
-        const userId = typeof pr.userId === 'string' ? parseInt(pr.userId) : pr.userId;
-        return { id: userId } as User;
-      }) || [];
-      
-      const validation = validateProjectForTaskCreation(projectWithParticipants, allParticipants, 2);
-      if (!validation.isValid) {
-        toast.error('Cannot create task', {
-          description: validation.error
-        });
-        return;
-      }
 
-      let currentDate = new Date(startDate);
-      let taskIndex = 0;
-      let occurrenceCount = 0;
-      const maxOccurrences = taskData.customRecurrence?.occurrenceCount || 
-        (taskData.recurrencePattern === 'Daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
+        // Build array of tasks to create
+        const tasksToCreate: CreateTaskWithStatusesInput[] = [];
+        let currentDate = new Date(startDate);
+        let occurrenceCount = 0;
+        const maxOccurrences = taskData.customRecurrence?.occurrenceCount ||
+          (taskData.recurrencePattern === 'Daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
 
-      while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
-        const taskDueDate = normalizeToStartOfDay(currentDate);
+        while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
+          const taskDueDate = normalizeToStartOfDay(currentDate);
 
-        const taskId = Date.now() + taskIndex;
-        const userId = typeof user?.id === 'string' ? parseInt(user.id) : (user?.id || 0);
-        const newTask: Task = {
-          id: taskId,
-          projectId: taskData.projectId,
-          creatorId: userId,
-          type: taskData.type,
-          recurrencePattern: taskData.recurrencePattern,
-          title: taskData.title,
-          description: taskData.description,
-          dueDate: taskDueDate,
-          createdAt: now,
-          updatedAt: now
-        };
-        
-        const statuses = createTaskStatusesForAllParticipants(
-          String(taskId),
-          projectWithParticipants,
-          allParticipants,
-          taskDueDate,
-          now
-        );
-        newTaskStatuses.push(...statuses);
+          tasksToCreate.push({
+            task: {
+              projectId: taskData.projectId,
+              creatorId: userId,
+              type: taskData.type,
+              recurrencePattern: taskData.recurrencePattern,
+              title: taskData.title,
+              description: taskData.description,
+              dueDate: taskDueDate,
+            },
+            participantUserIds,
+            dueDate: taskDueDate,
+          });
 
-        newTasks.push(newTask);
-        taskIndex++;
-        occurrenceCount++;
-        
-        if (taskData.recurrencePattern === 'Daily') {
-          currentDate.setDate(currentDate.getDate() + 1);
-        } else if (taskData.recurrencePattern === 'weekly') {
-          currentDate.setDate(currentDate.getDate() + 7);
-        } else if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-          const { frequency, interval } = taskData.customRecurrence;
-          if (frequency === 'days') {
-            currentDate.setDate(currentDate.getDate() + interval);
-          } else if (frequency === 'weeks') {
-            currentDate.setDate(currentDate.getDate() + (interval * 7));
-          } else if (frequency === 'months') {
-            currentDate.setMonth(currentDate.getMonth() + interval);
+          occurrenceCount++;
+
+          // Advance to next occurrence
+          if (taskData.recurrencePattern === 'Daily') {
+            currentDate.setDate(currentDate.getDate() + 1);
+          } else if (taskData.recurrencePattern === 'weekly') {
+            currentDate.setDate(currentDate.getDate() + 7);
+          } else if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
+            const { frequency, interval } = taskData.customRecurrence;
+            if (frequency === 'days') {
+              currentDate.setDate(currentDate.getDate() + interval);
+            } else if (frequency === 'weeks') {
+              currentDate.setDate(currentDate.getDate() + (interval * 7));
+            } else if (frequency === 'months') {
+              currentDate.setMonth(currentDate.getMonth() + interval);
+            }
           }
         }
-      }
-    } else {
-      const taskId = Date.now();
-      const userId = typeof user?.id === 'string' ? parseInt(user.id) : (user?.id || 0);
-      const newTask: Task = {
-        id: taskId,
-        projectId: taskData.projectId,
-        creatorId: userId,
-        type: taskData.type,
-        recurrencePattern: taskData.recurrencePattern,
-        title: taskData.title,
-        description: taskData.description,
-        dueDate: defaultDueDate,
-        createdAt: now,
-        updatedAt: now
-      };
 
-      // Get all participants from project
-      const allParticipants = projectWithParticipants?.participantRoles?.map(pr => {
-        const userId = typeof pr.userId === 'string' ? parseInt(pr.userId) : pr.userId;
-        return { id: userId } as User;
-      }) || [];
-      
-      const validation = validateProjectForTaskCreation(projectWithParticipants, allParticipants, 2);
-      if (!validation.isValid) {
-        toast.error('Cannot create task', {
-          description: validation.error
+        // Create all habit tasks in the database
+        const results = await createMultipleTasksMutation.mutateAsync(tasksToCreate);
+
+        toast.success(`${results.length} habit tasks created! 🚀`, {
+          description: 'Persuade your friends to complete these tasks with you'
         });
-        return;
+
+        // Send email notification for the first task
+        if (results.length > 0) {
+          const mainTask = results[0].task;
+          notifyTaskCreated(mainTask.id, mainTask.projectId, userId).catch(error => {
+            console.error('Failed to send task creation emails:', error);
+          });
+        }
+      } else {
+        // Handle single one-off task
+        const result = await createTaskMutation.mutateAsync({
+          task: {
+            projectId: taskData.projectId,
+            creatorId: userId,
+            type: taskData.type,
+            recurrencePattern: taskData.recurrencePattern,
+            title: taskData.title,
+            description: taskData.description,
+            dueDate: defaultDueDate,
+          },
+          participantUserIds,
+          dueDate: defaultDueDate,
+        });
+
+        toast.success('Task created! 🚀', {
+          description: 'Persuade your friends to complete this task with you'
+        });
+
+        // Send email notification
+        notifyTaskCreated(result.task.id, result.task.projectId, userId).catch(error => {
+          console.error('Failed to send task creation emails:', error);
+        });
       }
-      
-      const statuses = createTaskStatusesForAllParticipants(
-        String(taskId),
-        projectWithParticipants,
-        allParticipants,
-        defaultDueDate,
-        now
-      );
-      newTaskStatuses.push(...statuses);
 
-      newTasks.push(newTask);
-    }
-
-    setTasks(prev => [...newTasks, ...prev]);
-    setTaskStatuses(prev => [...newTaskStatuses, ...prev]);
-    
-    const toastTitle = newTasks.length > 1
-      ? `${newTasks.length} habit tasks created! 🚀`
-      : 'Task created! 🚀';
-
-    toast.success(toastTitle, {
-      description: 'Persuade your friends to complete this task with you'
-    });
-    
-    // Send email notifications for task creation
-    // Note: In production, this should be called after the task is saved to the database
-    // For now, we'll send emails for the first task (or the main task for habits)
-    const mainTask = newTasks[0];
-    if (mainTask && user) {
-      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-      const projectId = typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId;
-      const taskId = typeof mainTask.id === 'string' ? parseInt(mainTask.id) : mainTask.id;
-      notifyTaskCreated(taskId, projectId, userId).catch(error => {
-        console.error('Failed to send task creation emails:', error);
-        // Don't show error to user - email is best effort
+      setShowTaskForm(false);
+    } catch (error) {
+      handleError(error, 'handleCreateTask');
+      toast.error('Failed to create task', {
+        description: 'Please try again'
       });
     }
-    
-    setShowTaskForm(false);
   };
 
   const handleAddMember = async () => {
@@ -537,7 +580,7 @@ export const useProjectDetail = () => {
 
     try {
       const userToAdd = await findUserByIdentifier(memberIdentifier);
-      
+
       if (!userToAdd) {
         toast.error('User not found', {
           description: 'No user with this handle exists in the system'
@@ -547,7 +590,7 @@ export const useProjectDetail = () => {
 
       const userIdToAdd = typeof userToAdd.id === 'string' ? parseInt(userToAdd.id) : userToAdd.id;
       const projectId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
-      
+
       if (participants.some(p => {
         const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
         return pUserId === userIdToAdd;
@@ -560,7 +603,7 @@ export const useProjectDetail = () => {
 
       const now = new Date();
       const db = getDatabaseClient();
-      
+
       // Add participant to database
       const addedParticipant = await db.projects.addParticipant(projectId, userIdToAdd, 'participant');
 
@@ -573,14 +616,14 @@ export const useProjectDetail = () => {
       };
 
       setProjectParticipants(prev => [...prev, newParticipant]);
-      
-      // Refresh project to get updated participants
-      // This will be handled by React Query invalidation in the component
+
+      // Invalidate query to get real data from DB including the User object
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
 
       toast.success('Member added! 🎉', {
         description: `${userToAdd.name} (${userToAdd.handle}) has been added to the project`
       });
-      
+
       setMemberIdentifier('');
       setShowAddMemberForm(false);
     } catch (error) {
@@ -644,6 +687,9 @@ export const useProjectDetail = () => {
 
       setProjectParticipants(updatedParticipants);
 
+      // Invalidate query to sync with DB
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+
       toast.success('Left project', {
         description: 'You have been removed from this project'
       });
@@ -662,11 +708,11 @@ export const useProjectDetail = () => {
       const db = getDatabaseClient();
       const projectId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
       await db.projects.delete(projectId);
-      
+
       toast.success('Project deleted', {
         description: 'The project and all its data have been permanently removed'
       });
-      
+
       setShowDeleteProjectDialog(false);
       setShowEditProjectForm(false);
       navigate('/projects');
@@ -675,7 +721,7 @@ export const useProjectDetail = () => {
     }
   };
 
-  const handleRemoveParticipant = async (userIdToRemove: number) => {
+  const handleRemoveParticipant = useCallback(async (userIdToRemove: number) => {
     if (!currentProject || !user) return;
 
     try {
@@ -698,15 +744,18 @@ export const useProjectDetail = () => {
         })
       );
 
+      // Invalidate query to sync with DB
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+
       toast.success('Participant removed', {
         description: 'The member has been removed from the project'
       });
     } catch (error) {
       handleError(error, 'handleRemoveParticipant');
     }
-  };
+  }, [currentProject, user, id, queryClient]);
 
-  const handleUpdateRole = async (userIdToUpdate: number, newRole: 'owner' | 'manager' | 'participant') => {
+  const handleUpdateRole = useCallback(async (userIdToUpdate: number, newRole: ProjectRole) => {
     if (!currentProject) return;
 
     try {
@@ -728,29 +777,32 @@ export const useProjectDetail = () => {
         })
       );
 
+      // Invalidate query to sync with DB
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+
       toast.success('Role updated', {
         description: `User role changed to ${newRole}`
       });
     } catch (error) {
       handleError(error, 'handleUpdateRole');
     }
-  };
+  }, [currentProject, id, queryClient]);
 
   const handleDeleteTask = async (taskId: number) => {
     try {
       const db = getDatabaseClient();
       await db.tasks.delete(taskId);
-      
-      setTasks(prev => prev.filter(t => t.id !== taskId));
-      setTaskStatuses(prev => prev.filter(ts => {
+
+      setLocalTasks(prev => prev.filter(t => t.id !== taskId));
+      setLocalTaskStatuses(prev => prev.filter(ts => {
         const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
         return tsTaskId !== taskId;
       }));
-      setCompletionLogs(prev => prev.filter(cl => {
+      setLocalCompletionLogs(prev => prev.filter(cl => {
         const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
         return clTaskId !== taskId;
       }));
-      
+
       toast.success('Task deleted', {
         description: 'The task has been removed from the project'
       });
@@ -791,10 +843,10 @@ export const useProjectDetail = () => {
     progress,
     completedCount,
     totalTasks,
-    
-    // Loading states
-    isLoading: projectLoading || tasksLoading,
-    
+
+    // Loading states - ensure we don't show empty UI while data is being fetched
+    isLoading: projectLoading || tasksLoading || (tasksFetched && projectTasksFromDb.length > 0 && tasks.length === 0),
+
     // Task lists
     activeTasks,
     upcomingTasks,
@@ -802,14 +854,14 @@ export const useProjectDetail = () => {
     habitTasks,
     archivedTasks,
     projectTasks,
-    
+
     // Section tasks (with deduplication)
     activeSectionTasks,
     upcomingSectionTasks,
     completedSectionTasks,
     archivedSectionTasks,
     hasAnyAllTabContent,
-    
+
     // State
     showTaskForm,
     setShowTaskForm,
@@ -825,7 +877,7 @@ export const useProjectDetail = () => {
     setShowMembersDialog,
     memberIdentifier,
     setMemberIdentifier,
-    
+
     // Handlers
     handleRecover,
     handleComplete,
@@ -837,18 +889,21 @@ export const useProjectDetail = () => {
     handleEditProject,
     handleLeaveProject,
     handleDeleteProject,
-    
+
     // Permissions
     isOwner,
     isManager,
     canManage,
     canLeave,
-    
+
     // Navigation
     navigate,
-    
+
     // Data
     completionLogs,
+    
+    // Mutation states (for loading indicators)
+    isCreatingTask: createTaskMutation.isPending || createMultipleTasksMutation.isPending,
   };
 };
 

@@ -63,6 +63,7 @@ export type ProjectParticipantRow = {
   role: string;
   added_at: string;
   removed_at?: string | null;
+  user?: UserRow | null; // From join
 };
 
 export type TaskRow = {
@@ -185,6 +186,7 @@ export function transformProjectRow(
     totalTasks: row.total_tasks,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+    participants: participants?.map(p => p.user).filter((u): u is User => u !== undefined),
     participantRoles: participants,
   };
 }
@@ -198,6 +200,7 @@ export function transformProjectParticipantRow(
     role: row.role as ProjectParticipant['role'],
     addedAt: new Date(row.added_at),
     removedAt: row.removed_at ? new Date(row.removed_at) : undefined,
+    user: row.user ? transformUserRow(row.user) : undefined,
   };
 }
 

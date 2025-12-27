@@ -177,12 +177,10 @@ export async function getCurrentUser(
   try {
     const user = await verifySessionToken(token);
     
-    // If token is invalid (not expired, just invalid), clear it
-    if (!user && isBrowser()) {
-      // Only clear if we're sure it's invalid (not a transient error)
-      clearSessionToken();
-    }
-    
+    // Return the user if found, null otherwise
+    // NOTE: We do NOT clear the token here even if user is null.
+    // The token could be temporarily unverifiable due to network issues.
+    // Token clearing is now handled by explicit logout or AuthContext logic.
     return user;
   } catch (error) {
     // Handle SessionVerificationError
@@ -204,7 +202,8 @@ export async function getCurrentUser(
         console.warn('Session verification failed (transient error, preserving token):', error.message);
         return null;
       } else {
-        // Non-transient error - token is invalid, clear it
+        // Non-transient error - token is explicitly invalid
+        // Only clear in explicit non-transient cases
         if (isBrowser()) {
           clearSessionToken();
         }

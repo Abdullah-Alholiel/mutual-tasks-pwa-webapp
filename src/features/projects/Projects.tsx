@@ -13,28 +13,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/features/auth/useAuth';
 import { useProjects, usePublicProjects, useCreateProject } from './hooks/useProjects';
-import { getUserProjects, getPublicProjects } from '@/lib/projects/projectUtils';
+import { getUserProjects } from '@/lib/projects/projectUtils';
+import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 
 const Projects = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const isRestoring = useIsRestoring();
   const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
   const { data: publicProjectsRaw = [] } = usePublicProjects();
   const createProjectMutation = useCreateProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
-  
+
+  // We no longer block the whole page on loading
+  // SWR pattern: show cached data instantly if available
+  // isRestoring ensures we wait for localStorage hydration before deciding we have "no data"
+  const isInitialLoading = (projectsLoading || isRestoring) && allProjects.length === 0;
+
   // Calculate user-specific progress for each project using utility
   // Note: For now we'll use projects as-is since progress is calculated server-side
   const projectsWithProgress = useMemo(() => allProjects, [allProjects]);
 
   // Filter projects using utilities
-  const myProjects = useMemo(() => 
+  const myProjects = useMemo(() =>
     user ? getUserProjects(projectsWithProgress, user.id) : [],
     [projectsWithProgress, user]
   );
-  
-  const publicProjects = useMemo(() => 
+
+  const publicProjects = useMemo(() =>
     publicProjectsRaw || [],
     [publicProjectsRaw]
   );
@@ -76,11 +83,11 @@ const Projects = () => {
       if (projectData.participants.length > 0) {
         const db = getDatabaseClient();
         const projectId = typeof newProject.id === 'string' ? parseInt(newProject.id) : newProject.id;
-        
+
         // Add participants
         for (const participantIdStr of projectData.participants) {
           const participantId = typeof participantIdStr === 'string' ? parseInt(participantIdStr) : participantIdStr;
-          
+
           // Check if user exists
           const participantUser = await db.users.getById(participantId);
           if (!participantUser) {
@@ -114,7 +121,7 @@ const Projects = () => {
       const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
 
       await db.projects.addParticipant(projectId, userId, 'participant');
-      
+
       toast.success('Joined project! 🎉', {
         description: `You're now a member of ${project.name}`
       });
@@ -127,10 +134,17 @@ const Projects = () => {
     }
   };
 
-  if (projectsLoading) {
+  if (isInitialLoading) {
     return (
       <AppLayout>
-        <InlineLoader text="Loading projects..." />
+        <div className="space-y-8 p-4">
+          <div className="h-20 w-full animate-pulse bg-muted rounded-2xl" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="h-48 animate-pulse bg-muted rounded-2xl" />
+            <div className="h-48 animate-pulse bg-muted rounded-2xl" />
+            <div className="h-48 animate-pulse bg-muted rounded-2xl" />
+          </div>
+        </div>
       </AppLayout>
     );
   }
@@ -158,7 +172,7 @@ const Projects = () => {
             </motion.p>
           </div>
 
-          <Button 
+          <Button
             onClick={() => setShowProjectForm(true)}
             className="gradient-primary text-white hover:opacity-90"
           >
@@ -213,7 +227,7 @@ const Projects = () => {
                 <p className="text-muted-foreground mb-6">
                   Create your first project and invite friends to collaborate
                 </p>
-                <Button 
+                <Button
                   onClick={() => setShowProjectForm(true)}
                   className="gradient-primary text-white"
                 >
@@ -234,8 +248,8 @@ const Projects = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                   >
-                    <PublicProjectCard 
-                      project={project} 
+                    <PublicProjectCard
+                      project={project}
                       onJoin={() => handleJoinProject(project)}
                     />
                   </motion.div>
@@ -258,6 +272,7 @@ const Projects = () => {
         open={showProjectForm}
         onOpenChange={setShowProjectForm}
         onSubmit={handleCreateProject}
+        currentUser={user!}
       />
     </AppLayout>
   );
@@ -271,8 +286,8 @@ interface PublicProjectCardProps {
 
 const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
   const navigate = useNavigate();
-  const progress = project.totalTasks > 0 
-    ? ((project.completedTasks || 0) / project.totalTasks) * 100 
+  const progress = project.totalTasks > 0
+    ? ((project.completedTasks || 0) / project.totalTasks) * 100
     : 0;
 
   return (
@@ -299,7 +314,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
                 {project.description}
               </p>
             </div>
-            
+
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
               style={{ backgroundColor: `${project.color}15` }}
@@ -322,7 +337,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
             <div className="w-full bg-muted rounded-full h-2">
               <div
                 className="h-2 rounded-full transition-all"
-                style={{ 
+                style={{
                   width: `${progress}%`,
                   backgroundColor: project.color
                 }}

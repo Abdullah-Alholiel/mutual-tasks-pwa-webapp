@@ -35,7 +35,7 @@ export const DesktopNav = () => {
   useEffect(() => {
     const loadNotifications = async () => {
       if (!user) return;
-      
+
       try {
         const db = getDatabaseClient();
         const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
@@ -134,7 +134,7 @@ export const DesktopNav = () => {
     };
 
     window.addEventListener('scroll', throttledHandleScroll, { passive: true });
-    
+
     return () => {
       window.removeEventListener('scroll', throttledHandleScroll);
     };
@@ -144,12 +144,12 @@ export const DesktopNav = () => {
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0 }}
-      animate={{ 
-        y: isVisible ? 0 : -100, 
+      animate={{
+        y: isVisible ? 0 : -100,
         opacity: isVisible ? 1 : 0,
         pointerEvents: isVisible ? 'auto' : 'none'
       }}
-      transition={{ 
+      transition={{
         duration: 0.2,
         ease: 'easeInOut'
       }}
@@ -178,22 +178,24 @@ export const DesktopNav = () => {
                 )}
               </NavLink>
             ))}
-            
+
             <div className="h-8 w-px bg-border ml-2" />
-            
+
             <Inbox
               notifications={notifications}
               onMarkAsRead={handleMarkAsRead}
               onMarkAllAsRead={handleMarkAllAsRead}
             />
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="ml-2">
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Avatar className="w-8 h-8 ring-2 ring-border hover:ring-primary transition-all">
                       <AvatarImage src={user?.avatar} alt={user?.name} />
-                      <AvatarFallback>{user?.name?.charAt(0) || 'U'}</AvatarFallback>
+                      <AvatarFallback className="text-xs bg-muted">
+                        {user?.name?.charAt(0) || <div className="w-4 h-4 bg-muted-foreground/20 rounded-full animate-pulse" />}
+                      </AvatarFallback>
                     </Avatar>
                   </motion.div>
                 </button>

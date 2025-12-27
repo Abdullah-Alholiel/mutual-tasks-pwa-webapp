@@ -11,13 +11,13 @@ import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Project, User, TaskType, RecurrencePattern } from '@/types';
-import { mockUsers, currentUser } from '@/lib/mock/mockData';
 import { motion } from 'framer-motion';
 import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { toast } from 'sonner';
+import { useCurrentUser } from '@/features/auth/useCurrentUser';
 
 interface TaskFormProps {
   open: boolean;
@@ -49,22 +49,23 @@ interface TaskFormProps {
   }) => Project;
 }
 
-export const TaskForm = ({ 
-  open, 
-  onOpenChange, 
-  onSubmit, 
+export const TaskForm = ({
+  open,
+  onOpenChange,
+  onSubmit,
   project: initialProject,
   projects = [], // Default to empty array if not provided
   allowProjectSelection = false,
   onCreateProject
 }: TaskFormProps) => {
+  const { data: currentUser } = useCurrentUser();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState<string | number>(initialProject?.id || '');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('Daily');
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
-  
+
   // Custom recurrence settings
   const [customRecurrence, setCustomRecurrence] = useState({
     frequency: 'days' as 'days' | 'weeks' | 'months',
@@ -120,7 +121,7 @@ export const TaskForm = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title.trim() || !project) {
       return;
     }
@@ -185,7 +186,7 @@ export const TaskForm = ({
             <DialogTitle>Initiate New Task</DialogTitle>
           </div>
           <DialogDescription>
-            {project 
+            {project
               ? `Create a task in ${project.name}`
               : 'Create a new collaborative task'
             }
@@ -198,8 +199,8 @@ export const TaskForm = ({
             <div className="space-y-2">
               <Label>Project *</Label>
               <div className="space-y-2">
-                <Select 
-                  value={typeof selectedProjectId === 'string' ? selectedProjectId : selectedProjectId.toString()} 
+                <Select
+                  value={typeof selectedProjectId === 'string' ? selectedProjectId : selectedProjectId.toString()}
                   onValueChange={(value) => {
                     if (value === 'none') {
                       setSelectedProjectId('');
@@ -546,11 +547,11 @@ export const TaskForm = ({
           {/* Info Badge */}
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Note:</span> This task will be automatically assigned 
+              <span className="font-medium text-foreground">Note:</span> This task will be automatically assigned
               to all project members. 💪
               <br />
               <br />
-             <b> Daily/Weekly recurring tasks will repeat till the end of the month.</b>
+              <b> Daily/Weekly recurring tasks will repeat till the end of the month.</b>
             </p>
           </div>
 
@@ -575,11 +576,12 @@ export const TaskForm = ({
         </form>
       </DialogContent>
 
-      {allowProjectSelection && onCreateProject && (
+      {allowProjectSelection && onCreateProject && currentUser && (
         <ProjectForm
           open={showProjectForm}
           onOpenChange={handleProjectFormClose}
           onSubmit={handleCreateProject}
+          currentUser={currentUser}
         />
       )}
     </Dialog>

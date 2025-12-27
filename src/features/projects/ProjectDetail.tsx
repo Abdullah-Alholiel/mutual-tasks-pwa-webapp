@@ -121,6 +121,8 @@ const ProjectDetail = () => {
           totalTasks={totalTasks}
           activeCount={activeTasks.length}
           completedTasksCount={completedTasks.length}
+          upcomingCount={upcomingTasks.length}
+          archivedCount={archivedTasks.length}
           participants={participants}
           isOwner={isOwner}
           onAddMember={() => setShowAddMemberForm(true)}
@@ -202,9 +204,9 @@ const ProjectDetail = () => {
             <div className="space-y-3 opacity-60">
               {completedTasks.length > 0 ? (
                 completedTasks.map(task => (
-                  <TaskCard 
-                    key={task.id} 
-                    task={task} 
+                  <TaskCard
+                    key={task.id}
+                    task={task}
                     completionLogs={completionLogs}
                   />
                 ))
@@ -365,7 +367,7 @@ const ProjectDetail = () => {
           <DialogHeader>
             <DialogTitle>{canManage ? 'Edit Project' : 'Project Settings'}</DialogTitle>
             <DialogDescription>
-              {canManage 
+              {canManage
                 ? 'Update project name and description'
                 : 'View project settings. Only owners and managers can edit project details.'}
             </DialogDescription>
@@ -454,51 +456,82 @@ const ProjectDetail = () => {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar">
+          <div className="space-y-3 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
             {participants.map((participant) => {
               const user = participant.user;
               if (!user) return null;
-              
+
+              const isCurrentUser = currentUser && participant.userId === currentUser.id;
+
               return (
-                <div key={participant.userId} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="w-10 h-10 ring-2 ring-background border border-border">
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                <div key={participant.userId} className="group flex items-center justify-between p-3 rounded-xl border border-border bg-card/50 hover:bg-muted/50 transition-all duration-200">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="relative">
+                      <Avatar className="w-11 h-11 ring-2 ring-background border border-border shadow-sm">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
+                          {user.name?.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {participant.role === 'owner' && (
+                        <div className="absolute -top-1 -right-1 bg-yellow-400 text-[8px] font-bold text-white px-1 rounded-full shadow-sm ring-1 ring-background">
+                          👑
+                        </div>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{user.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold truncate text-foreground">{user.name}</span>
+                        {isCurrentUser && (
+                          <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">You</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate font-medium">{user.handle}</div>
                     </div>
                   </div>
-                  {isOwner && currentUser && participant.userId !== currentUser.id ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8">
-                          <Badge variant="outline">{participant.role}</Badge>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {getAvailableRoles(participant.role).map((role) => (
-                          <DropdownMenuItem 
-                            key={role}
-                            onClick={() => handleUpdateRole(participant.userId, role)}
+
+                  <div className="flex items-center gap-2 ml-4">
+                    {isOwner && !isCurrentUser ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 w-[110px] justify-between px-3 font-medium hover:bg-primary/5 hover:text-primary transition-colors border-border/60"
                           >
-                            Set as {role.charAt(0).toUpperCase() + role.slice(1)}
+                            <span className="text-[11px] capitalize">{participant.role}</span>
+                            <Settings className="w-3.5 h-3.5 ml-1 opacity-60 shrink-0" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[160px]">
+                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                            Change Role
+                          </div>
+                          {getAvailableRoles(participant.role).map((role) => (
+                            <DropdownMenuItem
+                              key={role}
+                              onClick={() => handleUpdateRole(participant.userId, role)}
+                              className="capitalize cursor-pointer"
+                            >
+                              Set as {role}
+                            </DropdownMenuItem>
+                          ))}
+                          <div className="h-px bg-border my-1" />
+                          <DropdownMenuItem
+                            onClick={() => handleRemoveParticipant(participant.userId)}
+                            className="text-destructive focus:bg-destructive/10 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remove from team
                           </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuItem 
-                          onClick={() => handleRemoveParticipant(participant.userId)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <Badge variant="outline">{participant.role}</Badge>
-                  )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <div className="h-9 w-[110px] flex items-center justify-center rounded-md border border-border/40 bg-muted/30 px-3">
+                        <span className="text-[11px] font-semibold capitalize text-muted-foreground">{participant.role}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -551,17 +584,17 @@ const EmptyState = ({ onCreateTask }: { onCreateTask: () => void }) => (
   </motion.div>
 );
 
-const EditProjectForm = ({ 
-  project, 
-  onSave, 
+const EditProjectForm = ({
+  project,
+  onSave,
   onCancel,
   onLeaveProject,
   onDeleteProject,
   canLeave,
   canEdit,
   isOwner
-}: { 
-  project: Project; 
+}: {
+  project: Project;
   onSave: (data: { name: string; description: string }) => void;
   onCancel: () => void;
   onLeaveProject?: () => void;
@@ -639,7 +672,7 @@ const EditProjectForm = ({
             <div>
               <h3 className="text-sm font-semibold text-foreground mb-1">Danger Zone</h3>
               <p className="text-xs text-muted-foreground">
-                {isOwner 
+                {isOwner
                   ? 'Permanently delete this project or leave it. These actions cannot be undone.'
                   : 'Leave this project. You will lose access to all tasks and progress.'}
               </p>
