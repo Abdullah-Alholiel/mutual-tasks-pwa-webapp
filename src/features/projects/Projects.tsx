@@ -5,7 +5,7 @@ import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { motion } from 'framer-motion';
 import { Plus, FolderKanban, Globe, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { InlineLoader } from '@/components/ui/loader';
+import { InlineLoader, PageLoader } from '@/components/ui/loader';
 import type { Project } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/features/auth/useAuth';
 import { useProjects, usePublicProjects, useCreateProject, useUserProjectsWithStats, useJoinProject } from './hooks/useProjects';
 import { getUserProjects } from '@/lib/projects/projectUtils';
+import { getIconByName } from '@/lib/projects/projectIcons';
 import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
@@ -62,6 +63,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
     participants: string[];
     color: string;
     isPublic: boolean;
+    icon: string;
   }) => {
     if (!user || !isAuthenticated) {
       toast.error('You must be logged in to create a project');
@@ -85,7 +87,8 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
         ownerId,
         totalTasks: 0,
         isPublic: projectData.isPublic,
-        color: projectData.color
+        color: projectData.color,
+        icon: projectData.icon
       });
 
       // Add participants if provided
@@ -118,15 +121,22 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
     }
   };
 
+  const [joiningProject, setJoiningProject] = useState<Project | null>(null);
+
   const handleJoinProject = async (project: Project) => {
+    setJoiningProject(project);
     try {
       await joinProjectMutation.mutateAsync(project.id);
       // Navigate to project detail
       navigate(`/projects/${project.id}`);
     } catch (error) {
-      // Error is handled by the hook
+      setJoiningProject(null);
     }
   };
+
+  if (joiningProject) {
+    return <PageLoader text={`Joining "${joiningProject.name}"...`} />;
+  }
 
   if (isInitialLoading) {
     return (
@@ -201,6 +211,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
+                    className="h-full"
                   >
                     <ProjectCard project={project} />
                   </motion.div>
@@ -239,6 +250,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
+                    className="h-full"
                   >
                     <PublicProjectCard
                       project={project}
@@ -278,30 +290,28 @@ interface PublicProjectCardProps {
 
 const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
   const navigate = useNavigate();
-  const progress = project.totalTasks > 0
-    ? ((project.completedTasks || 0) / project.totalTasks) * 100
-    : 0;
+  const Icon = getIconByName(project.icon || 'Target');
 
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="cursor-pointer"
+      className="cursor-pointer h-full"
     >
-      <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200">
-        <div className="flex flex-col gap-4">
+      <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 h-full flex flex-col">
+        <div className="flex flex-col gap-4 h-full">
           {/* Header */}
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 flex-1">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-lg text-foreground break-words">
+                  {project.name}
+                </h3>
                 <Badge variant="outline" className="text-xs flex items-center gap-1">
                   <Globe className="w-3 h-3" />
                   Public
                 </Badge>
               </div>
-              <h3 className="font-semibold text-lg text-foreground break-words mb-1">
-                {project.name}
-              </h3>
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {project.description}
               </p>
@@ -312,37 +322,15 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
               style={{
                 backgroundColor: `${project.color}15`,
                 boxShadow: `0 8px 15px -4px ${project.color}40`,
-                border: `1px solid ${project.color}30`
+                border: `1px solid ${project.color}30`,
+                color: project.color
               }}
             >
               <div
                 className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
                 style={{ background: `linear-gradient(135deg, ${project.color}40, transparent)` }}
               />
-              <div
-                className="w-2.5 h-2.5 rounded-full relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                style={{ backgroundColor: project.color }}
-              />
-            </div>
-          </div>
-
-          {/* Progress */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium text-foreground">
-                {project.completedTasks || 0}/{project.totalTasks || 0} tasks
-              </span>
-            </div>
-            <div className="w-full bg-muted rounded-full h-2 overflow-hidden shadow-inner">
-              <div
-                className="h-2 rounded-full transition-all duration-500 ease-out"
-                style={{
-                  width: `${progress}%`,
-                  backgroundColor: project.color,
-                  boxShadow: `0 0 10px ${project.color}50`
-                }}
-              />
+              <Icon className="w-6 h-6 relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
             </div>
           </div>
 

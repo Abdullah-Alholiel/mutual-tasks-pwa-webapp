@@ -468,15 +468,30 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
               <Sparkles className="w-5 h-5 text-accent" />
               <h2 className="text-xl font-semibold">Needs Your Action</h2>
             </div>
-            <div className="space-y-3">
+            {/* Optimized task container for smooth scrolling */}
+            <div
+              className="space-y-3"
+              style={{
+                transform: 'translateZ(0)',
+                willChange: 'contents',
+              }}
+            >
               {needsActionTasks.map((task) => (
-                <TaskCard
+                <div
                   key={task.id}
-                  task={task}
-                  completionLogs={completionLogs}
-                  onComplete={handleComplete}
-                  showRecover={false}
-                />
+                  style={{
+                    contain: 'layout style',
+                    contentVisibility: 'auto',
+                    containIntrinsicSize: '0 180px',
+                  }}
+                >
+                  <TaskCard
+                    task={task}
+                    completionLogs={completionLogs}
+                    onComplete={handleComplete}
+                    showRecover={false}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -489,9 +504,25 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
               <CheckCircle2 className="w-5 h-5 text-accent" />
               <h2 className="text-xl font-semibold">Done for the Day</h2>
             </div>
-            <div className="space-y-3 opacity-60">
+            {/* Optimized task container for smooth scrolling */}
+            <div
+              className="space-y-3 opacity-60"
+              style={{
+                transform: 'translateZ(0)',
+                willChange: 'contents',
+              }}
+            >
               {completedTasksForToday.map((task) => (
-                <TaskCard key={task.id} task={task} completionLogs={completionLogs} />
+                <div
+                  key={task.id}
+                  style={{
+                    contain: 'layout style',
+                    contentVisibility: 'auto',
+                    containIntrinsicSize: '0 180px',
+                  }}
+                >
+                  <TaskCard task={task} completionLogs={completionLogs} />
+                </div>
               ))}
             </div>
           </div>
@@ -504,15 +535,30 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
               <RotateCcw className="w-5 h-5 text-accent" />
               <h2 className="text-xl font-semibold">Another Chance?</h2>
             </div>
-            <div className="space-y-3">
+            {/* Optimized task container for smooth scrolling */}
+            <div
+              className="space-y-3"
+              style={{
+                transform: 'translateZ(0)',
+                willChange: 'contents',
+              }}
+            >
               {recoveredTasks.map((task) => (
-                <TaskCard
+                <div
                   key={task.id}
-                  task={task}
-                  completionLogs={completionLogs}
-                  onComplete={handleComplete}
-                  showRecover={false}
-                />
+                  style={{
+                    contain: 'layout style',
+                    contentVisibility: 'auto',
+                    containIntrinsicSize: '0 180px',
+                  }}
+                >
+                  <TaskCard
+                    task={task}
+                    completionLogs={completionLogs}
+                    onComplete={handleComplete}
+                    showRecover={false}
+                  />
+                </div>
               ))}
             </div>
           </div>

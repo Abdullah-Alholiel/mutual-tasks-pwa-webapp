@@ -11,10 +11,29 @@ const NAV_ORDER = ['/', '/projects', '/profile'];
 /**
  * Shared page wrapper for consistent padding and scroll behavior
  */
-const PageWrapper = ({ children }: { children: ReactNode }) => {
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
+import { useOptimizedScroll } from '@/hooks/useScrollOptimization';
+
+/**
+ * Shared page wrapper for consistent padding, scroll behavior, and mobile scroll optimization
+ */
+const PageWrapper = ({ children, scrollKey }: { children: ReactNode; scrollKey: string }) => {
     const isMobile = useIsMobile();
+    const scrollRef = useScrollRestoration(scrollKey);
+
+    // Apply scroll optimizations for smoother mobile scrolling
+    useOptimizedScroll(scrollRef);
+
     return (
-        <div className="h-full w-full overflow-y-auto custom-scrollbar">
+        <div
+            ref={scrollRef}
+            className="h-full w-full overflow-y-auto custom-scrollbar touch-scroll"
+            style={{
+                // GPU acceleration for smooth scrolling
+                transform: 'translateZ(0)',
+                WebkitOverflowScrolling: 'touch',
+            }}
+        >
             <div
                 className="px-4 md:px-6 max-w-7xl mx-auto w-full"
                 style={{
@@ -85,21 +104,21 @@ export const MainTabsShell = () => {
                 <div className="embla__container flex h-full w-full">
                     {/* Index Tab */}
                     <div className="embla__slide flex-[0_0_100%] min-w-0 h-full">
-                        <PageWrapper>
+                        <PageWrapper scrollKey="scroll-index">
                             <Index isInternalSlide={true} isActive={activeIndex === 0} />
                         </PageWrapper>
                     </div>
 
                     {/* Projects Tab */}
                     <div className="embla__slide flex-[0_0_100%] min-w-0 h-full">
-                        <PageWrapper>
+                        <PageWrapper scrollKey="scroll-projects">
                             <Projects isInternalSlide={true} isActive={activeIndex === 1} />
                         </PageWrapper>
                     </div>
 
                     {/* Profile Tab */}
                     <div className="embla__slide flex-[0_0_100%] min-w-0 h-full">
-                        <PageWrapper>
+                        <PageWrapper scrollKey="scroll-profile">
                             <Profile isInternalSlide={true} isActive={activeIndex === 2} />
                         </PageWrapper>
                     </div>

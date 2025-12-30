@@ -37,6 +37,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getAvailableRoles } from '@/lib/projects/projectUtils';
 import { useState, FormEvent } from 'react';
 import { useAuth } from '@/features/auth/useAuth';
+import { PROJECT_ICONS, ICON_CATEGORIES, getIconsByCategory } from '@/lib/projects/projectIcons';
+import { cn } from '@/lib/utils';
 import type { Project } from '@/types';
 
 const ProjectDetail = () => {
@@ -439,7 +441,6 @@ const ProjectDetail = () => {
             <div className="space-y-2">
               <Label htmlFor="handle">Handle</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground">@</span>
                 <Input
                   id="handle"
                   type="text"
@@ -452,7 +453,6 @@ const ProjectDetail = () => {
                     }
                     setMemberIdentifier(value);
                   }}
-                  className="pl-10"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleAddMember();
@@ -723,7 +723,7 @@ const EditProjectForm = ({
   isOwner
 }: {
   project: Project;
-  onSave: (data: { name: string; description: string }) => void;
+  onSave: (data: { name: string; description: string; icon: string }) => void;
   onCancel: () => void;
   onLeaveProject?: () => void;
   onDeleteProject?: () => void;
@@ -733,15 +733,77 @@ const EditProjectForm = ({
 }) => {
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
+  const [selectedIcon, setSelectedIcon] = useState(project.icon || PROJECT_ICONS[0].name);
+  const [iconCategory, setIconCategory] = useState('All');
+
+  // Get filtered icons based on selected category
+  const filteredIcons = getIconsByCategory(iconCategory);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!canEdit) return;
-    onSave({ name: name.trim(), description: description.trim() });
+    onSave({
+      name: name.trim(),
+      description: description.trim(),
+      icon: selectedIcon
+    });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 py-4">
+      {/* Icon Selection with Category Tabs */}
+      {canEdit && (
+        <div className="space-y-3">
+          <Label>Project Icon</Label>
+          {/* Category Tabs */}
+          <div className="flex flex-wrap gap-1.5">
+            {ICON_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => setIconCategory(category)}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-full transition-all",
+                  iconCategory === category
+                    ? "text-white shadow-md"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                )}
+                style={iconCategory === category ? { backgroundColor: project.color } : {}}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+          {/* Icon Grid */}
+          <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-[140px] overflow-y-auto p-1 custom-scrollbar">
+            {filteredIcons.map(({ name: iconName, icon: Icon }) => {
+              const isSelected = selectedIcon === iconName;
+              return (
+                <button
+                  key={iconName}
+                  type="button"
+                  onClick={() => setSelectedIcon(iconName)}
+                  className={cn(
+                    "flex items-center justify-center p-2.5 rounded-xl border-2 transition-all aspect-square cursor-pointer hover:scale-105 active:scale-95",
+                    isSelected
+                      ? "ring-2 ring-offset-2 ring-offset-background"
+                      : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground hover:bg-muted/30"
+                  )}
+                  style={isSelected ? {
+                    color: project.color,
+                    borderColor: project.color,
+                    backgroundColor: `${project.color}15`,
+                    boxShadow: `0 0 0 2px ${project.color}40`
+                  } : {}}
+                >
+                  <Icon className="w-5 h-5" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="name">Project Name *</Label>
         <Input

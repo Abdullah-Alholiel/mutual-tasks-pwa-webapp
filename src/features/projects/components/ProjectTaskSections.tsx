@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, memo } from 'react';
 import { TaskCard } from '../../tasks/components/TaskCard';
 import { Clock, CheckCircle2, Sparkles, Repeat } from 'lucide-react';
 import type { Task, CompletionLog } from '@/types';
@@ -13,7 +13,11 @@ interface TaskSectionProps {
   className?: string;
 }
 
-export const TaskSection = ({
+/**
+ * Optimized TaskSection component with CSS containment for scroll performance.
+ * Uses content-visibility to optimize rendering of off-screen items.
+ */
+export const TaskSection = memo(({
   title,
   icon,
   tasks,
@@ -30,20 +34,39 @@ export const TaskSection = ({
         {icon}
         <h3 className="text-lg font-semibold">{title}</h3>
       </div>
-      <div className="space-y-3">
+      {/* Optimized task container with GPU acceleration */}
+      <div
+        className="space-y-3"
+        style={{
+          // Enable GPU acceleration for smooth scrolling
+          transform: 'translateZ(0)',
+        }}
+      >
         {tasks.map(task => (
-          <TaskCard
+          <div
             key={task.id}
-            task={task}
-            completionLogs={completionLogs}
-            onRecover={onRecover}
-            onComplete={onComplete}
-          />
+            style={{
+              // CSS containment for better paint performance
+              contain: 'layout style',
+              // Optimize off-screen rendering
+              contentVisibility: 'auto',
+              containIntrinsicSize: '0 180px',
+            }}
+          >
+            <TaskCard
+              task={task}
+              completionLogs={completionLogs}
+              onRecover={onRecover}
+              onComplete={onComplete}
+            />
+          </div>
         ))}
       </div>
     </div>
   );
-};
+});
+
+TaskSection.displayName = 'TaskSection';
 
 interface ProjectTaskSectionsProps {
   activeTasks: Task[];
@@ -55,7 +78,10 @@ interface ProjectTaskSectionsProps {
   onComplete?: (taskId: string | number, difficultyRating?: number) => void;
 }
 
-export const ProjectTaskSections = ({
+/**
+ * Memoized ProjectTaskSections for optimal scroll performance.
+ */
+export const ProjectTaskSections = memo(({
   activeTasks,
   upcomingTasks,
   completedTasks,
@@ -109,5 +135,6 @@ export const ProjectTaskSections = ({
       )}
     </>
   );
-};
+});
 
+ProjectTaskSections.displayName = 'ProjectTaskSections';

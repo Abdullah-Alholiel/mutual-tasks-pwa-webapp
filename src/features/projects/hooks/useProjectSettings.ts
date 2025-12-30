@@ -63,7 +63,7 @@ export const useProjectSettings = ({
   /**
    * Edit project details
    */
-  const handleEditProject = useCallback(async (projectData: { name: string; description: string }) => {
+  const handleEditProject = useCallback(async (projectData: { name: string; description: string; icon?: string }) => {
     if (!currentProject) return;
 
     try {
@@ -71,7 +71,8 @@ export const useProjectSettings = ({
       const pId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
       await db.projects.update(pId, {
         name: projectData.name,
-        description: projectData.description
+        description: projectData.description,
+        icon: projectData.icon
       });
 
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });

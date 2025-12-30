@@ -8,7 +8,7 @@ import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizonta
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { getDatabaseClient } from '@/db';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,8 @@ import {
   getStatusColor,
   calculateTaskStatusUserStatus
 } from '../../../lib/tasks/taskUtils';
+import { getIconByName } from '@/lib/projects/projectIcons';
+import { adjustColorOpacity } from '@/lib/colorUtils';
 
 interface TaskCardProps {
   task: Task;
@@ -32,7 +34,7 @@ interface TaskCardProps {
   showRecover?: boolean; // If false, hide recover button (for today's view)
 }
 
-export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, showRecover = true }: TaskCardProps) => {
+const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, showRecover = true }: TaskCardProps) => {
   const { user: currentUser } = useAuth();
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
@@ -169,7 +171,7 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
     }
   };
 
-  const handleRatingSubmit = (rating: number) => {
+  const handleRatingSubmit = (rating: number | undefined) => {
     if (onComplete) {
       onComplete(task.id, rating);
     }
@@ -179,14 +181,15 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
 
   return (
     <>
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      {/* Optimized for mobile scroll performance - removed heavy layout animations */}
+      <div
+        className="animate-fade-in"
+        style={{
+          // CSS containment for better paint performance
+          contain: 'layout style',
+        }}
       >
-        <Card className="p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 border-border/50">
+        <Card className="p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50">
           <div className="flex flex-col gap-4">
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
@@ -195,15 +198,17 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                   {project && (
                     <Badge
                       variant="outline"
-                      className="text-xs font-bold px-3 py-1 rounded-full border-none whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all duration-300 shadow-sm bg-muted/60"
+                      className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all duration-300 shadow-sm"
                       style={project.color ? {
-                        color: project.color,
-                        border: `1px solid ${project.color}15`
+                        backgroundColor: adjustColorOpacity(project.color, 0.15),
+                        borderColor: adjustColorOpacity(project.color, 0.3),
+                        color: project.color
                       } : undefined}
                     >
-                      {project.icon && (
-                        <span className="text-xs leading-none">{project.icon}</span>
-                      )}
+                      {project.icon && (() => {
+                        const Icon = getIconByName(project.icon);
+                        return <Icon className="w-3 h-3" />;
+                      })()}
                       <span>{project.name}</span>
                     </Badge>
                   )}
@@ -460,7 +465,7 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                 >
                   <Sparkles className="w-4 h-4 text-accent" />
                   <span className="text-sm text-muted-foreground">
-                    Difficulty: {myCompletion.difficultyRating || 'N/A'}/5
+                    Difficulty: {myCompletion.difficultyRating ? `${myCompletion.difficultyRating}/5` : 'N/A'}
                     {myCompletion.penaltyApplied && ' (Half XP - Recovered)'}
                   </span>
                 </motion.div>
@@ -468,7 +473,7 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
             </AnimatePresence>
           </div>
         </Card>
-      </motion.div>
+      </div>
 
       <DifficultyRatingModal
         open={showRatingModal}
@@ -563,7 +568,21 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                       {isParticipantCompleted && participantCompletion?.createdAt && (
                         <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {new Date(participantCompletion.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {(() => {
+                            const date = new Date(participantCompletion.createdAt);
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const checkDate = new Date(date);
+                            checkDate.setHours(0, 0, 0, 0);
+
+                            if (checkDate.getTime() === today.getTime()) return 'Today';
+
+                            const yesterday = new Date(today);
+                            yesterday.setDate(yesterday.getDate() - 1);
+                            if (checkDate.getTime() === yesterday.getTime()) return 'Yesterday';
+
+                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                          })()}
                         </span>
                       )}
                     </div>
@@ -587,3 +606,32 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
     </>
   );
 };
+
+/**
+ * Memoized TaskCard component for optimal scroll performance.
+ * Uses custom comparison to prevent re-renders when props haven't meaningfully changed.
+ */
+export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
+  // Custom comparison for performance - only re-render when these change:
+  // 1. Task ID or key data changed
+  if (prevProps.task.id !== nextProps.task.id) return false;
+  if (prevProps.task.title !== nextProps.task.title) return false;
+  if (prevProps.task.description !== nextProps.task.description) return false;
+  if (prevProps.task.dueDate !== nextProps.task.dueDate) return false;
+
+  // 2. Completion logs changed (by length or content)
+  if (prevProps.completionLogs?.length !== nextProps.completionLogs?.length) return false;
+
+  // 3. Handler references changed (usually stable but check)
+  if (prevProps.onComplete !== nextProps.onComplete) return false;
+  if (prevProps.onRecover !== nextProps.onRecover) return false;
+  if (prevProps.showRecover !== nextProps.showRecover) return false;
+
+  // 4. Task status array changed
+  if (prevProps.task.taskStatus?.length !== nextProps.task.taskStatus?.length) return false;
+
+  // Props are equal, skip re-render
+  return true;
+});
+
+TaskCard.displayName = 'TaskCard';

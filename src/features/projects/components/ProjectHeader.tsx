@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus, Settings } from 'lucide-react';
 import type { Project } from '@/types';
+import { getIconByName } from '@/lib/projects/projectIcons';
+import { adjustColorOpacity } from '@/lib/colorUtils';
 
 interface ProjectHeaderProps {
   project: Project;
@@ -10,13 +12,15 @@ interface ProjectHeaderProps {
   onCreateTask: () => void;
 }
 
-export const ProjectHeader = ({ 
-  project, 
-  canManage, 
-  onBack, 
-  onEdit, 
-  onCreateTask 
+export const ProjectHeader = ({
+  project,
+  canManage,
+  onBack,
+  onEdit,
+  onCreateTask
 }: ProjectHeaderProps) => {
+  const Icon = getIconByName(project.icon || 'Target');
+
   return (
     <div className="flex items-start gap-2 sm:gap-4">
       <Button
@@ -32,13 +36,9 @@ export const ProjectHeader = ({
         <div className="flex items-center gap-2 sm:gap-3 mb-2">
           <div
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${project.color}15` }}
+            style={{ backgroundColor: adjustColorOpacity(project.color, 0.15) }}
           >
-            {project.icon ? (
-              <span className="text-xl sm:text-2xl">{project.icon}</span>
-            ) : (
-              <span className="text-xl sm:text-2xl" style={{ color: project.color }}>📊</span>
-            )}
+            <Icon className="w-6 h-6 sm:w-7 sm:h-7" style={{ color: project.color }} />
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words">{project.name}</h1>

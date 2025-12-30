@@ -46,21 +46,28 @@ const Auth = () => {
   // Handle magic link verification
   useEffect(() => {
     const token = searchParams.get('token');
-    
+
     if (token) {
-      setIsVerifying(true);
-      verifyMagicLink(token)
-        .then((result) => {
+      const verify = async () => {
+        setIsVerifying(true);
+        try {
+          const result = await verifyMagicLink(token);
+
           if (result.success) {
             // Get token - prefer result value, fallback to localStorage
             const sessionToken = result.sessionToken || localStorage.getItem('momentum_session_token');
             const expiresAt = result.expiresAt || localStorage.getItem('momentum_session_expiry');
-            
+
             if (sessionToken) {
               // Always show handoff screen - user can choose how to continue
               // This ensures consistent experience on mobile browsers
               setHandoffToken(sessionToken);
               setHandoffExpiresAt(expiresAt);
+
+              // Refresh auth state to fetch user data immediately
+              // This ensures when they click "Continue", they are already authenticated
+              await refresh();
+
               setVerificationComplete(true);
               setIsVerifying(false);
             } else {
@@ -74,15 +81,17 @@ const Auth = () => {
             setIsVerifying(false);
             navigate('/auth');
           }
-        })
-        .catch((error) => {
+        } catch (error) {
           console.error('Verification error:', error);
           toast.error('Magic link verification failed. Please try again.');
           setIsVerifying(false);
           navigate('/auth');
-        });
+        }
+      };
+
+      verify();
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, refresh]);
 
   // Get app URL for handoff link
   const getAppUrl = (): string => {
@@ -96,7 +105,7 @@ const Auth = () => {
 
   // Detect iOS
   const isIOS = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
-  
+
   // Detect Android
   const isAndroid = typeof window !== 'undefined' && /Android/.test(navigator.userAgent);
 
@@ -152,10 +161,10 @@ const Auth = () => {
     }
 
     setIsPasteLinkLoading(true);
-    
+
     try {
       const trimmedLink = pastedLink.trim();
-      
+
       // Parse the URL - handle both relative and absolute URLs
       let url: URL;
       try {
@@ -182,7 +191,7 @@ const Auth = () => {
       // Check for handoff_token first (from handoff flow)
       const handoffToken = url.searchParams.get('handoff_token');
       const expiresAt = url.searchParams.get('expires_at');
-      
+
       if (handoffToken) {
         // This is a handoff token - use it directly
         const expiry = expiresAt || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
@@ -196,12 +205,12 @@ const Auth = () => {
 
       // Check for magic link token (?token=xxx)
       const magicLinkToken = url.searchParams.get('token');
-      
+
       if (magicLinkToken) {
         console.log('Found magic link token, verifying...');
         // This is a magic link - verify it and create session
         const result = await verifyMagicLink(magicLinkToken);
-        
+
         if (result.success && result.sessionToken) {
           // Refresh auth state to fetch user data
           await refresh();
@@ -220,7 +229,7 @@ const Auth = () => {
     } catch (err) {
       console.error('Failed to process link:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
-      
+
       if (errorMessage.includes('Invalid URL') || err instanceof TypeError) {
         toast.error('Invalid link format. Please paste the complete URL from your email, starting with "https://"');
       } else {
@@ -252,9 +261,9 @@ const Auth = () => {
             className="text-center mb-8"
           >
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 overflow-hidden">
-              <img 
-                src="/icons/icon-192x192.png" 
-                alt="Momentum" 
+              <img
+                src="/icons/icon-192x192.png"
+                alt="Momentum"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -273,7 +282,7 @@ const Auth = () => {
                     <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
-                
+
                 <div>
                   <h2 className="text-2xl font-bold mb-2">You're signed in!</h2>
                   <p className="text-muted-foreground text-sm md:text-base">
@@ -315,7 +324,7 @@ const Auth = () => {
                           <li>Open Momentum from your home screen</li>
                           <li>Tap "Sign In with Link" and paste</li>
                         </ol>
-                        
+
                         <Button
                           onClick={handleCopyLink}
                           variant="secondary"
@@ -372,7 +381,7 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!loginEmail.trim()) {
       toast.error('Please enter your email address');
       return;
@@ -384,10 +393,10 @@ const Auth = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
       const result = await requestLogin(loginEmail.trim());
-      
+
       if (result.success) {
         toast.success('Magic link sent! ✨', {
           description: `Check your email at ${loginEmail} for the sign-in link. Please also check your spam/junk folder if you don't see it.`,
@@ -407,7 +416,7 @@ const Auth = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!signupEmail.trim() || !signupName.trim() || !signupHandle.trim()) {
       toast.error('Please fill in all fields');
       return;
@@ -426,10 +435,10 @@ const Auth = () => {
     }
 
     setIsLoading(true);
-    
+
     try {
       const result = await requestSignup(signupEmail.trim(), signupName.trim(), signupHandle.trim());
-      
+
       if (result.success) {
         toast.success('Magic link sent! ✨', {
           description: `Check your email at ${signupEmail} to complete your registration. Please also check your spam/junk folder if you don't see it.`,
@@ -460,9 +469,9 @@ const Auth = () => {
           className="text-center mb-8"
         >
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 overflow-hidden">
-            <img 
-              src="/icons/icon-192x192.png" 
-              alt="Momentum" 
+            <img
+              src="/icons/icon-192x192.png"
+              alt="Momentum"
               className="w-full h-full object-cover"
             />
           </div>

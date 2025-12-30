@@ -404,9 +404,9 @@ export const useProjectTaskMutations = ({
         } else {
           endDate = new Date(startDate);
           if (taskData.recurrencePattern === 'Daily') {
-            endDate.setDate(endDate.getDate() + 28);
+            endDate.setDate(endDate.getDate() + 30);
           } else if (taskData.recurrencePattern === 'weekly') {
-            endDate.setDate(endDate.getDate() + 28);
+            endDate.setDate(endDate.getDate() + 30);
           }
           endDate.setHours(23, 59, 59, 999);
         }
@@ -416,7 +416,7 @@ export const useProjectTaskMutations = ({
         let currentDate = new Date(startDate);
         let occurrenceCount = 0;
         const maxOccurrences = taskData.customRecurrence?.occurrenceCount ||
-          (taskData.recurrencePattern === 'Daily' ? 28 : taskData.recurrencePattern === 'weekly' ? 4 : 999);
+          (taskData.recurrencePattern === 'Daily' ? 30 : taskData.recurrencePattern === 'weekly' ? 5 : 999);
 
         while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
           const taskDueDate = normalizeToStartOfDay(currentDate);

@@ -39,7 +39,7 @@ export const StreakCalendar = () => {
   // Generate last 7 weeks of days with real completion data
   const days = useMemo(() => {
     if (!currentUser) return [];
-    
+
     const result = [];
     const timezone = currentUser.timezone || 'UTC';
     const today = new Date();
@@ -53,10 +53,10 @@ export const StreakCalendar = () => {
     for (let i = 0; i < 49; i++) {
       const date = new Date(startOfWeek);
       date.setDate(date.getDate() + i);
-      
+
       // Get the date string in YYYY-MM-DD format in the user's timezone for lookup
       const dateStr = getDateStringInTimezone(date, timezone);
-      
+
       // Get actual completion count for this day
       const count = completionsByDate.get(dateStr) || 0;
       const intensity = calculateIntensity(count);
@@ -114,7 +114,7 @@ export const StreakCalendar = () => {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-4 flex-shrink-0">
-              <div className="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-accent/10">
+              <div className="flex items-center justify-between w-20 sm:w-32 gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-accent/10">
                 <Flame className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-accent" />
                 <div className="text-right">
                   <div className="text-[9px] sm:text-xs text-muted-foreground">Current</div>
@@ -122,7 +122,7 @@ export const StreakCalendar = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-muted">
+              <div className="flex items-center justify-between w-20 sm:w-32 gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-muted">
                 <Trophy className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
                 <div className="text-right">
                   <div className="text-[9px] sm:text-xs text-muted-foreground">Best</div>

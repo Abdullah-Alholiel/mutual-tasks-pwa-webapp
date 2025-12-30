@@ -7,7 +7,7 @@ import { useState } from 'react';
 interface DifficultyRatingModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (rating: number) => void;
+  onSubmit: (rating: number | undefined) => void;
   taskTitle: string;
 }
 
@@ -55,11 +55,10 @@ export const DifficultyRatingModal = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setSelectedRating(rating.value)}
-                className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-all ${
-                  selectedRating === rating.value
-                    ? 'border-primary bg-primary/5 shadow-primary'
-                    : 'border-border hover:border-primary/50'
-                }`}
+                className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-all ${selectedRating === rating.value
+                  ? 'border-primary bg-primary/5 shadow-primary'
+                  : 'border-border hover:border-primary/50'
+                  }`}
                 title={`${rating.label} - ${rating.description}`}
               >
                 <span className="text-xl">{rating.emoji}</span>
@@ -85,6 +84,7 @@ export const DifficultyRatingModal = ({
           <Button
             variant="outline"
             onClick={() => {
+              onSubmit(undefined);
               onOpenChange(false);
               setSelectedRating(null);
             }}

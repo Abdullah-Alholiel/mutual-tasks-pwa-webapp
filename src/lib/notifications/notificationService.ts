@@ -51,10 +51,10 @@ export class NotificationService {
    * Note: Task creation emails are handled separately via notifyTaskCreated in taskEmailNotifications.ts
    * This method creates in-app notifications only
    */
-  async notifyTaskInitiated(
+  async notifyTaskCreated(
     task: Task,
     project: Project,
-    initiator: User,
+    creator: User,
     recipient: User
   ): Promise<Notification | null> {
     try {
@@ -62,7 +62,7 @@ export class NotificationService {
       const notification = await db.notifications.create({
         userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
         type: 'project_joined', // Fallback as 'task_created' not in DB enum yet
-        message: `${initiator.name} initiated "${task.title}" in ${project.name}`,
+        message: `${creator.name} created "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
         isRead: false,
@@ -70,7 +70,7 @@ export class NotificationService {
       });
       return notification;
     } catch (error) {
-      console.error('Failed to create task initiated notification:', error);
+      console.error('Failed to create task created notification:', error);
       return null;
     }
   }

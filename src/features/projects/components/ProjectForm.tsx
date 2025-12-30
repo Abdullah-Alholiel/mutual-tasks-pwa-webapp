@@ -10,6 +10,7 @@ import type { Project, User } from '@/types';
 import { motion } from 'framer-motion';
 import { FolderKanban, Users, Sparkles, Globe, Lock, AtSign, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { adjustColorOpacity } from '@/lib/colorUtils';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
@@ -23,6 +24,8 @@ const PROJECT_COLORS = [
   { name: 'Teal', value: 'hsl(180, 70%, 45%)' },
 ];
 
+import { PROJECT_ICONS, ICON_CATEGORIES, getIconsByCategory } from '@/lib/projects/projectIcons';
+
 interface ProjectFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,6 +35,7 @@ interface ProjectFormProps {
     participants: string[];
     color: string;
     isPublic: boolean;
+    icon: string;
   }) => void;
   currentUser: User;
   availableUsers?: User[];
@@ -42,10 +46,12 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
   const [description, setDescription] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [selectedColor, setSelectedColor] = useState(PROJECT_COLORS[0].value);
+  const [selectedIcon, setSelectedIcon] = useState(PROJECT_ICONS[0].name);
   const [isPublic, setIsPublic] = useState(true);
   const [friendHandle, setFriendHandle] = useState('');
   const [highlightedFriendIds, setHighlightedFriendIds] = useState<Set<string>>(new Set());
   const [addedUsers, setAddedUsers] = useState<User[]>([]);
+  const [iconCategory, setIconCategory] = useState('All');
 
   // Get all available friends (existing users excluding current user)
   const availableFriends = availableUsers.filter(u => u.id !== currentUser.id);
@@ -143,20 +149,13 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
       return;
     }
 
-    // Private projects can now be created without additional participants
-    // if (!isPublic && selectedParticipants.length < 1) {
-    //   toast.error('Private project requires at least one friend', {
-    //     description: 'Add at least one friend to create a private project'
-    //   });
-    //   return;
-    // }
-
     onSubmit({
       name: name.trim(),
       description: description.trim(),
       participants: selectedParticipants,
       color: selectedColor,
-      isPublic
+      isPublic,
+      icon: selectedIcon
     });
 
     // Reset form
@@ -164,9 +163,11 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
     setDescription('');
     setSelectedParticipants([]);
     setSelectedColor(PROJECT_COLORS[0].value);
+    setSelectedIcon(PROJECT_ICONS[0].name);
     setIsPublic(true);
     setFriendHandle('');
     setHighlightedFriendIds(new Set());
+    setIconCategory('All');
     onOpenChange(false);
   };
 
@@ -177,12 +178,17 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
       setDescription('');
       setSelectedParticipants([]);
       setSelectedColor(PROJECT_COLORS[0].value);
+      setSelectedIcon(PROJECT_ICONS[0].name);
       setIsPublic(true);
       setFriendHandle('');
       setHighlightedFriendIds(new Set());
+      setIconCategory('All');
     }
     onOpenChange(open);
   };
+
+  // Get filtered icons based on selected category
+  const filteredIcons = getIconsByCategory(iconCategory);
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
@@ -223,30 +229,54 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
             />
           </div>
 
-          {/* Public/Private Toggle */}
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                {isPublic ? (
-                  <Globe className="w-5 h-5 text-primary" />
-                ) : (
-                  <Lock className="w-5 h-5 text-primary" />
-                )}
-              </div>
-              <div>
-                <Label htmlFor="isPublic" className="cursor-pointer">
-                  {isPublic ? 'Public Project' : 'Private Project'}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {isPublic ? 'Anyone can view this project' : 'Only members can view this project'}
-                </p>
-              </div>
+          {/* Icon Selection with Category Tabs */}
+          <div className="space-y-3">
+            <Label>Project Icon</Label>
+            {/* Category Tabs */}
+            <div className="flex flex-wrap gap-1.5">
+              {ICON_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setIconCategory(category)}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-medium rounded-full transition-all",
+                    iconCategory === category
+                      ? "text-white shadow-md"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                  )}
+                  style={iconCategory === category ? { backgroundColor: selectedColor } : {}}
+                >
+                  {category}
+                </button>
+              ))}
             </div>
-            <Switch
-              id="isPublic"
-              checked={isPublic}
-              onCheckedChange={setIsPublic}
-            />
+            {/* Icon Grid */}
+            <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-[140px] overflow-y-auto p-1 custom-scrollbar">
+              {filteredIcons.map(({ name: iconName, icon: Icon }) => (
+                <motion.button
+                  key={iconName}
+                  type="button"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setSelectedIcon(iconName)}
+                  className={cn(
+                    "flex items-center justify-center p-2.5 rounded-xl border-2 transition-all aspect-square",
+                    selectedIcon === iconName
+                      ? "border-primary bg-primary/10 text-primary ring-2 ring-offset-1"
+                      : "border-border text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  )}
+                  style={selectedIcon === iconName ? {
+                    color: selectedColor,
+                    borderColor: selectedColor,
+                    backgroundColor: adjustColorOpacity(selectedColor, 0.15),
+                    boxShadow: `0 0 0 2px ${adjustColorOpacity(selectedColor, 0.25)}`
+                  } : {}}
+                >
+                  <Icon className="w-5 h-5" />
+                </motion.button>
+              ))}
+            </div>
           </div>
 
           {/* Color Selection */}
@@ -266,6 +296,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
                       ? "border-primary bg-primary/5 shadow-primary"
                       : "border-border hover:border-primary/50"
                   )}
+                  style={selectedColor === color.value ? { borderColor: color.value } : {}}
                 >
                   <div
                     className="w-6 h-6 rounded-full"
@@ -275,6 +306,32 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
                 </motion.button>
               ))}
             </div>
+          </div>
+
+          {/* Public/Private Toggle */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center" style={isPublic ? { color: selectedColor, backgroundColor: adjustColorOpacity(selectedColor, 0.12) } : {}}>
+                {isPublic ? (
+                  <Globe className="w-5 h-5" />
+                ) : (
+                  <Lock className="w-5 h-5" />
+                )}
+              </div>
+              <div>
+                <Label htmlFor="isPublic" className="cursor-pointer">
+                  {isPublic ? 'Public Project' : 'Private Project'}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {isPublic ? 'Anyone can view this project' : 'Only members can view this project'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="isPublic"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+            />
           </div>
 
           {/* Participants */}
@@ -348,6 +405,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
                             ? "border-accent bg-accent/5 shadow-accent/20"
                             : "border-border hover:border-primary/50"
                       )}
+                      style={isSelected ? { borderColor: selectedColor } : {}}
                     >
                       {isHighlighted && !isSelected && (
                         <div className="absolute top-1 right-1">
@@ -363,7 +421,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
                         <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
                       </div>
                       {isSelected && (
-                        <Badge variant="default" className="shrink-0">Selected</Badge>
+                        <Badge variant="default" className="shrink-0" style={{ backgroundColor: selectedColor }}>Selected</Badge>
                       )}
                     </motion.button>
                   );
@@ -379,7 +437,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
           </div>
 
           {/* Info Badge */}
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4" style={{ backgroundColor: adjustColorOpacity(selectedColor, 0.03), borderColor: adjustColorOpacity(selectedColor, 0.2) }}>
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Note:</span> You can add more participants
               and tasks later. Projects help you organize and track your collaborative goals! 🎯
@@ -399,7 +457,8 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
             <Button
               type="submit"
               disabled={!name.trim()}
-              className="flex-1 gradient-primary text-white"
+              className="flex-1 text-white border-0"
+              style={{ backgroundColor: selectedColor }}
             >
               <Sparkles className="w-4 h-4 mr-2" />
               {isPublic ? 'Create Public Project' : 'Create Private Project'}

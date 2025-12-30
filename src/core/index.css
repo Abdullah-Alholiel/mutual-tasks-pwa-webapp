@@ -10,7 +10,7 @@ All colors MUST be HSL.
   :root {
     /* Dynamic viewport height for mobile */
     --vh: 1vh;
-    
+
     /* Safe area insets for iOS */
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --safe-area-inset-right: env(safe-area-inset-right, 0px);
@@ -157,7 +157,7 @@ All colors MUST be HSL.
   }
 
   /* Allow pinch zoom on images and specific elements */
-  img, 
+  img,
   [role="img"],
   .allow-zoom {
     touch-action: pan-x pan-y pinch-zoom;
@@ -173,7 +173,8 @@ All colors MUST be HSL.
     scroll-behavior: smooth;
     overflow-x: hidden;
     height: 100%;
-    height: -webkit-fill-available; /* iOS Safari */
+    height: -webkit-fill-available;
+    /* iOS Safari */
     position: relative;
     width: 100%;
   }
@@ -183,8 +184,10 @@ All colors MUST be HSL.
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
     min-height: 100vh;
-    min-height: -webkit-fill-available; /* iOS Safari */
-    min-height: 100dvh; /* Dynamic viewport height */
+    min-height: -webkit-fill-available;
+    /* iOS Safari */
+    min-height: 100dvh;
+    /* Dynamic viewport height */
     position: relative;
     width: 100%;
     /* Prevent pull-to-refresh on mobile */
@@ -212,6 +215,7 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+
   /* Animations */
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
@@ -255,9 +259,56 @@ All colors MUST be HSL.
   .glass-strong {
     @apply backdrop-blur-2xl bg-background/90 border border-border/60;
   }
+
+  /* Mobile Scroll Performance Optimizations */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  /* Optimize list items for off-screen rendering */
+  .scroll-optimized {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 180px;
+  }
+
+  /* Touch-optimized scrolling container */
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+  }
+
+  /* Reduce repaints during scroll by containing paint */
+  .contain-paint {
+    contain: layout style paint;
+  }
+
+  /* Mobile-specific scroll optimizations */
+  @media (max-width: 768px) {
+
+    /* Disable hover effects during scroll to prevent jank */
+    .scrolling .hover-lift:hover {
+      transform: none;
+    }
+
+    /* Reduce animation complexity on mobile */
+    .scrolling * {
+      transition-duration: 0ms !important;
+      animation-duration: 0ms !important;
+    }
+
+    /* Optimize cards during scroll */
+    .scrolling .shadow-md,
+    .scrolling .shadow-lg {
+      box-shadow: none !important;
+    }
+  }
 }
 
 @layer components {
+
   /* Custom scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
     width: 8px;
@@ -283,8 +334,10 @@ All colors MUST be HSL.
 
   /* Hide scrollbar for IE, Edge and Firefox */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
 
   /* Toast positioning - always on top with high z-index */
@@ -302,7 +355,7 @@ All colors MUST be HSL.
     position: absolute !important;
     margin: 0 !important;
   }
-  
+
   /* Close button styling - proportional size for all devices */
   [data-sonner-toast] button[data-close-button] {
     width: 18px !important;
@@ -319,19 +372,19 @@ All colors MUST be HSL.
     opacity: 0.7 !important;
     transition: opacity 0.2s ease !important;
   }
-  
+
   /* Hover state for close button */
   [data-sonner-toast] button[data-close-button]:hover {
     opacity: 1 !important;
   }
-  
+
   /* Close button icon sizing - smaller and proportional */
   [data-sonner-toast] button[data-close-button] svg {
     width: 12px !important;
     height: 12px !important;
     flex-shrink: 0 !important;
   }
-  
+
   /* Override Sonner's translateY transforms that create vertical spacing */
   /* Force all toasts to be in the exact same position - they overlap completely */
   [data-sonner-toaster][data-position="top-center"] [data-sonner-toast] {
@@ -341,7 +394,7 @@ All colors MUST be HSL.
     /* Only translateX for centering, remove any translateY that creates spacing */
     transform: translateX(-50%) !important;
   }
-  
+
   [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast] {
     bottom: 0 !important;
     right: 0 !important;
@@ -349,12 +402,12 @@ All colors MUST be HSL.
     /* Remove all transforms - toasts should be at exact same position */
     transform: none !important;
   }
-  
+
   /* Override any inline styles Sonner applies for vertical stacking */
   [data-sonner-toast][style*="translateY"] {
     transform: translateX(-50%) !important;
   }
-  
+
   [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast][style*="translateY"] {
     transform: none !important;
   }
@@ -386,12 +439,12 @@ All colors MUST be HSL.
       /* Smooth animations */
       animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    
+
     /* Override any inline transforms Sonner applies */
     [data-sonner-toast][style*="translateY"] {
       transform: translateX(-50%) !important;
     }
-    
+
     /* Exit animation */
     [data-sonner-toast][data-removed="true"] {
       animation: toast-slide-out 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -438,60 +491,64 @@ All colors MUST be HSL.
       /* Smooth animations for desktop */
       animation: toast-slide-in-bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    
+
     /* Exit animation for desktop */
     [data-sonner-toast][data-removed="true"] {
       animation: toast-slide-out-bottom 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    
+
     /* Override any inline transforms Sonner applies for vertical spacing */
     [data-sonner-toast][style*="translateY"] {
       transform: none !important;
     }
   }
-  
+
   /* Smooth slide-in animation from top (mobile) */
   @keyframes toast-slide-in {
     from {
       opacity: 0;
       transform: translateX(-50%) translateY(-20px);
     }
+
     to {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
   }
-  
+
   /* Smooth slide-out animation (mobile) */
   @keyframes toast-slide-out {
     from {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
+
     to {
       opacity: 0;
       transform: translateX(-50%) translateY(-20px);
     }
   }
-  
+
   /* Smooth slide-in animation from bottom (desktop) */
   @keyframes toast-slide-in-bottom {
     from {
       opacity: 0;
       transform: translateY(20px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
     }
   }
-  
+
   /* Smooth slide-out animation (desktop) */
   @keyframes toast-slide-out-bottom {
     from {
       opacity: 1;
       transform: translateY(0);
     }
+
     to {
       opacity: 0;
       transform: translateY(20px);
@@ -504,6 +561,7 @@ All colors MUST be HSL.
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -515,6 +573,7 @@ All colors MUST be HSL.
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -526,6 +585,7 @@ All colors MUST be HSL.
     transform: translateY(20px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -533,8 +593,13 @@ All colors MUST be HSL.
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%) skewX(-20deg); }
-  100% { transform: translateX(200%) skewX(-20deg); }
+  0% {
+    transform: translateX(-100%) skewX(-20deg);
+  }
+
+  100% {
+    transform: translateX(200%) skewX(-20deg);
+  }
 }
 
 .animate-shimmer {

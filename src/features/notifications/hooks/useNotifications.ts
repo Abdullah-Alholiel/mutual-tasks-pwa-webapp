@@ -15,7 +15,7 @@ import { toNumberId, transformNotificationRow, type NotificationRow } from '@/db
 
 // Module-level subscription tracking to prevent duplicates
 const activeNotificationSubscriptions = new Map<number, RealtimeChannel>();
-const notificationStateCallbacks = new Map<number, Set<(notifications: Notification[]) => void>>();
+const notificationStateCallbacks = new Map<number, Set<() => void>>();
 
 interface UseNotificationsParams {
   userId: number | null | undefined;

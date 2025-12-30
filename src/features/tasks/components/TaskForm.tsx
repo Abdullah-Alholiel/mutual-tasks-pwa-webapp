@@ -182,7 +182,7 @@ export const TaskForm = ({
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            <DialogTitle>Initiate New Task</DialogTitle>
+            <DialogTitle>Create New Task</DialogTitle>
           </div>
           <DialogDescription>
             {project
@@ -555,7 +555,7 @@ export const TaskForm = ({
               to all project members. 💪
               <br />
               <br />
-              <b> Daily/Weekly recurring tasks will repeat till the end of the month.</b>
+              <b> Daily/Weekly recurring tasks will repeat for 30 days.</b>
             </p>
           </div>
 
@@ -574,7 +574,7 @@ export const TaskForm = ({
               disabled={!title.trim() || !project}
               className="flex-1 gradient-primary text-white"
             >
-              Initiate Task
+              Create Task
             </Button>
           </div>
         </form>

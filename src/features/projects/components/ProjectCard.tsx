@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getIconByName } from '@/lib/projects/projectIcons';
 
 interface ProjectCardProps {
   project: Project;
@@ -17,17 +18,19 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
     ? ((project.completedTasks || 0) / project.totalTasks) * 100
     : 0;
 
+  const Icon = project.icon ? getIconByName(project.icon) : TrendingUp;
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => navigate(`/projects/${project.id}`)}
-      className="cursor-pointer"
+      className="cursor-pointer h-full"
     >
-      <Card className="p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 border-border/50">
-        <div className="flex flex-col gap-4">
+      <Card className="p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 border-border/50 h-full flex flex-col">
+        <div className="flex flex-col gap-4 h-full">
           {/* Header */}
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 flex-1">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-lg text-foreground break-words">
@@ -52,7 +55,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
               }}
             >
               <div className="absolute inset-0 opacity-5 bg-gradient-to-br from-white to-transparent" />
-              <TrendingUp className="w-6 h-6 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" style={{ color: project.color }} />
+              <Icon className="w-6 h-6 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" style={{ color: project.color }} />
             </div>
           </div>
 

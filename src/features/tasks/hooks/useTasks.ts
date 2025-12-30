@@ -146,7 +146,7 @@ export const useCreateTask = () => {
       // Invalidate and refetch tasks
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['project', newTask.projectId] });
-      const toastTitle = 'Task initiated! 🚀';
+      const toastTitle = 'Task created! 🚀';
       toast.success(toastTitle, {
         description: 'Your friend has been notified.'
       });
@@ -182,10 +182,10 @@ export const useCreateTaskWithStatuses = () => {
       }
 
       const db = getDatabaseClient();
-      
+
       // 1. Create the task in the database
       const createdTask = await db.tasks.create(input.task);
-      
+
       // 2. Create task statuses for all participants
       // Only use fields that exist in the database: taskId, userId, status, archivedAt, recoveredAt, ringColor
       const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
@@ -194,10 +194,10 @@ export const useCreateTaskWithStatuses = () => {
         status: 'active' as const,
         ringColor: undefined, // Default: no ring color for active tasks
       }));
-      
+
       // Create all statuses in the database
       const createdStatuses = await db.taskStatus.createMany(taskStatuses);
-      
+
       return {
         task: createdTask,
         taskStatuses: createdStatuses,
@@ -242,7 +242,7 @@ export const useCreateMultipleTasksWithStatuses = () => {
       for (const input of inputs) {
         // Create the task
         const createdTask = await db.tasks.create(input.task);
-        
+
         // Create task statuses for all participants
         // Only use fields that exist in the database: taskId, userId, status, archivedAt, recoveredAt, ringColor
         const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
@@ -251,9 +251,9 @@ export const useCreateMultipleTasksWithStatuses = () => {
           status: 'active' as const,
           ringColor: undefined, // Default: no ring color for active tasks
         }));
-        
+
         const createdStatuses = await db.taskStatus.createMany(taskStatuses);
-        
+
         results.push({
           task: createdTask,
           taskStatuses: createdStatuses,
@@ -265,16 +265,16 @@ export const useCreateMultipleTasksWithStatuses = () => {
     onSuccess: (results) => {
       // Get unique project IDs
       const projectIds = [...new Set(results.map(r => r.task.projectId))];
-      
+
       // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
-      
+
       projectIds.forEach(projectId => {
         queryClient.invalidateQueries({ queryKey: ['tasks', 'project', projectId] });
         queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       });
-      
+
       return results;
     },
     onError: (error) => {
@@ -437,15 +437,15 @@ export const useProjectCompletionLogs = (taskIds: number[]) => {
       const db = getDatabaseClient();
       // Fetch completion logs for all tasks in the project
       const allLogs: CompletionLog[] = [];
-      
+
       // Batch fetch - get logs for each task
-      const logPromises = taskIds.map(taskId => 
+      const logPromises = taskIds.map(taskId =>
         db.completionLogs.getAll({ taskId })
       );
-      
+
       const results = await Promise.all(logPromises);
       results.forEach(logs => allLogs.push(...logs));
-      
+
       return allLogs;
     },
     enabled: taskIds.length > 0,
