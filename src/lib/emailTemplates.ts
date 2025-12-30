@@ -17,9 +17,9 @@ export interface EmailData {
 }
 
 /**
- * Magic Link Email Template
+ * Sign In Email Template
  */
-export const createMagicLinkEmail = (
+export const createSigninEmail = (
   email: string,
   magicLink: string,
   userName?: string
@@ -82,98 +82,102 @@ export const createMagicLinkEmail = (
 };
 
 /**
- * Task Initiated Email Template
+ * Sign Up Email Template
  */
-export const createTaskInitiatedEmail = (
-  recipient: User,
-  task: Task,
-  project: Project,
-  initiator: User
+export const createSignupEmail = (
+  email: string,
+  magicLink: string,
+  userName?: string
 ): EmailData => {
-  const dueDateText = task.dueDate 
-    ? new Date(task.dueDate).toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-      })
-    : 'No due date set';
+  const greeting = userName ? `Hi ${userName},` : 'Hi there,';
   
   return {
-    to: recipient.email,
-    subject: `${initiator.name} wants to collaborate on "${task.title}"`,
+    to: email,
+    subject: 'Welcome to Momentum! Complete your signup',
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Welcome to Momentum</title>
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
-            <h1 style="color: white; margin: 0;">New Task Request</h1>
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Momentum! 🎉</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Collaborative Tasks</p>
           </div>
           
           <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <p style="font-size: 16px; color: #666;">
-              Hi <strong>${recipient.name}</strong>,
-            </p>
+            <h2 style="color: #1a1a1a; margin-top: 0;">${greeting}</h2>
             
-            <p style="font-size: 16px; color: #666;">
-              <strong>${initiator.name}</strong> has initiated a new task and wants to collaborate with you!
-            </p>
-            
-            <div style="background: #f8f9fa; border-left: 4px solid #0EA5E9; padding: 20px; margin: 20px 0; border-radius: 4px;">
-              <h3 style="margin-top: 0; color: #1a1a1a;">${task.title}</h3>
-              ${task.description ? `<p style="color: #666; margin: 10px 0;">${task.description}</p>` : ''}
-              <div style="margin-top: 15px;">
-                <p style="margin: 5px 0; color: #666;"><strong>Project:</strong> ${project.name}</p>
-                <p style="margin: 5px 0; color: #666;"><strong>Due Date:</strong> ${dueDateText}</p>
-                ${task.type === 'habit' && task.recurrencePattern ? `<p style="margin: 5px 0; color: #666;"><strong>Recurrence:</strong> ${task.recurrencePattern}</p>` : ''}
-              </div>
-            </div>
-            
-            <p style="font-size: 16px; color: #666;">
-              You can accept, decline, or propose a different time for this task in the Momentum app.
+            <p style="color: #666; font-size: 16px;">
+              Thank you for signing up! Click the button below to verify your email and complete your registration. This link will expire in 15 minutes.
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://momentum.app'}/" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
-                View Task in Momentum
+              <a href="${magicLink}" 
+                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                Complete Signup
               </a>
             </div>
+            
+            <p style="color: #999; font-size: 14px; margin-top: 30px;">
+              If the button doesn't work, copy and paste this link into your browser:
+            </p>
+            <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">
+              ${magicLink}
+            </p>
+            
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            
+            <p style="color: #999; font-size: 12px; margin: 0;">
+              If you didn't create an account, you can safely ignore this email.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} Momentum. All rights reserved.</p>
           </div>
         </body>
       </html>
     `,
-    text: `Hi ${recipient.name},\n\n${initiator.name} has initiated a new task: "${task.title}" in project "${project.name}".\n\nDue Date: ${dueDateText}\n\nView it in the Momentum app to accept, decline, or propose a different time.`
+    text: `${greeting}\n\nThank you for signing up! Click the link below to verify your email and complete your registration:\n\n${magicLink}\n\nThis link will expire in 15 minutes.\n\nIf you didn't create an account, you can safely ignore this email.`
   };
 };
 
 /**
- * Task Accepted Email Template
+ * Task Created Email Template
  */
-export const createTaskAcceptedEmail = (
+export const createTaskCreatedEmail = (
   recipient: User,
   task: Task,
   project: Project,
-  accepter: User
+  creator: User
 ): EmailData => {
+  // Support both Vite and Next.js environment variables
+  const appUrl = 
+    (typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) ||
+    (typeof process !== 'undefined' && process.env?.VITE_APP_URL) ||
+    (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) ||
+    'https://momentum.app';
+  const taskUrl = `${appUrl}/projects/${project.id}`;
+  
   return {
     to: recipient.email,
-    subject: `${accepter.name} accepted "${task.title}"`,
+    subject: `New task: "${task.title}" in ${project.name}`,
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>New Task Created</title>
         </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
-            <h1 style="color: white; margin: 0;">Task Accepted! 🎉</h1>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">New Task Created! 📝</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">${project.name}</p>
           </div>
           
           <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -182,141 +186,42 @@ export const createTaskAcceptedEmail = (
             </p>
             
             <p style="font-size: 16px; color: #666;">
-              Great news! <strong>${accepter.name}</strong> has accepted the task <strong>"${task.title}"</strong> in <strong>${project.name}</strong>.
+              <strong>${creator.name}</strong> has created a new task in <strong>${project.name}</strong>:
             </p>
             
+            <div style="background: #f5f5f5; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 18px;">${task.title}</h3>
+              ${task.description ? `<p style="margin: 0; color: #666; font-size: 14px;">${task.description}</p>` : ''}
+              <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">
+                Due: ${new Date(task.dueDate).toLocaleDateString()}
+              </p>
+            </div>
+            
             <p style="font-size: 16px; color: #666;">
-              You're now both committed to completing this task together. Let's build momentum! 💪
+              You're a participant in this project, so this task has been assigned to you. Click below to view and get started!
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://momentum.app'}/" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
+              <a href="${taskUrl}" 
+                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
                 View Task
               </a>
             </div>
           </div>
+          
+          <div style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} Momentum. All rights reserved.</p>
+          </div>
         </body>
       </html>
     `,
-    text: `Hi ${recipient.name},\n\n${accepter.name} has accepted the task "${task.title}" in "${project.name}".\n\nView it in the Momentum app!`
+    text: `Hi ${recipient.name},\n\n${creator.name} has created a new task "${task.title}" in ${project.name}.\n\n${task.description ? `Description: ${task.description}\n\n` : ''}Due: ${new Date(task.dueDate).toLocaleDateString()}\n\nView the task: ${taskUrl}`
   };
 };
 
-/**
- * Task Declined Email Template
- */
-export const createTaskDeclinedEmail = (
-  recipient: User,
-  task: Task,
-  project: Project,
-  decliner: User
-): EmailData => {
-  return {
-    to: recipient.email,
-    subject: `${decliner.name} declined "${task.title}"`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: #F59E0B; border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
-            <h1 style="color: white; margin: 0;">Task Declined</h1>
-          </div>
-          
-          <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <p style="font-size: 16px; color: #666;">
-              Hi <strong>${recipient.name}</strong>,
-            </p>
-            
-            <p style="font-size: 16px; color: #666;">
-              <strong>${decliner.name}</strong> has declined the task <strong>"${task.title}"</strong> in <strong>${project.name}</strong>.
-            </p>
-            
-            <p style="font-size: 16px; color: #666;">
-              You can create a new task or modify this one if needed.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://momentum.app'}/" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
-                View Project
-              </a>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
-    text: `Hi ${recipient.name},\n\n${decliner.name} has declined the task "${task.title}" in "${project.name}".`
-  };
-};
 
-/**
- * Task Time Proposed Email Template
- */
-export const createTaskTimeProposedEmail = (
-  recipient: User,
-  task: Task,
-  project: Project,
-  proposer: User,
-  proposedDate: Date
-): EmailData => {
-  const proposedDateText = proposedDate.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit'
-  });
-  
-  return {
-    to: recipient.email,
-    subject: `${proposer.name} proposed a new time for "${task.title}"`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
-            <h1 style="color: white; margin: 0;">New Time Proposed ⏰</h1>
-          </div>
-          
-          <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <p style="font-size: 16px; color: #666;">
-              Hi <strong>${recipient.name}</strong>,
-            </p>
-            
-            <p style="font-size: 16px; color: #666;">
-              <strong>${proposer.name}</strong> has proposed a new time for the task <strong>"${task.title}"</strong> in <strong>${project.name}</strong>.
-            </p>
-            
-            <div style="background: #f8f9fa; border-left: 4px solid #8B5CF6; padding: 20px; margin: 20px 0; border-radius: 4px;">
-              <p style="margin: 0; color: #666;"><strong>Proposed Time:</strong></p>
-              <p style="margin: 10px 0 0 0; font-size: 18px; color: #1a1a1a; font-weight: 600;">${proposedDateText}</p>
-            </div>
-            
-            <p style="font-size: 16px; color: #666;">
-              You can accept, decline, or propose a different time in the Momentum app.
-            </p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://momentum.app'}/" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
-                Respond to Proposal
-              </a>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
-    text: `Hi ${recipient.name},\n\n${proposer.name} has proposed a new time for "${task.title}": ${proposedDateText}\n\nRespond in the Momentum app.`
-  };
-};
+
+
 
 /**
  * Task Completed Email Template
@@ -327,8 +232,8 @@ export const createTaskCompletedEmail = (
   project: Project,
   completer: User
 ): EmailData => {
-  const allCompleted = task.taskStatuses?.length
-    ? task.taskStatuses.every(ts => ts.status === 'Completed')
+  const allCompleted = task.taskStatus?.length
+    ? task.taskStatus.every(ts => ts.status === 'completed')
     : false;
 
   return {
@@ -361,7 +266,7 @@ export const createTaskCompletedEmail = (
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.VITE_APP_URL || 'https://momentum.app'}/" 
+              <a href="${(typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'https://momentum.app'}/" 
                  style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
                 View Task
               </a>

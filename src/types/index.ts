@@ -10,7 +10,7 @@
 // - Components never see database-specific formats
 // ============================================================================
 
-export type TaskStatus = |'active'| 'upcoming'|'completed'|'archived' |'recovered';
+export type TaskStatus = | 'active' | 'upcoming' | 'completed' | 'archived' | 'recovered';
 export type TaskType = 'one_off' | 'habit';
 export type RecurrencePattern = 'Daily' | 'weekly' | 'custom';
 export type DifficultyRating = 1 | 2 | 3 | 4 | 5;
@@ -68,7 +68,7 @@ export interface User {
 }
 
 export interface UserStats {
-  userId: number;
+  userId: User['id'];
   totalCompletedTasks: number;
   currentStreak: number;
   longestStreak: number;
@@ -88,7 +88,7 @@ export interface Project {
   totalTasks: number;
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Computed/derived fields (not stored in DB, calculated on the fly)
   participants?: User[];
   participantRoles?: ProjectParticipant[];
@@ -97,20 +97,20 @@ export interface Project {
 }
 
 export interface ProjectParticipant {
-  projectId: number;
-  userId: number;
+  projectId: Project['id'];
+  userId: User['id'];
   role: ProjectRole;
   addedAt: Date;
   removedAt?: Date;
-  // user?: User; // Computed/derived field for frontend convenience keyword
+  user?: User; // Computed/derived field for frontend convenience
 }
 
- // Task Entity - Individual tasks within a project
+// Task Entity - Individual tasks within a project
 
 export interface Task {
   id: number;
-  projectId: number;
-  creatorId: number;
+  projectId: Project['id'];
+  creatorId: User['id'];
   title: string;
   description?: string;
   type: TaskType;
@@ -118,7 +118,7 @@ export interface Task {
   dueDate: Date;
   createdAt?: Date;
   updatedAt: Date;
-  
+
   // Computed/derived fields (not stored in DB, calculated on the fly)
   taskStatus?: TaskStatusEntity[];
   recurrence?: TaskRecurrence;
@@ -127,8 +127,8 @@ export interface Task {
 // TaskStatus Entity - Per-user task status tracking (replaces TaskAssignment)
 export interface TaskStatusEntity {
   id: number;
-  taskId: number;
-  userId: number;
+  taskId: Task['id'];
+  userId: User['id'];
   status: TaskStatus;
   archivedAt?: Date;
   recoveredAt?: Date;
@@ -136,22 +136,22 @@ export interface TaskStatusEntity {
   // dueDate?: Date; keyword
   // createdAt?: Date; keyword
   // updatedAt: Date; keyword
-  
+
   // Computed/derived fields
   user?: User;
   task?: Task;
 }
 
 // TaskRecurrence Entity - Handles recurring tasks (habits)
- 
+
 export interface TaskRecurrence {
   id: number;
-  taskId: number;
+  taskId: Task['id'];
   recurrencePattern: RecurrencePattern;
   recurrenceInterval: number;
   nextOccurrence: Date;
   endOfRecurrence?: Date;
-  
+
   // Computed/derived fields
   task?: Task;
 }
@@ -159,8 +159,8 @@ export interface TaskRecurrence {
 // CompletionLog Entity - Records individual task completions for score and streak calculation 
 export interface CompletionLog {
   id: number;
-  userId: number;
-  taskId: number;
+  userId: User['id'];
+  taskId: Task['id'];
   // completedAt: Date; keyword
   difficultyRating?: DifficultyRating;
   // recoveredCompletion: boolean; keyword
@@ -173,11 +173,11 @@ export interface CompletionLog {
 
 export interface Notification {
   id: number;
-  userId: number;
+  userId: User['id'];
   type: NotificationType;
   message: string;
-  taskId?: number;
-  projectId?: number;
+  taskId?: Task['id'];
+  projectId?: Project['id'];
   createdAt: Date;
   isRead: boolean;
   emailSent: boolean;
@@ -186,4 +186,4 @@ export interface Notification {
 export type TaskAssignment = TaskStatusEntity;
 export type AssignmentStatus = TaskStatus;
 export const ASSIGNMENT_STATUSES = TASK_STATUS;
-export type TaskStatusDisplay = 'active' |'completed' |'archived' |'recovered'|'upcoming';
+export type TaskStatusDisplay = 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming';

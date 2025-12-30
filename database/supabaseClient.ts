@@ -1,3 +1,22 @@
+// ============================================================================
+// Supabase Client - SERVER-SIDE ONLY (Node.js)
+// ============================================================================
+// 
+// This module provides Supabase clients for SERVER-SIDE operations only:
+// - Database migrations (migrate.ts)
+// - Seed scripts
+// - Server-side API routes
+// - Any Node.js scripts
+//
+// DO NOT use this in browser/client-side code.
+// For client-side code, use src/db/index.ts instead.
+//
+// Key differences:
+// - Uses process.env (Node.js only)
+// - Can use service role key (admin privileges)
+// - Not bundled for browser
+// ============================================================================
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import 'dotenv/config';
 
@@ -27,8 +46,11 @@ export const getServiceSupabaseClient = (): SupabaseClient => {
 };
 
 /**
- * Client-side Supabase client that uses the anon key.
- * Safe to use in the browser.
+ * Server-side Supabase client that uses the anon key.
+ * NOTE: This is for SERVER-SIDE Node.js scripts only (migrations, seed scripts, etc.).
+ * For browser/client-side code, use the client created in src/db/index.ts instead.
+ * 
+ * This uses process.env which is only available in Node.js, not in the browser.
  */
 export const getSupabaseClient = (): SupabaseClient => {
   if (cachedClient) return cachedClient;
