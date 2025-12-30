@@ -21,17 +21,29 @@ import { useAuth } from '../auth/useAuth';
 import { useProjects } from '../projects/hooks/useProjects';
 import { useCreateTask, useTaskStatuses, useCompletionLogs } from '../tasks/hooks/useTasks';
 import { useCreateCompletionLog, useUpdateTaskStatus } from '../tasks/hooks/useTasks';
-import { useTodayTasks } from '../tasks/hooks/useTasks';
-import { useIsRestoring } from '@tanstack/react-query';
+import { useTodayTasks, useUserTasks } from '../tasks/hooks/useTasks';
+import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
+import { getDatabaseClient } from '@/db';
+// Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
-const Index = () => {
+interface IndexProps {
+  isInternalSlide?: boolean;
+  isActive?: boolean;
+}
+
+const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
   const { user, isAuthenticated } = useAuth();
   const isRestoring = useIsRestoring();
+  const queryClient = useQueryClient();
   const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
   const { data: todayTasksRaw = [], isLoading: tasksLoading } = useTodayTasks();
+  const { data: allUserTasks = [], isLoading: allTasksLoading } = useUserTasks(); // For recovered tasks
   const createTaskMutation = useCreateTask();
   const createCompletionLogMutation = useCreateCompletionLog();
   const updateTaskStatusMutation = useUpdateTaskStatus();
+
+  // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
+  // No need to create subscriptions here - they're managed globally
 
   const { data: taskStatuses = [], isLoading: statusesLoading } = useTaskStatuses();
   const { data: completionLogs = [], isLoading: logsLoading } = useCompletionLogs();
@@ -41,6 +53,12 @@ const Index = () => {
   const tasksWithStatuses = useMemo(() =>
     updateTasksWithStatuses(todayTasksRaw, taskStatuses),
     [todayTasksRaw, taskStatuses]
+  );
+
+  // Update ALL user tasks with their statuses (for finding recovered tasks)
+  const allTasksWithStatuses = useMemo(() =>
+    updateTasksWithStatuses(allUserTasks, taskStatuses),
+    [allUserTasks, taskStatuses]
   );
 
   // Update projects with participant roles for permission checking
@@ -83,11 +101,21 @@ const Index = () => {
     if (!user) return;
 
     const now = new Date();
-    const task = tasksWithStatuses.find(t => {
+    // Look in both tasksWithStatuses (today's tasks) and allTasksWithStatuses (for recovered tasks)
+    let task = tasksWithStatuses.find(t => {
       const tId = typeof t.id === 'string' ? parseInt(t.id) : t.id;
       const searchId = typeof taskId === 'string' ? parseInt(taskId) : taskId;
       return tId === searchId;
     });
+
+    // If not found in today's tasks, check all tasks (for recovered tasks)
+    if (!task) {
+      task = allTasksWithStatuses.find(t => {
+        const tId = typeof t.id === 'string' ? parseInt(t.id) : t.id;
+        const searchId = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+        return tId === searchId;
+      });
+    }
 
     if (!task) {
       toast.error('Task not found');
@@ -110,16 +138,42 @@ const Index = () => {
     // Check if task is recovered
     const isRecovered = myTaskStatus.recoveredAt !== undefined;
     const taskDueDate = task.dueDate;
-    const isBeforeDueDate = now <= taskDueDate;
-    const penaltyApplied = isRecovered && !isBeforeDueDate;
+    
+    // Normalize dates to start of day for accurate comparison
+    // Tasks completed on the due date should get full XP
+    const normalizedNow = normalizeToStartOfDay(now);
+    const normalizedDueDate = normalizeToStartOfDay(new Date(taskDueDate));
+    const isOnOrBeforeDueDate = normalizedNow.getTime() <= normalizedDueDate.getTime();
 
-    // Calculate XP
-    const baseXP = (difficultyRating || 3) * 100;
-    const xpEarned = penaltyApplied ? Math.floor(baseXP / 2) : baseXP;
+    // For non-recovered tasks, check if late (completed after due date)
+    // Late means completed on a day AFTER the due date (not on the due date itself)
+    const isLate = !isRecovered && !isOnOrBeforeDueDate;
+
+    // Calculate XP (baseXP is fixed, not dependent on difficulty):
+    // - Recovered tasks: ALWAYS give fixed 100 XP
+    // - Late tasks (not recovered): give half of base XP (100 XP)
+    // - On-time tasks: give full base XP (200 XP)
+    const baseXP = 200; // Fixed base XP, not dependent on difficulty
+    let xpEarned: number;
+    let penaltyApplied: boolean;
+
+    if (isRecovered) {
+      // Recovered tasks always give fixed 100 XP
+      xpEarned = 100;
+      penaltyApplied = true;
+    } else if (isLate) {
+      // Late tasks (not recovered) give half XP
+      xpEarned = Math.floor(baseXP / 2);
+      penaltyApplied = true;
+    } else {
+      // On-time tasks give full XP
+      xpEarned = baseXP;
+      penaltyApplied = false;
+    }
 
     try {
       // Create completion log
-      const newCompletionLog = await createCompletionLogMutation.mutateAsync({
+      await createCompletionLogMutation.mutateAsync({
         userId: userId,
         taskId: taskIdNum,
         difficultyRating: difficultyRating as 1 | 2 | 3 | 4 | 5 | undefined,
@@ -132,12 +186,26 @@ const Index = () => {
         id: myTaskStatus.id,
         data: {
           status: 'completed',
-          ringColor: isRecovered ? 'yellow' : (isBeforeDueDate ? 'green' : 'none')
+          ringColor: isRecovered ? 'yellow' : (isOnOrBeforeDueDate ? 'green' : 'none')
         }
       });
 
-      // Update local state is no longer needed with react-query invalidation
-      // Success toasts will follow from mutations
+      // Recalculate and update user stats based on all completion logs
+      try {
+        const db = getDatabaseClient();
+        await db.users.recalculateStats(userId, user.timezone || 'UTC');
+        // Invalidate React Query cache for user stats so profile updates
+        queryClient.invalidateQueries({ queryKey: ['user', 'current', 'stats', userId] });
+        queryClient.invalidateQueries({ queryKey: ['completionLogs', userId] });
+      } catch (statsError) {
+        // Log error but don't fail the completion - stats update is secondary
+        console.error('Failed to update user stats:', statsError);
+      }
+
+      // Invalidate task-related queries to ensure data freshness
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+      queryClient.invalidateQueries({ queryKey: ['taskStatuses', userId] });
 
       toast.success('Great job! 💪', {
         description: penaltyApplied
@@ -157,13 +225,14 @@ const Index = () => {
   );
 
   const completedTasksForToday = useMemo(() =>
-    user ? getCompletedTasksForToday(myTasks, taskStatuses, completionLogs, user.id) : [],
-    [myTasks, taskStatuses, completionLogs, user]
+    user ? getCompletedTasksForToday(allTasksWithStatuses, taskStatuses, completionLogs, user.id) : [],
+    [allTasksWithStatuses, taskStatuses, completionLogs, user]
   );
 
+  // Use allTasksWithStatuses for recovered tasks since they have past due dates (not in today's tasks)
   const recoveredTasks = useMemo(() =>
-    user ? getRecoveredTasks(tasksWithStatuses, taskStatuses, completionLogs, user.id, projectsWithRoles) : [],
-    [tasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user]
+    user ? getRecoveredTasks(allTasksWithStatuses, taskStatuses, completionLogs, user.id, projectsWithRoles) : [],
+    [allTasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user]
   );
 
   const handleCreateTask = async (taskData: {
@@ -252,25 +321,23 @@ const Index = () => {
 
   if (isInitialLoading) {
     return (
-      <AppLayout>
-        <div className="space-y-8 p-4">
-          <div className="h-20 w-full animate-pulse bg-muted rounded-2xl" />
-          <div className="grid grid-cols-3 gap-4">
-            <div className="h-24 animate-pulse bg-muted rounded-2xl" />
-            <div className="h-24 animate-pulse bg-muted rounded-2xl" />
-            <div className="h-24 animate-pulse bg-muted rounded-2xl" />
-          </div>
-          <div className="space-y-4">
-            <div className="h-32 w-full animate-pulse bg-muted rounded-2xl" />
-            <div className="h-32 w-full animate-pulse bg-muted rounded-2xl" />
-          </div>
+      <div className="space-y-8 p-4">
+        <div className="h-20 w-full animate-pulse bg-muted rounded-2xl" />
+        <div className="grid grid-cols-3 gap-4">
+          <div className="h-24 animate-pulse bg-muted rounded-2xl" />
+          <div className="h-24 animate-pulse bg-muted rounded-2xl" />
+          <div className="h-24 animate-pulse bg-muted rounded-2xl" />
         </div>
-      </AppLayout>
+        <div className="space-y-4">
+          <div className="h-32 w-full animate-pulse bg-muted rounded-2xl" />
+          <div className="h-32 w-full animate-pulse bg-muted rounded-2xl" />
+        </div>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-8 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -405,7 +472,7 @@ const Index = () => {
         )}
 
         {/* Empty state */}
-        {myTasks.length === 0 && (
+        {needsActionTasks.length === 0 && completedTasksForToday.length === 0 && recoveredTasks.length === 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -438,7 +505,7 @@ const Index = () => {
         projects={projectsWhereCanCreateTasks}
         allowProjectSelection={true}
       />
-    </AppLayout>
+    </>
   );
 };
 

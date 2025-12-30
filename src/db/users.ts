@@ -2,16 +2,19 @@
 // Users Database Module - User CRUD Operations
 // ============================================================================
 
-import type { User, UserStats } from '@/types';
+import type { User, UserStats, CompletionLog } from '@/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   transformUserRow,
   transformUserStatsRow,
+  transformCompletionLogRow,
   toUserRow,
   toStringId,
   type UserRow,
   type UserStatsRow,
+  type CompletionLogRow,
 } from './transformers';
+import { calculateUserStatsFromLogs } from '@/lib/users/userStatsUtils';
 
 export class UsersRepository {
   constructor(private supabase: SupabaseClient) {}
@@ -220,6 +223,69 @@ export class UsersRepository {
 
     if (error || !data) return [];
     return data.map((row: UserRow) => transformUserRow(row));
+  }
+
+  /**
+   * Recalculate user stats from completion logs
+   * Fetches all completion logs for the user and recalculates stats
+   */
+  async recalculateStats(userId: number, timezone: string = 'UTC'): Promise<UserStats> {
+    // Fetch all completion logs for the user
+    const { data: logsData, error: logsError } = await this.supabase
+      .from('completion_logs')
+      .select('*')
+      .eq('user_id', toStringId(userId))
+      .order('created_at', { ascending: false });
+
+    if (logsError) {
+      console.error('Failed to fetch completion logs for stats recalculation:', logsError);
+      throw logsError;
+    }
+
+    const logs: CompletionLog[] = (logsData || []).map((row: CompletionLogRow) => 
+      transformCompletionLogRow(row)
+    );
+
+    // Calculate stats from logs
+    const calculatedStats = calculateUserStatsFromLogs(userId, logs, timezone);
+
+    // Update stats in database
+    const now = new Date().toISOString();
+    const { data: updatedStats, error: updateError } = await this.supabase
+      .from('user_stats')
+      .upsert({
+        user_id: toStringId(userId),
+        total_completed_tasks: calculatedStats.totalCompletedTasks,
+        current_streak: calculatedStats.currentStreak,
+        longest_streak: calculatedStats.longestStreak,
+        totalscore: calculatedStats.totalscore,
+        updated_at: now,
+      }, {
+        onConflict: 'user_id',
+      })
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Failed to update user stats:', updateError);
+      throw updateError;
+    }
+
+    return transformUserStatsRow(updatedStats as UserStatsRow);
+  }
+
+  /**
+   * Get all completion logs for a user (for StreakCalendar)
+   */
+  async getCompletionLogs(userId: number): Promise<CompletionLog[]> {
+    const { data, error } = await this.supabase
+      .from('completion_logs')
+      .select('*')
+      .eq('user_id', toStringId(userId))
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return [];
+    return data.map((row: CompletionLogRow) => transformCompletionLogRow(row));
   }
 }
 

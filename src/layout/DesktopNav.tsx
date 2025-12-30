@@ -12,10 +12,9 @@ import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Inbox } from '@/features/notifications/Inbox';
 import { useState, useEffect, useRef } from 'react';
-import type { Notification } from '@/types';
-import { getDatabaseClient } from '@/db';
 import { handleError } from '@/lib/errorUtils';
 import { useAuth } from '@/features/auth/useAuth';
+import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 
 
 const navItems = [
@@ -26,31 +25,16 @@ const navItems = [
 
 export const DesktopNav = () => {
   const { user, logout } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const scrollThreshold = 10; // Minimum scroll distance to trigger hide/show
 
-  // Load notifications from database when user is available
-  useEffect(() => {
-    const loadNotifications = async () => {
-      if (!user) return;
-
-      try {
-        const db = getDatabaseClient();
-        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-        const userNotifications = await db.notifications.getByUserId(userId, {
-          limit: 50,
-          isRead: undefined, // Get both read and unread
-        });
-        setNotifications(userNotifications);
-      } catch (error) {
-        handleError(error, 'loadNotifications');
-      }
-    };
-
-    loadNotifications();
-  }, [user]);
+  // Use real-time notifications hook
+  const userId = user ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : null;
+  const { notifications, markAsRead, markAllAsRead } = useNotifications({
+    userId,
+    enabled: !!user,
+  });
 
   const handleLogout = async () => {
     try {
@@ -65,31 +49,12 @@ export const DesktopNav = () => {
   };
 
   const handleMarkAsRead = async (notificationId: string | number) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-    );
-    try {
-      const db = getDatabaseClient();
-      const id = typeof notificationId === 'string' ? parseInt(notificationId) : notificationId;
-      await db.notifications.markAsRead(id);
-    } catch (error) {
-      handleError(error, 'markNotificationRead');
-    }
+    const id = typeof notificationId === 'string' ? parseInt(notificationId) : notificationId;
+    await markAsRead(id);
   };
 
   const handleMarkAllAsRead = async () => {
-    const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    try {
-      const db = getDatabaseClient();
-      if (user) {
-        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-        await db.notifications.markAllAsRead(userId);
-        toast.success('All notifications marked as read');
-      }
-    } catch (error) {
-      handleError(error, 'markAllNotificationsRead');
-    }
+    await markAllAsRead();
   };
 
   useEffect(() => {

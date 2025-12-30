@@ -223,11 +223,12 @@ export class ProjectsRepository {
 
     const { data, error } = await this.supabase
       .from('project_participants')
-      .insert({
+      .upsert({
         project_id: toStringId(projectId),
         user_id: toStringId(userId),
         role,
         added_at: now,
+        removed_at: null, // Clear removed_at if it was set
       })
       .select()
       .single();
@@ -257,12 +258,18 @@ export class ProjectsRepository {
   }
 
   /**
-   * Remove a participant from a project
+   * Remove a participant from a project (Soft Delete)
    */
   async removeParticipant(projectId: number, userId: number): Promise<void> {
+    const now = new Date().toISOString();
+
+    // Perform soft delete by setting removed_at
     const { error } = await this.supabase
       .from('project_participants')
-      .update({ removed_at: new Date().toISOString() })
+      .update({
+        removed_at: now,
+        role: 'participant' // Reset role to participant to avoid zombie managers/owners if they rejoin
+      })
       .eq('project_id', toStringId(projectId))
       .eq('user_id', toStringId(userId));
 

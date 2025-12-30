@@ -10,6 +10,7 @@ import { handleError } from '@/lib/errorUtils';
 import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ParticipantWithUser, ProjectPermissions } from './types';
+import { useLeaveProject } from './useProjects';
 
 interface UseProjectSettingsParams {
   projectId: string | undefined;
@@ -29,6 +30,7 @@ export const useProjectSettings = ({
 }: UseProjectSettingsParams) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const leaveProjectMutation = useLeaveProject();
 
   // Dialog states
   const [showEditProjectForm, setShowEditProjectForm] = useState(false);
@@ -103,22 +105,15 @@ export const useProjectSettings = ({
     }
 
     try {
-      const db = getDatabaseClient();
-      await db.projects.removeParticipant(pId, userId);
-
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-
-      toast.success('Left project', {
-        description: 'You have been removed from this project'
-      });
+      // Use the mutation for leaving (handles invalidation appropriately)
+      await leaveProjectMutation.mutateAsync(pId);
 
       setShowLeaveProjectDialog(false);
       navigate('/projects');
     } catch (error) {
-      handleError(error, 'handleLeaveProject');
+      // Error handled by mutation
     }
-  }, [currentProject, user, projectId, queryClient, navigate]);
+  }, [currentProject, user, leaveProjectMutation, navigate]);
 
   /**
    * Delete the project
@@ -166,4 +161,3 @@ export const useProjectSettings = ({
     navigate,
   };
 };
-

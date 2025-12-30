@@ -141,7 +141,7 @@ export class TasksRepository {
   async delete(id: number): Promise<void> {
     // Delete related records first
     await this.taskStatusRepo.deleteByTaskId(id);
-    await this.supabase.from('task_recurrences').delete().eq('task_id', toStringId(id));
+    await this.supabase.from('task_recurrence').delete().eq('task_id', toStringId(id));
     await this.supabase.from('completion_logs').delete().eq('task_id', toStringId(id));
 
     const { error } = await this.supabase.from('tasks').delete().eq('id', toStringId(id));
@@ -154,7 +154,7 @@ export class TasksRepository {
    */
   async getRecurrence(taskId: number): Promise<TaskRecurrence | null> {
     const { data, error } = await this.supabase
-      .from('task_recurrences')
+      .from('task_recurrence')
       .select('*')
       .eq('task_id', toStringId(taskId))
       .single();
@@ -170,7 +170,7 @@ export class TasksRepository {
     if (taskIds.length === 0) return [];
 
     const { data, error } = await this.supabase
-      .from('task_recurrences')
+      .from('task_recurrence')
       .select('*')
       .in('task_id', taskIds.map(toStringId));
 
@@ -191,7 +191,7 @@ export class TasksRepository {
     };
 
     const { data, error } = await this.supabase
-      .from('task_recurrences')
+      .from('task_recurrence')
       .upsert(row, {
         onConflict: 'task_id',
       })
@@ -207,7 +207,7 @@ export class TasksRepository {
    */
   async deleteRecurrence(taskId: number): Promise<void> {
     const { error } = await this.supabase
-      .from('task_recurrences')
+      .from('task_recurrence')
       .delete()
       .eq('task_id', toStringId(taskId));
 

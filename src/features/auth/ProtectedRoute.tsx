@@ -10,13 +10,14 @@
 // - Loading state is only shown when we have a token but no cached user (rare)
 // ============================================================================
 
+import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/useAuth';
 import { PageLoader } from '@/components/ui/loader';
 import { getSessionToken } from '@/lib/auth/sessionStorage';
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 /**
@@ -36,7 +37,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // With synchronous hydration, user should be available immediately
   // if there's cached data. Loading is only true in edge cases.
-  
+
   // Case 1: User is available (from cache or fresh fetch) - render immediately
   if (user || isAuthenticated) {
     return <>{children}</>;

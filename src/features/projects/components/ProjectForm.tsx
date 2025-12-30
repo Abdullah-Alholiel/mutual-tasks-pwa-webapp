@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, FormEvent } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +57,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
 
     // Add all available friends
     availableFriends.forEach(friend => {
-      friendMap.set(friend.id, friend);
+      friendMap.set(String(friend.id), friend);
     });
 
     // Add users that were found by handle search
@@ -136,7 +136,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
     searchUser();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {

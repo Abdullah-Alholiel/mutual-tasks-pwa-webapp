@@ -10,6 +10,7 @@ import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
 import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ParticipantWithUser } from './types';
+import { notificationService } from '@/lib/notifications/notificationService';
 
 interface UseProjectMembersParams {
   projectId: string | undefined;
@@ -30,7 +31,7 @@ export const useProjectMembers = ({
   user,
 }: UseProjectMembersParams) => {
   const queryClient = useQueryClient();
-  
+
   // State
   const [showAddMemberForm, setShowAddMemberForm] = useState(false);
   const [showMembersDialog, setShowMembersDialog] = useState(false);
@@ -112,6 +113,44 @@ export const useProjectMembers = ({
 
       await db.projects.addParticipant(pId, userIdToAdd, 'participant');
 
+      // Create task statuses for all existing tasks in the project
+      const projectTasks = await db.tasks.getAll({ projectId: pId });
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Create task statuses for all tasks
+      const taskStatusesToCreate = projectTasks
+        .filter(task => {
+          // Check if status already exists (safety check)
+          // We'll check this in the loop below to avoid unnecessary creates
+          return true;
+        })
+        .map(task => {
+          const dueDate = new Date(task.dueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          const isPastDue = dueDate.getTime() < today.getTime();
+
+          return {
+            taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
+            userId: userIdToAdd,
+            status: isPastDue ? ('archived' as const) : ('active' as const),
+            archivedAt: isPastDue ? now : undefined,
+            ringColor: undefined,
+          };
+        });
+
+      // Create task statuses (checking for existence first to avoid duplicates)
+      if (taskStatusesToCreate.length > 0) {
+        await Promise.all(
+          taskStatusesToCreate.map(async (statusData) => {
+            const existingStatus = await db.taskStatus.getByTaskAndUser(statusData.taskId, statusData.userId);
+            if (!existingStatus) {
+              await db.taskStatus.create(statusData);
+            }
+          })
+        );
+      }
+
       const newParticipant: ProjectParticipant = {
         projectId: pId,
         userId: userIdToAdd,
@@ -121,7 +160,55 @@ export const useProjectMembers = ({
       };
 
       setProjectParticipants(prev => [...prev, newParticipant]);
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      
+      // Immediately refetch to ensure UI updates instantly
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['project', projectId] }),
+        queryClient.refetchQueries({ queryKey: ['project', String(pId)] }),
+        queryClient.refetchQueries({ queryKey: ['project', pId] }),
+        queryClient.refetchQueries({ queryKey: ['projects'] }),
+        queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
+        // Also refetch for the new user's projects and tasks
+        queryClient.refetchQueries({ queryKey: ['projects', userIdToAdd] }),
+        queryClient.refetchQueries({ queryKey: ['tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['taskStatuses'] }),
+        queryClient.refetchQueries({ queryKey: ['tasks', 'today', userIdToAdd] }),
+      ]);
+
+      // Send notification to the newly added member
+      try {
+        // Create notification for the new member that they've been added
+        await db.notifications.create({
+          userId: userIdToAdd,
+          type: 'project_joined',
+          message: `You've been added to "${currentProject.name}" by ${user.name}`,
+          projectId: pId,
+          isRead: false,
+          emailSent: false,
+        });
+
+        // Notify existing project members (except the adder) about the new member
+        const existingParticipants = participants.filter(p => {
+          const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+          const currentUserId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+          return pUserId !== currentUserId && pUserId !== userIdToAdd;
+        });
+
+        if (existingParticipants.length > 0) {
+          const notificationsToCreate = existingParticipants.map(p => ({
+            userId: typeof p.userId === 'string' ? parseInt(p.userId) : p.userId,
+            type: 'project_joined' as const,
+            message: `${userToAdd.name} joined "${currentProject.name}"`,
+            projectId: pId,
+            isRead: false,
+            emailSent: false,
+          }));
+          await db.notifications.createMany(notificationsToCreate);
+        }
+      } catch (notifError) {
+        // Don't fail the member addition if notification fails
+        console.error('Failed to send notifications:', notifError);
+      }
 
       toast.success('Member added! 🎉', {
         description: `${userToAdd.name} (${userToAdd.handle}) has been added to the project`
@@ -143,24 +230,43 @@ export const useProjectMembers = ({
     try {
       const db = getDatabaseClient();
       const pId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
+
+      // 1. Get all tasks for this project
+      const projectTasks = await db.tasks.getAll({ projectId: pId });
+      const projectTaskIds = projectTasks.map(task => 
+        typeof task.id === 'string' ? parseInt(task.id) : task.id
+      );
+
+      // 2. Delete all task statuses for this user in this project
+      if (projectTaskIds.length > 0) {
+        await db.taskStatus.deleteByProjectAndUser(projectTaskIds, userIdToRemove);
+      }
+
+      // 3. Remove the user from the project (soft delete)
       await db.projects.removeParticipant(pId, userIdToRemove);
 
       const now = new Date();
       setProjectParticipants(prev =>
-        prev.map(pp => {
+        prev.filter(pp => {
           const ppProjectId = typeof pp.projectId === 'string' ? parseInt(pp.projectId) : pp.projectId;
           const ppUserId = typeof pp.userId === 'string' ? parseInt(pp.userId) : pp.userId;
-          if (ppProjectId === pId && ppUserId === userIdToRemove) {
-            return { ...pp, removedAt: now };
-          }
-          return pp;
+          return !(ppProjectId === pId && ppUserId === userIdToRemove);
         })
       );
 
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      // Refetch all relevant queries immediately
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['project', projectId] }),
+        queryClient.refetchQueries({ queryKey: ['project', String(pId)] }),
+        queryClient.refetchQueries({ queryKey: ['project', pId] }),
+        queryClient.refetchQueries({ queryKey: ['projects'] }),
+        queryClient.refetchQueries({ queryKey: ['tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['taskStatuses'] }),
+        queryClient.refetchQueries({ queryKey: ['tasks', 'project', pId] }),
+      ]);
 
       toast.success('Participant removed', {
-        description: 'The member has been removed from the project'
+        description: 'The member has been removed from the project and all related tasks'
       });
     } catch (error) {
       handleError(error, 'handleRemoveParticipant');
@@ -189,7 +295,12 @@ export const useProjectMembers = ({
         })
       );
 
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      // Refetch project immediately to show updated role
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['project', projectId] }),
+        queryClient.refetchQueries({ queryKey: ['project', String(pId)] }),
+        queryClient.refetchQueries({ queryKey: ['project', pId] }),
+      ]);
 
       toast.success('Role updated', {
         description: `User role changed to ${newRole}`
@@ -210,7 +321,7 @@ export const useProjectMembers = ({
     setShowMembersDialog,
     memberIdentifier,
     setMemberIdentifier,
-    
+
     // Handlers
     handleAddMember,
     handleRemoveParticipant,

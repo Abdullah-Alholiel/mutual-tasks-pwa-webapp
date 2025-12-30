@@ -322,6 +322,7 @@ export function toTaskStatusRow(status: Partial<TaskStatusEntity>): Partial<Task
   if (status.taskId !== undefined) row.task_id = toStringId(status.taskId);
   if (status.userId !== undefined) row.user_id = toStringId(status.userId);
   if (status.status !== undefined) row.status = status.status;
+  // Always include archivedAt if it's in the status object (even if null) to ensure it's cleared in DB
   if (status.archivedAt !== undefined) {
     row.archived_at = status.archivedAt ? status.archivedAt.toISOString() : null;
   }

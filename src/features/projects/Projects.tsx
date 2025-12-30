@@ -12,18 +12,28 @@ import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/features/auth/useAuth';
-import { useProjects, usePublicProjects, useCreateProject } from './hooks/useProjects';
+import { useProjects, usePublicProjects, useCreateProject, useUserProjectsWithStats, useJoinProject } from './hooks/useProjects';
 import { getUserProjects } from '@/lib/projects/projectUtils';
 import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
+// Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
-const Projects = () => {
+interface ProjectsProps {
+  isInternalSlide?: boolean;
+  isActive?: boolean;
+}
+
+const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const isRestoring = useIsRestoring();
-  const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
+
+  // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
+  // Project updates are automatically reflected via the global subscription
+  const { data: allProjects = [], isLoading: projectsLoading } = useUserProjectsWithStats();
   const { data: publicProjectsRaw = [] } = usePublicProjects();
   const createProjectMutation = useCreateProject();
+  const joinProjectMutation = useJoinProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
 
   // We no longer block the whole page on loading
@@ -33,7 +43,7 @@ const Projects = () => {
 
   // Calculate user-specific progress for each project using utility
   // Note: For now we'll use projects as-is since progress is calculated server-side
-  const projectsWithProgress = useMemo(() => allProjects, [allProjects]);
+  const projectsWithProgress = allProjects;
 
   // Filter projects using utilities
   const myProjects = useMemo(() =>
@@ -110,47 +120,30 @@ const Projects = () => {
   };
 
   const handleJoinProject = async (project: Project) => {
-    if (!user || !isAuthenticated) {
-      toast.error('You must be logged in to join a project');
-      return;
-    }
-
     try {
-      const db = getDatabaseClient();
-      const projectId = typeof project.id === 'string' ? parseInt(project.id) : project.id;
-      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-
-      await db.projects.addParticipant(projectId, userId, 'participant');
-
-      toast.success('Joined project! 🎉', {
-        description: `You're now a member of ${project.name}`
-      });
-
+      await joinProjectMutation.mutateAsync(project.id);
       // Navigate to project detail
       navigate(`/projects/${project.id}`);
     } catch (error) {
-      console.error('Failed to join project:', error);
-      toast.error('Failed to join project');
+      // Error is handled by the hook
     }
   };
 
   if (isInitialLoading) {
     return (
-      <AppLayout>
-        <div className="space-y-8 p-4">
-          <div className="h-20 w-full animate-pulse bg-muted rounded-2xl" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="h-48 animate-pulse bg-muted rounded-2xl" />
-            <div className="h-48 animate-pulse bg-muted rounded-2xl" />
-            <div className="h-48 animate-pulse bg-muted rounded-2xl" />
-          </div>
+      <div className="space-y-8 p-4">
+        <div className="h-20 w-full animate-pulse bg-muted rounded-2xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="h-48 animate-pulse bg-muted rounded-2xl" />
+          <div className="h-48 animate-pulse bg-muted rounded-2xl" />
+          <div className="h-48 animate-pulse bg-muted rounded-2xl" />
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-8 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -274,7 +267,7 @@ const Projects = () => {
         onSubmit={handleCreateProject}
         currentUser={user!}
       />
-    </AppLayout>
+    </>
   );
 };
 
@@ -334,12 +327,13 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
                 {project.completedTasks || 0}/{project.totalTasks || 0} tasks
               </span>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2 overflow-hidden shadow-inner">
               <div
-                className="h-2 rounded-full transition-all"
+                className="h-2 rounded-full transition-all duration-500 ease-out"
                 style={{
                   width: `${progress}%`,
-                  backgroundColor: project.color
+                  backgroundColor: project.color,
+                  boxShadow: `0 0 10px ${project.color}50`
                 }}
               />
             </div>

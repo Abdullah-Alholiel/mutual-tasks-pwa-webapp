@@ -6,6 +6,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { Task, TaskStatusEntity, CompletionLog } from '@/types';
 import { useProjectTasks, useProjectCompletionLogs } from '../../tasks/hooks/useTasks';
 import type { ProjectTaskState } from './types';
+// Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 interface UseProjectTaskDataParams {
   projectId: string | undefined;
@@ -40,6 +41,9 @@ export const useProjectTaskData = ({
     projectTasksFromDb.map(t => typeof t.id === 'string' ? parseInt(t.id) : t.id),
     [projectTasksFromDb]
   );
+
+  // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
+  // Task status updates are automatically reflected via the global subscription
   
   // Fetch completion logs for all project tasks
   const { 

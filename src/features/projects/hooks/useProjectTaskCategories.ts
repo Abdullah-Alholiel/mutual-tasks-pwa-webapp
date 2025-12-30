@@ -7,7 +7,7 @@ import type { Task, TaskStatusEntity, CompletionLog, Project, User } from '@/typ
 import { getProjectTasks, updateTasksWithStatuses } from '@/lib/tasks/taskFilterUtils';
 import { calculateProjectProgress } from '@/lib/projects/projectUtils';
 import { calculateTaskStatusUserStatus } from '@/lib/tasks/taskUtils';
-import type { CategorizedTasks } from './types';
+import type { CategorizedTasks, HabitSeries } from './types';
 
 interface UseProjectTaskCategoriesParams {
   tasks: Task[];
@@ -57,22 +57,22 @@ export const useProjectTaskCategories = ({
     const upcoming: Task[] = [];
     const completed: Task[] = [];
     const archived: Task[] = [];
-    
+
     const addUnique = (list: Task[], task: Task) => {
       if (!list.some(t => t.id === task.id)) list.push(task);
     };
 
     if (!user) {
-      return { 
-        activeTasks: [], 
-        upcomingTasks: [], 
-        completedTasks: [], 
-        archivedTasks: [] 
+      return {
+        activeTasks: [],
+        upcomingTasks: [],
+        completedTasks: [],
+        archivedTasks: []
       };
     }
 
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-    
+
     projectTasks.forEach(task => {
       const myStatus = taskStatuses.find(ts => {
         const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
@@ -80,14 +80,14 @@ export const useProjectTaskCategories = ({
         const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
         return tsTaskId === taskId && tsUserId === userId;
       });
-      
+
       const myCompletion = completionLogs.find(cl => {
         const clUserId = typeof cl.userId === 'string' ? parseInt(cl.userId) : cl.userId;
         const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
         const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
         return clTaskId === taskId && clUserId === userId;
       });
-      
+
       const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
 
       if (myCompletion) {
@@ -111,19 +111,42 @@ export const useProjectTaskCategories = ({
       }
     });
 
-    return { 
-      activeTasks: active, 
-      upcomingTasks: upcoming, 
-      completedTasks: completed, 
-      archivedTasks: archived 
+    return {
+      activeTasks: active,
+      upcomingTasks: upcoming,
+      completedTasks: completed,
+      archivedTasks: archived
     };
   }, [projectTasks, taskStatuses, completionLogs, user]);
 
-  // Habits: all habit tasks in the project
-  const habitTasks = useMemo(() =>
-    projectTasks.filter(t => t.type === 'habit'),
-    [projectTasks]
-  );
+  // Habits: group all habit tasks in the project by their series (title/description)
+  const habitTasks = useMemo(() => {
+    const habits = projectTasks.filter(t => t.type === 'habit');
+    const seriesMap = new Map<string, HabitSeries>();
+
+    habits.forEach(task => {
+      // Create a unique key for the series based on title and description
+      const seriesKey = `${task.title}|${task.description || ''}`;
+
+      if (!seriesMap.has(seriesKey)) {
+        seriesMap.set(seriesKey, {
+          title: task.title,
+          description: task.description,
+          recurrencePattern: task.recurrencePattern,
+          tasks: [],
+        });
+      }
+
+      seriesMap.get(seriesKey)!.tasks.push(task);
+    });
+
+    // Sort tasks within each series by due date
+    seriesMap.forEach(series => {
+      series.tasks.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    });
+
+    return Array.from(seriesMap.values());
+  }, [projectTasks]);
 
   const hasAnyAllTabContent = useMemo(() =>
     Boolean(

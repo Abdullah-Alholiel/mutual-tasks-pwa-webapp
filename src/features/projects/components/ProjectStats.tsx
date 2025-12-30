@@ -38,14 +38,32 @@ export const ProjectStats = ({
     <Card className="p-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Progress */}
-        <div className="space-y-3 md:col-span-1">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Progress</span>
-            <span className="text-sm font-medium">{Math.round(progress)}%</span>
+        <div className="space-y-4 md:col-span-1">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40">
+              Project Progress
+            </span>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-bold text-foreground">
+                {Math.round(progress)}%
+              </span>
+              <div className="text-right">
+                <span className="text-sm font-semibold text-muted-foreground">
+                  {completedCount}/{totalTasks}
+                </span>
+                <span className="text-[10px] text-muted-foreground/60 font-medium block">TASKS</span>
+              </div>
+            </div>
           </div>
-          <Progress value={progress} className="h-3" />
-          <div className="text-xs text-muted-foreground">
-            {completedCount} of {totalTasks} tasks completed
+
+          <div className="relative h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
+              style={{
+                width: `${progress}%`,
+                backgroundColor: project.color || 'var(--primary)',
+              }}
+            />
           </div>
         </div>
 
@@ -81,34 +99,55 @@ export const ProjectStats = ({
                 className="flex -space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={onViewMembers}
               >
-                {participants.length > 0 ? (
-                  participants.slice(0, 4).map((participant) => (
-                    <Avatar
-                      key={participant.userId}
-                      className="w-8 h-8 ring-2 ring-background border border-border shadow-sm"
-                    >
-                      <AvatarImage src={participant.user?.avatar} alt={participant.user?.name} />
-                      <AvatarFallback className="bg-muted text-[10px]">{participant.user?.name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  ))
-                ) : (
-                  project.participants?.slice(0, 4).map((user) => (
-                    <Avatar
-                      key={user.id}
-                      className="w-8 h-8 ring-2 ring-background border border-border shadow-sm"
-                    >
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback className="bg-muted text-[10px]">{user.name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  ))
-                )}
-                {(participants.length > 4 || (project.participants?.length || 0) > 4) && (
-                  <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center shadow-sm">
-                    <span className="text-[10px] font-bold text-muted-foreground">
-                      +{(participants.length || project.participants?.length || 0) - 4}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  // Use participants from props first, fallback to project.participants
+                  // Create a combined unique list to avoid duplicates
+                  const participantMap = new Map<string | number, typeof participants[0] | { user: typeof project.participants[0] }>();
+                  
+                  // Add participants from props
+                  participants.forEach(p => {
+                    const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+                    participantMap.set(pUserId, p);
+                  });
+                  
+                  // Add project.participants if not already present
+                  project.participants?.forEach(user => {
+                    const uId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+                    if (!participantMap.has(uId)) {
+                      participantMap.set(uId, { user });
+                    }
+                  });
+                  
+                  const uniqueParticipants = Array.from(participantMap.values()).slice(0, 4);
+                  
+                  return uniqueParticipants.map((p) => {
+                    const user = 'user' in p && p.user ? p.user : (p as typeof participants[0]).user;
+                    const userId = user?.id ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : (p as typeof participants[0]).userId;
+                    
+                    return (
+                      <Avatar
+                        key={`participant-${userId}`}
+                        className="w-8 h-8 ring-2 ring-background border border-border shadow-sm"
+                      >
+                        <AvatarImage src={user?.avatar} alt={user?.name} />
+                        <AvatarFallback className="bg-muted text-[10px]">{user?.name?.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                    );
+                  });
+                })()}
+                {(() => {
+                  const totalUnique = new Set([
+                    ...participants.map(p => typeof p.userId === 'string' ? parseInt(p.userId) : p.userId),
+                    ...(project.participants?.map(u => typeof u.id === 'string' ? parseInt(u.id) : u.id) || [])
+                  ]).size;
+                  return totalUnique > 4 && (
+                    <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center shadow-sm">
+                      <span className="text-[10px] font-bold text-muted-foreground">
+                        +{totalUnique - 4}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
               {isOwner && (
                 <Button

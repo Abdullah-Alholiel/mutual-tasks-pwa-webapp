@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import type { Notification } from '@/types';
-import { Bell, CheckCircle2, Clock, Sparkles, X, Calendar, Users } from 'lucide-react';
+import { Bell, CheckCircle2, Clock, Sparkles, X, Calendar, Users, RotateCcw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -15,23 +15,26 @@ interface InboxProps {
   onMarkAllAsRead: () => void;
 }
 
-export const Inbox = ({ 
-  notifications, 
-  onMarkAsRead, 
+export const Inbox = ({
+  notifications,
+  onMarkAsRead,
   onMarkAllAsRead
 }: InboxProps) => {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
   const unreadNotifications = notifications.filter(n => !n.isRead);
   const readNotifications = notifications.filter(n => n.isRead);
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
-
+      case 'task_created':
+        return <Sparkles className="w-5 h-5 text-blue-500" />;
       case 'task_completed':
         return <CheckCircle2 className="w-5 h-5 text-success" />;
+      case 'task_recovered':
+        return <RotateCcw className="w-5 h-5 text-yellow-500" />;
       case 'project_joined':
         return <Users className="w-5 h-5 text-primary" />;
       default:
@@ -41,9 +44,12 @@ export const Inbox = ({
 
   const getNotificationColor = (type: Notification['type']) => {
     switch (type) {
-
+      case 'task_created':
+        return 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800';
       case 'task_completed':
         return 'bg-success/10 border-success/20';
+      case 'task_recovered':
+        return 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800';
       case 'project_joined':
         return 'bg-primary/10 border-primary/20';
       default:
@@ -55,7 +61,7 @@ export const Inbox = ({
     if (!notification.isRead) {
       onMarkAsRead(notification.id);
     }
-    
+
     if (notification.taskId) {
       navigate(`/`);
       setOpen(false);
@@ -130,7 +136,7 @@ export const Inbox = ({
                           key={notification.id}
                           notification={notification}
                           onClick={() => handleNotificationClick(notification)}
-                        onMarkAsRead={onMarkAsRead}
+                          onMarkAsRead={onMarkAsRead}
                           getIcon={getNotificationIcon}
                           getColor={getNotificationColor}
                         />
@@ -170,7 +176,7 @@ interface NotificationItemProps {
   notification: Notification;
   onClick: () => void;
   onMarkAsRead: (notificationId: number) => void;
-  getIcon: (type: Notification['type']) => React.ReactNode;
+  getIcon: (type: Notification['type']) => ReactNode;
   getColor: (type: Notification['type']) => string;
   isRead?: boolean;
 }
@@ -190,16 +196,15 @@ const NotificationItem = ({
       exit={{ opacity: 0, x: 20 }}
     >
       <Card
-        className={`p-4 cursor-pointer hover:shadow-md transition-all ${
-          isRead ? 'opacity-60' : ''
-        } ${getColor(notification.type)}`}
+        className={`p-4 cursor-pointer hover:shadow-md transition-all ${isRead ? 'opacity-60' : ''
+          } ${getColor(notification.type)}`}
         onClick={onClick}
       >
         <div className="flex items-start gap-3">
           <div className="shrink-0 mt-0.5">
             {getIcon(notification.type)}
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <p className={`text-sm ${isRead ? 'text-muted-foreground' : 'font-medium'}`}>
               {notification.message}

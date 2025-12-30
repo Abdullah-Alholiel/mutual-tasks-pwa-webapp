@@ -23,13 +23,13 @@ export const getTodayTasks = (
   userId?: string | number
 ): Task[] => {
   const today = normalizeToStartOfDay(new Date());
-  
+
   return tasks.filter(task => {
     const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     const isToday = dueDate.getTime() === today.getTime();
-    
+
     if (!isToday) return false;
-    
+
     // If userId provided, filter to tasks visible to that user
     if (userId !== undefined) {
       const userIdNum = normalizeId(userId);
@@ -41,7 +41,7 @@ export const getTodayTasks = (
       });
       return isCreator || hasStatus;
     }
-    
+
     return true;
   });
 };
@@ -92,30 +92,30 @@ function isUserInTaskProject(
 ): boolean {
   const userIdNum = normalizeId(userId);
   const taskProjectId = normalizeId(task.projectId);
-  
+
   const project = projects.find(p => {
     const pId = normalizeId(p.id);
     return pId === taskProjectId;
   });
-  
+
   if (!project) return false;
-  
+
   // User is owner
   const ownerId = normalizeId(project.ownerId);
   if (ownerId === userIdNum) return true;
-  
+
   // User is in participants array
   if (project.participants?.some(p => {
     const participantId = typeof p === 'object' && 'id' in p ? normalizeId(p.id) : normalizeId(p);
     return participantId === userIdNum;
   })) return true;
-  
+
   // User is in participantRoles
   if (project.participantRoles?.some(pr => {
     const prUserId = normalizeId(pr.userId);
     return prUserId === userIdNum && !pr.removedAt;
   })) return true;
-  
+
   return false;
 }
 
@@ -139,7 +139,7 @@ export const getNeedsActionTasks = (
 ): Task[] => {
   const today = normalizeToStartOfDay(new Date());
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myStatus = taskStatuses.find(ts => {
@@ -152,7 +152,7 @@ export const getNeedsActionTasks = (
       const clUserId = normalizeId(cl.userId);
       return clTaskId === taskId && clUserId === userIdNum;
     });
-    
+
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
     if (userStatus !== 'active') return false;
 
@@ -192,7 +192,7 @@ export const getActiveTasks = (
   projects?: Project[]
 ): Task[] => {
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myStatus = taskStatuses.find(ts => {
@@ -205,7 +205,7 @@ export const getActiveTasks = (
       const clUserId = normalizeId(cl.userId);
       return clTaskId === taskId && clUserId === userIdNum;
     });
-    
+
     if (myCompletion) return false;
 
     if (!myStatus) {
@@ -244,7 +244,7 @@ export const getActiveTasksForToday = (
 ): Task[] => {
   const today = normalizeToStartOfDay(new Date());
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myStatus = taskStatuses.find(ts => {
@@ -257,9 +257,9 @@ export const getActiveTasksForToday = (
       const clUserId = normalizeId(cl.userId);
       return clTaskId === taskId && clUserId === userIdNum;
     });
-    
+
     if (myCompletion) return false;
-    
+
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
     const isRecovered = myStatus?.recoveredAt !== undefined && myStatus?.recoveredAt !== null || userStatus === 'recovered';
 
@@ -299,7 +299,7 @@ export const getCompletedTasks = (
   userId: string | number
 ): Task[] => {
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myCompletion = completionLogs.find(cl => {
@@ -328,7 +328,7 @@ export const getCompletedTasksForToday = (
 ): Task[] => {
   const today = normalizeToStartOfDay(new Date());
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myCompletion = completionLogs.find(cl => {
@@ -337,11 +337,11 @@ export const getCompletedTasksForToday = (
       return clTaskId === taskId && clUserId === userIdNum;
     });
     if (!myCompletion) return false;
-    
+
     // Check if completion was on today's date (use createdAt as completion date)
     const completionDate = normalizeToStartOfDay(new Date(myCompletion.createdAt));
     const isCompletedToday = completionDate.getTime() === today.getTime();
-    
+
     return isCompletedToday;
   });
 };
@@ -365,7 +365,7 @@ export const getRecoveredTasks = (
   projects?: Project[]
 ): Task[] => {
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myStatus = taskStatuses.find(ts => {
@@ -378,13 +378,13 @@ export const getRecoveredTasks = (
       const clUserId = normalizeId(cl.userId);
       return clTaskId === taskId && clUserId === userIdNum;
     });
-    
+
     // Exclude completed tasks - they should not appear in recovered section
     if (myCompletion) return false;
-    
+
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
     if (userStatus !== 'recovered') return false;
-    
+
     // If user has no status, check if they're in the project
     if (!myStatus) {
       if (projects) {
@@ -393,7 +393,7 @@ export const getRecoveredTasks = (
       const creatorId = normalizeId(task.creatorId);
       return creatorId === userIdNum;
     }
-    
+
     return true;
   });
 };
@@ -417,7 +417,7 @@ export const getUpcomingTasks = (
 ): Task[] => {
   const today = normalizeToStartOfDay(new Date());
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myStatus = taskStatuses.find(ts => {
@@ -430,13 +430,13 @@ export const getUpcomingTasks = (
       const clUserId = normalizeId(cl.userId);
       return clTaskId === taskId && clUserId === userIdNum;
     });
-    
+
     const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     const isDueFuture = dueDate.getTime() > today.getTime();
-    
+
     if (!isDueFuture) return false;
     if (myCompletion) return false;
-    
+
     // If user has no status, check if they're in the project
     if (!myStatus) {
       if (projects) {
@@ -445,7 +445,7 @@ export const getUpcomingTasks = (
       const creatorId = normalizeId(task.creatorId);
       return creatorId === userIdNum;
     }
-    
+
     const userStatus = calculateTaskStatusUserStatus(myStatus, undefined, task);
     return userStatus === 'upcoming';
   });
@@ -468,7 +468,7 @@ export const getArchivedTasks = (
 ): Task[] => {
   const userIdNum = normalizeId(userId);
   const today = normalizeToStartOfDay(new Date());
-  
+
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
     const myStatus = taskStatuses.find(ts => {
@@ -481,24 +481,24 @@ export const getArchivedTasks = (
       const clUserId = normalizeId(cl.userId);
       return clTaskId === taskId && clUserId === userIdNum;
     });
-    
+
     // If user has no status but is creator, check if user's task status would be archived
     if (!myStatus) {
       const creatorId = normalizeId(task.creatorId);
       const isCreator = creatorId === userIdNum;
       if (!isCreator || myCompletion) return false;
-      
+
       // Check if task is past due (would be archived)
       const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
       const isPastDue = dueDate.getTime() < today.getTime();
-      
+
       return isPastDue;
     }
-    
+
     // Only show if archived, not recovered, and not completed
-    const isArchived = myStatus.status === 'archived' || 
-                      (myStatus.archivedAt !== undefined && myStatus.archivedAt !== null);
-    
+    const isArchived = myStatus.status === 'archived' ||
+      (myStatus.archivedAt !== undefined && myStatus.archivedAt !== null);
+
     return isArchived && !myStatus.recoveredAt && !myCompletion;
   });
 };
@@ -521,7 +521,7 @@ export const getVisibleTasks = (
   userId: string | number
 ): Task[] => {
   const userIdNum = normalizeId(userId);
-  
+
   return tasks.filter(task => {
     const creatorId = normalizeId(task.creatorId);
     const isCreator = creatorId === userIdNum;
@@ -540,7 +540,7 @@ export const getVisibleTasks = (
  * 
  * @param tasks - Array of tasks
  * @param taskStatuses - Array of task statuses
- * @returns Tasks with populated taskStatuses
+ * @returns Tasks with populated taskStatus (matching the Task type field name)
  */
 export const updateTasksWithStatuses = (
   tasks: Task[],
@@ -548,12 +548,36 @@ export const updateTasksWithStatuses = (
 ): Task[] => {
   return tasks.map(task => {
     const taskId = normalizeId(task.id);
+
+    // Create a map of existing statuses by userId for easy merging
+    const statusMap = new Map<string | number, TaskStatusEntity>();
+
+    // initialize with existing embedded statuses
+    if (task.taskStatus) {
+      task.taskStatus.forEach(ts => {
+        const tsUserId = normalizeId(ts.userId);
+        statusMap.set(tsUserId, ts);
+      });
+    }
+
+    // Find new/updated statuses for this task from the provided list
+    const newStatusesForTask = taskStatuses.filter(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      return tsTaskId === taskId;
+    });
+
+    // Merge new statuses into the map (overwriting existing ones)
+    newStatusesForTask.forEach(ts => {
+      const tsUserId = normalizeId(ts.userId);
+      statusMap.set(tsUserId, ts);
+    });
+
+    // Convert map back to array
+    const mergedStatuses = Array.from(statusMap.values());
+
     return {
       ...task,
-      taskStatuses: taskStatuses.filter(ts => {
-        const tsTaskId = normalizeId(ts.taskId);
-        return tsTaskId === taskId;
-      })
+      taskStatus: mergedStatuses
     };
   });
 };
@@ -574,12 +598,12 @@ export const getProjectTaskBuckets = (
   archived: Task[];
 } => {
   const today = normalizeToStartOfDay(new Date());
-  
+
   const active: Task[] = [];
   const upcoming: Task[] = [];
   const completed: Task[] = [];
   const archived: Task[] = [];
-  
+
   tasks.forEach(task => {
     const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
     if (dueDate.getTime() <= today.getTime()) {
@@ -588,7 +612,7 @@ export const getProjectTaskBuckets = (
       upcoming.push(task);
     }
   });
-  
+
   return {
     active,
     upcoming,

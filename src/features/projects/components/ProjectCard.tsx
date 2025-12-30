@@ -13,8 +13,8 @@ interface ProjectCardProps {
 
 export const ProjectCard = ({ project }: ProjectCardProps) => {
   const navigate = useNavigate();
-  const progress = project.totalTasks > 0 
-    ? ((project.completedTasks || 0) / project.totalTasks) * 100 
+  const progress = project.totalTasks > 0
+    ? ((project.completedTasks || 0) / project.totalTasks) * 100
     : 0;
 
   return (
@@ -44,7 +44,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
                 {project.description}
               </p>
             </div>
-            
+
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
               style={{ backgroundColor: `${project.color}15` }}
@@ -53,15 +53,44 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             </div>
           </div>
 
-          {/* Progress */}
+          {/* Progress Section */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress</span>
-              <span className="font-medium text-foreground">
-                {project.completedTasks || 0}/{project.totalTasks || 0} tasks
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
+                  Progress
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold text-foreground">
+                    {Math.round(progress)}%
+                  </span>
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    completed
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <Badge
+                  variant="secondary"
+                  className="bg-muted/40 text-muted-foreground font-bold px-2 py-0.5 rounded-md border-none"
+                >
+                  {project.completedTasks || 0}/{project.totalTasks || 0} tasks
+                </Badge>
+              </div>
             </div>
-            <Progress value={progress} className="h-2" />
+
+            <div className="relative h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className="absolute inset-y-0 left-0 rounded-full"
+                style={{
+                  backgroundColor: project.color,
+                }}
+              />
+            </div>
           </div>
 
           {/* Participants */}
@@ -72,7 +101,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
                 {project.participants?.length || project.participantRoles?.length || 0} members
               </span>
             </div>
-            
+
             {project.participants && project.participants.length > 0 && (
               <div className="flex -space-x-2">
                 {project.participants.slice(0, 3).map((participant) => (

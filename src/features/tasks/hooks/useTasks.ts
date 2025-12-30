@@ -34,7 +34,9 @@ export const useTasks = (filters?: { projectId?: string | number; userId?: strin
 
       return await db.tasks.getAll(dbFilters);
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
 };
 
@@ -52,7 +54,9 @@ export const useTask = (taskId: string | number | undefined) => {
       return await db.tasks.getById(id);
     },
     enabled: !!taskId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30, // 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -73,7 +77,31 @@ export const useTodayTasks = () => {
       return getTodayTasks(allTasks, String(userId));
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 60, // 1 minute (today's tasks change frequently)
+    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
+  });
+};
+
+/**
+ * Hook to fetch all user's tasks (for finding recovered tasks which may have past due dates)
+ */
+export const useUserTasks = () => {
+  const { user, isAuthenticated } = useAuth();
+
+  return useQuery({
+    queryKey: ['tasks', 'user', user?.id],
+    queryFn: async () => {
+      if (!user || !isAuthenticated) return [];
+
+      const db = getDatabaseClient();
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      return await db.tasks.getAll({ userId });
+    },
+    enabled: !!user && isAuthenticated,
+    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
 };
 
@@ -92,7 +120,9 @@ export const useProjectTasks = (projectId: string | number | undefined) => {
       return getProjectTasks(allTasks, String(projectId));
     },
     enabled: !!projectId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
 };
 
@@ -157,14 +187,12 @@ export const useCreateTaskWithStatuses = () => {
       const createdTask = await db.tasks.create(input.task);
       
       // 2. Create task statuses for all participants
-      const now = new Date();
+      // Only use fields that exist in the database: taskId, userId, status, archivedAt, recoveredAt, ringColor
       const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
         taskId: createdTask.id,
         userId: userId,
         status: 'active' as const,
-        effectiveDueDate: input.dueDate,
-        createdAt: now,
-        updatedAt: now,
+        ringColor: undefined, // Default: no ring color for active tasks
       }));
       
       // Create all statuses in the database
@@ -216,14 +244,12 @@ export const useCreateMultipleTasksWithStatuses = () => {
         const createdTask = await db.tasks.create(input.task);
         
         // Create task statuses for all participants
-        const now = new Date();
+        // Only use fields that exist in the database: taskId, userId, status, archivedAt, recoveredAt, ringColor
         const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
           taskId: createdTask.id,
           userId: userId,
           status: 'active' as const,
-          effectiveDueDate: input.dueDate,
-          createdAt: now,
-          updatedAt: now,
+          ringColor: undefined, // Default: no ring color for active tasks
         }));
         
         const createdStatuses = await db.taskStatus.createMany(taskStatuses);
@@ -371,7 +397,9 @@ export const useTaskStatuses = () => {
       return await db.taskStatus.getByUserId(userId);
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds - task statuses change frequently
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
 };
 
@@ -391,7 +419,9 @@ export const useCompletionLogs = () => {
       return await db.completionLogs.getAll({ userId });
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -419,6 +449,8 @@ export const useProjectCompletionLogs = (taskIds: number[]) => {
       return allLogs;
     },
     enabled: taskIds.length > 0,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 30, // 30 seconds - completion logs change when tasks are completed
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 };

@@ -1,61 +1,30 @@
-import { ReactNode, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { ReactNode } from 'react';
+import { useLocation, Outlet } from 'react-router-dom';
 import { MobileNav } from './MobileNav';
 import { DesktopNav } from './DesktopNav';
-import { SwipeableContainer } from './SwipeableContainer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { GlobalRealtimeSubscriptions } from '@/features/realtime/GlobalRealtimeSubscriptions';
 
 interface AppLayoutProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
-// Main navigation routes that should have page transitions
-const MAIN_ROUTES = ['/', '/projects', '/profile'];
-
 export const AppLayout = ({ children }: AppLayoutProps) => {
+  const isMobile = useIsMobile();
   const location = useLocation();
-  
-  // Only animate page transitions on main routes
-  const shouldAnimate = useMemo(() => 
-    MAIN_ROUTES.includes(location.pathname),
-    [location.pathname]
-  );
 
   return (
-    <div className="min-h-[100dvh] min-h-screen bg-background overflow-x-hidden w-full">
+    <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
+      {/* Global realtime subscriptions - initialized once at app level */}
+      <GlobalRealtimeSubscriptions />
       <DesktopNav />
-      <SwipeableContainer>
-        <main 
-          className="pt-4 md:pt-28 md:pb-8 px-4 md:px-6 max-w-7xl mx-auto overflow-x-hidden w-full"
-          style={{ 
-            paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
-            paddingLeft: 'max(1rem, env(safe-area-inset-left, 0px))',
-            paddingRight: 'max(1rem, env(safe-area-inset-right, 0px))'
-          }}
-        >
-          {shouldAnimate ? (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{
-                  type: 'tween',
-                  ease: 'easeInOut',
-                  duration: 0.25
-                }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
-          ) : (
-            <div key={location.pathname}>
-              {children}
-            </div>
-          )}
-        </main>
-      </SwipeableContainer>
+      {/* 
+          The main area is now a rigid container. 
+          Its children (like MainTabsShell or ProjectDetail) handle their own scrolling.
+      */}
+      <main className="flex-1 relative w-full overflow-hidden">
+        {children || <Outlet />}
+      </main>
       <MobileNav />
     </div>
   );

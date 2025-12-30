@@ -33,6 +33,7 @@ export const useCurrentUser = () => {
 
 /**
  * Hook to fetch current user stats
+ * Automatically recalculates stats from completion logs to ensure accuracy
  */
 export const useCurrentUserStats = () => {
   const { user, isAuthenticated } = useAuth();
@@ -44,10 +45,23 @@ export const useCurrentUserStats = () => {
       
       const db = getDatabaseClient();
       const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-      return await db.users.getStats(userId);
+      
+      // Always recalculate stats from completion logs to ensure accuracy
+      // This ensures stats are always in sync with actual completion activity
+      try {
+        const stats = await db.users.recalculateStats(userId, user.timezone || 'UTC');
+        return stats;
+      } catch (error) {
+        console.error('Failed to recalculate user stats:', error);
+        // Fallback: try to get existing stats if recalculation fails
+        const existingStats = await db.users.getStats(userId);
+        return existingStats;
+      }
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 1, // 1 minute - short stale time to ensure freshness
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Refetch when window regains focus
     initialData: user?.stats || undefined, // Use auth user stats as initial data
   });
 };

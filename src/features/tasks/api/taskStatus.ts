@@ -35,8 +35,7 @@ export class TaskStatusRepository {
     const { data, error } = await this.supabase
       .from('task_statuses')
       .select('*')
-      .eq('task_id', toStringId(taskId))
-      .order('created_at', { ascending: true });
+      .eq('task_id', toStringId(taskId));
 
     if (error || !data) return [];
     return data.map((row: TaskStatusRow) => transformTaskStatusRow(row));
@@ -79,8 +78,7 @@ export class TaskStatusRepository {
     const { data, error } = await this.supabase
       .from('task_statuses')
       .select('*')
-      .eq('user_id', toStringId(userId))
-      .order('created_at', { ascending: false });
+      .eq('user_id', toStringId(userId));
 
     if (error || !data) return [];
     return data.map((row: TaskStatusRow) => transformTaskStatusRow(row));
@@ -145,6 +143,7 @@ export class TaskStatusRepository {
 
   /**
    * Update task status by task and user (upsert pattern)
+   * If no row exists, creates one instead
    */
   async updateByTaskAndUser(
     taskId: number,
@@ -162,8 +161,13 @@ export class TaskStatusRepository {
       .select()
       .single();
 
-    if (updateError && updateError.code !== 'PGRST116') {
-      // PGRST116 = no rows updated, try insert
+    // If update succeeded, return the data
+    if (!updateError && updateData) {
+      return transformTaskStatusRow(updateData as TaskStatusRow);
+    }
+
+    // PGRST116 = no rows matched (0 rows updated) - fall back to insert
+    if (updateError && updateError.code === 'PGRST116') {
       const { data: insertData, error: insertError } = await this.supabase
         .from('task_statuses')
         .insert({
@@ -178,8 +182,11 @@ export class TaskStatusRepository {
       return transformTaskStatusRow(insertData as TaskStatusRow);
     }
 
+    // Other error - throw it
     if (updateError) throw updateError;
-    return transformTaskStatusRow(updateData as TaskStatusRow);
+    
+    // Should not reach here, but satisfy TypeScript
+    throw new Error('Unexpected state in updateByTaskAndUser');
   }
 
   /**
@@ -215,6 +222,23 @@ export class TaskStatusRepository {
       .delete()
       .eq('task_id', toStringId(taskId))
       .eq('user_id', toStringId(userId));
+
+    if (error) throw error;
+  }
+
+  /**
+   * Delete all task statuses for a user where the task belongs to a specific project
+   * Used when a user leaves a project to clean up all their task statuses
+   */
+  async deleteByProjectAndUser(projectTaskIds: number[], userId: number): Promise<void> {
+    if (projectTaskIds.length === 0) return;
+
+    // Delete all task statuses for the user where task_id is in the project's task list
+    const { error } = await this.supabase
+      .from('task_statuses')
+      .delete()
+      .eq('user_id', toStringId(userId))
+      .in('task_id', projectTaskIds.map(id => toStringId(id)));
 
     if (error) throw error;
   }

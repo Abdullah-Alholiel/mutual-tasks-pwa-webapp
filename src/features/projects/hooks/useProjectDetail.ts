@@ -15,12 +15,17 @@ import { useProjectTaskCategories } from './useProjectTaskCategories';
 import { useProjectTaskMutations } from './useProjectTaskMutations';
 import { useProjectMembers } from './useProjectMembers';
 import { useProjectSettings } from './useProjectSettings';
+// Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
+// Project detail updates are automatically reflected via the global subscription
 
 export const useProjectDetail = () => {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  
+
+  // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
+  // No need for project-specific subscription - global subscription handles all projects
+
   // Get project from route state or database
   const projectFromState = location.state?.project as Project | undefined;
   const projectParticipantsFromState = location.state?.projectParticipants as ProjectParticipant[] | undefined;
@@ -117,6 +122,7 @@ export const useProjectDetail = () => {
     handleComplete,
     handleCreateTask,
     handleDeleteTask,
+    handleDeleteTaskSeries,
     isCreatingTask,
   } = taskMutations;
 
@@ -201,6 +207,7 @@ export const useProjectDetail = () => {
     handleComplete,
     handleCreateTask,
     handleDeleteTask,
+    handleDeleteTaskSeries,
 
     // Member handlers
     handleAddMember,
@@ -223,7 +230,7 @@ export const useProjectDetail = () => {
 
     // Data
     completionLogs,
-    
+
     // Mutation states
     isCreatingTask,
   };

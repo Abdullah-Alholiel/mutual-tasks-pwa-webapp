@@ -54,6 +54,16 @@ export interface ProjectTaskState {
 }
 
 /**
+ * Grouped habit tasks (a series)
+ */
+export interface HabitSeries {
+  title: string;
+  description?: string;
+  recurrencePattern?: string;
+  tasks: Task[];
+}
+
+/**
  * Categorized tasks for display
  */
 export interface CategorizedTasks {
@@ -61,7 +71,7 @@ export interface CategorizedTasks {
   upcomingTasks: Task[];
   completedTasks: Task[];
   archivedTasks: Task[];
-  habitTasks: Task[];
+  habitTasks: HabitSeries[];
   projectTasks: Task[];
   hasAnyAllTabContent: boolean;
 }

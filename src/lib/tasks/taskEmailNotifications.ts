@@ -2,11 +2,12 @@
 // Task Email Notification Utilities
 // ============================================================================
 // Uses Supabase Edge Functions to send emails
+// Also creates in-app notifications for task events
 // ============================================================================
 
 import { getDatabaseClient } from '@/db';
-
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
+import type { NotificationType } from '@/types';
 
 /**
  * Get Supabase URL lazily (called inside functions, not at module load)
@@ -83,6 +84,24 @@ export async function notifyTaskCreated(
     // Get participant user details
     const participantUsers = await db.users.getByIds(participants);
 
+    // Create in-app notifications for all participants
+    try {
+      const inAppNotifications = participantUsers.map(participant => ({
+        userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
+        type: 'task_created' as NotificationType,
+        message: `${creator.name} created "${task.title}" in ${project.name}`,
+        taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
+        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
+        isRead: false,
+        emailSent: false,
+      }));
+      
+      await db.notifications.createMany(inAppNotifications);
+    } catch (notifError) {
+      console.error('Failed to create in-app notifications:', notifError);
+      // Don't throw - continue with email notifications
+    }
+
     // Send email to each participant via Supabase Edge Function
     const emailPromises = participantUsers.map(async (participant) => {
       try {
@@ -137,6 +156,175 @@ export async function notifyTaskCreated(
     }
     console.error('Error sending task creation emails:', error);
     // Don't throw - email failures shouldn't block task creation
+  }
+}
+
+/**
+ * Send task completion notifications to project participants
+ * Creates in-app notifications for all other participants
+ */
+export async function notifyTaskCompleted(
+  taskId: number,
+  projectId: number,
+  completerId: number
+): Promise<void> {
+  try {
+    const db = getDatabaseClient();
+
+    // Get task, project, completer
+    const [task, project, completer] = await Promise.all([
+      db.tasks.getById(taskId),
+      db.projects.getById(projectId),
+      db.users.getById(completerId),
+    ]);
+
+    if (!task || !project || !completer) {
+      console.error('Failed to fetch task, project, or completer data');
+      return;
+    }
+
+    // Get project participants (excluding completer)
+    const projectData = await db.projects.getById(projectId);
+    if (!projectData || !projectData.participantRoles) {
+      return;
+    }
+
+    const participants = projectData.participantRoles
+      .filter((pp) => pp.userId !== completerId && !pp.removedAt)
+      .map((pp) => pp.userId);
+
+    if (participants.length === 0) {
+      return; // No participants to notify
+    }
+
+    // Get participant user details
+    const participantUsers = await db.users.getByIds(participants);
+
+    // Create in-app notifications for all participants
+    const inAppNotifications = participantUsers.map(participant => ({
+      userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
+      type: 'task_completed' as NotificationType,
+      message: `${completer.name} completed "${task.title}" in ${project.name}`,
+      taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
+      projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
+      isRead: false,
+      emailSent: false,
+    }));
+    
+    await db.notifications.createMany(inAppNotifications);
+
+    // Optionally send emails (if configured)
+    try {
+      const supabaseUrl = getSupabaseUrlLazy();
+      const supabaseAnonKey = getSupabaseAnonKeyLazy();
+
+      // Send email to each participant
+      const emailPromises = participantUsers.map(async (participant) => {
+        try {
+          const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+              'apikey': supabaseAnonKey,
+            },
+            body: JSON.stringify({
+              type: 'task-completed',
+              to: participant.email,
+              task: {
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                dueDate: task.dueDate,
+              },
+              project: {
+                id: project.id,
+                name: project.name,
+              },
+              completer: {
+                id: completer.id,
+                name: completer.name,
+                email: completer.email,
+              },
+              recipient: {
+                id: participant.id,
+                name: participant.name,
+                email: participant.email,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Failed to send email to ${participant.email}:`, response.status, errorText);
+          }
+        } catch (error) {
+          console.error(`Error sending email to ${participant.email}:`, error);
+        }
+      });
+
+      await Promise.all(emailPromises);
+    } catch (emailError) {
+      // Email sending is optional, don't fail the main flow
+      if (!(emailError instanceof Error && emailError.message.includes('not configured'))) {
+        console.error('Error sending task completion emails:', emailError);
+      }
+    }
+  } catch (error) {
+    console.error('Error in notifyTaskCompleted:', error);
+  }
+}
+
+/**
+ * Send task recovery notification to project participants
+ */
+export async function notifyTaskRecovered(
+  taskId: number,
+  projectId: number,
+  recovererId: number
+): Promise<void> {
+  try {
+    const db = getDatabaseClient();
+
+    const [task, project, recoverer] = await Promise.all([
+      db.tasks.getById(taskId),
+      db.projects.getById(projectId),
+      db.users.getById(recovererId),
+    ]);
+
+    if (!task || !project || !recoverer) {
+      return;
+    }
+
+    const projectData = await db.projects.getById(projectId);
+    if (!projectData || !projectData.participantRoles) {
+      return;
+    }
+
+    const participants = projectData.participantRoles
+      .filter((pp) => pp.userId !== recovererId && !pp.removedAt)
+      .map((pp) => pp.userId);
+
+    if (participants.length === 0) {
+      return;
+    }
+
+    const participantUsers = await db.users.getByIds(participants);
+
+    // Create in-app notifications
+    const inAppNotifications = participantUsers.map(participant => ({
+      userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
+      type: 'task_recovered' as NotificationType,
+      message: `${recoverer.name} recovered "${task.title}" in ${project.name}`,
+      taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
+      projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
+      isRead: false,
+      emailSent: false,
+    }));
+    
+    await db.notifications.createMany(inAppNotifications);
+  } catch (error) {
+    console.error('Error in notifyTaskRecovered:', error);
   }
 }
 

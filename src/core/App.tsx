@@ -30,6 +30,9 @@ const persister = createSyncStoragePersister({
   storage: window.localStorage,
 });
 
+import { MainTabsShell } from "../layout/MainTabsShell";
+import { AppLayout } from "../layout/AppLayout";
+
 const App = () => (
   <PersistQueryClientProvider
     client={queryClient}
@@ -64,39 +67,19 @@ const App = () => (
             {/* Test routes - accessible in development */}
             <Route path="/test/toasts" element={<ToastTest />} />
 
-            {/* Protected routes - require authentication */}
+            {/* Main Application Layout for Protected Routes */}
             <Route
-              path="/"
               element={
                 <ProtectedRoute>
-                  <Index />
+                  <AppLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="/projects"
-              element={
-                <ProtectedRoute>
-                  <Projects />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/projects/:id"
-              element={
-                <ProtectedRoute>
-                  <ProjectDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route path="/" element={<MainTabsShell />} />
+              <Route path="/projects" element={<MainTabsShell />} />
+              <Route path="/profile" element={<MainTabsShell />} />
+              <Route path="/projects/:id" element={<ProjectDetail />} />
+            </Route>
 
             {/* Catch-all route - not protected (404 page) */}
             <Route path="*" element={<NotFound />} />

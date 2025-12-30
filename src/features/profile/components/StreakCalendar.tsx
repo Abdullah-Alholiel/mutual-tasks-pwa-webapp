@@ -1,19 +1,50 @@
+import { useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Flame, Trophy } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useCurrentUser, useCurrentUserStats } from '@/features/auth/useCurrentUser';
+import { getDatabaseClient } from '@/db';
+import { groupCompletionsByDate, calculateIntensity } from '@/lib/users/userStatsUtils';
+
+/**
+ * Get date string in YYYY-MM-DD format in the given timezone
+ */
+const getDateStringInTimezone = (date: Date, timezone: string = 'UTC'): string => {
+  return date.toLocaleDateString('en-CA', { timeZone: timezone });
+};
 
 export const StreakCalendar = () => {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   const { data: stats, isLoading: statsLoading } = useCurrentUserStats();
 
-  // Generate last 7 weeks of days
-  const generateDays = () => {
-    const days = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // Fetch completion logs for the current user
+  const { data: completionLogs = [], isLoading: logsLoading } = useQuery({
+    queryKey: ['completionLogs', currentUser?.id],
+    queryFn: async () => {
+      if (!currentUser) return [];
+      const db = getDatabaseClient();
+      return await db.users.getCompletionLogs(currentUser.id);
+    },
+    enabled: !!currentUser,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
-    // Get the start of the week (Sunday)
+  // Group completions by date for heatmap
+  const completionsByDate = useMemo(() => {
+    if (!currentUser) return new Map<string, number>();
+    return groupCompletionsByDate(completionLogs, currentUser.timezone || 'UTC');
+  }, [completionLogs, currentUser]);
+
+  // Generate last 7 weeks of days with real completion data
+  const days = useMemo(() => {
+    if (!currentUser) return [];
+    
+    const result = [];
+    const timezone = currentUser.timezone || 'UTC';
+    const today = new Date();
+
+    // Get the start of the week (Sunday) in the user's timezone
     const startOfWeek = new Date(today);
     const dayOfWeek = startOfWeek.getDay(); // 0 = Sunday
     startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek - (7 * 6)); // Go back 6 weeks
@@ -22,28 +53,33 @@ export const StreakCalendar = () => {
     for (let i = 0; i < 49; i++) {
       const date = new Date(startOfWeek);
       date.setDate(date.getDate() + i);
+      
+      // Get the date string in YYYY-MM-DD format in the user's timezone for lookup
+      const dateStr = getDateStringInTimezone(date, timezone);
+      
+      // Get actual completion count for this day
+      const count = completionsByDate.get(dateStr) || 0;
+      const intensity = calculateIntensity(count);
 
-      // Mock completion intensity (0-4)
-      const intensity = Math.random() > 0.3 ? Math.floor(Math.random() * 4) + 1 : 0;
-
-      days.push({
+      result.push({
         date,
         intensity,
-        count: intensity > 0 ? Math.floor(Math.random() * 5) + 1 : 0,
+        count,
         dayOfWeek: date.getDay()
       });
     }
 
-    return days;
-  };
-
-  const days = generateDays();
-  const weeks: typeof days[] = [];
+    return result;
+  }, [completionsByDate, currentUser]);
 
   // Group into weeks of 7 days
-  for (let i = 0; i < days.length; i += 7) {
-    weeks.push(days.slice(i, i + 7));
-  }
+  const weeks = useMemo(() => {
+    const result: typeof days[] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      result.push(days.slice(i, i + 7));
+    }
+    return result;
+  }, [days]);
 
   const getIntensityColor = (intensity: number) => {
     if (intensity === 0) return 'bg-muted';
@@ -55,7 +91,7 @@ export const StreakCalendar = () => {
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  if (userLoading || statsLoading || !currentUser || !stats) {
+  if (userLoading || statsLoading || logsLoading || !currentUser || !stats) {
     return (
       <Card className="p-4 sm:p-6">
         <div className="h-48 flex items-center justify-center">
@@ -126,7 +162,7 @@ export const StreakCalendar = () => {
                       </span>
                     </div>
 
-                    {week.map((day, dayIndex) => (
+                    {week.map((dayData, dayIndex) => (
                       <motion.div
                         key={dayIndex}
                         whileHover={{ scale: 1.1 }}
@@ -134,27 +170,27 @@ export const StreakCalendar = () => {
                       >
                         <div
                           className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${getIntensityColor(
-                            day.intensity
+                            dayData.intensity
                           )} transition-colors cursor-pointer flex items-center justify-center`}
-                          title={`${day.date.toLocaleDateString('en-US', {
+                          title={`${dayData.date.toLocaleDateString('en-US', {
                             weekday: 'long',
                             month: 'long',
                             day: 'numeric'
-                          })} - ${day.count} ${day.count === 1 ? 'task' : 'tasks'}`}
+                          })} - ${dayData.count} ${dayData.count === 1 ? 'task' : 'tasks'}`}
                         >
-                          {day.intensity > 0 && (
+                          {dayData.intensity > 0 && (
                             <span className="text-[10px] sm:text-xs font-medium text-primary-foreground">
-                              {day.count}
+                              {dayData.count}
                             </span>
                           )}
                         </div>
                         {/* Tooltip */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-popover border border-border rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                           <div className="text-xs font-medium">
-                            {day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {dayData.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {day.count} {day.count === 1 ? 'task' : 'tasks'}
+                            {dayData.count} {dayData.count === 1 ? 'task' : 'tasks'} completed
                           </div>
                         </div>
                       </motion.div>

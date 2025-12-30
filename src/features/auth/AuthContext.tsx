@@ -88,14 +88,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Using a ref to track the initial cached user for comparison during verification
   const initialUser = getInitialUser();
   const [user, setUserState] = useState<User | null>(initialUser);
-  
+
   // Loading is only true if we have a token but no cached user (rare edge case)
   const [loading, setLoading] = useState<boolean>(() => {
     const hasToken = hasValidToken();
     // Only show loading if we have a token but no cached user
     return hasToken && !initialUser;
   });
-  
+
   const [error, setError] = useState<Error | null>(null);
   const queryClient = useQueryClient();
 
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const freshUser = await getCurrentUser(undefined, undefined, true);
-      
+
       if (freshUser) {
         // Update state and cache with fresh data
         setUserState(freshUser);
@@ -210,12 +210,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (err) {
       console.error('Logout failed:', err);
     }
-    
+
     // Clear all state
     setUserState(null);
     setStoredUserSync(null);
     queryClient.clear();
-    
+
     // Redirect to auth
     if (typeof window !== 'undefined') {
       window.location.href = '/auth';

@@ -1,14 +1,27 @@
-import { AppLayout } from '@/layout/AppLayout';
 import { TaskCard } from '../tasks/components/TaskCard';
 import { TaskForm } from '../tasks/components/TaskForm';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { motion } from 'framer-motion';
-import { CheckCircle2, Clock, Plus, Repeat, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  CheckCircle2,
+  Clock,
+  Plus,
+  Repeat,
+  Sparkles,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  UserPlus,
+  LogOut,
+  Settings
+} from 'lucide-react';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { ProjectStats } from '@/features/projects/components/ProjectStats';
 import { ProjectTaskSections } from '@/features/projects/components/ProjectTaskSections';
 import { useProjectDetail } from './hooks/useProjectDetail';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { InlineLoader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -21,14 +34,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trash2, UserPlus, LogOut, Settings } from 'lucide-react';
 import { getAvailableRoles } from '@/lib/projects/projectUtils';
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { useAuth } from '@/features/auth/useAuth';
 import type { Project } from '@/types';
 
 const ProjectDetail = () => {
   const { user: currentUser } = useAuth();
+  const isMobile = useIsMobile();
   const {
     project,
     currentProject,
@@ -63,6 +76,7 @@ const ProjectDetail = () => {
     memberIdentifier,
     setMemberIdentifier,
     handleRecover,
+    handleComplete,
     handleCreateTask,
     handleAddMember,
     handleRemoveParticipant,
@@ -70,219 +84,333 @@ const ProjectDetail = () => {
     handleEditProject,
     handleLeaveProject,
     handleDeleteProject,
+    handleDeleteTaskSeries,
     isOwner,
     isManager,
     canManage,
     canLeave,
     navigate,
     completionLogs,
+    isCreatingTask,
   } = useProjectDetail();
 
-  // Wrapper function to handle ID type conversion for TaskCard compatibility
+  const [expandedHabits, setExpandedHabits] = useState<Record<string, boolean>>({});
+
+  const toggleHabitExpansion = (seriesId: string) => {
+    setExpandedHabits(prev => ({
+      ...prev,
+      [seriesId]: !prev[seriesId]
+    }));
+  };
+
+  // Wrapper functions to handle ID type conversion for TaskCard compatibility
   const handleRecoverWrapper = (taskId: string | number) => {
     const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
     handleRecover(taskIdNum);
   };
 
+  const handleCompleteWrapper = (taskId: string | number, difficultyRating?: number) => {
+    const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    handleComplete(taskIdNum, difficultyRating);
+  };
+
   if (isLoading) {
     return (
-      <AppLayout>
-        <InlineLoader text="Loading project..." />
-      </AppLayout>
+      <InlineLoader text="Loading project..." />
     );
   }
 
   if (!project || !currentProject) {
     return (
-      <AppLayout>
-        <div className="text-center py-16">
-          <h2 className="text-2xl font-bold mb-4">Project not found</h2>
-          <Button onClick={() => navigate('/projects')}>Back to Projects</Button>
-        </div>
-      </AppLayout>
+      <div className="text-center py-16">
+        <h2 className="text-2xl font-bold mb-4">Project not found</h2>
+        <Button onClick={() => navigate('/projects')}>Back to Projects</Button>
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="space-y-6 animate-fade-in overflow-x-hidden w-full">
-        <ProjectHeader
-          project={project}
-          canManage={canManage}
-          onBack={() => navigate('/projects')}
-          onEdit={() => setShowEditProjectForm(true)}
-          onCreateTask={() => setShowTaskForm(true)}
-        />
+    <>
+      {/* Task Creation Loading Banner Overlay */}
+      <AnimatePresence>
+        {isCreatingTask && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm"
+          >
+            <div className="bg-card border border-border/50 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                <Loader2 className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Creating Tasks...</h3>
+                <p className="text-sm text-muted-foreground mt-1">This may take a few moments for habit series</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="h-full w-full overflow-y-auto custom-scrollbar">
+        <div
+          className="px-4 md:px-6 max-w-7xl mx-auto w-full space-y-6 animate-fade-in"
+          style={{
+            paddingTop: isMobile
+              ? 'calc(1.5rem + env(safe-area-inset-top, 0px))'
+              : '7rem',
+            paddingBottom: '2rem',
+            paddingLeft: 'max(1rem, env(safe-area-inset-left, 0px))',
+            paddingRight: 'max(1rem, env(safe-area-inset-right, 0px))'
+          }}
+        >
+          <ProjectHeader
+            project={project}
+            canManage={canManage}
+            onBack={() => navigate('/projects')}
+            onEdit={() => setShowEditProjectForm(true)}
+            onCreateTask={() => setShowTaskForm(true)}
+          />
 
-        <ProjectStats
-          project={project}
-          progress={progress}
-          completedCount={completedCount}
-          totalTasks={totalTasks}
-          activeCount={activeTasks.length}
-          completedTasksCount={completedTasks.length}
-          upcomingCount={upcomingTasks.length}
-          archivedCount={archivedTasks.length}
-          participants={participants}
-          isOwner={isOwner}
-          onAddMember={() => setShowAddMemberForm(true)}
-          onViewMembers={() => setShowMembersDialog(true)}
-        />
+          <ProjectStats
+            project={project}
+            progress={progress}
+            completedCount={completedCount}
+            totalTasks={totalTasks}
+            activeCount={activeTasks.length}
+            completedTasksCount={completedTasks.length}
+            upcomingCount={upcomingTasks.length}
+            archivedCount={archivedTasks.length}
+            participants={participants}
+            isOwner={isOwner}
+            onAddMember={() => setShowAddMemberForm(true)}
+            onViewMembers={() => setShowMembersDialog(true)}
+          />
 
-        {/* Tasks Tabs */}
-        <Tabs defaultValue="all" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
-            <TabsTrigger value="all" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
-            <TabsTrigger value="active" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Active</TabsTrigger>
-            <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
-            <TabsTrigger value="upcoming" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
-              <span className="hidden sm:inline">Upcoming</span>
-              <span className="sm:hidden">Next</span>
-            </TabsTrigger>
-            <TabsTrigger value="habits" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
-              <Repeat className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 md:mr-1 inline-block" />
-              <span className="hidden sm:inline">Habits</span>
-            </TabsTrigger>
-            <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archive</TabsTrigger>
-          </TabsList>
+          {/* Tasks Tabs */}
+          <Tabs defaultValue="all" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-6 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
+              <TabsTrigger value="all" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
+              <TabsTrigger value="active" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Active</TabsTrigger>
+              <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
+              <TabsTrigger value="upcoming" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
+                <span className="hidden sm:inline">Upcoming</span>
+                <span className="sm:hidden">Next</span>
+              </TabsTrigger>
+              <TabsTrigger value="habits" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
+                <Repeat className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 md:mr-1 inline-block" />
+                <span className="hidden sm:inline">Habits</span>
+              </TabsTrigger>
+              <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archive</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="all" className="space-y-6">
-            {hasAnyAllTabContent ? (
-              <ProjectTaskSections
-                activeTasks={activeSectionTasks}
-                upcomingTasks={upcomingSectionTasks}
-                completedTasks={completedSectionTasks}
-                archivedTasks={archivedSectionTasks}
-                completionLogs={completionLogs}
-                onRecover={handleRecoverWrapper}
-              />
-            ) : (
-              projectTasks.length === 0 ? (
-                <EmptyState onCreateTask={() => setShowTaskForm(true)} />
+            <TabsContent value="all" className="space-y-6">
+              {hasAnyAllTabContent ? (
+                <ProjectTaskSections
+                  activeTasks={activeSectionTasks}
+                  upcomingTasks={upcomingSectionTasks}
+                  completedTasks={completedSectionTasks}
+                  archivedTasks={archivedSectionTasks}
+                  completionLogs={completionLogs}
+                  onRecover={handleRecoverWrapper}
+                  onComplete={handleCompleteWrapper}
+                />
               ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-accent" />
-                    <h3 className="text-lg font-semibold">All Project Tasks</h3>
-                  </div>
+                projectTasks.length === 0 ? (
+                  <EmptyState onCreateTask={() => setShowTaskForm(true)} />
+                ) : (
                   <div className="space-y-3">
-                    {projectTasks.map(task => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        completionLogs={completionLogs}
-                        onRecover={handleRecoverWrapper}
-                      />
-                    ))}
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-accent" />
+                      <h3 className="text-lg font-semibold">All Project Tasks</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {projectTasks.map(task => (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          completionLogs={completionLogs}
+                          onRecover={handleRecoverWrapper}
+                          onComplete={handleCompleteWrapper}
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )
-            )}
-          </TabsContent>
-
-          <TabsContent value="active">
-            <div className="space-y-3">
-              {activeTasks.length > 0 ? (
-                activeTasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    completionLogs={completionLogs}
-                    onRecover={handleRecoverWrapper}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Sparkles className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No active tasks</p>
-                </div>
+                )
               )}
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="completed">
-            <div className="space-y-3 opacity-60">
-              {completedTasks.length > 0 ? (
-                completedTasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    completionLogs={completionLogs}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No completed tasks yet</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+            <TabsContent value="active">
+              <div className="space-y-3">
+                {activeTasks.length > 0 ? (
+                  activeTasks.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      completionLogs={completionLogs}
+                      onRecover={handleRecoverWrapper}
+                      onComplete={handleCompleteWrapper}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <Sparkles className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No active tasks</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-          <TabsContent value="upcoming">
-            <div className="space-y-3">
-              {upcomingTasks.length > 0 ? (
-                upcomingTasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    completionLogs={completionLogs}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No upcoming tasks</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
+            <TabsContent value="completed">
+              <div className="space-y-3 opacity-60">
+                {completedTasks.length > 0 ? (
+                  completedTasks.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      completionLogs={completionLogs}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No completed tasks yet</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-          <TabsContent value="habits">
-            <div className="space-y-3">
-              {habitTasks.length > 0 ? (
-                habitTasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    completionLogs={completionLogs}
-                    onRecover={handleRecoverWrapper}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Repeat className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-4">No habit tasks yet</p>
-                  {canManage && (
-                    <Button onClick={() => setShowTaskForm(true)} variant="outline">
-                      Create Habit Task
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </TabsContent>
+            <TabsContent value="upcoming">
+              <div className="space-y-3">
+                {upcomingTasks.length > 0 ? (
+                  upcomingTasks.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      completionLogs={completionLogs}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No upcoming tasks</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
 
-          <TabsContent value="archived">
-            <div className="space-y-3">
-              {archivedTasks.length > 0 ? (
-                archivedTasks.map(task => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    completionLogs={completionLogs}
-                    onRecover={handleRecoverWrapper}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-12">
-                  <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">No archived tasks</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="habits">
+              <div className="space-y-8">
+                {habitTasks.length > 0 ? (
+                  habitTasks.map((series, idx) => {
+                    const seriesId = `${series.title}-${idx}`;
+                    const isExpanded = expandedHabits[seriesId] !== false; // Default to expanded
+
+                    return (
+                      <div key={seriesId} className="space-y-4">
+                        <div
+                          className="flex items-center justify-between bg-muted/30 p-4 rounded-xl border border-border/50 backdrop-blur-sm cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => toggleHabitExpansion(seriesId)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center text-muted-foreground w-5 h-5">
+                              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                              <Repeat className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-base">{series.title}</h3>
+                              {series.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-1">{series.description}</p>
+                              )}
+                              <Badge variant="outline" className="mt-1 text-[10px] py-0 h-4 uppercase tracking-wider bg-background/50">
+                                {series.recurrencePattern}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {canManage && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 px-2 z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Are you sure you want to delete the entire series "${series.title}"? This will remove all its daily/weekly occurrences.`)) {
+                                  handleDeleteTaskSeries(series);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              <span className="hidden sm:inline">Delete Series</span>
+                            </Button>
+                          )}
+                        </div>
+
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2, ease: "easeInOut" }}
+                              className="overflow-hidden"
+                            >
+                              <div className="grid grid-cols-1 gap-3 pl-4 border-l-2 border-primary/10 py-1">
+                                {series.tasks.map(task => (
+                                  <TaskCard
+                                    key={task.id}
+                                    task={task}
+                                    completionLogs={completionLogs}
+                                    onRecover={handleRecoverWrapper}
+                                    onComplete={handleCompleteWrapper}
+                                  />
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-12">
+                    <Repeat className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-4">No habit tasks yet</p>
+                    {canManage && (
+                      <Button onClick={() => setShowTaskForm(true)} variant="outline">
+                        Create Habit Task
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="archived">
+              <div className="space-y-3">
+                {archivedTasks.length > 0 ? (
+                  archivedTasks.map(task => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      completionLogs={completionLogs}
+                      onRecover={handleRecoverWrapper}
+                      onComplete={handleCompleteWrapper}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-12">
+                    <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">No archived tasks</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
       <TaskForm
@@ -560,7 +688,7 @@ const ProjectDetail = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   );
 };
 
@@ -606,7 +734,7 @@ const EditProjectForm = ({
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!canEdit) return;
     onSave({ name: name.trim(), description: description.trim() });

@@ -1,13 +1,15 @@
+import { ReactNode } from 'react';
 import { TaskCard } from '../../tasks/components/TaskCard';
 import { Clock, CheckCircle2, Sparkles, Repeat } from 'lucide-react';
 import type { Task, CompletionLog } from '@/types';
 
 interface TaskSectionProps {
   title: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   tasks: Task[];
   completionLogs: CompletionLog[];
   onRecover?: (taskId: string | number) => void;
+  onComplete?: (taskId: string | number, difficultyRating?: number) => void;
   className?: string;
 }
 
@@ -17,6 +19,7 @@ export const TaskSection = ({
   tasks,
   completionLogs,
   onRecover,
+  onComplete,
   className = '',
 }: TaskSectionProps) => {
   if (tasks.length === 0) return null;
@@ -34,6 +37,7 @@ export const TaskSection = ({
             task={task}
             completionLogs={completionLogs}
             onRecover={onRecover}
+            onComplete={onComplete}
           />
         ))}
       </div>
@@ -48,6 +52,7 @@ interface ProjectTaskSectionsProps {
   archivedTasks: Task[];
   completionLogs: CompletionLog[];
   onRecover: (taskId: string | number) => void;
+  onComplete?: (taskId: string | number, difficultyRating?: number) => void;
 }
 
 export const ProjectTaskSections = ({
@@ -57,6 +62,7 @@ export const ProjectTaskSections = ({
   archivedTasks,
   completionLogs,
   onRecover,
+  onComplete,
 }: ProjectTaskSectionsProps) => {
   return (
     <>
@@ -67,6 +73,7 @@ export const ProjectTaskSections = ({
           tasks={activeTasks}
           completionLogs={completionLogs}
           onRecover={onRecover}
+          onComplete={onComplete}
         />
       )}
 
@@ -76,6 +83,7 @@ export const ProjectTaskSections = ({
           icon={<Clock className="w-5 h-5 text-muted-foreground" />}
           tasks={upcomingTasks}
           completionLogs={completionLogs}
+          onComplete={onComplete}
         />
       )}
 
@@ -96,6 +104,7 @@ export const ProjectTaskSections = ({
           tasks={archivedTasks}
           completionLogs={completionLogs}
           onRecover={onRecover}
+          onComplete={onComplete}
         />
       )}
     </>
