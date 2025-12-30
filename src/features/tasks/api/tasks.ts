@@ -18,7 +18,7 @@ export class TasksRepository {
   constructor(
     private supabase: SupabaseClient,
     private taskStatusRepo: TaskStatusRepository
-  ) {}
+  ) { }
 
   /**
    * Get a task by ID with statuses and recurrence
@@ -28,7 +28,7 @@ export class TasksRepository {
       .from('tasks')
       .select('*')
       .eq('id', toStringId(id))
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
 
@@ -62,15 +62,20 @@ export class TasksRepository {
 
     if (error || !data) return [];
 
-    // If filtering by userId, filter tasks that have status for that user
+    // If filtering by userId, filter tasks that have status for that user OR were created by that user
     let tasks = data as TaskRow[];
     if (filters?.userId !== undefined) {
+      const userId = filters.userId;
       const taskIds = tasks.map((t) => Number(t.id));
       const statuses = await this.taskStatusRepo.getByTaskIds(taskIds);
       const userTaskIds = new Set(
-        statuses.filter((s) => s.userId === filters.userId).map((s) => s.taskId)
+        statuses.filter((s) => s.userId === userId).map((s) => s.taskId)
       );
-      tasks = tasks.filter((t) => userTaskIds.has(Number(t.id)));
+      tasks = tasks.filter((t) => {
+        const taskId = Number(t.id);
+        const creatorId = Number(t.creator_id);
+        return userTaskIds.has(taskId) || creatorId === userId;
+      });
     }
 
     // Fetch statuses and recurrences for all tasks
@@ -157,7 +162,7 @@ export class TasksRepository {
       .from('task_recurrence')
       .select('*')
       .eq('task_id', toStringId(taskId))
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
     return transformTaskRecurrenceRow(data as TaskRecurrenceRow);

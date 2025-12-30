@@ -281,8 +281,12 @@ export function transformNotificationRow(row: NotificationRow): Notification {
 export function toUserRow(user: Partial<User>): Partial<UserRow> {
   const row: Partial<UserRow> = {};
   if (user.name !== undefined) row.name = user.name;
-  if (user.handle !== undefined) row.handle = user.handle;
-  if (user.email !== undefined) row.email = user.email;
+  if (user.handle !== undefined) {
+    // Enforce lowercase handles in database to prevent case-sensitivity issues
+    const h = user.handle.trim().toLowerCase();
+    row.handle = h.startsWith('@') ? h.slice(1) : h;
+  }
+  if (user.email !== undefined) row.email = user.email.toLowerCase();
   if (user.avatar !== undefined) row.avatar = user.avatar;
   if (user.timezone !== undefined) row.timezone = user.timezone;
   if (user.notificationPreferences !== undefined) {

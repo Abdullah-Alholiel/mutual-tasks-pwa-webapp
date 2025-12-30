@@ -88,14 +88,14 @@ export async function notifyTaskCreated(
     try {
       const inAppNotifications = participantUsers.map(participant => ({
         userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
-        type: 'task_created' as NotificationType,
+        type: 'project_joined' as NotificationType, // Fallback to 'project_joined' as 'task_created' is not in DB enum yet
         message: `${creator.name} created "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
         isRead: false,
         emailSent: false,
       }));
-      
+
       await db.notifications.createMany(inAppNotifications);
     } catch (notifError) {
       console.error('Failed to create in-app notifications:', notifError);
@@ -203,14 +203,14 @@ export async function notifyTaskCompleted(
     // Create in-app notifications for all participants
     const inAppNotifications = participantUsers.map(participant => ({
       userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
-      type: 'task_completed' as NotificationType,
+      type: 'project_joined' as NotificationType, // Fallback to 'project_joined' as 'task_completed' is not in DB enum yet
       message: `${completer.name} completed "${task.title}" in ${project.name}`,
       taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
       projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
       isRead: false,
       emailSent: false,
     }));
-    
+
     await db.notifications.createMany(inAppNotifications);
 
     // Optionally send emails (if configured)
@@ -314,14 +314,14 @@ export async function notifyTaskRecovered(
     // Create in-app notifications
     const inAppNotifications = participantUsers.map(participant => ({
       userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
-      type: 'task_recovered' as NotificationType,
+      type: 'project_joined' as NotificationType, // Fallback to 'project_joined' as 'task_recovered' is not in DB enum yet
       message: `${recoverer.name} recovered "${task.title}" in ${project.name}`,
       taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
       projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
       isRead: false,
       emailSent: false,
     }));
-    
+
     await db.notifications.createMany(inAppNotifications);
   } catch (error) {
     console.error('Error in notifyTaskRecovered:', error);

@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import type { Task, TaskStatusEntity, CompletionLog, DifficultyRating, TaskStatus, User, RingColor } from '@/types';
 import { normalizeToStartOfDay } from '@/lib/tasks/taskUtils';
 import { recoverTask } from '@/lib/tasks/taskRecoveryUtils';
-import { validateProjectForTaskCreation } from '@/lib/tasks/taskCreationUtils';
+import { validateProjectForTaskCreation, getParticipatingUserIds } from '@/lib/tasks/taskCreationUtils';
 import { handleError } from '@/lib/errorUtils';
 import { notifyTaskCreated, notifyTaskCompleted, notifyTaskRecovered } from '@/lib/tasks/taskEmailNotifications';
 import { getDatabaseClient } from '@/db';
@@ -206,7 +206,7 @@ export const useProjectTaskMutations = ({
 
     const isRecovered = myTaskStatus.recoveredAt !== undefined;
     const taskDueDate = task.dueDate;
-    
+
     // Normalize dates to start of day for accurate comparison
     // Tasks completed on the due date should get full XP
     const normalizedNow = normalizeToStartOfDay(now);
@@ -373,14 +373,12 @@ export const useProjectTaskMutations = ({
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
     const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
 
-    // Get all participant user IDs
-    const participantUserIds = projectWithParticipants?.participantRoles
-      ?.filter(pr => !pr.removedAt)
-      ?.map(pr => typeof pr.userId === 'string' ? parseInt(pr.userId) : pr.userId) || [];
+    // Get all participant user IDs (creator + all active project members)
+    const participantUserIds = getParticipatingUserIds(projectWithParticipants, userId);
 
     // Validate project for task creation
     const allParticipants = participantUserIds.map(id => ({ id } as User));
-    const validation = validateProjectForTaskCreation(projectWithParticipants, allParticipants, 2);
+    const validation = validateProjectForTaskCreation(projectWithParticipants, allParticipants, 1);
     if (!validation.isValid) {
       toast.error('Cannot create task', {
         description: validation.error

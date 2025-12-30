@@ -12,7 +12,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { cn } from '@/lib/utils';
-import { normalizeId } from '@/lib/idUtils';
+import { normalizeId, compareIds } from '@/lib/idUtils';
 import {
   getRingColor,
   canCompleteTask,
@@ -113,6 +113,11 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
     });
   }, [task.taskStatus, currentUser]);
 
+  const isCreator = useMemo(() => {
+    if (!currentUser) return false;
+    return compareIds(task.creatorId, currentUser.id);
+  }, [task.creatorId, currentUser]);
+
   // Check completion via CompletionLog
   const myCompletion = useMemo(() => {
     if (!currentUser) return undefined;
@@ -153,9 +158,9 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
   // 1. onComplete handler is provided
   // 2. User hasn't already completed this task
   // 3. Task is either: active, recovered, OR has recoveredAt set (for immediate feedback after recovery)
-  // NOTE: Explicitly allow recovered tasks to show complete button even if other checks fail
+  // NOTE: Explicitly allow creators to complete tasks even if status is missing
   const shouldShowComplete = !!onComplete && !myCompletion &&
-    (canComplete || isRecovered || myTaskStatus?.recoveredAt);
+    (canComplete || isRecovered || myTaskStatus?.recoveredAt || (isCreator && uiStatus === 'active'));
 
   const handleComplete = () => {
     // Allow completion for recovered tasks even if canComplete initially failed
@@ -189,15 +194,21 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                 <div className="flex items-center gap-2 mb-2">
                   {project && (
                     <Badge
-                      variant="secondary"
-                      className="text-xs font-medium"
-                      style={{ backgroundColor: `${project.color}15`, color: project.color }}
+                      variant="outline"
+                      className="text-xs font-bold px-3 py-1 rounded-full border-none whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all duration-300 shadow-sm bg-muted/60"
+                      style={project.color ? {
+                        color: project.color,
+                        border: `1px solid ${project.color}15`
+                      } : undefined}
                     >
-                      {project.name}
+                      {project.icon && (
+                        <span className="text-xs leading-none">{project.icon}</span>
+                      )}
+                      <span>{project.name}</span>
                     </Badge>
                   )}
                   {task.type === 'habit' && task.recurrencePattern && (
-                    <Badge variant="outline" className="text-xs flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs font-bold flex items-center gap-1 shrink-0 bg-background/50 border-border/50 px-2.5 py-1 rounded-full">
                       <Repeat className="w-3 h-3" />
                       {task.recurrencePattern.toLowerCase() === 'daily'
                         ? 'Daily'
@@ -304,7 +315,7 @@ export const TaskCard = ({ task, completionLogs = [], onAccept, onDecline, onCom
                               {index > 0 && <div className="h-5 w-[1px] bg-border/40 mx-0.5" />}
                               <Avatar className={cn("w-8 h-8 sm:w-9 sm:h-9 ring-2 ring-offset-2 ring-offset-background shrink-0 transition-all duration-300 hover:scale-110", ringColorClass)}>
                                 <AvatarImage src={userAvatar} alt={userName} />
-                                <AvatarFallback className={!user ? 'animate-pulse bg-muted' : 'text-[10px]'}>
+                                <AvatarFallback className={!user ? 'text-[10px]' : 'text-[10px]'}>
                                   {userInitial}
                                 </AvatarFallback>
                               </Avatar>

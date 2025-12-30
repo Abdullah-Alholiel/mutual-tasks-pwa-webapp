@@ -25,13 +25,13 @@ export async function isHandleUnique(handle: string, excludeUserId?: string | nu
     // Normalize handle (lowercase, trim)
     const normalizedHandle = handle.trim().toLowerCase();
     
-    // Ensure handle starts with @
-    const handleWithAt = normalizedHandle.startsWith('@') 
+    // getByHandle now handles @ prefix internally, so we can pass it with or without @
+    const handleToSearch = normalizedHandle.startsWith('@') 
       ? normalizedHandle 
       : `@${normalizedHandle}`;
 
-    // Find user by handle
-    const existingUser = await db.users.getByHandle(handleWithAt);
+    // Find user by handle (getByHandle handles @ prefix removal and case-insensitive matching)
+    const existingUser = await db.users.getByHandle(handleToSearch);
     
     if (!existingUser) {
       return true; // Handle is available
@@ -92,6 +92,31 @@ export const validateHandleFormat = (handle: string): { isValid: boolean; error?
 };
 
 /**
+ * Determine if an identifier is an email or a handle
+ * 
+ * @param identifier - The identifier to check
+ * @returns 'email' | 'handle'
+ */
+function identifyType(identifier: string): 'email' | 'handle' {
+  const trimmed = identifier.trim().toLowerCase();
+  
+  // If it starts with @, it's definitely a handle
+  if (trimmed.startsWith('@')) {
+    return 'handle';
+  }
+  
+  // If it contains @ but not at the start, and has a domain (contains a dot after @), it's an email
+  // Email pattern: something@domain.tld
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (emailPattern.test(trimmed)) {
+    return 'email';
+  }
+  
+  // Otherwise, assume it's a handle (without @ prefix)
+  return 'handle';
+}
+
+/**
  * Find user by email or handle
  * 
  * @param identifier - Email address or handle (with or without @)
@@ -105,21 +130,38 @@ export async function findUserByIdentifier(identifier: string): Promise<User | n
   try {
     const db = getDatabaseClient();
     const normalized = identifier.trim().toLowerCase();
+    const type = identifyType(normalized);
     
-    // Try to find by email first
-    const userByEmail = await db.users.getByEmail(normalized);
-    if (userByEmail) {
-      return userByEmail;
-    }
-
-    // Try to find by handle
-    const handleWithAt = normalized.startsWith('@') 
-      ? normalized 
-      : `@${normalized}`;
-    
-    const userByHandle = await db.users.getByHandle(handleWithAt);
-    if (userByHandle) {
-      return userByHandle;
+    // Try primary method based on type detection
+    if (type === 'email') {
+      // Query by email first
+      const userByEmail = await db.users.getByEmail(normalized);
+      if (userByEmail) {
+        return userByEmail;
+      }
+      
+      // Fallback: try as handle if email search failed
+      // getByHandle now handles @ prefix internally, so pass as-is
+      const userByHandle = await db.users.getByHandle(normalized);
+      if (userByHandle) {
+        return userByHandle;
+      }
+    } else {
+      // Query by handle first
+      // getByHandle now handles @ prefix internally, so pass as-is
+      const userByHandle = await db.users.getByHandle(normalized);
+      if (userByHandle) {
+        return userByHandle;
+      }
+      
+      // Fallback: try as email if handle search failed (only if it looks like an email)
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (emailPattern.test(normalized)) {
+        const userByEmail = await db.users.getByEmail(normalized);
+        if (userByEmail) {
+          return userByEmail;
+        }
+      }
     }
 
     return null;

@@ -7,6 +7,7 @@
 // ============================================================================
 
 import type { Task, TaskStatusEntity, Project, User, TaskStatus } from '@/types';
+import { compareIds } from '../idUtils';
 
 /**
  * Get all project participant IDs (including owner/creator)
@@ -20,12 +21,12 @@ export const getProjectParticipantIds = (
   allUsers: User[]
 ): number[] => {
   const participantIds = new Set<number>();
-  
+
   // Always include the owner
   if (project.ownerId) {
     participantIds.add(project.ownerId);
   }
-  
+
   // Add participants from participants array
   if (project.participants) {
     project.participants.forEach(p => {
@@ -35,7 +36,7 @@ export const getProjectParticipantIds = (
       }
     });
   }
-  
+
   // Add participants from participantRoles
   if (project.participantRoles) {
     project.participantRoles.forEach(pr => {
@@ -44,8 +45,35 @@ export const getProjectParticipantIds = (
       }
     });
   }
-  
+
   return Array.from(participantIds);
+};
+
+/**
+ * Get IDs of users who should be assigned to a new task
+ * Includes the creator and all active project participants
+ */
+export const getParticipatingUserIds = (
+  project: Project,
+  creatorId: number | string
+): number[] => {
+  const ids = new Set<number>();
+  ids.add(Number(creatorId));
+
+  if (project.participantRoles) {
+    project.participantRoles.forEach(pr => {
+      if (pr.userId && !pr.removedAt) {
+        ids.add(Number(pr.userId));
+      }
+    });
+  }
+
+  // Also check project.ownerId if it's not the creator
+  if (project.ownerId) {
+    ids.add(Number(project.ownerId));
+  }
+
+  return Array.from(ids);
 };
 
 /**
@@ -89,7 +117,7 @@ export const createTaskStatusesForAllParticipants = (
   timestamp: Date
 ): TaskStatusEntity[] => {
   const participantIds = getProjectParticipantIds(project, allUsers);
-  
+
   return participantIds.map(userId =>
     buildTaskStatus(taskId, userId, 'active', dueDate, timestamp)
   );
@@ -106,7 +134,7 @@ export const createTaskStatusesForAllParticipants = (
 export const validateProjectForTaskCreation = (
   project: Project,
   allUsers: User[],
-  minParticipants: number = 2
+  minParticipants: number = 1
 ): { isValid: boolean; error?: string } => {
   // For public projects, skip participant validation
   // Tasks in public projects are automatically assigned to all members
@@ -114,17 +142,17 @@ export const validateProjectForTaskCreation = (
   if (project.isPublic) {
     return { isValid: true };
   }
-  
+
   // For private projects, validate minimum participants
   const participantIds = getProjectParticipantIds(project, allUsers);
-  
+
   if (participantIds.length < minParticipants) {
     return {
       isValid: false,
       error: `Task requires at least ${minParticipants} participants. Add more members to the project first.`
     };
   }
-  
+
   return { isValid: true };
 };
 

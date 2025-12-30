@@ -143,14 +143,13 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
       return;
     }
 
-    // For private projects: require at least 1 participant (creator + one friend)
-    // For public projects: can create without additional participants (add members later)
-    if (!isPublic && selectedParticipants.length < 1) {
-      toast.error('Private project requires at least one friend', {
-        description: 'Add at least one friend to create a private project'
-      });
-      return;
-    }
+    // Private projects can now be created without additional participants
+    // if (!isPublic && selectedParticipants.length < 1) {
+    //   toast.error('Private project requires at least one friend', {
+    //     description: 'Add at least one friend to create a private project'
+    //   });
+    //   return;
+    // }
 
     onSubmit({
       name: name.trim(),
@@ -280,11 +279,9 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
 
           {/* Participants */}
           <div className="space-y-2">
-            <Label>Add Friends {!isPublic && '*'}</Label>
+            <Label>Add Friends</Label>
             <p className="text-xs text-muted-foreground">
-              {isPublic
-                ? 'Optional: Add friends to collaborate (or add them later)'
-                : 'Required: Add at least one friend to create a private project'}
+              Optional: Add friends to collaborate (you can always add them later)
             </p>
 
             {/* Add Friend by Handle */}
@@ -401,7 +398,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
             </Button>
             <Button
               type="submit"
-              disabled={!name.trim() || (!isPublic && selectedParticipants.length === 0)}
+              disabled={!name.trim()}
               className="flex-1 gradient-primary text-white"
             >
               <Sparkles className="w-4 h-4 mr-2" />

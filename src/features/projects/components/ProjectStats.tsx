@@ -15,7 +15,7 @@ interface ProjectStatsProps {
   upcomingCount: number;
   archivedCount: number;
   participants: (ProjectParticipant & { user?: { id: string | number; name: string; avatar: string } })[];
-  isOwner: boolean;
+  canManage: boolean;
   onAddMember: () => void;
   onViewMembers: () => void;
 }
@@ -30,7 +30,7 @@ export const ProjectStats = ({
   upcomingCount,
   archivedCount,
   participants,
-  isOwner,
+  canManage,
   onAddMember,
   onViewMembers,
 }: ProjectStatsProps) => {
@@ -103,13 +103,13 @@ export const ProjectStats = ({
                   // Use participants from props first, fallback to project.participants
                   // Create a combined unique list to avoid duplicates
                   const participantMap = new Map<string | number, typeof participants[0] | { user: typeof project.participants[0] }>();
-                  
+
                   // Add participants from props
                   participants.forEach(p => {
                     const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
                     participantMap.set(pUserId, p);
                   });
-                  
+
                   // Add project.participants if not already present
                   project.participants?.forEach(user => {
                     const uId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
@@ -117,13 +117,13 @@ export const ProjectStats = ({
                       participantMap.set(uId, { user });
                     }
                   });
-                  
+
                   const uniqueParticipants = Array.from(participantMap.values()).slice(0, 4);
-                  
+
                   return uniqueParticipants.map((p) => {
                     const user = 'user' in p && p.user ? p.user : (p as typeof participants[0]).user;
                     const userId = user?.id ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : (p as typeof participants[0]).userId;
-                    
+
                     return (
                       <Avatar
                         key={`participant-${userId}`}
@@ -149,7 +149,7 @@ export const ProjectStats = ({
                   );
                 })()}
               </div>
-              {isOwner && (
+              {canManage && (
                 <Button
                   variant="ghost"
                   size="icon"

@@ -15,11 +15,19 @@ import {
   getRecoveredTasks,
   updateTasksWithStatuses
 } from '../../lib/tasks/taskFilterUtils';
+import { getParticipatingUserIds } from '../../lib/tasks/taskCreationUtils';
 import { getProjectsWhereCanCreateTasks } from '../../lib/projects/projectUtils';
 import { normalizeToStartOfDay } from '../../lib/tasks/taskUtils';
+import { normalizeId, compareIds } from '../../lib/idUtils';
 import { useAuth } from '../auth/useAuth';
 import { useProjects } from '../projects/hooks/useProjects';
-import { useCreateTask, useTaskStatuses, useCompletionLogs } from '../tasks/hooks/useTasks';
+import {
+  useCreateTaskWithStatuses,
+  useCreateMultipleTasksWithStatuses,
+  type CreateTaskWithStatusesInput,
+  useTaskStatuses,
+  useCompletionLogs
+} from '../tasks/hooks/useTasks';
 import { useCreateCompletionLog, useUpdateTaskStatus } from '../tasks/hooks/useTasks';
 import { useTodayTasks, useUserTasks } from '../tasks/hooks/useTasks';
 import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
@@ -38,7 +46,8 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
   const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
   const { data: todayTasksRaw = [], isLoading: tasksLoading } = useTodayTasks();
   const { data: allUserTasks = [], isLoading: allTasksLoading } = useUserTasks(); // For recovered tasks
-  const createTaskMutation = useCreateTask();
+  const createTaskMutation = useCreateTaskWithStatuses();
+  const createMultipleTasksMutation = useCreateMultipleTasksWithStatuses();
   const createCompletionLogMutation = useCreateCompletionLog();
   const updateTaskStatusMutation = useUpdateTaskStatus();
 
@@ -81,17 +90,15 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
     if (!user) return [];
     return getTodayTasks(tasksWithStatuses, user.id).filter(task => {
       // Task should appear if user is in project participants or is creator
-      const project = allProjects.find(p => p.id === task.projectId);
+      const project = allProjects.find(p => compareIds(p.id, task.projectId));
       if (!project) return false;
 
-      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-      const creatorId = typeof task.creatorId === 'string' ? parseInt(task.creatorId) : task.creatorId;
-      const isCreator = creatorId === userId;
+      const userIdNum = normalizeId(user.id);
+      const isCreator = compareIds(task.creatorId, userIdNum);
 
       const isInProject = project.participantRoles?.some(pr => {
-        const prUserId = typeof pr.userId === 'string' ? parseInt(pr.userId) : pr.userId;
-        return prUserId === userId && !pr.removedAt;
-      }) || project.ownerId === userId || isCreator;
+        return compareIds(pr.userId, userIdNum) && !pr.removedAt;
+      }) || compareIds(project.ownerId, userIdNum) || isCreator;
 
       return isInProject;
     });
@@ -122,23 +129,44 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
       return;
     }
 
-    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-    const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    const userIdNum = normalizeId(user.id);
+    const taskIdNum = normalizeId(taskId);
     const myTaskStatus = taskStatuses.find(ts => {
-      const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-      const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-      return tsTaskId === taskIdNum && tsUserId === userId;
+      return compareIds(ts.taskId, taskIdNum) && compareIds(ts.userId, userIdNum);
     });
 
-    if (!myTaskStatus) {
-      toast.error('Task status not found');
-      return;
+    let currentTaskStatus = myTaskStatus;
+
+    if (!currentTaskStatus) {
+      // If task status doesn't exist, create it if the user is the creator or in project
+      try {
+        const db = getDatabaseClient();
+        currentTaskStatus = await db.taskStatus.getByTaskAndUser(taskIdNum, userIdNum);
+
+        if (!currentTaskStatus) {
+          currentTaskStatus = await db.taskStatus.create({
+            taskId: taskIdNum,
+            userId: userIdNum,
+            status: 'active',
+            ringColor: undefined,
+          });
+
+          // Invalidate task statuses query to reflect new status
+          queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+        }
+      } catch (error) {
+        console.error('Failed to create/fetch task status:', error);
+        toast.error('Task status not found', {
+          description: 'Failed to create task status record. Please try again.'
+        });
+        return;
+      }
     }
 
     // Check if task is recovered
-    const isRecovered = myTaskStatus.recoveredAt !== undefined;
+    const isRecovered = currentTaskStatus.recoveredAt !== undefined;
     const taskDueDate = task.dueDate;
-    
+
     // Normalize dates to start of day for accurate comparison
     // Tasks completed on the due date should get full XP
     const normalizedNow = normalizeToStartOfDay(now);
@@ -174,7 +202,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
     try {
       // Create completion log
       await createCompletionLogMutation.mutateAsync({
-        userId: userId,
+        userId: userIdNum,
         taskId: taskIdNum,
         difficultyRating: difficultyRating as 1 | 2 | 3 | 4 | 5 | undefined,
         penaltyApplied,
@@ -183,7 +211,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
 
       // Update task status to completed
       await updateTaskStatusMutation.mutateAsync({
-        id: myTaskStatus.id,
+        id: currentTaskStatus.id,
         data: {
           status: 'completed',
           ringColor: isRecovered ? 'yellow' : (isOnOrBeforeDueDate ? 'green' : 'none')
@@ -193,10 +221,10 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
       // Recalculate and update user stats based on all completion logs
       try {
         const db = getDatabaseClient();
-        await db.users.recalculateStats(userId, user.timezone || 'UTC');
+        await db.users.recalculateStats(userIdNum, user.timezone || 'UTC');
         // Invalidate React Query cache for user stats so profile updates
-        queryClient.invalidateQueries({ queryKey: ['user', 'current', 'stats', userId] });
-        queryClient.invalidateQueries({ queryKey: ['completionLogs', userId] });
+        queryClient.invalidateQueries({ queryKey: ['user', 'current', 'stats', userIdNum] });
+        queryClient.invalidateQueries({ queryKey: ['completionLogs', userIdNum] });
       } catch (statsError) {
         // Log error but don't fail the completion - stats update is secondary
         console.error('Failed to update user stats:', statsError);
@@ -205,7 +233,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
       // Invalidate task-related queries to ensure data freshness
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
-      queryClient.invalidateQueries({ queryKey: ['taskStatuses', userId] });
+      queryClient.invalidateQueries({ queryKey: ['taskStatuses', userIdNum] });
 
       toast.success('Great job! 💪', {
         description: penaltyApplied
@@ -252,26 +280,41 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
     };
   }) => {
     try {
+      if (!user) return;
+
+      const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
       const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
+
+      const project = allProjects.find(p => p.id === taskData.projectId);
+      if (!project) {
+        toast.error('Project not found');
+        return;
+      }
+
+      // Get all participant user IDs (creator + all active project members)
+      const participantUserIds = getParticipatingUserIds(project, userId);
 
       if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
         // For habits, create multiple tasks
-        // Note: This is simplified - in a real app you might want to create a recurrence entity
         const startDate = normalizeToStartOfDay(taskData.dueDate);
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 28); // 28 days for habits
 
-        const tasksToCreate: Array<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>> = [];
+        const tasksToCreate: CreateTaskWithStatusesInput[] = [];
         let currentDate = new Date(startDate);
 
         while (currentDate <= endDate) {
           tasksToCreate.push({
-            projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId,
-            creatorId: typeof user!.id === 'string' ? parseInt(user!.id) : user!.id,
-            type: taskData.type,
-            recurrencePattern: taskData.recurrencePattern,
-            title: taskData.title,
-            description: taskData.description,
+            task: {
+              projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId,
+              creatorId: userId,
+              type: taskData.type,
+              recurrencePattern: taskData.recurrencePattern,
+              title: taskData.title,
+              description: taskData.description,
+              dueDate: normalizeToStartOfDay(new Date(currentDate))
+            },
+            participantUserIds,
             dueDate: normalizeToStartOfDay(new Date(currentDate))
           });
 
@@ -285,25 +328,29 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
         }
 
         // Create all habit tasks
-        await Promise.all(tasksToCreate.map(task => createTaskMutation.mutateAsync(task)));
+        await createMultipleTasksMutation.mutateAsync(tasksToCreate);
 
         toast.success(`${tasksToCreate.length} habit tasks created! 🚀`, {
-          description: 'Your friend has been notified to accept'
+          description: 'Statuses created for all participants'
         });
       } else {
         // One-off task
         await createTaskMutation.mutateAsync({
-          projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId,
-          creatorId: typeof user!.id === 'string' ? parseInt(user!.id) : user!.id,
-          type: taskData.type,
-          recurrencePattern: taskData.recurrencePattern,
-          title: taskData.title,
-          description: taskData.description,
+          task: {
+            projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId,
+            creatorId: userId,
+            type: taskData.type,
+            recurrencePattern: taskData.recurrencePattern,
+            title: taskData.title,
+            description: taskData.description,
+            dueDate: defaultDueDate
+          },
+          participantUserIds,
           dueDate: defaultDueDate
         });
 
-        toast.success('Task initiated! 🚀', {
-          description: 'Your friend has been notified to accept'
+        toast.success('Task created! 🚀', {
+          description: 'Statuses created for all participants'
         });
       }
 

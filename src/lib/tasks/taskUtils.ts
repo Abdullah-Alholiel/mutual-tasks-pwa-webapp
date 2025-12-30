@@ -48,16 +48,16 @@ export const calculateTaskStatusUserStatus = (
       const now = new Date();
       const recoveryDayEnd = new Date(taskStatus.recoveredAt);
       recoveryDayEnd.setHours(23, 59, 59, 999); // End of recovery day
-      
+
       // If current time is within recovery day (before end of day), task is still recovered
       if (now <= recoveryDayEnd) {
         return 'recovered';
       }
-      
+
       // If past end of recovery day, it has expired again -> back to archived
       return 'archived';
     }
-    
+
     // If status is 'recovered' but no recoveredAt timestamp, treat as recovered for today
     return 'recovered';
   }
@@ -119,7 +119,7 @@ export const calculateRingColor = (
     if (taskStatus?.recoveredAt) {
       return 'yellow';
     }
-    
+
     // Green: completed on time or early (use createdAt vs task dueDate to determine timing)
     // Note: timingStatus not in CompletionLog type, calculate from dates
     const completionDate = normalizeToStartOfDay(new Date(completionLog.createdAt));
@@ -127,7 +127,7 @@ export const calculateRingColor = (
     if (completionDate.getTime() <= taskDueDate.getTime()) {
       return 'green';
     }
-    
+
     // None: late completion but not recovered
     return 'none';
   }
@@ -143,7 +143,7 @@ export const calculateRingColor = (
       const now = new Date();
       const recoveryDayEnd = new Date(taskStatus.recoveredAt);
       recoveryDayEnd.setHours(23, 59, 59, 999); // End of recovery day
-      
+
       // If current time is past end of recovery day, task expired again -> red
       if (now > recoveryDayEnd) {
         return 'red';
@@ -164,7 +164,7 @@ export const calculateRingColor = (
     const now = new Date();
     const dueDateEnd = new Date(task.dueDate);
     dueDateEnd.setHours(23, 59, 59, 999); // End of due date
-    
+
     // Task is expired if current time is past the due date
     if (now > dueDateEnd) {
       // Only show red if task is not completed (no completion log)
@@ -183,7 +183,7 @@ export const calculateRingColor = (
     const now = new Date();
     const dueDateOnly = new Date(task.dueDate);
     dueDateOnly.setHours(23, 59, 59, 999); // End of due date
-    
+
     // Task is expired if current time is past the due date
     if (now > dueDateOnly) {
       return 'red';
@@ -274,7 +274,7 @@ export const getRingColor = (
       const now = new Date();
       const recoveryDayEnd = new Date(taskStatus.recoveredAt);
       recoveryDayEnd.setHours(23, 59, 59, 999); // End of recovery day
-      
+
       // If past recovery day, show red (expired again)
       if (now > recoveryDayEnd) {
         return 'ring-red-500';
@@ -359,13 +359,14 @@ export const canCompleteTask = (
   completionLog: CompletionLog | undefined,
   task?: Task
 ): boolean => {
-  if (!taskStatus) return false;
   if (completionLog) return false; // Already completed
 
-  const computedStatus = task ? calculateTaskStatusUserStatus(taskStatus, completionLog, task) : taskStatus.status;
+  // Calculate status - if we have a task, use the full calculation (handles missing taskStatus)
+  // Otherwise, fall back to the taskStatus's explicit status or default to 'active'
+  const computedStatus = task ? calculateTaskStatusUserStatus(taskStatus, completionLog, task) : (taskStatus?.status || 'active');
 
   // Recovered tasks can always be completed from today's view
-  if (taskStatus.recoveredAt || computedStatus === 'recovered') {
+  if (taskStatus?.recoveredAt || computedStatus === 'recovered') {
     return true;
   }
 

@@ -183,7 +183,7 @@ const ProjectDetail = () => {
             upcomingCount={upcomingTasks.length}
             archivedCount={archivedTasks.length}
             participants={participants}
-            isOwner={isOwner}
+            canManage={canManage}
             onAddMember={() => setShowAddMemberForm(true)}
             onViewMembers={() => setShowMembersDialog(true)}
           />
@@ -619,7 +619,7 @@ const ProjectDetail = () => {
                   </div>
 
                   <div className="flex items-center gap-2 ml-4">
-                    {isOwner && !isCurrentUser ? (
+                    {(isOwner || (isManager && participant.role !== 'owner')) && !isCurrentUser ? (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -673,7 +673,7 @@ const ProjectDetail = () => {
             >
               Close
             </Button>
-            {isOwner && (
+            {canManage && (
               <Button
                 onClick={() => {
                   setShowMembersDialog(false);

@@ -74,6 +74,21 @@ export const useProjectMembers = ({
   const handleAddMember = useCallback(async () => {
     if (!currentProject || !user) return;
 
+    // Check if the current user has permission to add members (owner or manager)
+    const currentUserId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+    const isOwner = (typeof currentProject.ownerId === 'string' ? parseInt(currentProject.ownerId) : currentProject.ownerId) === currentUserId;
+    const isManager = participants.some(p => {
+      const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+      return pUserId === currentUserId && p.role === 'manager';
+    });
+
+    if (!isOwner && !isManager) {
+      toast.error('Permission denied', {
+        description: 'Only project owners and managers can add members'
+      });
+      return;
+    }
+
     if (!memberIdentifier.trim()) {
       toast.error('Please enter a handle');
       return;
@@ -160,7 +175,7 @@ export const useProjectMembers = ({
       };
 
       setProjectParticipants(prev => [...prev, newParticipant]);
-      
+
       // Immediately refetch to ensure UI updates instantly
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ['project', projectId] }),
@@ -233,7 +248,7 @@ export const useProjectMembers = ({
 
       // 1. Get all tasks for this project
       const projectTasks = await db.tasks.getAll({ projectId: pId });
-      const projectTaskIds = projectTasks.map(task => 
+      const projectTaskIds = projectTasks.map(task =>
         typeof task.id === 'string' ? parseInt(task.id) : task.id
       );
 
@@ -294,6 +309,20 @@ export const useProjectMembers = ({
           return pp;
         })
       );
+
+      // Create notification for the user whose role was updated
+      try {
+        await db.notifications.create({
+          userId: userIdToUpdate,
+          type: 'project_joined', // Fallback to 'project_joined' as 'role_changed' is not in DB enum yet
+          message: `Your role in "${currentProject.name}" has been updated to ${newRole}`,
+          projectId: pId,
+          isRead: false,
+          emailSent: false,
+        });
+      } catch (notifError) {
+        console.error('Failed to send role update notification:', notifError);
+      }
 
       // Refetch project immediately to show updated role
       await Promise.all([

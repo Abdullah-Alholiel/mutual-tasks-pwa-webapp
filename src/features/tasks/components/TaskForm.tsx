@@ -126,17 +126,16 @@ export const TaskForm = ({
       return;
     }
 
-    // For private projects: require at least 2 participants (creator + one more)
-    // For public projects: can create without additional participants
-    if (!project.isPublic) {
-      const participantCount = project.participants?.length || project.participantRoles?.length || 0;
-      if (participantCount < 2) {
-        toast.error('Task requires at least 2 participants', {
-          description: 'Add more members to the project first'
-        });
-        return;
-      }
-    }
+    // Tasks can now be created by any owner/manager regardless of participant count
+    // if (!project.isPublic) {
+    //   const participantCount = project.participants?.length || project.participantRoles?.length || 0;
+    //   if (participantCount < 2) {
+    //     toast.error('Task requires at least 2 participants', {
+    //       description: 'Add more members to the project first'
+    //     });
+    //     return;
+    //   }
+    // }
 
     // Set due date to start of day (no time component)
     let finalDueDate: Date | undefined = undefined;
@@ -270,13 +269,18 @@ export const TaskForm = ({
             </div>
           )}
 
-          {/* Show project badge only when project is provided directly (not via selection) */}
           {project && !allowProjectSelection && (
-            <div className="bg-muted/50 rounded-xl p-3 flex items-center gap-2">
-              <FolderKanban className="w-4 h-4" style={{ color: project.color }} />
-              <span className="text-sm font-medium" style={{ color: project.color }}>
+            <div className="flex items-center gap-2 mb-2">
+              <Badge
+                variant="secondary"
+                className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full border-none whitespace-nowrap shrink-0 transition-all duration-300 shadow-sm bg-muted/40"
+                style={project.color ? {
+                  backgroundColor: `${project.color}15`,
+                  color: project.color
+                } : undefined}
+              >
                 {project.name}
-              </span>
+              </Badge>
             </div>
           )}
 

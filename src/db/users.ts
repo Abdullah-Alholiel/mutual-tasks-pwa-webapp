@@ -17,7 +17,7 @@ import {
 import { calculateUserStatsFromLogs } from '@/lib/users/userStatsUtils';
 
 export class UsersRepository {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient) { }
 
   /**
    * Get a user by ID
@@ -27,7 +27,7 @@ export class UsersRepository {
       .from('users')
       .select('*')
       .eq('id', toStringId(id))
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
 
@@ -43,7 +43,7 @@ export class UsersRepository {
       .from('user_stats')
       .select('*')
       .eq('user_id', toStringId(userId))
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
     return transformUserStatsRow(data as UserStatsRow);
@@ -168,7 +168,7 @@ export class UsersRepository {
       .update(row)
       .eq('user_id', toStringId(userId))
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return transformUserStatsRow(data as UserStatsRow);
@@ -182,7 +182,7 @@ export class UsersRepository {
       .from('users')
       .select('*')
       .eq('email', email.toLowerCase())
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
 
@@ -193,16 +193,21 @@ export class UsersRepository {
 
   /**
    * Get a user by handle
+   * Handles are stored in the database without @ prefix and may have mixed case
+   * This method performs case-insensitive search and handles @ prefix
    */
   async getByHandle(handle: string): Promise<User | null> {
-    // Normalize handle: ensure it starts with @ and is lowercase
-    const normalizedHandle = handle.startsWith('@') ? handle.toLowerCase() : `@${handle.toLowerCase()}`;
+    // Remove @ prefix and normalize for consistent matching
+    const handleWithoutAt = handle.startsWith('@') ? handle.slice(1) : handle;
+    const normalizedHandle = handleWithoutAt.trim().toLowerCase();
 
+    // Most robust search: Check for both 'handle' and '@handle' case-insensitively
+    // This handles legacy data (with @) and new data (without @) across any casing
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
-      .eq('handle', normalizedHandle)
-      .single();
+      .or(`handle.ilike.${normalizedHandle},handle.ilike.@${normalizedHandle}`)
+      .maybeSingle();
 
     if (error || !data) return null;
 
@@ -242,7 +247,7 @@ export class UsersRepository {
       throw logsError;
     }
 
-    const logs: CompletionLog[] = (logsData || []).map((row: CompletionLogRow) => 
+    const logs: CompletionLog[] = (logsData || []).map((row: CompletionLogRow) =>
       transformCompletionLogRow(row)
     );
 

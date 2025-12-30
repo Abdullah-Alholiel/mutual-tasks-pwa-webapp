@@ -46,10 +46,13 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             </div>
 
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{ backgroundColor: `${project.color}15` }}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm relative overflow-hidden group/icon bg-muted/40"
+              style={{
+                border: `1px solid ${project.color}15`
+              }}
             >
-              <TrendingUp className="w-6 h-6" style={{ color: project.color }} />
+              <div className="absolute inset-0 opacity-5 bg-gradient-to-br from-white to-transparent" />
+              <TrendingUp className="w-6 h-6 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" style={{ color: project.color }} />
             </div>
           </div>
 
@@ -85,9 +88,10 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 1, ease: "easeOut" }}
-                className="absolute inset-y-0 left-0 rounded-full"
+                className="absolute inset-y-0 left-0 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)]"
                 style={{
                   backgroundColor: project.color,
+                  boxShadow: `0 0 15px ${project.color}50`
                 }}
               />
             </div>

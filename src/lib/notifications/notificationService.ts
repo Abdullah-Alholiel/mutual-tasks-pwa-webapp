@@ -44,7 +44,7 @@ function getSupabaseAnonKeyLazy(): string {
  * Handles creating notifications and sending email notifications via Supabase Edge Functions
  */
 export class NotificationService {
-  constructor() {}
+  constructor() { }
 
   /**
    * Send task initiated notification and email
@@ -61,7 +61,7 @@ export class NotificationService {
       const db = getDatabaseClient();
       const notification = await db.notifications.create({
         userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'task_created', // Using task_created as closest match
+        type: 'project_joined', // Fallback as 'task_created' not in DB enum yet
         message: `${initiator.name} initiated "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
@@ -89,7 +89,7 @@ export class NotificationService {
       const db = getDatabaseClient();
       const notification = await db.notifications.create({
         userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'task_created', // Using task_created as closest match
+        type: 'project_joined', // Fallback as 'task_created' not in DB enum yet
         message: `${accepter.name} accepted "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
@@ -117,7 +117,7 @@ export class NotificationService {
       const db = getDatabaseClient();
       const notification = await db.notifications.create({
         userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'task_deleted', // Using task_deleted as closest match for declined
+        type: 'project_joined', // Fallback as 'task_deleted' not in DB enum yet
         message: `${decliner.name} declined "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
@@ -146,7 +146,7 @@ export class NotificationService {
       const db = getDatabaseClient();
       const notification = await db.notifications.create({
         userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'task_created', // Using task_created as closest match
+        type: 'project_joined', // Fallback as 'task_created' not in DB enum yet
         message: `${proposer.name} proposed a new time for "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
@@ -171,11 +171,11 @@ export class NotificationService {
   ): Promise<Notification | null> {
     try {
       const db = getDatabaseClient();
-      
+
       // Create notification in database
       const notification = await db.notifications.create({
         userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'task_completed',
+        type: 'project_joined', // Fallback as 'task_completed' not in DB enum yet
         message: `${completer.name} completed "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,

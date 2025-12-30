@@ -12,7 +12,7 @@ import {
 } from '../../../db/transformers';
 
 export class TaskStatusRepository {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient) { }
 
   /**
    * Get task status by ID
@@ -22,7 +22,7 @@ export class TaskStatusRepository {
       .from('task_statuses')
       .select('*')
       .eq('id', toStringId(id))
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
     return transformTaskStatusRow(data as TaskStatusRow);
@@ -65,7 +65,7 @@ export class TaskStatusRepository {
       .select('*')
       .eq('task_id', toStringId(taskId))
       .eq('user_id', toStringId(userId))
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
     return transformTaskStatusRow(data as TaskStatusRow);
@@ -159,15 +159,15 @@ export class TaskStatusRepository {
       .eq('task_id', toStringId(taskId))
       .eq('user_id', toStringId(userId))
       .select()
-      .single();
+      .maybeSingle();
 
-    // If update succeeded, return the data
+    // If update succeeded and returned data, return it
     if (!updateError && updateData) {
       return transformTaskStatusRow(updateData as TaskStatusRow);
     }
 
-    // PGRST116 = no rows matched (0 rows updated) - fall back to insert
-    if (updateError && updateError.code === 'PGRST116') {
+    // If update returned no data (it didn't exist), or there was a specific "no rows" error, fall back to insert
+    if (!updateError || (updateError && updateError.code === 'PGRST116')) {
       const { data: insertData, error: insertError } = await this.supabase
         .from('task_statuses')
         .insert({
@@ -176,15 +176,16 @@ export class TaskStatusRepository {
           user_id: toStringId(userId),
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (insertError) throw insertError;
+      if (!insertData) throw new Error('Failed to insert task status');
       return transformTaskStatusRow(insertData as TaskStatusRow);
     }
 
     // Other error - throw it
     if (updateError) throw updateError;
-    
+
     // Should not reach here, but satisfy TypeScript
     throw new Error('Unexpected state in updateByTaskAndUser');
   }

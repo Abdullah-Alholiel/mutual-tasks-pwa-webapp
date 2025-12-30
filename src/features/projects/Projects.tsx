@@ -68,14 +68,13 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
       return;
     }
 
-    // For private projects: require at least 2 participants (creator + one more)
-    // For public projects: can create without additional participants
-    if (!projectData.isPublic && projectData.participants.length < 1) {
-      toast.error('Private project requires at least one participant', {
-        description: 'Add at least one friend to create a private project'
-      });
-      return;
-    }
+    // Private projects can now be created without additional participants
+    // if (!projectData.isPublic && projectData.participants.length < 1) {
+    //   toast.error('Private project requires at least one participant', {
+    //     description: 'Add at least one friend to create a private project'
+    //   });
+    //   return;
+    // }
 
     try {
       // Create project with owner ID
@@ -309,11 +308,19 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
             </div>
 
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{ backgroundColor: `${project.color}15` }}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon"
+              style={{
+                backgroundColor: `${project.color}15`,
+                boxShadow: `0 8px 15px -4px ${project.color}40`,
+                border: `1px solid ${project.color}30`
+              }}
             >
               <div
-                className="w-2 h-2 rounded-full"
+                className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
+                style={{ background: `linear-gradient(135deg, ${project.color}40, transparent)` }}
+              />
+              <div
+                className="w-2.5 h-2.5 rounded-full relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                 style={{ backgroundColor: project.color }}
               />
             </div>
