@@ -74,6 +74,9 @@ export type TaskRow = {
   description?: string | null;
   type: string;
   recurrence_pattern?: string | null;
+  recurrence_index?: number | null;
+  recurrence_total?: number | null;
+  show_recurrence_index?: boolean;
   due_date: string;
   created_at?: string | null;
   updated_at: string;
@@ -217,6 +220,9 @@ export function transformTaskRow(
     description: row.description || undefined,
     type: row.type as Task['type'],
     recurrencePattern: (row.recurrence_pattern as Task['recurrencePattern']) || undefined,
+    recurrenceIndex: row.recurrence_index || undefined,
+    recurrenceTotal: row.recurrence_total || undefined,
+    showRecurrenceIndex: row.show_recurrence_index || false,
     dueDate: new Date(row.due_date),
     createdAt: row.created_at ? new Date(row.created_at) : undefined,
     updatedAt: new Date(row.updated_at),
@@ -317,6 +323,10 @@ export function toTaskRow(task: Partial<Task>): Partial<TaskRow> {
   if (task.recurrencePattern !== undefined) {
     row.recurrence_pattern = task.recurrencePattern || null;
   }
+  if (task.recurrenceIndex !== undefined) row.recurrence_index = task.recurrenceIndex;
+  if (task.recurrenceTotal !== undefined) row.recurrence_total = task.recurrenceTotal;
+  if (task.showRecurrenceIndex !== undefined) row.show_recurrence_index = task.showRecurrenceIndex;
+
   if (task.dueDate !== undefined) row.due_date = task.dueDate.toISOString();
   return row;
 }

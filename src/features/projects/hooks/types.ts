@@ -31,6 +31,7 @@ export interface TaskCreationData {
     endDate?: Date;
     occurrenceCount: number;
   };
+  showRecurrenceIndex?: boolean;
 }
 
 /**

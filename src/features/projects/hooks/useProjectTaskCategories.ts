@@ -95,6 +95,11 @@ export const useProjectTaskCategories = ({
         return;
       }
 
+      // For active/upcoming, exclude habits as they are handled by RecurrentTaskSeries
+      if (task.type === 'habit') {
+        return;
+      }
+
       switch (userStatus) {
         case 'recovered':
         case 'active':

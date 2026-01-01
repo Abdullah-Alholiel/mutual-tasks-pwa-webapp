@@ -220,6 +220,9 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                         : task.recurrencePattern.toLowerCase() === 'weekly'
                           ? 'Weekly'
                           : task.recurrencePattern.charAt(0).toUpperCase() + task.recurrencePattern.slice(1).toLowerCase()}
+                      {task.showRecurrenceIndex && task.recurrenceIndex && (
+                        <span> • {task.recurrenceIndex}{task.recurrenceTotal ? `/${task.recurrenceTotal}` : ''}</span>
+                      )}
                     </Badge>
                   )}
                 </div>
@@ -618,6 +621,8 @@ export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
   if (prevProps.task.title !== nextProps.task.title) return false;
   if (prevProps.task.description !== nextProps.task.description) return false;
   if (prevProps.task.dueDate !== nextProps.task.dueDate) return false;
+  if (prevProps.task.recurrenceIndex !== nextProps.task.recurrenceIndex) return false;
+  if (prevProps.task.showRecurrenceIndex !== nextProps.task.showRecurrenceIndex) return false;
 
   // 2. Completion logs changed (by length or content)
   if (prevProps.completionLogs?.length !== nextProps.completionLogs?.length) return false;

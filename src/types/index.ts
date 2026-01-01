@@ -115,6 +115,9 @@ export interface Task {
   description?: string;
   type: TaskType;
   recurrencePattern?: RecurrencePattern;
+  recurrenceIndex?: number;
+  recurrenceTotal?: number;
+  showRecurrenceIndex?: boolean;
   dueDate: Date;
   createdAt?: Date;
   updatedAt: Date;

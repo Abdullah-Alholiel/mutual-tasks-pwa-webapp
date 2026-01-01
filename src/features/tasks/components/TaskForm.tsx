@@ -12,12 +12,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { Project, User, TaskType, RecurrencePattern } from '@/types';
 import { motion } from 'framer-motion';
-import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus } from 'lucide-react';
+import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus, Wand2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/useCurrentUser';
+import { AIGenerateButton, type AIButtonState } from '@/components/ui/ai-generate-button';
 
 interface TaskFormProps {
   open: boolean;
@@ -37,6 +38,7 @@ interface TaskFormProps {
       endDate?: Date;
       occurrenceCount: number;
     };
+    showRecurrenceIndex?: boolean;
   }) => void;
   project?: Project;
   projects?: Project[]; // Actual projects list (includes newly created ones)
@@ -64,18 +66,31 @@ export const TaskForm = ({
   const [selectedProjectId, setSelectedProjectId] = useState<string | number>(initialProject?.id || '');
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('Daily');
+  const [showRecurrenceIndex, setShowRecurrenceIndex] = useState(false);
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
 
   // Custom recurrence settings
-  const [customRecurrence, setCustomRecurrence] = useState({
-    frequency: 'days' as 'days' | 'weeks' | 'months',
+  const [customRecurrence, setCustomRecurrence] = useState<{
+    frequency: 'days' | 'weeks' | 'months';
+    interval: number | string;
+    daysOfWeek: number[];
+    endType: 'date' | 'count';
+    endDate?: Date;
+    occurrenceCount: number | string;
+  }>({
+    frequency: 'days',
     interval: 1,
-    daysOfWeek: [] as number[], // 0 = Sunday, 1 = Monday, etc.
-    endType: 'date' as 'date' | 'count',
-    endDate: undefined as Date | undefined,
+    daysOfWeek: [], // 0 = Sunday, 1 = Monday, etc.
+    endType: 'date',
+    endDate: undefined,
     occurrenceCount: 10
   });
   const [showProjectForm, setShowProjectForm] = useState(false);
+
+  // AI Generation State
+  const [aiState, setAiState] = useState<AIButtonState>('idle');
+  // Counter to toggle success/fail logic (Mock)
+  const [aiGenerateCount, setAiGenerateCount] = useState(0);
 
   // Use provided projects list, or fall back to initialProject
   const project = initialProject || (selectedProjectId ? projects.find(p => {
@@ -92,6 +107,7 @@ export const TaskForm = ({
       setDescription('');
       setIsRecurring(false);
       setRecurrencePattern('Daily');
+      setShowRecurrenceIndex(false);
       const now = new Date();
       now.setHours(0, 0, 0, 0); // Set to start of day
       setDueDate(now);
@@ -117,6 +133,46 @@ export const TaskForm = ({
 
   const handleProjectFormClose = (open: boolean) => {
     setShowProjectForm(open);
+  };
+
+  const handleAIGenerate = async () => {
+    if (!title.trim()) {
+      toast.error('Please enter a task title first');
+      return;
+    }
+
+    setAiState('loading');
+
+    // Simulate API delay
+    setTimeout(() => {
+      // Logic: Success on 1st try (even count), Fail on 2nd (odd count)
+      // We check current count value. 
+      // 0 -> Success
+      // 1 -> Fail
+      // 2 -> Success ...
+      const shouldFail = aiGenerateCount % 2 !== 0; // 1, 3, 5...
+
+      if (shouldFail) {
+        setAiState('error');
+        toast.error('AI generation failed based on simulation rules.');
+      } else {
+        setAiState('success');
+        setDescription((prev) => {
+          // If description exists, append. If not, set.
+          const aiDesc = ` ✨ AI Generated Description for "${title}": This task involves focused work to achieve the desired outcome. Remember to break it down into smaller steps!`;
+          return prev ? prev + '\n' + aiDesc : aiDesc;
+        });
+        toast.success('Description generated!');
+      }
+
+      setAiGenerateCount(prev => prev + 1);
+
+      // Reset to idle after a delay so user can try again
+      setTimeout(() => {
+        setAiState('idle');
+      }, 3000);
+
+    }, 2000); // 2 second generation simulated delay
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -151,7 +207,12 @@ export const TaskForm = ({
       type: isRecurring ? 'habit' : 'one_off',
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
       dueDate: finalDueDate,
-      customRecurrence: isRecurring && recurrencePattern === 'custom' ? customRecurrence : undefined
+      customRecurrence: isRecurring && recurrencePattern === 'custom' ? {
+        ...customRecurrence,
+        interval: Number(customRecurrence.interval) || 1,
+        occurrenceCount: Number(customRecurrence.occurrenceCount) || 1
+      } : undefined,
+      showRecurrenceIndex: isRecurring ? showRecurrenceIndex : undefined
     });
 
     // Reset form
@@ -159,6 +220,7 @@ export const TaskForm = ({
     setDescription('');
     setIsRecurring(false);
     setRecurrencePattern('Daily');
+    setShowRecurrenceIndex(false);
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     setDueDate(now);
@@ -299,7 +361,15 @@ export const TaskForm = ({
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Description</Label>
+              <AIGenerateButton
+                state={aiState}
+                onClick={handleAIGenerate}
+                disabled={!title.trim() || aiState === 'loading'}
+                className="scale-90 origin-right" // Make it slightly more compact
+              />
+            </div>
             <Textarea
               id="description"
               placeholder="Add details about this task..."
@@ -402,6 +472,23 @@ export const TaskForm = ({
                 </SelectContent>
               </Select>
 
+              {/* Show Occurrence Number Toggle */}
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50">
+                <div className="space-y-0.5">
+                  <Label htmlFor="show-numbering" className="text-sm font-medium cursor-pointer">
+                    Show Recurrence Number
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display number (e.g., "Daily  1")
+                  </p>
+                </div>
+                <Switch
+                  id="show-numbering"
+                  checked={showRecurrenceIndex}
+                  onCheckedChange={setShowRecurrenceIndex}
+                />
+              </div>
+
               {/* Custom Recurrence Configuration */}
               {recurrencePattern === 'custom' && (
                 <motion.div
@@ -416,10 +503,19 @@ export const TaskForm = ({
                         type="number"
                         min="1"
                         value={customRecurrence.interval}
-                        onChange={(e) => setCustomRecurrence(prev => ({
-                          ...prev,
-                          interval: Math.max(1, parseInt(e.target.value) || 1)
-                        }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomRecurrence(prev => ({
+                            ...prev,
+                            interval: val === '' ? '' : parseInt(val)
+                          }));
+                        }}
+                        onBlur={() => {
+                          setCustomRecurrence(prev => ({
+                            ...prev,
+                            interval: Math.max(1, Number(prev.interval) || 1)
+                          }));
+                        }}
                         className="w-20"
                       />
                       <Select
@@ -533,10 +629,19 @@ export const TaskForm = ({
                           type="number"
                           min="1"
                           value={customRecurrence.occurrenceCount}
-                          onChange={(e) => setCustomRecurrence(prev => ({
-                            ...prev,
-                            occurrenceCount: Math.max(1, parseInt(e.target.value) || 1)
-                          }))}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setCustomRecurrence(prev => ({
+                              ...prev,
+                              occurrenceCount: val === '' ? '' : parseInt(val)
+                            }));
+                          }}
+                          onBlur={() => {
+                            setCustomRecurrence(prev => ({
+                              ...prev,
+                              occurrenceCount: Math.max(1, Number(prev.occurrenceCount) || 1)
+                            }));
+                          }}
                           className="flex-1"
                         />
                         <span className="text-sm text-muted-foreground">occurrences</span>

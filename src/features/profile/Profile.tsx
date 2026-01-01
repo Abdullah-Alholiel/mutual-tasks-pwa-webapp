@@ -18,6 +18,7 @@ import { useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { calculateLevel } from '@/lib/users/userStatsUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
+import { adjustColorOpacity } from '@/lib/colorUtils';
 
 interface ProfileProps {
   isInternalSlide?: boolean;
@@ -170,7 +171,7 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
       >
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <h3 className="text-lg font-semibold mb-4">Active Projects</h3>
           <div className="space-y-3">
             {userProjects.map((project) => {
@@ -179,14 +180,14 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
               return (
                 <div
                   key={project.id}
-                  className="flex items-center gap-4 p-4 rounded-xl hover:bg-muted/30 transition-all cursor-pointer border border-border/40 group"
+                  className="flex items-center gap-4 p-3 md:p-4 rounded-xl hover:bg-muted/30 transition-all cursor-pointer border border-border/40 group"
                   onClick={() => navigate(`/projects/${project.id}`)}
                 >
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
-                    style={{ backgroundColor: `${project.color}10` }}
+                    style={{ backgroundColor: adjustColorOpacity(project.color || '#3b82f6', 0.1) }}
                   >
-                    <Icon className="w-5 h-5" style={{ color: project.color }} />
+                    <Icon className="w-5 h-5" style={{ color: project.color || '#3b82f6' }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold truncate text-foreground text-sm group-hover:text-primary transition-colors">{project.name}</div>
@@ -207,7 +208,7 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
                         initial={{ width: 0 }}
                         animate={{ width: `${project.progress || 0}%` }}
                         className="h-full rounded-full"
-                        style={{ backgroundColor: project.color }}
+                        style={{ backgroundColor: project.color || '#3b82f6' }}
                       />
                     </div>
                   </div>

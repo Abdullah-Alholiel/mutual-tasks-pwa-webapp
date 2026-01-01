@@ -9,12 +9,14 @@ import { InlineLoader, PageLoader } from '@/components/ui/loader';
 import type { Project } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/features/auth/useAuth';
 import { useProjects, usePublicProjects, useCreateProject, useUserProjectsWithStats, useJoinProject } from './hooks/useProjects';
 import { getUserProjects } from '@/lib/projects/projectUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
+import { adjustColorOpacity } from '@/lib/colorUtils';
 import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
@@ -28,6 +30,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const isRestoring = useIsRestoring();
+  const queryClient = useQueryClient();
 
   // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
   // Project updates are automatically reflected via the global subscription
@@ -92,6 +95,21 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
       });
 
       // Add participants if provided
+      const updatedParticipants: any[] = [];
+      const updatedRoles: any[] = [];
+
+      // Add owner (current user) to the local state lists
+      if (user) {
+        updatedParticipants.push(user);
+        updatedRoles.push({
+          projectId: newProject.id,
+          userId: ownerId,
+          role: 'owner',
+          addedAt: new Date(),
+          user: user
+        });
+      }
+
       if (projectData.participants.length > 0) {
         const db = getDatabaseClient();
         const projectId = typeof newProject.id === 'string' ? parseInt(newProject.id) : newProject.id;
@@ -109,12 +127,34 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
 
           // Add as participant
           await db.projects.addParticipant(projectId, participantId, 'participant');
+
+          // Add to local lists for UI state
+          updatedParticipants.push(participantUser);
+          updatedRoles.push({
+            projectId: newProject.id,
+            userId: participantId,
+            role: 'participant',
+            addedAt: new Date(),
+            user: participantUser
+          });
         }
       }
 
       setShowProjectForm(false);
+
+      // Construct updated project object with participants for immediate UI feedback
+      const projectWithParticipants = {
+        ...newProject,
+        participants: updatedParticipants,
+        participantRoles: updatedRoles
+      };
+
+      // Seed the React Query cache so ProjectDetail finds data immediately
+      queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
+      queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
+
       // Navigate to the new project
-      navigate(`/projects/${newProject.id}`, { state: { project: newProject } });
+      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
     } catch (error) {
       console.error('Failed to create project:', error);
       toast.error('Failed to create project');
@@ -320,15 +360,15 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon"
               style={{
-                backgroundColor: `${project.color}15`,
-                boxShadow: `0 8px 15px -4px ${project.color}40`,
-                border: `1px solid ${project.color}30`,
-                color: project.color
+                backgroundColor: adjustColorOpacity(project.color || '#3b82f6', 0.15),
+                boxShadow: `0 8px 15px -4px ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}`,
+                border: `1px solid ${adjustColorOpacity(project.color || '#3b82f6', 0.19)}`,
+                color: project.color || '#3b82f6'
               }}
             >
               <div
                 className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
-                style={{ background: `linear-gradient(135deg, ${project.color}40, transparent)` }}
+                style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}, transparent)` }}
               />
               <Icon className="w-6 h-6 relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
             </div>

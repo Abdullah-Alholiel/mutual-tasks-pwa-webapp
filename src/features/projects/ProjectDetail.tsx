@@ -1,4 +1,5 @@
 import { TaskCard } from '../tasks/components/TaskCard';
+import { RecurrentTaskSeries } from '../tasks/components/RecurrentTaskSeries';
 import { TaskForm } from '../tasks/components/TaskForm';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +23,7 @@ import { ProjectStats } from '@/features/projects/components/ProjectStats';
 import { ProjectTaskSections } from '@/features/projects/components/ProjectTaskSections';
 import { useProjectDetail } from './hooks/useProjectDetail';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { InlineLoader } from '@/components/ui/loader';
+import { InlineLoader, Loader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -96,14 +97,7 @@ const ProjectDetail = () => {
     isCreatingTask,
   } = useProjectDetail();
 
-  const [expandedHabits, setExpandedHabits] = useState<Record<string, boolean>>({});
 
-  const toggleHabitExpansion = (seriesId: string) => {
-    setExpandedHabits(prev => ({
-      ...prev,
-      [seriesId]: !prev[seriesId]
-    }));
-  };
 
   // Wrapper functions to handle ID type conversion for TaskCard compatibility
   const handleRecoverWrapper = (taskId: string | number) => {
@@ -142,11 +136,8 @@ const ProjectDetail = () => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm"
           >
-            <div className="bg-card border border-border/50 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                <Loader2 className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
-              </div>
+            <div className="bg-card border border-border/50 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 min-w-[300px]">
+              <Loader containerHeight="h-auto" size={50} />
               <div className="text-center">
                 <h3 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Creating Tasks...</h3>
                 <p className="text-sm text-muted-foreground mt-1">This may take a few moments for habit series</p>
@@ -192,22 +183,38 @@ const ProjectDetail = () => {
 
           {/* Tasks Tabs */}
           <Tabs defaultValue="all" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-6 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
+            <TabsList className="grid w-full grid-cols-4 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
               <TabsTrigger value="all" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
-              <TabsTrigger value="active" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Active</TabsTrigger>
               <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
               <TabsTrigger value="upcoming" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
                 <span className="hidden sm:inline">Upcoming</span>
                 <span className="sm:hidden">Next</span>
               </TabsTrigger>
-              <TabsTrigger value="habits" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
-                <Repeat className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 md:mr-1 inline-block" />
-                <span className="hidden sm:inline">Habits</span>
-              </TabsTrigger>
               <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archive</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
+              {/* Recurrent Task Series in "All" Tab */}
+              {habitTasks.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Repeat className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-semibold text-muted-foreground">Recurrent Tasks</h3>
+                  </div>
+                  {habitTasks.map((series, idx) => (
+                    <RecurrentTaskSeries
+                      key={`${series.title}-${idx}`}
+                      series={series}
+                      completionLogs={completionLogs}
+                      onDeleteSeries={canManage ? handleDeleteTaskSeries : undefined}
+                      onRecoverTask={handleRecoverWrapper}
+                      onCompleteTask={handleCompleteWrapper}
+                      canManage={canManage}
+                    />
+                  ))}
+                </div>
+              )}
+
               {hasAnyAllTabContent ? (
                 <ProjectTaskSections
                   activeTasks={activeSectionTasks}
@@ -222,47 +229,31 @@ const ProjectDetail = () => {
                 projectTasks.length === 0 ? (
                   <EmptyState onCreateTask={() => setShowTaskForm(true)} />
                 ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-accent" />
-                      <h3 className="text-lg font-semibold">All Project Tasks</h3>
-                    </div>
+                  /* Fallback for when no categorized tasks match but project has tasks (e.g. only habits, handled above) */
+                  habitTasks.length === 0 && (
                     <div className="space-y-3">
-                      {projectTasks.map(task => (
-                        <TaskCard
-                          key={task.id}
-                          task={task}
-                          completionLogs={completionLogs}
-                          onRecover={handleRecoverWrapper}
-                          onComplete={handleCompleteWrapper}
-                        />
-                      ))}
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-accent" />
+                        <h3 className="text-lg font-semibold">All Project Tasks</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {projectTasks.map(task => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            completionLogs={completionLogs}
+                            onRecover={handleRecoverWrapper}
+                            onComplete={handleCompleteWrapper}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )
                 )
               )}
             </TabsContent>
 
-            <TabsContent value="active">
-              <div className="space-y-3">
-                {activeTasks.length > 0 ? (
-                  activeTasks.map(task => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      completionLogs={completionLogs}
-                      onRecover={handleRecoverWrapper}
-                      onComplete={handleCompleteWrapper}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <Sparkles className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No active tasks</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
+
 
             <TabsContent value="completed">
               <div className="space-y-3 opacity-60">
@@ -284,110 +275,56 @@ const ProjectDetail = () => {
             </TabsContent>
 
             <TabsContent value="upcoming">
-              <div className="space-y-3">
-                {upcomingTasks.length > 0 ? (
-                  upcomingTasks.map(task => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      completionLogs={completionLogs}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No upcoming tasks</p>
+              <div className="space-y-6">
+                {/* Recurrent Task Series Section */}
+                {habitTasks.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Repeat className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">Recurrent Tasks</h3>
+                    </div>
+                    {habitTasks.map((series, idx) => (
+                      <RecurrentTaskSeries
+                        key={`${series.title}-${idx}`}
+                        series={series}
+                        completionLogs={completionLogs}
+                        onDeleteSeries={canManage ? handleDeleteTaskSeries : undefined}
+                        onRecoverTask={handleRecoverWrapper}
+                        onCompleteTask={handleCompleteWrapper}
+                        canManage={canManage}
+                      />
+                    ))}
                   </div>
                 )}
-              </div>
-            </TabsContent>
 
-            <TabsContent value="habits">
-              <div className="space-y-8">
-                {habitTasks.length > 0 ? (
-                  habitTasks.map((series, idx) => {
-                    const seriesId = `${series.title}-${idx}`;
-                    const isExpanded = expandedHabits[seriesId] !== false; // Default to expanded
+                {/* Individual Upcoming Tasks Section */}
+                <div className="space-y-3">
+                  {upcomingTasks.length > 0 && habitTasks.length > 0 && (
+                    <div className="flex items-center gap-2 mb-2 mt-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">One-off Tasks</h3>
+                    </div>
+                  )}
 
-                    return (
-                      <div key={seriesId} className="space-y-4">
-                        <div
-                          className="flex items-center justify-between bg-muted/30 p-4 rounded-xl border border-border/50 backdrop-blur-sm cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => toggleHabitExpansion(seriesId)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center text-muted-foreground w-5 h-5">
-                              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                              <Repeat className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-base">{series.title}</h3>
-                              {series.description && (
-                                <p className="text-xs text-muted-foreground line-clamp-1">{series.description}</p>
-                              )}
-                              <Badge variant="outline" className="mt-1 text-[10px] py-0 h-4 uppercase tracking-wider bg-background/50">
-                                {series.recurrencePattern}
-                              </Badge>
-                            </div>
-                          </div>
-
-                          {canManage && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 px-2 z-10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (window.confirm(`Are you sure you want to delete the entire series "${series.title}"? This will remove all its daily/weekly occurrences.`)) {
-                                  handleDeleteTaskSeries(series);
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              <span className="hidden sm:inline">Delete Series</span>
-                            </Button>
-                          )}
-                        </div>
-
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2, ease: "easeInOut" }}
-                              className="overflow-hidden"
-                            >
-                              <div className="grid grid-cols-1 gap-3 pl-4 border-l-2 border-primary/10 py-1">
-                                {series.tasks.map(task => (
-                                  <TaskCard
-                                    key={task.id}
-                                    task={task}
-                                    completionLogs={completionLogs}
-                                    onRecover={handleRecoverWrapper}
-                                    onComplete={handleCompleteWrapper}
-                                  />
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                  {upcomingTasks.length > 0 ? (
+                    upcomingTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        completionLogs={completionLogs}
+                        onRecover={handleRecoverWrapper}
+                        onComplete={handleCompleteWrapper}
+                      />
+                    ))
+                  ) : (
+                    habitTasks.length === 0 && (
+                      <div className="text-center py-12">
+                        <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground">No upcoming tasks</p>
                       </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-center py-12">
-                    <Repeat className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-4">No habit tasks yet</p>
-                    {canManage && (
-                      <Button onClick={() => setShowTaskForm(true)} variant="outline">
-                        Create Habit Task
-                      </Button>
-                    )}
-                  </div>
-                )}
+                    )
+                  )}
+                </div>
               </div>
             </TabsContent>
 

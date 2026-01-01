@@ -35,21 +35,21 @@ const parseConnectionString = (connStr: string) => {
     // that separates credentials from hostname
     // Format: postgresql://username:password@hostname:port/database
     // If password has @, we need to find the @ that's followed by a valid hostname pattern
-    
+
     // Try to find the @ that's followed by a hostname (contains .supabase)
     const supabaseMatch = connStr.match(/^postgresql?:\/\/(.+?)@([^@]*\.(?:supabase\.com|supabase\.co))/);
     if (supabaseMatch) {
       const [, credentials, hostAndPath] = supabaseMatch;
       const [username, ...passwordParts] = credentials.split(':');
       const password = passwordParts.join(':'); // Rejoin in case password had :
-      
+
       // Parse hostname:port/database
       const [hostPort, ...dbParts] = hostAndPath.split('/');
-      const [hostname, port] = hostPort.includes(':') 
+      const [hostname, port] = hostPort.includes(':')
         ? hostPort.split(':')
         : [hostPort, '5432'];
       const database = dbParts.join('/') || 'postgres';
-      
+
       return {
         username: username || 'postgres',
         password: decodeURIComponent(password), // Decode in case it was encoded
@@ -60,7 +60,7 @@ const parseConnectionString = (connStr: string) => {
         region: 'us-east-1'
       };
     }
-    
+
     // Fallback to standard URL parsing (for properly encoded passwords)
     const url = new URL(connStr);
     return {
@@ -111,14 +111,14 @@ const extractRegion = (hostname: string): string => {
 // Build connection strings to try (in order of preference)
 const buildConnectionStrings = (): string[] => {
   const strings: string[] = [];
-  
+
   // If we have a connection string, use it as-is first (PREFERRED)
   if (connectionString) {
     // Check if it's already a valid pooler or direct connection string
     const isPooler = connectionString.includes('pooler.supabase.com');
     const isDirect = connectionString.includes('db.') && connectionString.includes('.supabase.co');
     const hasValidFormat = connectionString.startsWith('postgresql://') || connectionString.startsWith('postgres://');
-    
+
     if (hasValidFormat && (isPooler || isDirect)) {
       // Use as-is - it's already in the correct format
       // Just ensure sslmode is set
@@ -130,32 +130,32 @@ const buildConnectionStrings = (): string[] => {
       console.info('Using provided connection string as-is');
       return strings; // Return early - use the provided string
     }
-    
+
     // If we can't use it as-is, try to parse and reconstruct
     const parsed = parseConnectionString(connectionString);
     if (parsed) {
-      const password = parsed.password || 
+      const password = parsed.password ||
         process.env.SUPABASE_DB_PASSWORD ||
         process.env.SUPABASE_DB_PASS ||
         process.env.POSTGRES_PASSWORD ||
         '';
-      
-      const projectRef = extractProjectRef(parsed.hostname) || 
+
+      const projectRef = extractProjectRef(parsed.hostname) ||
         (supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null);
-      
+
       const region = extractRegion(parsed.hostname);
-      
+
       if (projectRef && password) {
         // Try 1: Pooler Transaction Mode (port 6543) - BEST for migrations
         strings.push(
           `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@aws-0-${region}.pooler.supabase.com:6543/postgres?sslmode=require`
         );
-        
+
         // Try 2: Pooler Session Mode (port 5432)
         strings.push(
           `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@aws-0-${region}.pooler.supabase.com:5432/postgres?sslmode=require`
         );
-        
+
         // Try 3: Direct Connection (port 5432)
         strings.push(
           `postgresql://postgres:${encodeURIComponent(password)}@db.${projectRef}.supabase.co:5432/postgres?sslmode=require`
@@ -177,7 +177,7 @@ const buildConnectionStrings = (): string[] => {
       strings.push(connStr);
     }
   }
-  
+
   // Fallback: construct from SUPABASE_URL + password
   if (strings.length === 0 && supabaseUrl) {
     try {
@@ -187,7 +187,7 @@ const buildConnectionStrings = (): string[] => {
         process.env.SUPABASE_DB_PASSWORD ??
         process.env.SUPABASE_DB_PASS ??
         process.env.POSTGRES_PASSWORD;
-      
+
       if (projectRef && password) {
         strings.push(
           `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require`
@@ -203,7 +203,7 @@ const buildConnectionStrings = (): string[] => {
       // Ignore
     }
   }
-  
+
   return strings;
 };
 
@@ -296,6 +296,9 @@ const TABLE_STATEMENTS = [
     description text,
     type task_type NOT NULL,
     recurrence_pattern recurrence_pattern,
+    recurrence_index integer,
+    recurrence_total integer,
+    show_recurrence_index boolean DEFAULT false,
     due_date timestamptz NOT NULL,
     created_at timestamptz DEFAULT timezone('utc', now()),
     updated_at timestamptz NOT NULL DEFAULT timezone('utc', now())
@@ -414,7 +417,7 @@ const tryConnection = async (connString: string, attempt: number, total: number)
   if (!finalConnString.includes('sslmode=')) {
     finalConnString += (finalConnString.includes('?') ? '&' : '?') + 'sslmode=require';
   }
-  
+
   const client = new Client({
     connectionString: finalConnString,
     ssl: {
@@ -426,40 +429,40 @@ const tryConnection = async (connString: string, attempt: number, total: number)
 
   try {
     if (total > 1) {
-      const connType = finalConnString.includes('pooler') 
+      const connType = finalConnString.includes('pooler')
         ? (finalConnString.includes(':6543') ? 'Pooler (Transaction)' : 'Pooler (Session)')
         : 'Direct';
       console.info(`Attempt ${attempt}/${total}: Trying ${connType} connection...`);
     } else {
       console.info('Connecting to Supabase Postgres...');
     }
-    
+
     await client.connect();
-    
+
     // Test the connection with a simple query
     await client.query('SELECT 1');
-    
+
     if (total > 1) {
-      const connType = finalConnString.includes('pooler') 
+      const connType = finalConnString.includes('pooler')
         ? (finalConnString.includes(':6543') ? 'Pooler (Transaction)' : 'Pooler (Session)')
         : 'Direct';
       console.info(`✓ Connected successfully using ${connType} mode\n`);
     } else {
       console.info('Connected successfully. Applying schema statements...\n');
     }
-    
+
     return client;
   } catch (error: any) {
-    await client.end().catch(() => {});
-    
+    await client.end().catch(() => { });
+
     // If this isn't the last attempt, return null to try next
     if (attempt < total) {
-      if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED' || 
-          error?.code === 'XX000' || error?.message?.includes('Tenant')) {
+      if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED' ||
+        error?.code === 'XX000' || error?.message?.includes('Tenant')) {
         return null; // Try next connection string
       }
     }
-    
+
     throw error;
   }
 };
@@ -467,7 +470,7 @@ const tryConnection = async (connString: string, attempt: number, total: number)
 const run = async () => {
   let client: Client | null = null;
   let lastError: any = null;
-  
+
   // Try each connection string in order
   for (let i = 0; i < connectionStrings.length; i++) {
     try {
@@ -480,7 +483,7 @@ const run = async () => {
       // Continue to next connection string
     }
   }
-  
+
   if (!client) {
     console.error('\n❌ Failed to connect with all connection methods.\n');
     if (lastError?.code === 'ENOTFOUND' || lastError?.message?.includes('getaddrinfo')) {
@@ -527,7 +530,7 @@ const run = async () => {
       AND typtype = 'e';
     `);
     console.info(`Found ${enumCheck.rows.length} enum types`);
-    
+
     // Check if task_status enum has the correct values - if not, drop and recreate it
     console.info('Checking task_status enum values...');
     const taskStatusEnumCheck = await client.query(`
@@ -536,21 +539,21 @@ const run = async () => {
       WHERE enumtypid = (SELECT oid FROM pg_type WHERE typname = 'task_status')
       ORDER BY enumsortorder;
     `);
-    
+
     if (taskStatusEnumCheck.rows.length > 0) {
       const existingValues = taskStatusEnumCheck.rows.map(r => r.enumlabel).sort();
       const expectedValues = [...TASK_STATUS].sort();
-      
+
       console.info(`Current enum values: ${existingValues.join(', ')}`);
       console.info(`Expected enum values: ${expectedValues.join(', ')}`);
-      
+
       // Check if values match (order doesn't matter)
       const valuesMatch = existingValues.length === expectedValues.length &&
         existingValues.every(v => expectedValues.includes(v));
-      
+
       if (!valuesMatch) {
         console.warn(`⚠ task_status enum has incorrect values. Dropping and recreating...`);
-        
+
         // Check if any tables use this enum
         const tablesUsingEnum = await client.query(`
           SELECT DISTINCT table_name 
@@ -558,19 +561,19 @@ const run = async () => {
           WHERE udt_name = 'task_status' 
           AND table_schema = 'public';
         `);
-        
+
         if (tablesUsingEnum.rows.length > 0) {
           const tableNames = tablesUsingEnum.rows.map(r => r.table_name);
           console.warn(`⚠ Tables using task_status enum: ${tableNames.join(', ')}`);
           console.warn('⚠ Cannot drop enum while tables use it. Please manually fix the enum or drop the tables first.');
           throw new Error(`Cannot fix task_status enum: tables ${tableNames.join(', ')} are using it. Please drop these tables first or manually fix the enum values.`);
         }
-        
+
         // Drop the enum
         console.info('Dropping old task_status enum...');
         await client.query('DROP TYPE IF EXISTS task_status CASCADE;');
         console.info('  ✓ Dropped old enum');
-        
+
         // Recreate with correct values
         console.info('Recreating task_status enum with correct values...');
         await client.query(`
@@ -600,7 +603,7 @@ const run = async () => {
       const statement = MIGRATION_STATEMENTS[i];
       const trimmed = statement.trim().split('\n')[0]?.trim().slice(0, 60) ?? 'statement';
       const statementType = i < ENUM_STATEMENTS.length ? 'ENUM' : 'TABLE';
-      
+
       // Skip table creation if table already exists
       if (statementType === 'TABLE') {
         const tableMatch = statement.match(/CREATE TABLE IF NOT EXISTS public\.(\w+)/);
@@ -609,12 +612,12 @@ const run = async () => {
           continue;
         }
       }
-      
+
       console.info(`[${statementType}] Running: ${trimmed}...`);
       try {
         const result = await client.query(statement);
         console.info(`  ✓ Success`);
-        
+
         // Update existing tables set if a table was created
         if (statementType === 'TABLE') {
           const tableMatch = statement.match(/CREATE TABLE IF NOT EXISTS public\.(\w+)/);
@@ -625,24 +628,24 @@ const run = async () => {
       } catch (error: any) {
         // Only skip if it's a genuine "already exists" error for idempotent operations
         // Be very specific about what constitutes "already exists"
-        const isAlreadyExists = 
+        const isAlreadyExists =
           error?.code === '42P07' || // duplicate_table
           (error?.code === '42710' && error?.message?.toLowerCase().includes('already exists')) || // duplicate_object
           (error?.code === '42723' && error?.message?.toLowerCase().includes('already exists')) || // duplicate_function
-          (error?.message?.toLowerCase().includes('already exists') && 
-           !error?.message?.toLowerCase().includes('does not exist'));
-        
+          (error?.message?.toLowerCase().includes('already exists') &&
+            !error?.message?.toLowerCase().includes('does not exist'));
+
         // Explicitly exclude "does not exist" errors - these are real failures
-        const isDoesNotExist = 
+        const isDoesNotExist =
           error?.code === '42P01' || // undefined_table
           error?.message?.toLowerCase().includes('does not exist') ||
           (error?.message?.toLowerCase().includes('relation') && error?.message?.toLowerCase().includes('does not exist'));
-        
+
         if (isAlreadyExists && !isDoesNotExist) {
           console.info(`  ✓ (already exists, skipping)`);
           continue;
         }
-        
+
         // For other errors, log details and rethrow
         console.error(`  ✗ Error [${error.code || 'UNKNOWN'}]: ${error.message}`);
         if (error.detail) {
@@ -657,19 +660,19 @@ const run = async () => {
         throw error;
       }
     }
-    
+
     // Specifically check and create missing tables
     const missingTables: string[] = [];
     if (!existingTableNames.has('task_statuses')) missingTables.push('task_statuses');
     if (!existingTableNames.has('project_participants')) missingTables.push('project_participants');
-    
+
     if (missingTables.length > 0) {
       console.info(`\n[TABLE] Creating missing tables: ${missingTables.join(', ')}...`);
-      
+
       for (const tableName of missingTables) {
         try {
           let createStatement = '';
-          
+
           if (tableName === 'task_statuses') {
             createStatement = `
               CREATE TABLE IF NOT EXISTS public.task_statuses (
@@ -695,7 +698,7 @@ const run = async () => {
               );
             `;
           }
-          
+
           if (createStatement) {
             await client.query(createStatement);
             console.info(`  ✓ ${tableName} table created successfully`);
@@ -708,6 +711,36 @@ const run = async () => {
           throw error;
         }
       }
+    }
+
+    // Check and add missing columns to tasks table (schema evolution)
+    console.info('\nChecking for missing columns in tasks table...');
+    const tasksColumnsCheck = await client.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+      AND table_name = 'tasks'
+      AND column_name IN ('recurrence_index', 'recurrence_total', 'show_recurrence_index');
+    `);
+
+    const existingColumns = new Set(tasksColumnsCheck.rows.map(r => r.column_name));
+
+    if (!existingColumns.has('recurrence_index')) {
+      console.info('Adding recurrence_index column...');
+      await client.query('ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS recurrence_index integer;');
+      console.info('  ✓ Added recurrence_index');
+    }
+
+    if (!existingColumns.has('recurrence_total')) {
+      console.info('Adding recurrence_total column...');
+      await client.query('ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS recurrence_total integer;');
+      console.info('  ✓ Added recurrence_total');
+    }
+
+    if (!existingColumns.has('show_recurrence_index')) {
+      console.info('Adding show_recurrence_index column...');
+      await client.query('ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS show_recurrence_index boolean DEFAULT false;');
+      console.info('  ✓ Added show_recurrence_index');
     }
 
     // Verify critical tables exist before creating indexes
@@ -728,23 +761,23 @@ const run = async () => {
         console.warn(`  ⚠ Skipping index for table '${indexDef.table}' (table does not exist)`);
         continue;
       }
-      
+
       const trimmed = indexDef.statement.trim().split('\n')[0]?.trim().slice(0, 60) ?? 'statement';
       console.info(`[INDEX] Running: ${trimmed}...`);
       try {
         await client.query(indexDef.statement);
         console.info(`  ✓ Success`);
       } catch (error: any) {
-        const isAlreadyExists = 
+        const isAlreadyExists =
           error?.code === '42P07' || // duplicate_table
           error?.code === '42710' || // duplicate_object
           error?.message?.includes('already exists');
-        
+
         if (isAlreadyExists) {
           console.info(`  ✓ (already exists, skipping)`);
           continue;
         }
-        
+
         console.error(`  ✗ Error [${error.code || 'UNKNOWN'}]: ${error.message}`);
         throw error;
       }
@@ -759,10 +792,10 @@ const run = async () => {
     `);
     const finalTables = finalTableCheck.rows.map(r => r.tablename);
     console.info(`\nFinal tables: ${finalTables.join(', ')}`);
-    
+
     const expectedTables = ['users', 'user_stats', 'projects', 'project_participants', 'tasks', 'task_statuses', 'completion_logs', 'notifications', 'task_recurrence', 'magic_links', 'sessions'];
     const missing = expectedTables.filter(t => !finalTables.includes(t));
-    
+
     if (missing.length > 0) {
       throw new Error(`Critical tables are missing: ${missing.join(', ')}. Please check the migration errors above.`);
     }
