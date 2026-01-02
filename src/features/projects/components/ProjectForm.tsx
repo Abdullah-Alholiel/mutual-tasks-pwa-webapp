@@ -14,6 +14,8 @@ import { adjustColorOpacity } from '@/lib/colorUtils';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
+import { AIGenerateButton } from '@/components/ui/ai-generate-button';
+import { useAIGeneration } from '@/hooks/useAIGeneration';
 
 const PROJECT_COLORS = [
   { name: 'Blue', value: 'hsl(199, 89%, 48%)' },
@@ -52,6 +54,9 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
   const [highlightedFriendIds, setHighlightedFriendIds] = useState<Set<string>>(new Set());
   const [addedUsers, setAddedUsers] = useState<User[]>([]);
   const [iconCategory, setIconCategory] = useState('All');
+
+  // AI Generation Hook
+  const { aiState, generateDescription, setAiState } = useAIGeneration('project');
 
   // Get all available friends (existing users excluding current user)
   const availableFriends = availableUsers.filter(u => u.id !== currentUser.id);
@@ -142,6 +147,18 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
     searchUser();
   };
 
+  const handleAIGenerate = async () => {
+    const desc = await generateDescription(name);
+    if (desc) {
+      // User requested: "insert the description in project just like task"
+      // For task we appended. For project, usually we want a fresh start, but appending is safer.
+      // Let's match task behavior: append if exists.
+      setDescription((prev) => {
+        return prev ? `${prev}\n\n${desc}` : desc;
+      });
+    }
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
 
@@ -183,6 +200,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
       setFriendHandle('');
       setHighlightedFriendIds(new Set());
       setIconCategory('All');
+      setAiState('idle'); // Reset AI button
     }
     onOpenChange(open);
   };
@@ -219,7 +237,15 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Description</Label>
+              <AIGenerateButton
+                state={aiState}
+                onClick={handleAIGenerate}
+                disabled={!name.trim() || aiState === 'loading'}
+                className="scale-90 origin-right"
+              />
+            </div>
             <Textarea
               id="description"
               placeholder="What's this project about?"

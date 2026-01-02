@@ -18,7 +18,8 @@ import { cn } from '@/lib/utils';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/useCurrentUser';
-import { AIGenerateButton, type AIButtonState } from '@/components/ui/ai-generate-button';
+import { AIGenerateButton } from '@/components/ui/ai-generate-button';
+import { useAIGeneration } from '@/hooks/useAIGeneration';
 
 interface TaskFormProps {
   open: boolean;
@@ -89,10 +90,8 @@ export const TaskForm = ({
   });
   const [showProjectForm, setShowProjectForm] = useState(false);
 
-  // AI Generation State
-  const [aiState, setAiState] = useState<AIButtonState>('idle');
-  // Counter to toggle success/fail logic (Mock)
-  const [aiGenerateCount, setAiGenerateCount] = useState(0);
+  // AI Generation Hook
+  const { aiState, generateDescription, setAiState } = useAIGeneration('task');
 
   // Use provided projects list, or fall back to initialProject
   const project = initialProject || (selectedProjectId ? projects.find(p => {
@@ -127,8 +126,10 @@ export const TaskForm = ({
           setSelectedProjectId('');
         }
       }
+      // Reset AI button state when form closes
+      setAiState('idle');
     }
-  }, [open, initialTask, initialProject]);
+  }, [open, initialTask, initialProject, setAiState]);
 
   const handleCreateProject = (projectData: {
     name: string;
@@ -149,43 +150,13 @@ export const TaskForm = ({
   };
 
   const handleAIGenerate = async () => {
-    if (!title.trim()) {
-      toast.error('Please enter a task title first');
-      return;
+    const desc = await generateDescription(title);
+    if (desc) {
+      setDescription((prev) => {
+        // Append if description exists, otherwise set
+        return prev ? `${prev}\n\n${desc}` : desc;
+      });
     }
-
-    setAiState('loading');
-
-    // Simulate API delay
-    setTimeout(() => {
-      // Logic: Success on 1st try (even count), Fail on 2nd (odd count)
-      // We check current count value. 
-      // 0 -> Success
-      // 1 -> Fail
-      // 2 -> Success ...
-      const shouldFail = aiGenerateCount % 2 !== 0; // 1, 3, 5...
-
-      if (shouldFail) {
-        setAiState('error');
-        toast.error('AI generation failed based on simulation rules.');
-      } else {
-        setAiState('success');
-        setDescription((prev) => {
-          // If description exists, append. If not, set.
-          const aiDesc = ` ✨ AI Generated Description for "${title}": This task involves focused work to achieve the desired outcome. Remember to break it down into smaller steps!`;
-          return prev ? prev + '\n' + aiDesc : aiDesc;
-        });
-        toast.success('Description generated!');
-      }
-
-      setAiGenerateCount(prev => prev + 1);
-
-      // Reset to idle after a delay so user can try again
-      setTimeout(() => {
-        setAiState('idle');
-      }, 3000);
-
-    }, 2000); // 2 second generation simulated delay
   };
 
   const handleSubmit = (e: FormEvent) => {

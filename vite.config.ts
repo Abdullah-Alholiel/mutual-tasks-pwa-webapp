@@ -1,81 +1,104 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-  },
-  plugins: [
-    react(),
-    mode === "development" && componentTagger(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'masked-icon.svg'],
-      manifest: {
-        name: 'Momentum - Collaborative Tasks',
-        short_name: 'Momentum',
-        description: 'Collaborative habit and task tracking with friends',
-        theme_color: '#0EA5E9',
-        background_color: '#F7F9FC',
-        display: 'standalone',
-        orientation: 'portrait-primary',
-        icons: [
-          {
-            src: '/icons/icon-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  return {
+    server: {
+      host: "::",
+      port: 8080,
+      proxy: {
+        '/api/ai-generation': {
+          target: env.N8N_WEBHOOK_URL,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/ai-generation/, ''),
+          configure: (proxy, _options) => {
+            proxy.on('proxyReq', (proxyReq, _req, _res) => {
+              // DEBUG: Check if env vars are loaded
+              console.log('Proxying to:', env.N8N_WEBHOOK_URL);
+              console.log('Injecting Secret:', env.x_momentum_secret ? '***PRESENT***' : 'MISSING');
+
+              // Securely inject the secret header on the server side
+              // Securely inject the secret header on the server side
+              proxyReq.setHeader('x-momentum-secret', env.x_momentum_secret || '');
+              proxyReq.setHeader('x_momentum_secret', env.x_momentum_secret || ''); // Include underscore version just in case
+            });
           },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ],
-        categories: ['productivity', 'social'],
-        screenshots: [
-          {
-            src: '/screenshot-mobile.png',
-            sizes: '390x844',
-            type: 'image/png',
-            form_factor: 'narrow'
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
+        }
+      }
+    },
+    plugins: [
+      react(),
+      mode === "development" && componentTagger(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.ico', 'masked-icon.svg'],
+        manifest: {
+          name: 'Momentum - Collaborative Tasks',
+          short_name: 'Momentum',
+          description: 'Collaborative habit and task tracking with friends',
+          theme_color: '#0EA5E9',
+          background_color: '#F7F9FC',
+          display: 'standalone',
+          orientation: 'portrait-primary',
+          icons: [
+            {
+              src: '/icons/icon-192x192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: '/icons/icon-512x512.png',
+              sizes: '512x512',
+              type: 'image/png'
+            },
+            {
+              src: '/icons/icon-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable'
+            }
+          ],
+          categories: ['productivity', 'social'],
+          screenshots: [
+            {
+              src: '/screenshot-mobile.png',
+              sizes: '390x844',
+              type: 'image/png',
+              form_factor: 'narrow'
+            }
+          ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
               }
             }
-          }
-        ]
-      }
-    })
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
+          ]
+        }
+      })
+    ].filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+      },
     },
-  },
-}));
+  };
+});
