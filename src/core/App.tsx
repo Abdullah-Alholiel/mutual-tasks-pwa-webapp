@@ -16,6 +16,9 @@ import NotFound from "../features/pages/NotFound";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { AuthProvider } from "@/features/auth/AuthContext";
 import { ToastTest } from "../../tests/toasts/ToastTest";
+import { usePWAUpdate } from "@/hooks/usePWAUpdate";
+import { MainTabsShell } from "../layout/MainTabsShell";
+import { AppLayout } from "../layout/AppLayout";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,68 +35,69 @@ const persister = createSyncStoragePersister({
   storage: window.localStorage,
 });
 
-import { MainTabsShell } from "../layout/MainTabsShell";
-import { AppLayout } from "../layout/AppLayout";
+const App = () => {
+  usePWAUpdate();
 
-const App = () => (
-  <PersistQueryClientProvider
-    client={queryClient}
-    persistOptions={{
-      persister,
-      dehydrateOptions: {
-        shouldDehydrateQuery: (query) => {
-          // Exclude session queries from persistence
-          // Auth state is managed by AuthContext with localStorage
-          const queryKey = query.queryKey;
-          return queryKey[0] !== 'session_v2';
+  return (
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) => {
+            // Exclude session queries from persistence
+            // Auth state is managed by AuthContext with localStorage
+            const queryKey = query.queryKey;
+            return queryKey[0] !== 'session_v2';
+          },
         },
-      },
-    }}
-  >
-    {/* AuthProvider must be inside QueryClientProvider for useQueryClient access */}
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
-          <Routes>
-            {/* Public routes - no authentication required */}
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/verify" element={<Auth />} />
+      }}
+    >
+      {/* AuthProvider must be inside QueryClientProvider for useQueryClient access */}
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
+            <Routes>
+              {/* Public routes - no authentication required */}
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/verify" element={<Auth />} />
 
-            {/* Test routes - accessible in development */}
-            <Route path="/test/toasts" element={<ToastTest />} />
+              {/* Test routes - accessible in development */}
+              <Route path="/test/toasts" element={<ToastTest />} />
 
-            {/* Main Application Layout for Protected Routes */}
-            <Route
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/" element={<MainTabsShell />} />
-              <Route path="/projects" element={<MainTabsShell />} />
-              <Route path="/profile" element={<MainTabsShell />} />
-              <Route path="/projects/:id" element={<ProjectDetail />} />
-            </Route>
+              {/* Main Application Layout for Protected Routes */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/" element={<MainTabsShell />} />
+                <Route path="/projects" element={<MainTabsShell />} />
+                <Route path="/profile" element={<MainTabsShell />} />
+                <Route path="/projects/:id" element={<ProjectDetail />} />
+              </Route>
 
-            {/* Friends Routes - Full screen, no nav */}
-            <Route path="/friends" element={<FriendsPage />} />
-            <Route path="/friends/:id" element={<FriendProfile />} />
+              {/* Friends Routes - Full screen, no nav */}
+              <Route path="/friends" element={<FriendsPage />} />
+              <Route path="/friends/:id" element={<FriendProfile />} />
 
-            {/* Catch-all route - not protected (404 page) */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </PersistQueryClientProvider>
-);
+              {/* Catch-all route - not protected (404 page) */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </PersistQueryClientProvider>
+  );
+};
 
 export default App;
