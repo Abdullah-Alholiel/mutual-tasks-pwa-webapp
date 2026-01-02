@@ -1,7 +1,5 @@
-// Note: This runs on the client because this project uses Vite, not Next.js.
-// "Server Actions" are not available in Vite.
-// To truly hide secrets, you would need a backend proxy (e.g. Supabase Edge Function).
-// For now, we use Vite environment variables.
+// Note: This makes a call to the Netlify Serverless Function which proxies to n8n.
+// The function handles the secret key injection securely on the server side.
 
 interface GenerateDescriptionResult {
     success: boolean;
@@ -13,9 +11,10 @@ export async function generateAIDescription(
     type: 'task' | 'project',
     title: string
 ): Promise<GenerateDescriptionResult> {
-    // We call the local Vite proxy path.
-    // The proxy (in vite.config.ts) handles the forwarding to n8n AND injects the secret header.
-    const proxyUrl = '/api/ai-generation';
+    // Call the Netlify Serverless Function
+    // In Prod: Direct call to function
+    // In Dev: Vite Proxies this path to n8n (simulating the function)
+    const functionUrl = '/.netlify/functions/ai-generated-description';
 
     // Construct query parameters
     const params = new URLSearchParams({
@@ -24,11 +23,10 @@ export async function generateAIDescription(
     });
 
     try {
-        const response = await fetch(`${proxyUrl}?${params.toString()}`, {
+        const response = await fetch(`${functionUrl}?${params.toString()}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                // No secret here! It's added by the server proxy.
             },
             // Ensure we don't cache this request as it's dynamic
             cache: 'no-store'

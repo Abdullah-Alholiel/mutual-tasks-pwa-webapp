@@ -12,18 +12,18 @@ export default defineConfig(({ mode }) => {
       host: "::",
       port: 8080,
       proxy: {
-        '/api/ai-generation': {
+        // Simulate Netlify Function locally
+        '/.netlify/functions/ai-generated-description': {
           target: env.N8N_WEBHOOK_URL,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/api\/ai-generation/, ''),
+          rewrite: (path) => path.replace(/^\/.netlify\/functions\/ai-generated-description/, ''),
           configure: (proxy, _options) => {
             proxy.on('proxyReq', (proxyReq, _req, _res) => {
               // DEBUG: Check if env vars are loaded
               console.log('Proxying to:', env.N8N_WEBHOOK_URL);
               console.log('Injecting Secret:', env.x_momentum_secret ? '***PRESENT***' : 'MISSING');
 
-              // Securely inject the secret header on the server side
               // Securely inject the secret header on the server side
               proxyReq.setHeader('x-momentum-secret', env.x_momentum_secret || '');
               proxyReq.setHeader('x_momentum_secret', env.x_momentum_secret || ''); // Include underscore version just in case
