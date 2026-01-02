@@ -12,7 +12,7 @@ import {
 } from '../../../db/transformers';
 
 export class NotificationsRepository {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient) { }
 
   /**
    * Get a notification by ID

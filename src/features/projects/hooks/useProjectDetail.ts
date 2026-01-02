@@ -142,6 +142,7 @@ export const useProjectDetail = () => {
     isManager,
     canManage,
     canLeave,
+    isParticipant,
     showEditProjectForm,
     setShowEditProjectForm,
     showLeaveProjectDialog,
@@ -232,6 +233,7 @@ export const useProjectDetail = () => {
     isManager,
     canManage,
     canLeave,
+    isParticipant,
 
     // Navigation
     navigate,

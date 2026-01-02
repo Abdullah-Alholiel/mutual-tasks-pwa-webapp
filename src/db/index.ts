@@ -28,6 +28,7 @@ import { CompletionLogsRepository } from './completionLogs';
 import { NotificationsRepository } from '../features/notifications/api/notifications';
 import { MagicLinksRepository } from './magicLinks';
 import { SessionsRepository } from './sessions';
+import { FriendsRepository } from '@/features/friends/api/friends';
 
 // ============================================================================
 // Database Client Interface
@@ -50,6 +51,8 @@ export interface DatabaseClient {
   magicLinks: MagicLinksRepository;
   // Sessions
   sessions: SessionsRepository;
+  // Friends
+  friends: FriendsRepository;
 }
 
 // ============================================================================
@@ -65,6 +68,7 @@ export class SupabaseDatabaseClient implements DatabaseClient {
   public readonly notifications: NotificationsRepository;
   public readonly magicLinks: MagicLinksRepository;
   public readonly sessions: SessionsRepository;
+  public readonly friends: FriendsRepository;
 
   constructor(private supabase: SupabaseClient) {
     // Initialize repositories
@@ -76,6 +80,7 @@ export class SupabaseDatabaseClient implements DatabaseClient {
     this.notifications = new NotificationsRepository(supabase);
     this.magicLinks = new MagicLinksRepository(supabase);
     this.sessions = new SessionsRepository(supabase);
+    this.friends = new FriendsRepository(supabase, this.notifications);
   }
 }
 

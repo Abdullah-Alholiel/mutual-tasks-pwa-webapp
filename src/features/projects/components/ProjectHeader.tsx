@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Loader2 } from 'lucide-react';
 import type { Project } from '@/types';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
@@ -7,16 +7,22 @@ import { adjustColorOpacity } from '@/lib/colorUtils';
 interface ProjectHeaderProps {
   project: Project;
   canManage: boolean;
+  isParticipant: boolean;
   onBack: () => void;
   onEdit: () => void;
+  onJoin: () => void;
+  isJoining?: boolean;
   onCreateTask: () => void;
 }
 
 export const ProjectHeader = ({
   project,
   canManage,
+  isParticipant,
   onBack,
   onEdit,
+  onJoin,
+  isJoining,
   onCreateTask
 }: ProjectHeaderProps) => {
   const Icon = getIconByName(project.icon || 'Target');
@@ -48,22 +54,39 @@ export const ProjectHeader = ({
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onEdit}
-          className="shrink-0 h-9 w-9 sm:h-10 sm:w-10"
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
-        {canManage && (
+        {!isParticipant && project.isPublic ? (
           <Button
-            onClick={onCreateTask}
-            className="gradient-primary text-white hover:opacity-90 shrink-0 h-9 sm:h-10 px-2 sm:px-4"
+            onClick={onJoin}
+            disabled={isJoining}
+            className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-4 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
           >
-            <Plus className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">New Task</span>
+            {isJoining ? (
+              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4 sm:mr-1.5" />
+            )}
+            <span>{isJoining ? 'Joining...' : 'Join Project'}</span>
           </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onEdit}
+              className="shrink-0 h-10 w-10 rounded-full border-border/60 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all duration-300"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+            {canManage && (
+              <Button
+                onClick={onCreateTask}
+                className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
+              >
+                <Plus className="w-4 h-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">New Task</span>
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>

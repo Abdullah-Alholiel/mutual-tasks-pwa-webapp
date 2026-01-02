@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
+import { Trophy, Target, Zap, TrendingUp, LogOut, Users } from 'lucide-react';
 import { InlineLoader } from '@/components/ui/loader';
 import { useNavigate } from 'react-router-dom';
 import { getUserProjects } from '@/lib/projects/projectUtils';
@@ -111,29 +111,37 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
         animate={{ opacity: 1, y: 0 }}
       >
         <Card className="p-6">
-          <div className="flex items-start gap-6">
-            <Avatar className="w-24 h-24 ring-4 ring-border">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+            <Avatar className="w-20 h-20 ring-4 ring-border shrink-0">
               <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-              <AvatarFallback className="text-2xl">
+              <AvatarFallback className="text-xl">
                 {currentUser.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold mb-1">{currentUser.name}</h1>
-              <p className="text-muted-foreground mb-4">{currentUser.handle}</p>
+            <div className="flex-1 text-center sm:text-left space-y-1">
+              <h1 className="text-2xl font-bold">{currentUser.name}</h1>
+              <p className="text-muted-foreground text-sm font-medium">{currentUser.handle}</p>
 
-              <div className="flex flex-wrap gap-3 mt-4">
-                <Badge variant="secondary" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold shadow-sm">
-                  <Trophy className="w-4 h-4 text-accent" />
+              <div className="flex items-center justify-center sm:justify-start gap-2 pt-2">
+                <div className="text-xs font-semibold text-accent uppercase tracking-wider">
                   Level {userLevel}
-                </Badge>
-                <Badge variant="outline" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold bg-background/50 border-border/60">
-                  <Target className="w-4 h-4 text-primary" />
-                  {sortedProjects.length} Active Projects
-                </Badge>
+                </div>
+                <div className="h-1 w-1 rounded-full bg-border" />
+                <div className="text-xs text-muted-foreground">
+                  {sortedProjects.length} Projects
+                </div>
               </div>
             </div>
+
+            <Button
+              onClick={() => navigate('/friends')}
+              variant="outline"
+              className="shrink-0 h-10 px-6 rounded-full border-primary/20 hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
+            >
+              <Users className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+              Friends
+            </Button>
           </div>
         </Card>
       </motion.div>

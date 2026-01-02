@@ -64,8 +64,9 @@ export const MainTabsShell = () => {
     const [emblaRef, emblaApi] = useEmblaCarousel({
         startIndex: getIndexFromPath(location.pathname),
         skipSnaps: false,
-        duration: 35, // Professional smooth snap
+        duration: 45, // Slightly slower for more fluid, premium feel
         dragFree: false,
+        containScroll: 'trimSnaps',
     });
 
     const [activeIndex, setActiveIndex] = useState(getIndexFromPath(location.pathname));
@@ -94,30 +95,32 @@ export const MainTabsShell = () => {
         if (!emblaApi) return;
         const targetIndex = getIndexFromPath(location.pathname);
         if (targetIndex !== emblaApi.selectedScrollSnap()) {
+            // Use scrollTo with duration to ensure it follows the same smooth path
+            // as the swipe gesture.
             emblaApi.scrollTo(targetIndex);
         }
     }, [location.pathname, emblaApi, getIndexFromPath]);
 
     return (
-        <div className="main-tabs-shell h-full w-full overflow-hidden">
+        <div className="main-tabs-shell h-full w-full overflow-hidden bg-background">
             <div className="embla h-full w-full" ref={emblaRef}>
-                <div className="embla__container flex h-full w-full">
+                <div className="embla__container flex h-full w-full gpu-accelerated">
                     {/* Index Tab */}
-                    <div className="embla__slide flex-[0_0_100%] min-w-0 h-full">
+                    <div className="embla__slide flex-[0_0_100%] min-w-0 h-full relative" style={{ backfaceVisibility: 'hidden' }}>
                         <PageWrapper scrollKey="scroll-index">
                             <Index isInternalSlide={true} isActive={activeIndex === 0} />
                         </PageWrapper>
                     </div>
 
                     {/* Projects Tab */}
-                    <div className="embla__slide flex-[0_0_100%] min-w-0 h-full">
+                    <div className="embla__slide flex-[0_0_100%] min-w-0 h-full relative" style={{ backfaceVisibility: 'hidden' }}>
                         <PageWrapper scrollKey="scroll-projects">
                             <Projects isInternalSlide={true} isActive={activeIndex === 1} />
                         </PageWrapper>
                     </div>
 
                     {/* Profile Tab */}
-                    <div className="embla__slide flex-[0_0_100%] min-w-0 h-full">
+                    <div className="embla__slide flex-[0_0_100%] min-w-0 h-full relative" style={{ backfaceVisibility: 'hidden' }}>
                         <PageWrapper scrollKey="scroll-profile">
                             <Profile isInternalSlide={true} isActive={activeIndex === 2} />
                         </PageWrapper>

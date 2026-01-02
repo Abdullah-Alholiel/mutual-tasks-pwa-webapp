@@ -8,6 +8,8 @@ import { Users, TrendingUp, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getIconByName } from '@/lib/projects/projectIcons';
 
+import { adjustColorOpacity } from '@/lib/colorUtils';
+
 interface ProjectCardProps {
   project: Project;
 }
@@ -27,17 +29,17 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
       onClick={() => navigate(`/projects/${project.id}`)}
       className="cursor-pointer h-full"
     >
-      <Card className="p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 border-border/50 h-full flex flex-col">
+      <Card className="p-5 hover-lift shadow-sm border-border/50 h-full flex flex-col">
         <div className="flex flex-col gap-4 h-full">
           {/* Header */}
           <div className="flex items-start justify-between gap-3 flex-1">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-lg text-foreground break-words">
+                <h3 className="font-semibold text-lg text-foreground break-words line-clamp-1">
                   {project.name}
                 </h3>
                 {project.isPublic && (
-                  <Badge variant="outline" className="text-xs flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] h-5 flex items-center gap-1">
                     <Globe className="w-3 h-3" />
                     Public
                   </Badge>
@@ -49,13 +51,19 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             </div>
 
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm relative overflow-hidden group/icon bg-muted/40"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon"
               style={{
-                border: `1px solid ${project.color}15`
+                backgroundColor: adjustColorOpacity(project.color || '#3b82f6', 0.15),
+                boxShadow: `0 8px 15px -4px ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}`,
+                border: `1px solid ${adjustColorOpacity(project.color || '#3b82f6', 0.19)}`,
+                color: project.color || '#3b82f6'
               }}
             >
-              <div className="absolute inset-0 opacity-5 bg-gradient-to-br from-white to-transparent" />
-              <Icon className="w-6 h-6 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" style={{ color: project.color }} />
+              <div
+                className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
+                style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}, transparent)` }}
+              />
+              <Icon className="w-6 h-6 relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-transform duration-300 group-hover/icon:scale-110" />
             </div>
           </div>
 

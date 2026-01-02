@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
+import { useFriends } from '@/features/friends/hooks/useFriends';
 
 const PROJECT_COLORS = [
   { name: 'Blue', value: 'hsl(199, 89%, 48%)' },
@@ -58,15 +59,25 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
   // AI Generation Hook
   const { aiState, generateDescription, setAiState } = useAIGeneration('project');
 
+  // Fetch friends from the database
+  const { data: userFriends = [] } = useFriends();
+
   // Get all available friends (existing users excluding current user)
   const availableFriends = availableUsers.filter(u => u.id !== currentUser.id);
 
   // Get friends that are selected or added by handle
   const allFriends = useMemo(() => {
-    // Get all unique friends (available + highlighted)
+    // Get all unique friends (available + highlighted + existing friends)
     const friendMap = new Map<string, User>();
 
-    // Add all available friends
+    // Add friends from useFriends hook
+    userFriends.forEach(f => {
+      if (f.friend) {
+        friendMap.set(String(f.friend.id), f.friend);
+      }
+    });
+
+    // Add all available friends (from props)
     availableFriends.forEach(friend => {
       friendMap.set(String(friend.id), friend);
     });
@@ -79,7 +90,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
     });
 
     return Array.from(friendMap.values());
-  }, [availableFriends, addedUsers, currentUser.id]);
+  }, [availableFriends, addedUsers, currentUser.id, userFriends]);
 
   const toggleParticipant = (userId: string) => {
     setSelectedParticipants(prev =>

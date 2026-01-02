@@ -10,6 +10,8 @@ import Projects from "../features/projects/Projects";
 import ProjectDetail from "../features/projects/ProjectDetail";
 import Profile from "../features/profile/Profile";
 import Auth from "../features/auth/Auth";
+import FriendsPage from "../features/friends/pages/FriendsPage";
+import FriendProfile from "../features/friends/pages/FriendProfile";
 import NotFound from "../features/pages/NotFound";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { AuthProvider } from "@/features/auth/AuthContext";
@@ -80,6 +82,10 @@ const App = () => (
               <Route path="/profile" element={<MainTabsShell />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
             </Route>
+
+            {/* Friends Routes - Full screen, no nav */}
+            <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/friends/:id" element={<FriendProfile />} />
 
             {/* Catch-all route - not protected (404 page) */}
             <Route path="*" element={<NotFound />} />

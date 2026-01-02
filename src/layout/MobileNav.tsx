@@ -46,7 +46,6 @@ export const MobileNav = () => {
               <motion.div
                 whileTap={{ scale: 0.95 }}
                 className="flex flex-col items-center gap-1 relative"
-                layout
               >
                 <motion.div
                   animate={{
@@ -92,7 +91,6 @@ export const MobileNav = () => {
               <motion.div
                 whileTap={{ scale: 0.95 }}
                 className="flex flex-col items-center gap-1 relative"
-                layout
               >
                 <motion.div
                   animate={{
@@ -152,7 +150,6 @@ export const MobileNav = () => {
               <motion.div
                 whileTap={{ scale: 0.95 }}
                 className="flex flex-col items-center gap-1 relative"
-                layout
               >
                 <motion.div
                   animate={{

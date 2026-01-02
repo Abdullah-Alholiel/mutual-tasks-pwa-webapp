@@ -40,13 +40,18 @@ export const useProjectSettings = ({
   // Permissions
   const permissions: ProjectPermissions = useMemo(() => {
     if (!currentProject || !user) {
-      return { isOwner: false, isManager: false, canManage: false, canLeave: false };
+      return { isOwner: false, isManager: false, canManage: false, canLeave: false, isParticipant: false };
     }
 
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
     const ownerId = typeof currentProject.ownerId === 'string' ? parseInt(currentProject.ownerId) : currentProject.ownerId;
 
     const isOwner = ownerId === userId;
+    const isParticipant = participants.some(p => {
+      const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+      return pUserId === userId;
+    }) || isOwner;
+
     const isManager = participants.some(p => {
       const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
       return pUserId === userId && p.role === 'manager';
@@ -56,7 +61,8 @@ export const useProjectSettings = ({
       isOwner,
       isManager,
       canManage: isOwner || isManager,
-      canLeave: !isOwner,
+      canLeave: isParticipant && !isOwner,
+      isParticipant,
     };
   }, [currentProject, user, participants]);
 

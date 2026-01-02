@@ -34,7 +34,9 @@ export type NotificationType =
   | 'participant_removed'
   | 'project_joined'
   | 'project_left'
-  | 'streak_reminder';
+  | 'streak_reminder'
+  | 'friend_request'
+  | 'friend_accepted';
 
 export const NOTIFICATION_TYPES: NotificationType[] = [
   'task_created',
@@ -46,7 +48,9 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'participant_removed',
   'project_joined',
   'project_left',
-  'streak_reminder'
+  'streak_reminder',
+  'friend_request',
+  'friend_accepted'
 ];
 
 // ============================================================================
@@ -190,3 +194,21 @@ export type TaskAssignment = TaskStatusEntity;
 export type AssignmentStatus = TaskStatus;
 export const ASSIGNMENT_STATUSES = TASK_STATUS;
 export type TaskStatusDisplay = 'active' | 'completed' | 'archived' | 'recovered' | 'upcoming';
+
+// ============================================================================
+// Friend Entity - Social connections between users
+// ============================================================================
+
+export type FriendStatus = 'pending' | 'accepted';
+
+export interface Friend {
+  id: number;
+  userId: User['id'];      // The user who sent the request (or the relationships perspective)
+  friendId: User['id'];    // The other user
+  status: FriendStatus;
+  createdAt: Date;
+
+  // Computed/derived fields
+  friend?: User;           // The full user object of the friend
+  isInitiator?: boolean;   // True if the current user sent the request
+}

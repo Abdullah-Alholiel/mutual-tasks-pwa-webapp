@@ -455,7 +455,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
 
             {/* Actions */}
             <AnimatePresence mode="wait">
-              {/* Show Recover button for archived tasks, Mark Complete for active tasks */}
+              {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
               {shouldShowRecover && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -488,7 +488,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                     size="sm"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Mark Complete
+                    Mark as Completed
                   </Button>
                 </motion.div>
               )}

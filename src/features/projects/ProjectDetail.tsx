@@ -22,6 +22,7 @@ import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { ProjectStats } from '@/features/projects/components/ProjectStats';
 import { ProjectTaskSections } from '@/features/projects/components/ProjectTaskSections';
 import { useProjectDetail } from './hooks/useProjectDetail';
+import { useJoinProject } from './hooks/useProjects';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { InlineLoader, Loader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -98,10 +99,27 @@ const ProjectDetail = () => {
     isManager,
     canManage,
     canLeave,
+    isParticipant,
     navigate,
     completionLogs,
     isCreatingTask,
   } = useProjectDetail();
+
+  const joinProjectMutation = useJoinProject();
+  const [isJoining, setIsJoining] = useState(false);
+
+  const handleJoinProject = async () => {
+    if (!project) return;
+    setIsJoining(true);
+    try {
+      await joinProjectMutation.mutateAsync(project.id);
+      // useProjectDetail will automatically refetch data due to query invalidation in useJoinProject
+    } catch (error) {
+      console.error('Failed to join project:', error);
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   // Confirmation dialog states
   const [participantToRemove, setParticipantToRemove] = useState<number | null>(null);
@@ -133,7 +151,7 @@ const ProjectDetail = () => {
   };
 
   const getOnEditTask = (task: Task) => {
-    if (canManage || (currentUser && normalizeId(task.creatorId) === normalizeId(currentUser.id))) {
+    if (isParticipant && (canManage || (currentUser && normalizeId(task.creatorId) === normalizeId(currentUser.id)))) {
       return handleEditTaskWrapper;
     }
     return undefined;
@@ -190,8 +208,11 @@ const ProjectDetail = () => {
           <ProjectHeader
             project={project}
             canManage={canManage}
+            isParticipant={isParticipant}
             onBack={() => navigate('/projects')}
             onEdit={() => setShowEditProjectForm(true)}
+            onJoin={handleJoinProject}
+            isJoining={isJoining}
             onCreateTask={() => setShowTaskForm(true)}
           />
 
@@ -236,8 +257,8 @@ const ProjectDetail = () => {
                       series={series}
                       completionLogs={completionLogs}
                       onDeleteSeries={canManage ? setSeriesToDelete : undefined}
-                      onRecoverTask={handleRecoverWrapper}
-                      onCompleteTask={handleCompleteWrapper}
+                      onRecoverTask={isParticipant ? handleRecoverWrapper : undefined}
+                      onCompleteTask={isParticipant ? handleCompleteWrapper : undefined}
                       onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                       canManage={canManage}
                     />
@@ -252,8 +273,8 @@ const ProjectDetail = () => {
                   completedTasks={completedSectionTasks}
                   archivedTasks={archivedSectionTasks}
                   completionLogs={completionLogs}
-                  onRecover={handleRecoverWrapper}
-                  onComplete={handleCompleteWrapper}
+                  onRecover={isParticipant ? handleRecoverWrapper : undefined}
+                  onComplete={isParticipant ? handleCompleteWrapper : undefined}
                   onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                   getOnEditTask={getOnEditTask}
                 />
@@ -274,8 +295,8 @@ const ProjectDetail = () => {
                             key={task.id}
                             task={task}
                             completionLogs={completionLogs}
-                            onRecover={handleRecoverWrapper}
-                            onComplete={handleCompleteWrapper}
+                            onRecover={isParticipant ? handleRecoverWrapper : undefined}
+                            onComplete={isParticipant ? handleCompleteWrapper : undefined}
                             onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                             onEdit={getOnEditTask(task)}
                           />
@@ -304,8 +325,8 @@ const ProjectDetail = () => {
                         series={series}
                         completionLogs={completionLogs}
                         onDeleteSeries={canManage ? setSeriesToDelete : undefined}
-                        onRecoverTask={handleRecoverWrapper}
-                        onCompleteTask={handleCompleteWrapper}
+                        onRecoverTask={isParticipant ? handleRecoverWrapper : undefined}
+                        onCompleteTask={isParticipant ? handleCompleteWrapper : undefined}
                         onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                         getOnEditTask={getOnEditTask}
                         canManage={canManage}
@@ -360,8 +381,8 @@ const ProjectDetail = () => {
                         series={series}
                         completionLogs={completionLogs}
                         onDeleteSeries={canManage ? setSeriesToDelete : undefined}
-                        onRecoverTask={handleRecoverWrapper}
-                        onCompleteTask={handleCompleteWrapper}
+                        onRecoverTask={isParticipant ? handleRecoverWrapper : undefined}
+                        onCompleteTask={isParticipant ? handleCompleteWrapper : undefined}
                         onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                         getOnEditTask={getOnEditTask}
                         canManage={canManage}
@@ -385,8 +406,8 @@ const ProjectDetail = () => {
                         key={task.id}
                         task={task}
                         completionLogs={completionLogs}
-                        onRecover={handleRecoverWrapper}
-                        onComplete={handleCompleteWrapper}
+                        onRecover={isParticipant ? handleRecoverWrapper : undefined}
+                        onComplete={isParticipant ? handleCompleteWrapper : undefined}
                         onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                         onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
                       />
@@ -418,8 +439,8 @@ const ProjectDetail = () => {
                         series={series}
                         completionLogs={completionLogs}
                         onDeleteSeries={canManage ? setSeriesToDelete : undefined}
-                        onRecoverTask={handleRecoverWrapper}
-                        onCompleteTask={handleCompleteWrapper}
+                        onRecoverTask={isParticipant ? handleRecoverWrapper : undefined}
+                        onCompleteTask={isParticipant ? handleCompleteWrapper : undefined}
                         onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                         getOnEditTask={getOnEditTask}
                         canManage={canManage}
@@ -443,8 +464,8 @@ const ProjectDetail = () => {
                         key={task.id}
                         task={task}
                         completionLogs={completionLogs}
-                        onRecover={handleRecoverWrapper}
-                        onComplete={handleCompleteWrapper}
+                        onRecover={isParticipant ? handleRecoverWrapper : undefined}
+                        onComplete={isParticipant ? handleCompleteWrapper : undefined}
                         onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                         onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
                       />

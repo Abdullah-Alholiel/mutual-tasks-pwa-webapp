@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import type { Notification } from '@/types';
-import { Bell, CheckCircle2, Clock, Sparkles, X, Calendar, Users, RotateCcw } from 'lucide-react';
+import { Bell, CheckCircle2, Clock, Sparkles, X, Calendar, Users, RotateCcw, UserPlus } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -37,6 +37,10 @@ export const Inbox = ({
         return <RotateCcw className="w-5 h-5 text-yellow-500" />;
       case 'project_joined':
         return <Users className="w-5 h-5 text-primary" />;
+      case 'friend_request':
+        return <UserPlus className="w-5 h-5 text-purple-500" />;
+      case 'friend_accepted':
+        return <Users className="w-5 h-5 text-green-500" />;
       default:
         return <Bell className="w-5 h-5 text-muted-foreground" />;
     }
@@ -52,6 +56,10 @@ export const Inbox = ({
         return 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800';
       case 'project_joined':
         return 'bg-primary/10 border-primary/20';
+      case 'friend_request':
+        return 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800';
+      case 'friend_accepted':
+        return 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800';
       default:
         return 'bg-muted border-border';
     }
@@ -67,6 +75,12 @@ export const Inbox = ({
       setOpen(false);
     } else if (notification.projectId) {
       navigate(`/projects/${notification.projectId}`);
+      setOpen(false);
+    } else if (notification.type === 'friend_request') {
+      navigate(`/friends`, { state: { openRequests: true } });
+      setOpen(false);
+    } else if (notification.type === 'friend_accepted') {
+      navigate(`/friends`);
       setOpen(false);
     }
   };

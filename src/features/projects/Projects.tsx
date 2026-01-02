@@ -269,25 +269,17 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-3xl font-bold mb-2"
+              className="text-3xl font-bold"
             >
               Projects
             </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-muted-foreground"
-            >
-              Collaborate on goals with your friends
-            </motion.p>
           </div>
 
           <Button
             onClick={() => setShowProjectForm(true)}
-            className="gradient-primary text-white hover:opacity-90"
+            className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px] shrink-0"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             New Project
           </Button>
         </div>
@@ -358,7 +350,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
                 </div>
                 <Input
                   type="text"
-                  placeholder="Search public projects by name or description..."
+                  placeholder="Search by name or description"
                   className="pl-10 h-12 bg-card border-border/50 focus:border-primary/50 rounded-2xl shadow-sm transition-all text-base"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -443,6 +435,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
+      onClick={() => navigate(`/projects/${project.id}`)}
       className="cursor-pointer h-full"
     >
       <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 h-full flex flex-col">
@@ -497,10 +490,9 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
               e.stopPropagation();
               onJoin();
             }}
-            className="w-full gradient-primary text-white hover:opacity-90"
-            size="sm"
+            className="w-max mx-auto gradient-primary text-white rounded-full h-10 px-6 text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 hover:translate-y-[-1px]"
           >
-            <Users className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             Join Project
           </Button>
         </div>
