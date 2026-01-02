@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Trophy, Target, Zap, TrendingUp, LogOut, Users } from 'lucide-react';
+import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
 import { InlineLoader } from '@/components/ui/loader';
 import { useNavigate } from 'react-router-dom';
 import { getUserProjects } from '@/lib/projects/projectUtils';
@@ -111,37 +111,31 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
         animate={{ opacity: 1, y: 0 }}
       >
         <Card className="p-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            <Avatar className="w-20 h-20 ring-4 ring-border shrink-0">
+          <div className="flex items-center gap-6">
+            <Avatar className="w-24 h-24 ring-4 ring-border shrink-0">
               <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-              <AvatarFallback className="text-xl">
-                {currentUser.name.charAt(0)}
+              <AvatarFallback className="text-2xl font-bold">
+                {currentUser.name.split(' ').map(n => n.charAt(0)).join('').slice(0, 2)}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1 text-center sm:text-left space-y-1">
-              <h1 className="text-2xl font-bold">{currentUser.name}</h1>
-              <p className="text-muted-foreground text-sm font-medium">{currentUser.handle}</p>
+            <div className="flex-1 space-y-3">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">{currentUser.name}</h1>
+                <p className="text-muted-foreground text-sm font-medium">{currentUser.handle}</p>
+              </div>
 
-              <div className="flex items-center justify-center sm:justify-start gap-2 pt-2">
-                <div className="text-xs font-semibold text-accent uppercase tracking-wider">
-                  Level {userLevel}
-                </div>
-                <div className="h-1 w-1 rounded-full bg-border" />
-                <div className="text-xs text-muted-foreground">
-                  {sortedProjects.length} Projects
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="px-3 py-1.5 rounded-full border-border bg-background">
+                  <Trophy className="w-4 h-4 mr-1.5 text-accent" />
+                  <span className="font-semibold text-foreground">Level {userLevel}</span>
+                </Badge>
+                <Badge variant="outline" className="px-3 py-1.5 rounded-full border-border bg-background">
+                  <Target className="w-4 h-4 mr-1.5 text-primary" />
+                  <span className="font-semibold text-foreground">{sortedProjects.length} Active Projects</span>
+                </Badge>
               </div>
             </div>
-
-            <Button
-              onClick={() => navigate('/friends')}
-              variant="outline"
-              className="shrink-0 h-10 px-6 rounded-full border-primary/20 hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all group"
-            >
-              <Users className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-              Friends
-            </Button>
           </div>
         </Card>
       </motion.div>

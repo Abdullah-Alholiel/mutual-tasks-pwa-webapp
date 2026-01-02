@@ -4,9 +4,10 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Index from '../features/pages/Index';
 import Projects from '../features/projects/Projects';
+import FriendsPage from '../features/friends/pages/FriendsPage';
 import Profile from '../features/profile/Profile';
 
-const NAV_ORDER = ['/', '/projects', '/profile'];
+const NAV_ORDER = ['/', '/projects', '/friends', '/profile'];
 
 /**
  * Shared page wrapper for consistent padding and scroll behavior
@@ -119,10 +120,17 @@ export const MainTabsShell = () => {
                         </PageWrapper>
                     </div>
 
+                    {/* Friends Tab */}
+                    <div className="embla__slide flex-[0_0_100%] min-w-0 h-full relative" style={{ backfaceVisibility: 'hidden' }}>
+                        <PageWrapper scrollKey="scroll-friends">
+                            <FriendsPage isInternalSlide={true} isActive={activeIndex === 2} />
+                        </PageWrapper>
+                    </div>
+
                     {/* Profile Tab */}
                     <div className="embla__slide flex-[0_0_100%] min-w-0 h-full relative" style={{ backfaceVisibility: 'hidden' }}>
                         <PageWrapper scrollKey="scroll-profile">
-                            <Profile isInternalSlide={true} isActive={activeIndex === 2} />
+                            <Profile isInternalSlide={true} isActive={activeIndex === 3} />
                         </PageWrapper>
                     </div>
                 </div>

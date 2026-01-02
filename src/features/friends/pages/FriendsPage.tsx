@@ -20,7 +20,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
-const FriendsPage = () => {
+interface FriendsPageProps {
+    isInternalSlide?: boolean;
+    isActive?: boolean;
+}
+
+const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPageProps) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { data: currentUser } = useCurrentUser();
@@ -101,23 +106,99 @@ const FriendsPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-background flex flex-col">
-            {/* Header */}
-            <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50 shrink-0">
-                <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate('/profile')}
-                            className="-ml-2 hover:bg-transparent"
-                        >
-                            <ArrowLeft className="w-6 h-6" />
-                        </Button>
-                        <h1 className="text-xl font-bold">Friends</h1>
-                    </div>
+        <div className={`flex flex-col ${isInternalSlide ? 'h-full' : 'min-h-screen bg-background'}`}>
+            {/* Header - Only show back button when not an internal slide */}
+            {!isInternalSlide && (
+                <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50 shrink-0">
+                    <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => navigate('/profile')}
+                                className="-ml-2 hover:bg-transparent"
+                            >
+                                <ArrowLeft className="w-6 h-6" />
+                            </Button>
+                            <h1 className="text-xl font-bold">Friends</h1>
+                        </div>
 
-                    {/* Requests Button */}
+                        {/* Requests Button */}
+                        <Dialog open={requestsOpen} onOpenChange={setRequestsOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="relative">
+                                    <Inbox className="w-6 h-6" />
+                                    {requests.length > 0 && (
+                                        <Badge className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive p-0 text-[10px]">
+                                            {requests.length}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Friend Requests</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
+                                    {isLoadingRequests ? (
+                                        <div className="flex justify-center py-4">
+                                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                        </div>
+                                    ) : requests.length === 0 ? (
+                                        <div className="text-center py-8 text-muted-foreground">
+                                            No pending requests
+                                        </div>
+                                    ) : (
+                                        requests.map((req) => (
+                                            <div key={req.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar>
+                                                        <AvatarImage src={req.friend?.avatar} />
+                                                        <AvatarFallback>{req.friend?.name.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <p className="font-semibold text-sm">{req.friend?.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{formatHandle(req.friend?.handle || '')}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
+                                                        onClick={() => handleRespondBase(req.id, 'accept')}
+                                                    >
+                                                        <Check className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                        onClick={() => handleRespondBase(req.id, 'reject')}
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                </div>
+            )}
+
+            {/* Internal Slide Header - Simpler, no back button */}
+            {isInternalSlide && (
+                <div className="flex items-center justify-between mb-6">
+                    <motion.h1
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-3xl font-bold"
+                    >
+                        Friends
+                    </motion.h1>
                     <Dialog open={requestsOpen} onOpenChange={setRequestsOpen}>
                         <DialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="relative">
@@ -180,10 +261,10 @@ const FriendsPage = () => {
                         </DialogContent>
                     </Dialog>
                 </div>
-            </div>
+            )}
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-                <div className="max-w-md mx-auto px-4 py-6 space-y-8 pb-10">
+            <div className={isInternalSlide ? 'flex-1' : 'flex-1 overflow-y-auto custom-scrollbar'}>
+                <div className={`space-y-8 ${isInternalSlide ? '' : 'max-w-md mx-auto px-4 py-6 pb-10'}`}>
                     {/* Add Friend Section */}
                     <section className="space-y-4">
                         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">Add Friend</h2>

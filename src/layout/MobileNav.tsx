@@ -1,4 +1,4 @@
-import { Home, FolderKanban } from 'lucide-react';
+import { Home, FolderKanban, Users } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -120,6 +120,51 @@ export const MobileNav = () => {
                   }}
                 >
                   Projects
+                </motion.span>
+              </motion.div>
+            )}
+          </NavLink>
+
+          {/* Friends */}
+          <NavLink
+            to="/friends"
+            end
+            className="flex flex-col items-center gap-1 px-2 sm:px-3 py-3 rounded-2xl transition-all duration-300"
+            activeClassName="bg-primary/10"
+          >
+            {({ isActive }) => (
+              <motion.div
+                whileTap={{ scale: 0.95 }}
+                className="flex flex-col items-center gap-1 relative"
+              >
+                <motion.div
+                  animate={{
+                    scale: isActive ? 1.1 : 1,
+                    color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 400,
+                    damping: 25,
+                    duration: 0.3
+                  }}
+                >
+                  <Users className="w-5 h-5" />
+                </motion.div>
+                <motion.span
+                  className="text-xs hidden sm:block"
+                  animate={{
+                    color: isActive ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                    fontWeight: isActive ? 700 : 500
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 400,
+                    damping: 25,
+                    duration: 0.3
+                  }}
+                >
+                  Friends
                 </motion.span>
               </motion.div>
             )}

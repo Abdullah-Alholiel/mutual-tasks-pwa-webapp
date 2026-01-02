@@ -1,4 +1,4 @@
-import { Home, FolderKanban, User } from 'lucide-react';
+import { Home, FolderKanban, User, Users } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,6 +20,7 @@ import { useNotifications } from '@/features/notifications/hooks/useNotification
 const navItems = [
   { to: '/', icon: Home, label: 'Today' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
+  { to: '/friends', icon: Users, label: 'Friends' },
   { to: '/profile', icon: User, label: 'Profile' },
 ];
 
