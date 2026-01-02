@@ -37,7 +37,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         const n8nUrl = process.env.N8N_WEBHOOK_URL;
         const secretKey = process.env.x_momentum_secret;
 
+        console.log('[Netlify Function] Starting execution...');
+        console.log('[Netlify Function] Params:', { type, n8nUrlDefined: !!n8nUrl });
+
         if (!n8nUrl) {
+            console.error('[Netlify Function] Missing N8N_WEBHOOK_URL');
             return {
                 statusCode: 500,
                 headers,
@@ -51,8 +55,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             project_title: project_title
         });
 
+        const fullUrl = `${n8nUrl}?${params.toString()}`;
+        console.log('[Netlify Function] Fetching URL (masked):', fullUrl.replace(secretKey || 'xxx', '***'));
+
         // Call n8n Webhook
-        const response = await fetch(`${n8nUrl}?${params.toString()}`, {
+        const response = await fetch(fullUrl, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -61,7 +68,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             }
         });
 
+        console.log('[Netlify Function] n8n Response Status:', response.status);
+
         if (!response.ok) {
+            const errText = await response.text();
+            console.error('[Netlify Function] n8n Error Body:', errText);
             throw new Error(`n8n responded with ${response.status}: ${response.statusText}`);
         }
 
