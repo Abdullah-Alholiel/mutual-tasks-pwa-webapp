@@ -4,7 +4,7 @@ import { ChevronDown, Repeat, Trash2, CalendarClock, CheckCircle2 } from 'lucide
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TaskCard } from './TaskCard';
-import type { CompletionLog } from '@/types';
+import type { CompletionLog, Task } from '@/types';
 import type { HabitSeries } from '@/features/projects/hooks/types';
 
 interface RecurrentTaskSeriesProps {
@@ -13,6 +13,8 @@ interface RecurrentTaskSeriesProps {
     onDeleteSeries?: (series: HabitSeries) => void;
     onRecoverTask?: (taskId: string | number) => void;
     onCompleteTask?: (taskId: string | number, difficultyRating?: number) => void;
+    onDeleteTask?: (taskId: string | number) => void;
+    getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;
     canManage?: boolean;
 }
 
@@ -22,6 +24,8 @@ export const RecurrentTaskSeries = ({
     onDeleteSeries,
     onRecoverTask,
     onCompleteTask,
+    onDeleteTask,
+    getOnEditTask,
     canManage
 }: RecurrentTaskSeriesProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -79,7 +83,7 @@ export const RecurrentTaskSeries = ({
                                 {nextUpTask && (
                                     <div className="flex items-center gap-1.5">
                                         <CalendarClock className="w-3.5 h-3.5 text-accent/70" />
-                                        <span>Next: {formattedNextDue}</span>
+                                        <span>Upcoming: {formattedNextDue}</span>
                                     </div>
                                 )}
                             </div>
@@ -126,6 +130,8 @@ export const RecurrentTaskSeries = ({
                                     completionLogs={completionLogs}
                                     onRecover={onRecoverTask}
                                     onComplete={onCompleteTask}
+                                    onDelete={onDeleteTask}
+                                    onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
                                 />
                             ))}
                         </div>

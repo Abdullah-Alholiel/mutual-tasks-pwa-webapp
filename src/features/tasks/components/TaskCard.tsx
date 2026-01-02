@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon } from 'lucide-react';
+import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon, Trash2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { getDatabaseClient } from '@/db';
@@ -31,10 +31,12 @@ interface TaskCardProps {
   onDecline?: (taskId: string | number) => void;
   onComplete?: (taskId: string | number, difficultyRating?: number) => void;
   onRecover?: (taskId: string | number) => void;
+  onDelete?: (taskId: string | number) => void;
+  onEdit?: (task: Task) => void;
   showRecover?: boolean; // If false, hide recover button (for today's view)
 }
 
-const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, showRecover = true }: TaskCardProps) => {
+const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, onDelete, onEdit, showRecover = true }: TaskCardProps) => {
   const { user: currentUser } = useAuth();
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
@@ -238,20 +240,51 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                 )}
               </div>
 
-              <Badge
-                variant={getStatusBadgeVariant(uiStatus)}
-                className={`${getStatusColor(uiStatus)} capitalize shrink-0 font-bold ${uiStatus === 'completed'
-                  ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold'
-                  : ''
-                  }`}
-                style={uiStatus === 'completed' ? {
-                  borderColor: 'hsl(var(--status-completed) / 0.4)',
-                  backgroundColor: 'hsl(var(--status-completed) / 0.15)',
-                  color: 'hsl(var(--status-completed))'
-                } : undefined}
-              >
-                {uiStatus}
-              </Badge>
+              <div className="flex flex-col items-end gap-2">
+                <Badge
+                  variant={getStatusBadgeVariant(uiStatus)}
+                  className={`${getStatusColor(uiStatus)} capitalize shrink-0 font-bold ${uiStatus === 'completed'
+                    ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold'
+                    : ''
+                    }`}
+                  style={uiStatus === 'completed' ? {
+                    borderColor: 'hsl(var(--status-completed) / 0.4)',
+                    backgroundColor: 'hsl(var(--status-completed) / 0.15)',
+                    color: 'hsl(var(--status-completed))'
+                  } : undefined}
+                >
+                  {uiStatus}
+                </Badge>
+                <div className="flex items-center gap-1">
+                  {onEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(task);
+                      }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(task.id);
+                      }}
+                      title="Delete Task"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Participants & Completion Status */}
@@ -553,12 +586,19 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                         "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all duration-300 shadow-sm",
                         isParticipantCompleted
                           ? "bg-success/15 text-success border border-success/30 shadow-success/10"
-                          : "bg-muted/50 text-muted-foreground border border-border/60"
+                          : participantUiStatus === 'archived'
+                            ? "bg-destructive/15 text-destructive border border-destructive/30 shadow-destructive/10"
+                            : "bg-muted/50 text-muted-foreground border border-border/60"
                       )}>
                         {isParticipantCompleted ? (
                           <>
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Done</span>
+                            <span>Completed</span>
+                          </>
+                        ) : participantUiStatus === 'archived' ? (
+                          <>
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Archived</span>
                           </>
                         ) : (
                           <>
@@ -630,6 +670,7 @@ export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
   // 3. Handler references changed (usually stable but check)
   if (prevProps.onComplete !== nextProps.onComplete) return false;
   if (prevProps.onRecover !== nextProps.onRecover) return false;
+  if (prevProps.onDelete !== nextProps.onDelete) return false;
   if (prevProps.showRecover !== nextProps.showRecover) return false;
 
   // 4. Task status array changed

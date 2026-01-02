@@ -312,7 +312,7 @@ export const getCompletedTasks = (
 };
 
 /**
- * Get completed tasks for today (for "Done for the Day" section)
+ * Get completed tasks for today (for "Completed for the Day" section)
  * 
  * @param tasks - Array of tasks
  * @param taskStatuses - Array of task statuses

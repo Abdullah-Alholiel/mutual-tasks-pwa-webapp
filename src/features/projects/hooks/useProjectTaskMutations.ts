@@ -15,6 +15,7 @@ import { getDatabaseClient } from '@/db';
 import {
   useCreateTaskWithStatuses,
   useCreateMultipleTasksWithStatuses,
+  useUpdateTask,
   type CreateTaskWithStatusesInput
 } from '../../tasks/hooks/useTasks';
 import type { TaskCreationData, ProjectWithParticipants, ProjectTaskState } from './types';
@@ -38,9 +39,10 @@ export const useProjectTaskMutations = ({
   const { tasks, taskStatuses, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs } = taskState;
   const queryClient = useQueryClient();
 
-  // Mutations for creating tasks in the database
+  // Mutations for creating/updating tasks in the database
   const createTaskMutation = useCreateTaskWithStatuses();
   const createMultipleTasksMutation = useCreateMultipleTasksWithStatuses();
+  const updateTaskMutation = useUpdateTask();
 
   /**
    * Get task status for a specific user
@@ -583,13 +585,42 @@ export const useProjectTaskMutations = ({
     }
   }, [setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
 
+  /**
+   * Update an existing task
+   */
+  const handleUpdateTask = useCallback(async (taskId: number, taskData: TaskCreationData) => {
+    try {
+      const updatedTask = await updateTaskMutation.mutateAsync({
+        id: taskId,
+        data: {
+          title: taskData.title,
+          description: taskData.description,
+          type: taskData.type,
+          recurrencePattern: taskData.recurrencePattern,
+          dueDate: taskData.dueDate,
+          showRecurrenceIndex: taskData.showRecurrenceIndex,
+        }
+      });
+
+      // Update local state
+      setLocalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+
+      toast.success('Task updated! ✨');
+      onTaskFormClose();
+    } catch (error) {
+      handleError(error, 'handleUpdateTask');
+      toast.error('Failed to update task');
+    }
+  }, [updateTaskMutation, setLocalTasks, onTaskFormClose]);
+
   return {
     handleRecover,
     handleComplete,
     handleCreateTask,
+    handleUpdateTask,
     handleDeleteTask,
     handleDeleteTaskSeries,
-    isCreatingTask: createTaskMutation.isPending || createMultipleTasksMutation.isPending,
+    isCreatingTask: createTaskMutation.isPending || createMultipleTasksMutation.isPending || updateTaskMutation.isPending,
   };
 };
 

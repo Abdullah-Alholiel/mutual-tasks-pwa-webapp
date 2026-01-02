@@ -30,6 +30,9 @@ export const useProjectTaskCategories = ({
   progress: number;
   completedCount: number;
   totalTasks: number;
+  completedHabitSeries: HabitSeries[];
+  upcomingHabitSeries: HabitSeries[];
+  archivedHabitSeries: HabitSeries[];
 } => {
   // Get project tasks using utility - show ALL tasks in the project
   const projectTasksRaw = useMemo(() =>
@@ -52,6 +55,7 @@ export const useProjectTaskCategories = ({
   }, [currentProject, tasks, completionLogs, user]);
 
   // User-specific categorization to avoid duplicates across sections
+  // This categorization now STRICTLY includes only ONE-OFF tasks for the sections
   const categorizedTasks = useMemo(() => {
     const active: Task[] = [];
     const upcoming: Task[] = [];
@@ -74,6 +78,11 @@ export const useProjectTaskCategories = ({
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
 
     projectTasks.forEach(task => {
+      // Habit tasks are handled separately in habitTasks
+      if (task.type === 'habit') {
+        return;
+      }
+
       const myStatus = taskStatuses.find(ts => {
         const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
         const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
@@ -92,11 +101,6 @@ export const useProjectTaskCategories = ({
 
       if (myCompletion) {
         addUnique(completed, task);
-        return;
-      }
-
-      // For active/upcoming, exclude habits as they are handled by RecurrentTaskSeries
-      if (task.type === 'habit') {
         return;
       }
 
@@ -124,13 +128,11 @@ export const useProjectTaskCategories = ({
     };
   }, [projectTasks, taskStatuses, completionLogs, user]);
 
-  // Habits: group all habit tasks in the project by their series (title/description)
-  const habitTasks = useMemo(() => {
-    const habits = projectTasks.filter(t => t.type === 'habit');
+  // Helper function to group habit tasks into series
+  const groupHabitsBySeries = (tasksToGroup: Task[]) => {
     const seriesMap = new Map<string, HabitSeries>();
 
-    habits.forEach(task => {
-      // Create a unique key for the series based on title and description
+    tasksToGroup.forEach(task => {
       const seriesKey = `${task.title}|${task.description || ''}`;
 
       if (!seriesMap.has(seriesKey)) {
@@ -145,13 +147,74 @@ export const useProjectTaskCategories = ({
       seriesMap.get(seriesKey)!.tasks.push(task);
     });
 
-    // Sort tasks within each series by due date
     seriesMap.forEach(series => {
       series.tasks.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     });
 
     return Array.from(seriesMap.values());
-  }, [projectTasks]);
+  };
+
+  // Habits: group habit tasks by their series and status
+  const { habitTasks, completedHabitSeries, upcomingHabitSeries, archivedHabitSeries } = useMemo(() => {
+    const habits = projectTasks.filter(t => t.type === 'habit');
+
+    if (!user) {
+      return {
+        habitTasks: groupHabitsBySeries(habits),
+        completedHabitSeries: [],
+        upcomingHabitSeries: [],
+        archivedHabitSeries: []
+      };
+    }
+
+    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+
+    // Filter habits by status for different tabs
+    const completedHabits = habits.filter(task =>
+      completionLogs.some(cl => {
+        const clUserId = typeof cl.userId === 'string' ? parseInt(cl.userId) : cl.userId;
+        const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
+        const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
+        return clTaskId === taskId && clUserId === userId;
+      })
+    );
+
+    const archivedHabits = habits.filter(task => {
+      const myStatus = taskStatuses.find(ts => {
+        const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
+        const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
+        const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
+        return tsTaskId === taskId && tsUserId === userId;
+      });
+      return myStatus?.status === 'archived';
+    });
+
+    const upcomingHabits = habits.filter(task => {
+      // Check if not completed and not archived
+      const isCompleted = completionLogs.some(cl => {
+        const clUserId = typeof cl.userId === 'string' ? parseInt(cl.userId) : cl.userId;
+        const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
+        const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
+        return clTaskId === taskId && clUserId === userId;
+      });
+      if (isCompleted) return false;
+
+      const myStatus = taskStatuses.find(ts => {
+        const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
+        const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
+        const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
+        return tsTaskId === taskId && tsUserId === userId;
+      });
+      return myStatus?.status !== 'archived';
+    });
+
+    return {
+      habitTasks: groupHabitsBySeries(habits),
+      completedHabitSeries: groupHabitsBySeries(completedHabits),
+      upcomingHabitSeries: groupHabitsBySeries(upcomingHabits),
+      archivedHabitSeries: groupHabitsBySeries(archivedHabits)
+    };
+  }, [projectTasks, user, completionLogs, taskStatuses]);
 
   const hasAnyAllTabContent = useMemo(() =>
     Boolean(
@@ -166,6 +229,9 @@ export const useProjectTaskCategories = ({
   return {
     ...categorizedTasks,
     habitTasks,
+    completedHabitSeries,
+    upcomingHabitSeries,
+    archivedHabitSeries,
     projectTasks,
     hasAnyAllTabContent,
     progress,
@@ -173,4 +239,3 @@ export const useProjectTaskCategories = ({
     totalTasks,
   };
 };
-

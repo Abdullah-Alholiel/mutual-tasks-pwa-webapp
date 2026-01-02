@@ -44,6 +44,11 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]); // Only run when user ID changes
 
+  // Sort projects alphabetically
+  const sortedProjects = useMemo(() => {
+    return [...userProjects].sort((a, b) => a.name.localeCompare(b.name));
+  }, [userProjects]);
+
   // Calculate overall total score from user stats
   const overallTotalScore = userStats?.totalscore || 0;
 
@@ -118,13 +123,14 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
               <h1 className="text-2xl font-bold mb-1">{currentUser.name}</h1>
               <p className="text-muted-foreground mb-4">{currentUser.handle}</p>
 
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <Trophy className="w-3 h-3" />
+              <div className="flex flex-wrap gap-3 mt-4">
+                <Badge variant="secondary" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold shadow-sm">
+                  <Trophy className="w-4 h-4 text-accent" />
                   Level {userLevel}
                 </Badge>
-                <Badge variant="outline">
-                  {userProjects.length} active projects
+                <Badge variant="outline" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold bg-background/50 border-border/60">
+                  <Target className="w-4 h-4 text-primary" />
+                  {sortedProjects.length} Active Projects
                 </Badge>
               </div>
             </div>
@@ -141,14 +147,14 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
-                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
+            <Card className="p-5 h-full flex flex-col justify-center border-border/40 hover:border-border/80 transition-colors">
+              <div className="flex flex-col items-center sm:items-start sm:flex-row sm:items-center gap-3">
+                <div className={`w-11 h-11 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
+                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
                 </div>
-                <div>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <div className="text-xs text-muted-foreground">{stat.label}</div>
+                <div className="text-center sm:text-left">
+                  <div className="text-2xl font-black tracking-tight">{stat.value}</div>
+                  <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">{stat.label}</div>
                 </div>
               </div>
             </Card>
@@ -172,9 +178,12 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
         transition={{ delay: 0.5 }}
       >
         <Card className="p-4 md:p-6">
-          <h3 className="text-lg font-semibold mb-4">Active Projects</h3>
+          <div className="flex items-center gap-2 mb-6">
+            <Target className="w-5 h-5 text-primary" />
+            <h3 className="text-lg font-bold">Active Projects</h3>
+          </div>
           <div className="space-y-3">
-            {userProjects.map((project) => {
+            {sortedProjects.map((project) => {
               const Icon = getIconByName(project.icon || 'Target');
 
               return (

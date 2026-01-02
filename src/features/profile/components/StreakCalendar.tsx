@@ -50,6 +50,7 @@ export const StreakCalendar = () => {
     startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek - (7 * 6)); // Go back 6 weeks
 
     // Generate 49 days (7 weeks)
+    const todayStr = getDateStringInTimezone(today, timezone);
     for (let i = 0; i < 49; i++) {
       const date = new Date(startOfWeek);
       date.setDate(date.getDate() + i);
@@ -65,7 +66,8 @@ export const StreakCalendar = () => {
         date,
         intensity,
         count,
-        dayOfWeek: date.getDay()
+        dayOfWeek: date.getDay(),
+        isToday: dateStr === todayStr
       });
     }
 
@@ -102,50 +104,54 @@ export const StreakCalendar = () => {
   }
 
   return (
-    <Card className="p-4 sm:p-6 overflow-x-hidden">
+    <Card className="p-4 sm:p-6 overflow-hidden">
       <div className="flex flex-col items-center">
         {/* Content Container - responsive width */}
-        <div className="w-full max-w-[18.75rem] sm:max-w-[26rem]">
+        <div className="w-full">
           {/* Header - responsive layout */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
             <div className="flex-shrink-0">
-              <h3 className="text-base sm:text-lg font-semibold mb-1">Activity & Streaks</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">Your completion heatmap</p>
+              <h3 className="text-base sm:text-lg font-semibold">Activity & Streaks</h3>
+              <p className="text-[10px] sm:text-sm text-muted-foreground">Your completion heatmap</p>
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-4 flex-shrink-0">
-              <div className="flex items-center justify-between w-20 sm:w-32 gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-accent/10">
-                <Flame className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-accent" />
-                <div className="text-right">
-                  <div className="text-[9px] sm:text-xs text-muted-foreground">Current</div>
-                  <div className="text-sm sm:text-lg font-bold text-accent">{stats.currentStreak}</div>
+              <div className="flex flex-row items-center gap-2 sm:gap-4">
+                <div className="flex items-center gap-1 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-accent/10 min-w-[3.8rem] sm:min-w-[7rem] justify-center sm:justify-between">
+                  <Flame className="w-3 h-3 sm:w-5 sm:h-5 text-accent" />
+                  <div className="text-right">
+                    <div className="text-[7px] sm:text-xs text-muted-foreground font-medium uppercase tracking-tighter">Streak</div>
+                    <div className="text-sm sm:text-lg font-bold text-accent leading-none">{stats.currentStreak}</div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between w-20 sm:w-32 gap-1.5 sm:gap-2 px-1.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-muted">
-                <Trophy className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-foreground" />
-                <div className="text-right">
-                  <div className="text-[9px] sm:text-xs text-muted-foreground">Best</div>
-                  <div className="text-sm sm:text-lg font-bold text-foreground">{stats.longestStreak}</div>
+                <div className="flex items-center gap-1 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-muted min-w-[3.8rem] sm:min-w-[7rem] justify-center sm:justify-between">
+                  <Trophy className="w-3 h-3 sm:w-5 sm:h-5 text-foreground" />
+                  <div className="text-right">
+                    <div className="text-[7px] sm:text-xs text-muted-foreground font-medium uppercase tracking-tighter">Best</div>
+                    <div className="text-sm sm:text-lg font-bold text-foreground leading-none">{stats.longestStreak}</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Calendar Grid - compact on mobile */}
-          <div className="space-y-1.5 sm:space-y-2 w-full">
+          {/* Calendar Grid Container - ensures horizontal fit */}
+          <div className="w-full relative">
             {/* Day labels */}
-            <div className="grid grid-cols-[3rem_2rem_2rem_2rem_2rem_2rem_2rem_2rem] sm:grid-cols-[5rem_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem] gap-1 sm:gap-2 w-full">
+            <div className="grid grid-cols-[3.5rem_repeat(7,1fr)] gap-1 sm:gap-2 mb-2">
               <div /> {/* Spacer */}
               {dayNames.map((dayName) => (
-                <div key={dayName} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center">
-                  <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">{dayName}</span>
+                <div key={dayName} className="flex items-center justify-center">
+                  <span className="text-[9px] sm:text-xs text-muted-foreground font-bold uppercase tracking-tighter">
+                    {dayName.charAt(0)}
+                  </span>
                 </div>
               ))}
             </div>
 
             {/* Weeks */}
-            <div className="space-y-1.5 sm:space-y-2 w-full">
+            <div className="space-y-1.5 sm:space-y-2">
               {weeks.map((week, weekIndex) => {
                 const weekStart = week[0].date;
                 const month = weekStart.toLocaleDateString('en-US', { month: 'short' });
@@ -154,11 +160,11 @@ export const StreakCalendar = () => {
                 return (
                   <div
                     key={weekIndex}
-                    className="grid grid-cols-[3rem_2rem_2rem_2rem_2rem_2rem_2rem_2rem] sm:grid-cols-[5rem_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem_2.5rem] gap-1 sm:gap-2 items-center w-full"
+                    className="grid grid-cols-[3.5rem_repeat(7,1fr)] gap-1 sm:gap-2 items-center"
                   >
                     <div className="flex items-center">
-                      <span className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">
-                        {weekIndex === weeks.length - 1 ? 'This week' : `${month} ${day}`}
+                      <span className="text-[9px] sm:text-xs text-muted-foreground font-medium leading-none opacity-80">
+                        {weekIndex === weeks.length - 1 ? 'Today' : `${month} ${day}`}
                       </span>
                     </div>
 
@@ -166,12 +172,13 @@ export const StreakCalendar = () => {
                       <motion.div
                         key={dayIndex}
                         whileHover={{ scale: 1.1 }}
-                        className="group relative flex items-center justify-center"
+                        className="group relative flex items-center justify-center aspect-square"
                       >
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg ${getIntensityColor(
+                          className={`w-full h-full rounded-lg sm:rounded-xl md:rounded-2xl ${getIntensityColor(
                             dayData.intensity
-                          )} transition-colors cursor-pointer flex items-center justify-center`}
+                          )} ${dayData.isToday ? 'ring-2 ring-primary ring-offset-1 sm:ring-offset-2 ring-offset-background' : ''
+                            } transition-colors cursor-pointer flex items-center justify-center`}
                           title={`${dayData.date.toLocaleDateString('en-US', {
                             weekday: 'long',
                             month: 'long',
@@ -179,7 +186,7 @@ export const StreakCalendar = () => {
                           })} - ${dayData.count} ${dayData.count === 1 ? 'task' : 'tasks'}`}
                         >
                           {dayData.intensity > 0 && (
-                            <span className="text-[10px] sm:text-xs font-medium text-primary-foreground">
+                            <span className="text-[11px] sm:text-sm font-bold text-primary-foreground transform scale-110">
                               {dayData.count}
                             </span>
                           )}

@@ -40,7 +40,8 @@ import { useState, FormEvent } from 'react';
 import { useAuth } from '@/features/auth/useAuth';
 import { PROJECT_ICONS, ICON_CATEGORIES, getIconsByCategory } from '@/lib/projects/projectIcons';
 import { cn } from '@/lib/utils';
-import type { Project } from '@/types';
+import { normalizeId } from '@/lib/idUtils';
+import type { Project, Task } from '@/types';
 
 const ProjectDetail = () => {
   const { user: currentUser } = useAuth();
@@ -57,6 +58,9 @@ const ProjectDetail = () => {
     upcomingTasks,
     completedTasks,
     habitTasks,
+    completedHabitSeries,
+    upcomingHabitSeries,
+    archivedHabitSeries,
     archivedTasks,
     projectTasks,
     activeSectionTasks,
@@ -81,12 +85,14 @@ const ProjectDetail = () => {
     handleRecover,
     handleComplete,
     handleCreateTask,
+    handleUpdateTask,
     handleAddMember,
     handleRemoveParticipant,
     handleUpdateRole,
     handleEditProject,
     handleLeaveProject,
     handleDeleteProject,
+    handleDeleteTask,
     handleDeleteTaskSeries,
     isOwner,
     isManager,
@@ -96,6 +102,12 @@ const ProjectDetail = () => {
     completionLogs,
     isCreatingTask,
   } = useProjectDetail();
+
+  // Confirmation dialog states
+  const [participantToRemove, setParticipantToRemove] = useState<number | null>(null);
+  const [seriesToDelete, setSeriesToDelete] = useState<any | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
 
 
@@ -108,6 +120,23 @@ const ProjectDetail = () => {
   const handleCompleteWrapper = (taskId: string | number, difficultyRating?: number) => {
     const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
     handleComplete(taskIdNum, difficultyRating);
+  };
+
+  const handleDeleteTaskWrapper = (taskId: string | number) => {
+    const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    setTaskToDelete(taskIdNum);
+  };
+
+  const handleEditTaskWrapper = (task: Task) => {
+    setTaskToEdit(task);
+    setShowTaskForm(true);
+  };
+
+  const getOnEditTask = (task: Task) => {
+    if (canManage || (currentUser && normalizeId(task.creatorId) === normalizeId(currentUser.id))) {
+      return handleEditTaskWrapper;
+    }
+    return undefined;
   };
 
   if (isLoading) {
@@ -188,7 +217,7 @@ const ProjectDetail = () => {
               <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
               <TabsTrigger value="upcoming" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
                 <span className="hidden sm:inline">Upcoming</span>
-                <span className="sm:hidden">Next</span>
+                <span className="sm:hidden">Upcoming</span>
               </TabsTrigger>
               <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archive</TabsTrigger>
             </TabsList>
@@ -206,9 +235,10 @@ const ProjectDetail = () => {
                       key={`${series.title}-${idx}`}
                       series={series}
                       completionLogs={completionLogs}
-                      onDeleteSeries={canManage ? handleDeleteTaskSeries : undefined}
+                      onDeleteSeries={canManage ? setSeriesToDelete : undefined}
                       onRecoverTask={handleRecoverWrapper}
                       onCompleteTask={handleCompleteWrapper}
+                      onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                       canManage={canManage}
                     />
                   ))}
@@ -224,6 +254,8 @@ const ProjectDetail = () => {
                   completionLogs={completionLogs}
                   onRecover={handleRecoverWrapper}
                   onComplete={handleCompleteWrapper}
+                  onDelete={canManage ? handleDeleteTaskWrapper : undefined}
+                  getOnEditTask={getOnEditTask}
                 />
               ) : (
                 projectTasks.length === 0 ? (
@@ -244,6 +276,8 @@ const ProjectDetail = () => {
                             completionLogs={completionLogs}
                             onRecover={handleRecoverWrapper}
                             onComplete={handleCompleteWrapper}
+                            onDelete={canManage ? handleDeleteTaskWrapper : undefined}
+                            onEdit={getOnEditTask(task)}
                           />
                         ))}
                       </div>
@@ -256,41 +290,80 @@ const ProjectDetail = () => {
 
 
             <TabsContent value="completed">
-              <div className="space-y-3 opacity-60">
-                {completedTasks.length > 0 ? (
-                  completedTasks.map(task => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      completionLogs={completionLogs}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No completed tasks yet</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="upcoming">
               <div className="space-y-6">
-                {/* Recurrent Task Series Section */}
-                {habitTasks.length > 0 && (
+                {/* Recurrent Task Series Section (Completed only) */}
+                {completedHabitSeries.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Repeat className="w-4 h-4 text-primary" />
                       <h3 className="text-sm font-semibold text-muted-foreground">Recurrent Tasks</h3>
                     </div>
-                    {habitTasks.map((series, idx) => (
+                    {completedHabitSeries.map((series, idx) => (
                       <RecurrentTaskSeries
                         key={`${series.title}-${idx}`}
                         series={series}
                         completionLogs={completionLogs}
-                        onDeleteSeries={canManage ? handleDeleteTaskSeries : undefined}
+                        onDeleteSeries={canManage ? setSeriesToDelete : undefined}
                         onRecoverTask={handleRecoverWrapper}
                         onCompleteTask={handleCompleteWrapper}
+                        onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
+                        getOnEditTask={getOnEditTask}
+                        canManage={canManage}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Individual Completed Tasks Section */}
+                <div className="space-y-3 opacity-60">
+                  {completedTasks.length > 0 && completedHabitSeries.length > 0 && (
+                    <div className="flex items-center gap-2 mb-2 mt-2">
+                      <CheckCircle2 className="w-4 h-4 text-status-completed" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">One-off Tasks</h3>
+                    </div>
+                  )}
+
+                  {completedTasks.length > 0 ? (
+                    completedTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        completionLogs={completionLogs}
+                        onDelete={canManage ? handleDeleteTaskWrapper : undefined}
+                        onEdit={getOnEditTask(task)}
+                      />
+                    ))
+                  ) : (
+                    completedHabitSeries.length === 0 && (
+                      <div className="text-center py-12">
+                        <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground">No completed tasks yet</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="upcoming">
+              <div className="space-y-6">
+                {/* Recurrent Task Series Section (Upcoming/Active only) */}
+                {upcomingHabitSeries.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Repeat className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">Recurrent Tasks</h3>
+                    </div>
+                    {upcomingHabitSeries.map((series, idx) => (
+                      <RecurrentTaskSeries
+                        key={`${series.title}-${idx}`}
+                        series={series}
+                        completionLogs={completionLogs}
+                        onDeleteSeries={canManage ? setSeriesToDelete : undefined}
+                        onRecoverTask={handleRecoverWrapper}
+                        onCompleteTask={handleCompleteWrapper}
+                        onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
+                        getOnEditTask={getOnEditTask}
                         canManage={canManage}
                       />
                     ))}
@@ -299,7 +372,7 @@ const ProjectDetail = () => {
 
                 {/* Individual Upcoming Tasks Section */}
                 <div className="space-y-3">
-                  {upcomingTasks.length > 0 && habitTasks.length > 0 && (
+                  {upcomingTasks.length > 0 && upcomingHabitSeries.length > 0 && (
                     <div className="flex items-center gap-2 mb-2 mt-2">
                       <Clock className="w-4 h-4 text-primary" />
                       <h3 className="text-sm font-semibold text-muted-foreground">One-off Tasks</h3>
@@ -314,10 +387,12 @@ const ProjectDetail = () => {
                         completionLogs={completionLogs}
                         onRecover={handleRecoverWrapper}
                         onComplete={handleCompleteWrapper}
+                        onDelete={canManage ? handleDeleteTaskWrapper : undefined}
+                        onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
                       />
                     ))
                   ) : (
-                    habitTasks.length === 0 && (
+                    upcomingHabitSeries.length === 0 && (
                       <div className="text-center py-12">
                         <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                         <p className="text-muted-foreground">No upcoming tasks</p>
@@ -329,23 +404,60 @@ const ProjectDetail = () => {
             </TabsContent>
 
             <TabsContent value="archived">
-              <div className="space-y-3">
-                {archivedTasks.length > 0 ? (
-                  archivedTasks.map(task => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      completionLogs={completionLogs}
-                      onRecover={handleRecoverWrapper}
-                      onComplete={handleCompleteWrapper}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-12">
-                    <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">No archived tasks</p>
+              <div className="space-y-6">
+                {/* Recurrent Task Series Section (Archived only) */}
+                {archivedHabitSeries.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Repeat className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">Recurrent Tasks</h3>
+                    </div>
+                    {archivedHabitSeries.map((series, idx) => (
+                      <RecurrentTaskSeries
+                        key={`${series.title}-${idx}`}
+                        series={series}
+                        completionLogs={completionLogs}
+                        onDeleteSeries={canManage ? setSeriesToDelete : undefined}
+                        onRecoverTask={handleRecoverWrapper}
+                        onCompleteTask={handleCompleteWrapper}
+                        onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
+                        getOnEditTask={getOnEditTask}
+                        canManage={canManage}
+                      />
+                    ))}
                   </div>
                 )}
+
+                {/* Individual Archived Tasks Section */}
+                <div className="space-y-3">
+                  {archivedTasks.length > 0 && archivedHabitSeries.length > 0 && (
+                    <div className="flex items-center gap-2 mb-2 mt-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <h3 className="text-sm font-semibold text-muted-foreground">One-off Tasks</h3>
+                    </div>
+                  )}
+
+                  {archivedTasks.length > 0 ? (
+                    archivedTasks.map(task => (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        completionLogs={completionLogs}
+                        onRecover={handleRecoverWrapper}
+                        onComplete={handleCompleteWrapper}
+                        onDelete={canManage ? handleDeleteTaskWrapper : undefined}
+                        onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
+                      />
+                    ))
+                  ) : (
+                    archivedHabitSeries.length === 0 && (
+                      <div className="text-center py-12">
+                        <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground">No archived tasks</p>
+                      </div>
+                    )
+                  )}
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -354,12 +466,23 @@ const ProjectDetail = () => {
 
       <TaskForm
         open={showTaskForm}
-        onOpenChange={setShowTaskForm}
+        onOpenChange={(open) => {
+          setShowTaskForm(open);
+          if (!open) setTaskToEdit(null);
+        }}
+        initialTask={taskToEdit || undefined}
         onSubmit={(taskData) => {
-          handleCreateTask({
-            ...taskData,
-            projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId
-          });
+          if (taskToEdit) {
+            handleUpdateTask(taskToEdit.id, {
+              ...taskData,
+              projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId
+            });
+          } else {
+            handleCreateTask({
+              ...taskData,
+              projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId
+            });
+          }
         }}
         project={project}
       />
@@ -455,26 +578,27 @@ const ProjectDetail = () => {
       <Dialog open={showLeaveProjectDialog} onOpenChange={setShowLeaveProjectDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Leave Project</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to leave this project? You will no longer have access to its tasks and progress.
+            <DialogTitle className="text-xl">Leave Project?</DialogTitle>
+            <DialogDescription className="pt-2 text-base">
+              Are you sure you want to leave <span className="font-semibold text-foreground">"{project?.name}"</span>?
+              You will no longer be able to see or manage tasks in this project.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
             <Button
+              type="button"
               variant="outline"
               onClick={() => setShowLeaveProjectDialog(false)}
-              className="flex-1"
+              className="rounded-xl"
             >
               Cancel
             </Button>
             <Button
-              onClick={handleLeaveProject}
+              type="button"
               variant="destructive"
-              className="flex-1"
+              onClick={handleLeaveProject}
+              className="rounded-xl px-8"
             >
-              <LogOut className="w-4 h-4 mr-2" />
               Leave Project
             </Button>
           </div>
@@ -485,27 +609,135 @@ const ProjectDetail = () => {
       <Dialog open={showDeleteProjectDialog} onOpenChange={setShowDeleteProjectDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Project</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this project? This action cannot be undone. All tasks, progress, and data associated with this project will be permanently deleted.
+            <DialogTitle className="text-xl text-destructive font-bold">Delete Project?</DialogTitle>
+            <DialogDescription className="pt-2 text-base">
+              This will <span className="font-bold text-destructive underline">permanently delete</span> the project <span className="font-semibold text-foreground">"{project?.name}"</span> and ALL its associated tasks and history.
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
             <Button
+              type="button"
               variant="outline"
               onClick={() => setShowDeleteProjectDialog(false)}
-              className="flex-1"
+              className="rounded-xl"
             >
               Cancel
             </Button>
             <Button
-              onClick={handleDeleteProject}
+              type="button"
               variant="destructive"
-              className="flex-1"
+              onClick={handleDeleteProject}
+              className="rounded-xl px-8"
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Project
+              Delete Everything
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove Member Confirmation Dialog */}
+      <Dialog open={participantToRemove !== null} onOpenChange={(open) => !open && setParticipantToRemove(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Remove member?</DialogTitle>
+            <DialogDescription className="pt-2 text-base">
+              Are you sure you want to remove this member from the team?
+              They will lose access to all tasks in this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setParticipantToRemove(null)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (participantToRemove) {
+                  handleRemoveParticipant(participantToRemove);
+                  setParticipantToRemove(null);
+                }
+              }}
+              className="rounded-xl px-8"
+            >
+              Remove Member
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Task Series Confirmation Dialog */}
+      <Dialog open={seriesToDelete !== null} onOpenChange={(open) => !open && setSeriesToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Delete task series?</DialogTitle>
+            <DialogDescription className="pt-2 text-base">
+              Are you sure you want to delete the series <span className="font-semibold text-foreground">"{seriesToDelete?.title}"</span>?
+              This will remove ALL occurrences of this task.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSeriesToDelete(null)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (seriesToDelete) {
+                  handleDeleteTaskSeries(seriesToDelete);
+                  setSeriesToDelete(null);
+                }
+              }}
+              className="rounded-xl px-8"
+            >
+              Delete Series
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Single Task Confirmation Dialog */}
+      <Dialog open={taskToDelete !== null} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Delete task?</DialogTitle>
+            <DialogDescription className="pt-2 text-base">
+              Are you sure you want to delete this task? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTaskToDelete(null)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (taskToDelete) {
+                  handleDeleteTask(taskToDelete);
+                  setTaskToDelete(null);
+                }
+              }}
+              className="rounded-xl px-8"
+            >
+              Delete Task
             </Button>
           </div>
         </DialogContent>
@@ -583,7 +815,7 @@ const ProjectDetail = () => {
                           ))}
                           <div className="h-px bg-border my-1" />
                           <DropdownMenuItem
-                            onClick={() => handleRemoveParticipant(participant.userId)}
+                            onClick={() => setParticipantToRemove(participant.userId)}
                             className="text-destructive focus:bg-destructive/10 cursor-pointer"
                           >
                             <Trash2 className="w-4 h-4 mr-2" />

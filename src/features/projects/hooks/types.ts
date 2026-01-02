@@ -73,6 +73,9 @@ export interface CategorizedTasks {
   completedTasks: Task[];
   archivedTasks: Task[];
   habitTasks: HabitSeries[];
+  completedHabitSeries: HabitSeries[];
+  upcomingHabitSeries: HabitSeries[];
+  archivedHabitSeries: HabitSeries[];
   projectTasks: Task[];
   hasAnyAllTabContent: boolean;
 }

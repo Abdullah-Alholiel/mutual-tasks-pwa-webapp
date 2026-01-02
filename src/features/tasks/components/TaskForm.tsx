@@ -10,9 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { Project, User, TaskType, RecurrencePattern } from '@/types';
+import type { Project, User, Task, TaskType, RecurrencePattern } from '@/types';
 import { motion } from 'framer-motion';
-import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus, Wand2 } from 'lucide-react';
+import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus, Wand2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
@@ -40,6 +40,7 @@ interface TaskFormProps {
     };
     showRecurrenceIndex?: boolean;
   }) => void;
+  initialTask?: Task;
   project?: Project;
   projects?: Project[]; // Actual projects list (includes newly created ones)
   allowProjectSelection?: boolean;
@@ -55,6 +56,7 @@ export const TaskForm = ({
   open,
   onOpenChange,
   onSubmit,
+  initialTask,
   project: initialProject,
   projects = [], // Default to empty array if not provided
   allowProjectSelection = false,
@@ -100,22 +102,33 @@ export const TaskForm = ({
   }) : undefined);
   const availableProjects = allowProjectSelection ? projects : [];
 
-  // Reset form when dialog closes
+  // Reset form or populate with initialTask when dialog state changes
   useEffect(() => {
-    if (!open) {
-      setTitle('');
-      setDescription('');
-      setIsRecurring(false);
-      setRecurrencePattern('Daily');
-      setShowRecurrenceIndex(false);
-      const now = new Date();
-      now.setHours(0, 0, 0, 0); // Set to start of day
-      setDueDate(now);
-      if (!initialProject) {
-        setSelectedProjectId('');
+    if (open) {
+      if (initialTask) {
+        setTitle(initialTask.title);
+        setDescription(initialTask.description || '');
+        setIsRecurring(initialTask.type === 'habit');
+        setRecurrencePattern(initialTask.recurrencePattern || 'Daily');
+        setShowRecurrenceIndex(initialTask.showRecurrenceIndex || false);
+        setDueDate(initialTask.dueDate ? new Date(initialTask.dueDate) : new Date());
+        setSelectedProjectId(initialTask.projectId);
+      } else {
+        // Only reset if not editing
+        setTitle('');
+        setDescription('');
+        setIsRecurring(false);
+        setRecurrencePattern('Daily');
+        setShowRecurrenceIndex(false);
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        setDueDate(now);
+        if (!initialProject) {
+          setSelectedProjectId('');
+        }
       }
     }
-  }, [open, initialProject]);
+  }, [open, initialTask, initialProject]);
 
   const handleCreateProject = (projectData: {
     name: string;
@@ -243,8 +256,8 @@ export const TaskForm = ({
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <DialogTitle>Create New Task</DialogTitle>
+            {initialTask ? <Pencil className="w-5 h-5 text-primary" /> : <Sparkles className="w-5 h-5 text-primary" />}
+            <DialogTitle>{initialTask ? 'Edit Task' : 'Create New Task'}</DialogTitle>
           </div>
           <DialogDescription>
             {project
@@ -679,7 +692,7 @@ export const TaskForm = ({
               disabled={!title.trim() || !project}
               className="flex-1 gradient-primary text-white"
             >
-              Create Task
+              {initialTask ? 'Update Task' : 'Create Task'}
             </Button>
           </div>
         </form>

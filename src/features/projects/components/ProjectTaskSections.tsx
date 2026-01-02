@@ -1,6 +1,6 @@
 import { ReactNode, memo } from 'react';
 import { TaskCard } from '../../tasks/components/TaskCard';
-import { Clock, CheckCircle2, Sparkles, Repeat } from 'lucide-react';
+import { Clock, CheckCircle2, Sparkles } from 'lucide-react';
 import type { Task, CompletionLog } from '@/types';
 
 interface TaskSectionProps {
@@ -10,6 +10,8 @@ interface TaskSectionProps {
   completionLogs: CompletionLog[];
   onRecover?: (taskId: string | number) => void;
   onComplete?: (taskId: string | number, difficultyRating?: number) => void;
+  onDelete?: (taskId: string | number) => void;
+  getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;
   className?: string;
 }
 
@@ -24,6 +26,8 @@ export const TaskSection = memo(({
   completionLogs,
   onRecover,
   onComplete,
+  onDelete,
+  getOnEditTask,
   className = '',
 }: TaskSectionProps) => {
   if (tasks.length === 0) return null;
@@ -58,6 +62,8 @@ export const TaskSection = memo(({
               completionLogs={completionLogs}
               onRecover={onRecover}
               onComplete={onComplete}
+              onDelete={onDelete}
+              onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
             />
           </div>
         ))}
@@ -76,6 +82,8 @@ interface ProjectTaskSectionsProps {
   completionLogs: CompletionLog[];
   onRecover: (taskId: string | number) => void;
   onComplete?: (taskId: string | number, difficultyRating?: number) => void;
+  onDelete?: (taskId: string | number) => void;
+  getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;
 }
 
 /**
@@ -89,6 +97,8 @@ export const ProjectTaskSections = memo(({
   completionLogs,
   onRecover,
   onComplete,
+  onDelete,
+  getOnEditTask,
 }: ProjectTaskSectionsProps) => {
   return (
     <>
@@ -100,6 +110,8 @@ export const ProjectTaskSections = memo(({
           completionLogs={completionLogs}
           onRecover={onRecover}
           onComplete={onComplete}
+          onDelete={onDelete}
+          getOnEditTask={getOnEditTask}
         />
       )}
 
@@ -110,6 +122,8 @@ export const ProjectTaskSections = memo(({
           tasks={upcomingTasks}
           completionLogs={completionLogs}
           onComplete={onComplete}
+          onDelete={onDelete}
+          getOnEditTask={getOnEditTask}
         />
       )}
 
@@ -119,6 +133,8 @@ export const ProjectTaskSections = memo(({
           icon={<CheckCircle2 className="w-5 h-5 text-status-completed" />}
           tasks={completedTasks}
           completionLogs={completionLogs}
+          onDelete={onDelete}
+          getOnEditTask={getOnEditTask}
           className="opacity-60"
         />
       )}
@@ -131,6 +147,8 @@ export const ProjectTaskSections = memo(({
           completionLogs={completionLogs}
           onRecover={onRecover}
           onComplete={onComplete}
+          onDelete={onDelete}
+          getOnEditTask={getOnEditTask}
         />
       )}
     </>

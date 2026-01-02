@@ -75,7 +75,7 @@ export const ProjectStats = ({
           </div>
           <div className="text-center group transition-transform hover:scale-105">
             <div className="text-2xl font-bold text-status-completed">{completedTasksCount}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Done</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Completed</div>
           </div>
           <div className="text-center group transition-transform hover:scale-105">
             <div className="text-2xl font-bold text-blue-500">{upcomingCount}</div>

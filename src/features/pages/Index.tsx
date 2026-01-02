@@ -1,6 +1,7 @@
 import { AppLayout } from '../../layout/AppLayout';
 import { TaskCard } from '../tasks/components/TaskCard';
 import { TaskForm } from '../tasks/components/TaskForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -28,7 +29,7 @@ import {
   useTaskStatuses,
   useCompletionLogs
 } from '../tasks/hooks/useTasks';
-import { useCreateCompletionLog, useUpdateTaskStatus } from '../tasks/hooks/useTasks';
+import { useCreateCompletionLog, useUpdateTaskStatus, useDeleteTask, useUpdateTask } from '../tasks/hooks/useTasks';
 import { useTodayTasks, useUserTasks } from '../tasks/hooks/useTasks';
 import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
@@ -50,6 +51,8 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
   const createMultipleTasksMutation = useCreateMultipleTasksWithStatuses();
   const createCompletionLogMutation = useCreateCompletionLog();
   const updateTaskStatusMutation = useUpdateTaskStatus();
+  const deleteTaskMutation = useDeleteTask();
+  const updateTaskMutation = useUpdateTask();
 
   // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
   // No need to create subscriptions here - they're managed globally
@@ -57,6 +60,8 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
   const { data: taskStatuses = [], isLoading: statusesLoading } = useTaskStatuses();
   const { data: completionLogs = [], isLoading: logsLoading } = useCompletionLogs();
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
   // Update tasks with their statuses
   const tasksWithStatuses = useMemo(() =>
@@ -361,6 +366,77 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
     }
   };
 
+  const handleDeleteTask = async (taskId: string | number) => {
+    const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    setTaskToDelete(taskIdNum);
+  };
+
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
+
+    try {
+      await deleteTaskMutation.mutateAsync(taskToDelete);
+      // Invalidate queries to refresh dashboard data
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setTaskToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
+  };
+
+  const handleUpdateTask = async (taskData: {
+    title: string;
+    description: string;
+    type: 'one_off' | 'habit';
+    recurrencePattern?: 'Daily' | 'weekly' | 'custom';
+    dueDate?: Date;
+  }) => {
+    if (!taskToEdit) return;
+
+    try {
+      await updateTaskMutation.mutateAsync({
+        id: taskToEdit.id,
+        data: {
+          title: taskData.title,
+          description: taskData.description,
+          type: taskData.type,
+          recurrencePattern: taskData.recurrencePattern,
+          dueDate: taskData.dueDate,
+        }
+      });
+
+      // Invalidate queries to refresh dashboard data
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      setTaskToEdit(null);
+      setShowTaskForm(false);
+      toast.success('Task updated! ✨');
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      toast.error('Failed to update task');
+    }
+  };
+
+  const getOnEditTask = (task: Task) => {
+    if (!user) return undefined;
+    const project = allProjects.find(p => compareIds(p.id, task.projectId));
+    if (!project) return undefined;
+
+    const userIdNum = normalizeId(user.id);
+    const isCreator = compareIds(task.creatorId, userIdNum);
+    const isOwner = compareIds(project.ownerId, userIdNum);
+    const isManager = project.participantRoles?.some(pr =>
+      compareIds(pr.userId, userIdNum) && (pr.role === 'manager' || pr.role === 'owner') && !pr.removedAt
+    );
+
+    if (isOwner || isManager || isCreator) {
+      return (t: Task) => {
+        setTaskToEdit(t);
+        setShowTaskForm(true);
+      };
+    }
+    return undefined;
+  };
+
   // We no longer block the whole page on loading
   // SWR pattern: show cached data instantly if available
   const isInitialLoading = (tasksLoading || projectsLoading || statusesLoading || logsLoading || isRestoring) &&
@@ -445,7 +521,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
             <div className="text-2xl font-bold text-status-completed mb-1">
               {completedTasksForToday.length}
             </div>
-            <div className="text-sm text-muted-foreground">Done</div>
+            <div className="text-sm text-muted-foreground">Completed</div>
           </motion.div>
 
           <motion.div
@@ -490,6 +566,8 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                     completionLogs={completionLogs}
                     onComplete={handleComplete}
                     showRecover={false}
+                    onDelete={handleDeleteTask}
+                    onEdit={getOnEditTask(task)}
                   />
                 </div>
               ))}
@@ -497,12 +575,12 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
           </div>
         )}
 
-        {/* Done for the Day */}
+        {/* Completed for the Day */}
         {completedTasksForToday.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-semibold">Done for the Day</h2>
+              <h2 className="text-xl font-semibold">Completed for the Day</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
             <div
@@ -521,7 +599,12 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                     containIntrinsicSize: '0 180px',
                   }}
                 >
-                  <TaskCard task={task} completionLogs={completionLogs} />
+                  <TaskCard
+                    task={task}
+                    completionLogs={completionLogs}
+                    onDelete={handleDeleteTask}
+                    onEdit={getOnEditTask(task)}
+                  />
                 </div>
               ))}
             </div>
@@ -557,6 +640,8 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                     completionLogs={completionLogs}
                     onComplete={handleComplete}
                     showRecover={false}
+                    onDelete={handleDeleteTask}
+                    onEdit={getOnEditTask(task)}
                   />
                 </div>
               ))}
@@ -593,11 +678,51 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
 
       <TaskForm
         open={showTaskForm}
-        onOpenChange={setShowTaskForm}
-        onSubmit={handleCreateTask}
+        onOpenChange={(open) => {
+          setShowTaskForm(open);
+          if (!open) setTaskToEdit(null);
+        }}
+        initialTask={taskToEdit || undefined}
+        onSubmit={(taskData) => {
+          if (taskToEdit) {
+            handleUpdateTask(taskData);
+          } else {
+            handleCreateTask(taskData);
+          }
+        }}
         projects={projectsWhereCanCreateTasks}
         allowProjectSelection={true}
       />
+
+      {/* Delete Task Confirmation Dialog */}
+      <Dialog open={taskToDelete !== null} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Delete task?</DialogTitle>
+            <DialogDescription className="pt-2 text-base">
+              Are you sure you want to delete this task? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTaskToDelete(null)}
+              className="rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDeleteTask}
+              className="rounded-xl px-8"
+            >
+              Delete Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

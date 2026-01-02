@@ -3,7 +3,8 @@ import { AppLayout } from '@/layout/AppLayout';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { motion } from 'framer-motion';
-import { Plus, FolderKanban, Globe, Users } from 'lucide-react';
+import { Plus, FolderKanban, Globe, Users, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { InlineLoader, PageLoader } from '@/components/ui/loader';
 import type { Project } from '@/types';
@@ -39,6 +40,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   const createProjectMutation = useCreateProject();
   const joinProjectMutation = useJoinProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // We no longer block the whole page on loading
   // SWR pattern: show cached data instantly if available
@@ -55,10 +57,77 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
     [projectsWithProgress, user]
   );
 
-  const publicProjects = useMemo(() =>
-    publicProjectsRaw || [],
-    [publicProjectsRaw]
-  );
+  const filteredPublicProjects = useMemo(() => {
+    if (!publicProjectsRaw || publicProjectsRaw.length === 0) return [];
+    if (!searchQuery.trim()) return publicProjectsRaw;
+
+    const query = searchQuery.toLowerCase().trim();
+    const queryTokens = query.split(/\s+/).filter(t => t.length > 0);
+
+    return publicProjectsRaw
+      .map(project => {
+        let score = 0;
+        const name = (project.name || '').toLowerCase();
+        const description = (project.description || '').toLowerCase();
+
+        // 1. Exact Phrase Match (Highest priority)
+        if (name.includes(query)) score += 100;
+        else if (description.includes(query)) score += 40;
+
+        // 2. Individual Token Matching
+        let matchedTokensInName = 0;
+        let matchedTokensTotal = 0;
+
+        queryTokens.forEach(token => {
+          const nameHasToken = name.includes(token);
+          const descHasToken = description.includes(token);
+
+          if (nameHasToken) {
+            matchedTokensInName++;
+            matchedTokensTotal++;
+
+            // Check if it's a whole word match in name
+            const wordRegex = new RegExp(`\\b${token}\\b`, 'i');
+            if (wordRegex.test(name)) score += 30; // Solid match for whole word
+            else score += 10; // Substring match
+
+            // Bonus for name starting with token
+            if (name.startsWith(token)) score += 20;
+          }
+
+          if (descHasToken) {
+            if (!nameHasToken) matchedTokensTotal++;
+
+            const wordRegex = new RegExp(`\\b${token}\\b`, 'i');
+            if (wordRegex.test(description)) score += 15;
+            else score += 5;
+          }
+        });
+
+        // 3. Contextual Bonuses
+        // Bonus for matching all tokens in the title
+        if (matchedTokensInName === queryTokens.length) score += 50;
+
+        // Bonus for matching all tokens across title/desc
+        if (matchedTokensTotal === queryTokens.length) score += 30;
+
+        // Bonus for correct sequence of tokens in title (even if not exact phrase)
+        if (queryTokens.length > 1) {
+          const tokenIndices = queryTokens.map(t => name.indexOf(t)).filter(i => i !== -1);
+          const isSequential = tokenIndices.every((val, i) => i === 0 || val > tokenIndices[i - 1]);
+          if (isSequential && tokenIndices.length === queryTokens.length) {
+            score += 40;
+          }
+        }
+
+        return { project, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.project);
+  }, [publicProjectsRaw, searchQuery]);
+
+  const publicProjects = filteredPublicProjects;
 
   const handleCreateProject = async (projectData: {
     name: string;
@@ -281,7 +350,30 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
             )}
           </TabsContent>
 
-          <TabsContent value="public" className="space-y-4">
+          <TabsContent value="public" className="space-y-6">
+            <div className="space-y-4">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="Search public projects by name or description..."
+                  className="pl-10 h-12 bg-card border-border/50 focus:border-primary/50 rounded-2xl shadow-sm transition-all text-base"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {searchQuery.trim() && publicProjects.length > 0 && (
+                <div className="flex items-center gap-2 px-1">
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-semibold py-0.5">
+                    {publicProjects.length} {publicProjects.length === 1 ? 'Result' : 'Results'} Found
+                  </Badge>
+                </div>
+              )}
+            </div>
+
             {publicProjects.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {publicProjects.map((project, index) => (
@@ -298,6 +390,21 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
                     />
                   </motion.div>
                 ))}
+              </div>
+            ) : searchQuery.trim() ? (
+              <div className="text-center py-16">
+                <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="text-xl font-semibold mb-2">No matches found</h3>
+                <p className="text-muted-foreground">
+                  Try adjusting your keywords to find what you're looking for
+                </p>
+                <Button
+                  variant="ghost"
+                  className="mt-4 text-primary"
+                  onClick={() => setSearchQuery('')}
+                >
+                  Clear Search
+                </Button>
               </div>
             ) : (
               <div className="text-center py-16">
