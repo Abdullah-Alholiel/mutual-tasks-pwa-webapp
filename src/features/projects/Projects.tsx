@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { AppLayout } from '@/layout/AppLayout';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
@@ -21,6 +21,8 @@ import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
 import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
+import { AIProjectButton, AIProjectModal, type AIGeneratedProject } from '@/features/ai-service';
+import { useCreateTaskWithStatuses, type CreateTaskWithStatusesInput } from '@/features/tasks/hooks/useTasks';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 interface ProjectsProps {
@@ -41,8 +43,10 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   const createProjectMutation = useCreateProject();
   const joinProjectMutation = useJoinProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { activeTab, setActiveTab } = useProjectsTabState();
+  const createTaskWithStatuses = useCreateTaskWithStatuses();
 
   // We no longer block the whole page on loading
   // SWR pattern: show cached data instantly if available
@@ -233,6 +237,97 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   };
 
   const [joiningProject, setJoiningProject] = useState<Project | null>(null);
+  const [isCreatingAIProject, setIsCreatingAIProject] = useState(false);
+
+  /**
+   * Handle AI-generated project creation
+   * Creates the project and all its tasks in one flow
+   */
+  const handleAIProjectCreate = useCallback(async (generatedProject: AIGeneratedProject) => {
+    if (!user || !isAuthenticated) {
+      toast.error('You must be logged in to create a project');
+      return;
+    }
+
+    setIsCreatingAIProject(true);
+    setShowAIModal(false);
+
+    try {
+      const ownerId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+
+      // 1. Create the project
+      const newProject = await createProjectMutation.mutateAsync({
+        name: generatedProject.name,
+        description: generatedProject.description,
+        ownerId,
+        totalTasks: generatedProject.tasks.length,
+        isPublic: generatedProject.isPublic,
+        color: generatedProject.color,
+        icon: generatedProject.icon,
+      });
+
+      const projectId = typeof newProject.id === 'string' ? parseInt(newProject.id) : newProject.id;
+
+      // 2. Create all tasks with statuses
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (const taskData of generatedProject.tasks) {
+        const dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + taskData.daysFromNow);
+
+        const taskInput: CreateTaskWithStatusesInput = {
+          task: {
+            projectId,
+            creatorId: ownerId,
+            title: taskData.title,
+            description: taskData.description,
+            type: taskData.type,
+            dueDate,
+            recurrencePattern: taskData.recurrencePattern,
+          },
+          participantUserIds: [ownerId], // Assign to creator
+          dueDate,
+        };
+
+        await createTaskWithStatuses.mutateAsync(taskInput);
+
+        // Handle recurrence for habit tasks
+        if (taskData.type === 'habit' && taskData.recurrencePattern) {
+          const db = getDatabaseClient();
+          // Get the created task ID from cache or create recurrence after task is created
+          // For now, the task recurrence will be set up when user edits the task
+        }
+      }
+
+      // 3. Seed React Query cache and navigate
+      const projectWithParticipants = {
+        ...newProject,
+        participants: [user],
+        participantRoles: [{
+          projectId: newProject.id,
+          userId: ownerId,
+          role: 'owner' as const,
+          addedAt: new Date(),
+          user: user,
+        }],
+      };
+
+      queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
+      queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
+
+      toast.success(`Created "${generatedProject.name}" with ${generatedProject.tasks.length} tasks! 🎉`);
+      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
+
+    } catch (error) {
+      console.error('Failed to create AI project:', error);
+      toast.error('Failed to create project', {
+        description: 'Please try again or create manually.',
+      });
+    } finally {
+      setIsCreatingAIProject(false);
+    }
+  }, [user, isAuthenticated, createProjectMutation, createTaskWithStatuses, queryClient, navigate]);
 
   const handleJoinProject = async (project: Project) => {
     setJoiningProject(project);
@@ -277,13 +372,16 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
             </motion.h1>
           </div>
 
-          <Button
-            onClick={() => setShowProjectForm(true)}
-            className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px] shrink-0"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            New Project
-          </Button>
+          <div className="flex items-center gap-2">
+            <AIProjectButton onClick={() => setShowAIModal(true)} />
+            <Button
+              onClick={() => setShowProjectForm(true)}
+              className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px] shrink-0"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              New Project
+            </Button>
+          </div>
         </div>
 
         {/* Projects Tabs */}
@@ -419,6 +517,17 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
         onSubmit={handleCreateProject}
         currentUser={user!}
       />
+
+      <AIProjectModal
+        open={showAIModal}
+        onOpenChange={setShowAIModal}
+        onCreateProject={handleAIProjectCreate}
+      />
+
+      {/* Loading overlay for AI project creation */}
+      {isCreatingAIProject && (
+        <PageLoader text="Creating your AI-generated project..." />
+      )}
     </>
   );
 };
