@@ -22,7 +22,7 @@ import { adjustColorOpacity } from '@/lib/colorUtils';
 import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 import { AIProjectButton, AIProjectModal, type AIGeneratedProject } from '@/features/ai-service';
-import { useCreateTaskWithStatuses, type CreateTaskWithStatusesInput } from '@/features/tasks/hooks/useTasks';
+import { useCreateTaskWithStatuses, useCreateMultipleTasksWithStatuses, type CreateTaskWithStatusesInput } from '@/features/tasks/hooks/useTasks';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 interface ProjectsProps {
@@ -47,6 +47,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { activeTab, setActiveTab } = useProjectsTabState();
   const createTaskWithStatuses = useCreateTaskWithStatuses();
+  const createMultipleTasksWithStatuses = useCreateMultipleTasksWithStatuses();
 
   // We no longer block the whole page on loading
   // SWR pattern: show cached data instantly if available
@@ -272,32 +273,98 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Collect all tasks to create (including recurring instances)
+      const allTaskInputs: CreateTaskWithStatusesInput[] = [];
+      let totalTaskCount = 0;
+
       for (const taskData of generatedProject.tasks) {
-        const dueDate = new Date(today);
-        dueDate.setDate(dueDate.getDate() + taskData.daysFromNow);
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() + taskData.daysFromNow);
+        startDate.setHours(0, 0, 0, 0);
 
-        const taskInput: CreateTaskWithStatusesInput = {
-          task: {
-            projectId,
-            creatorId: ownerId,
-            title: taskData.title,
-            description: taskData.description,
-            type: taskData.type,
-            dueDate,
-            recurrencePattern: taskData.recurrencePattern,
-          },
-          participantUserIds: [ownerId], // Assign to creator
-          dueDate,
-        };
-
-        await createTaskWithStatuses.mutateAsync(taskInput);
-
-        // Handle recurrence for habit tasks
         if (taskData.type === 'habit' && taskData.recurrencePattern) {
-          const db = getDatabaseClient();
-          // Get the created task ID from cache or create recurrence after task is created
-          // For now, the task recurrence will be set up when user edits the task
+          // Handle recurring habit tasks - create the full series
+          let endDate = new Date(today);
+
+          // For AI-generated projects, default to 30 days duration
+          // This ensures daily habits get 30 occurrences, weekly habits get ~4-5 occurrences
+          const projectDurationDays = 30;
+          endDate.setDate(endDate.getDate() + projectDurationDays);
+          endDate.setHours(23, 59, 59, 999);
+
+          // Calculate max occurrences based on pattern
+          let maxOccurrences: number;
+          if (taskData.recurrencePattern === 'Daily') {
+            maxOccurrences = projectDurationDays; // One per day
+          } else if (taskData.recurrencePattern === 'weekly') {
+            maxOccurrences = Math.ceil(projectDurationDays / 7); // One per week
+          } else if (taskData.recurrencePattern === 'custom' && taskData.recurrenceInterval) {
+            maxOccurrences = Math.ceil(projectDurationDays / taskData.recurrenceInterval);
+          } else {
+            maxOccurrences = projectDurationDays; // Fallback to daily
+          }
+
+          let currentDate = new Date(startDate);
+          let occurrenceCount = 0;
+
+          while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
+            const taskDueDate = new Date(currentDate);
+            taskDueDate.setHours(0, 0, 0, 0);
+
+            allTaskInputs.push({
+              task: {
+                projectId,
+                creatorId: ownerId,
+                title: taskData.title,
+                description: taskData.description,
+                type: taskData.type,
+                dueDate: taskDueDate,
+                recurrencePattern: taskData.recurrencePattern,
+                recurrenceIndex: occurrenceCount + 1,
+                recurrenceTotal: maxOccurrences,
+                showRecurrenceIndex: true,
+              },
+              participantUserIds: [ownerId],
+              dueDate: taskDueDate,
+            });
+
+            occurrenceCount++;
+            totalTaskCount++;
+
+            // Advance to next occurrence based on pattern
+            if (taskData.recurrencePattern === 'Daily') {
+              currentDate.setDate(currentDate.getDate() + 1);
+            } else if (taskData.recurrencePattern === 'weekly') {
+              currentDate.setDate(currentDate.getDate() + 7);
+            } else if (taskData.recurrencePattern === 'custom' && taskData.recurrenceInterval) {
+              currentDate.setDate(currentDate.getDate() + taskData.recurrenceInterval);
+            } else {
+              // Default to daily
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+          }
+        } else {
+          // One-off task - single instance
+          allTaskInputs.push({
+            task: {
+              projectId,
+              creatorId: ownerId,
+              title: taskData.title,
+              description: taskData.description,
+              type: taskData.type,
+              dueDate: startDate,
+              recurrencePattern: undefined,
+            },
+            participantUserIds: [ownerId],
+            dueDate: startDate,
+          });
+          totalTaskCount++;
         }
+      }
+
+      // Create all tasks in batch using the multiple tasks mutation
+      if (allTaskInputs.length > 0) {
+        await createMultipleTasksWithStatuses.mutateAsync(allTaskInputs);
       }
 
       // 3. Seed React Query cache and navigate
@@ -316,7 +383,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
       queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
-      toast.success(`Created "${generatedProject.name}" with ${generatedProject.tasks.length} tasks! 🎉`);
+      toast.success(`Created \"${generatedProject.name}\" with ${totalTaskCount} tasks! 🎉`);
       navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
 
     } catch (error) {
@@ -327,7 +394,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
     } finally {
       setIsCreatingAIProject(false);
     }
-  }, [user, isAuthenticated, createProjectMutation, createTaskWithStatuses, queryClient, navigate]);
+  }, [user, isAuthenticated, createProjectMutation, createMultipleTasksWithStatuses, queryClient, navigate]);
 
   const handleJoinProject = async (project: Project) => {
     setJoiningProject(project);
