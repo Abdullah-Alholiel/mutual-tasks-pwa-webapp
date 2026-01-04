@@ -12,6 +12,7 @@ import { useAuth } from '../../auth/useAuth';
 import type { Project, NotificationType } from '@/types';
 import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
+import { normalizeId } from '@/lib/idUtils';
 
 /**
  * Hook to fetch all projects for the current user
@@ -38,12 +39,12 @@ export const useProjects = () => {
  */
 export const useProject = (projectId: string | number | undefined) => {
   return useQuery({
-    queryKey: ['project', projectId],
+    queryKey: ['project', projectId ? normalizeId(projectId) : null],
     queryFn: async () => {
       if (!projectId) return null;
 
       const db = getDatabaseClient();
-      const id = typeof projectId === 'string' ? parseInt(projectId) : projectId;
+      const id = normalizeId(projectId);
       return await db.projects.getById(id);
     },
     enabled: !!projectId,
@@ -131,7 +132,7 @@ export const useUpdateProject = () => {
     onSuccess: (updatedProject) => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['project', updatedProject.id] });
+      queryClient.invalidateQueries({ queryKey: ['project', normalizeId(updatedProject.id)] });
       toast.success('Project updated! ✅');
     },
     onError: (error) => {
@@ -310,7 +311,7 @@ export const useJoinProject = () => {
       // Immediately refetch to ensure UI updates instantly
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ['projects'] }),
-        queryClient.refetchQueries({ queryKey: ['project', String(projectId)] }),
+        queryClient.refetchQueries({ queryKey: ['project', normalizeId(projectId)] }),
         queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
         // Also invalidate tasks queries so the new statuses are fetched
         queryClient.invalidateQueries({ queryKey: ['tasks'] }),
@@ -346,7 +347,7 @@ export const useLeaveProject = () => {
 
       // 1. Get all tasks for this project
       const projectTasks = await db.tasks.getAll({ projectId: pId });
-      const projectTaskIds = projectTasks.map(task => 
+      const projectTaskIds = projectTasks.map(task =>
         typeof task.id === 'string' ? parseInt(task.id) : task.id
       );
 
@@ -364,7 +365,7 @@ export const useLeaveProject = () => {
       // and disappears from "My Projects", and task-related data is refreshed
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        queryClient.invalidateQueries({ queryKey: ['project', String(projectId)] }),
+        queryClient.invalidateQueries({ queryKey: ['project', normalizeId(projectId)] }),
         queryClient.invalidateQueries({ queryKey: ['projects', 'with-stats'] }),
         // Explicitly invalidate public projects to ensure it reappears there
         queryClient.invalidateQueries({ queryKey: ['projects', 'public'] }),

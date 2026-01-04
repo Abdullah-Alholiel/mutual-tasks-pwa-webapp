@@ -10,7 +10,7 @@ import { handleError } from '@/lib/errorUtils';
 import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ParticipantWithUser, ProjectPermissions } from './types';
-import { useLeaveProject } from './useProjects';
+import { useLeaveProject, useUpdateProject } from './useProjects';
 
 interface UseProjectSettingsParams {
   projectId: string | undefined;
@@ -69,29 +69,29 @@ export const useProjectSettings = ({
   /**
    * Edit project details
    */
+
+  const mutation = useUpdateProject();
   const handleEditProject = useCallback(async (projectData: { name: string; description: string; icon?: string }) => {
     if (!currentProject) return;
 
     try {
-      const db = getDatabaseClient();
       const pId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
-      await db.projects.update(pId, {
-        name: projectData.name,
-        description: projectData.description,
-        icon: projectData.icon
+      await mutation.mutateAsync({
+        id: pId,
+        data: {
+          name: projectData.name,
+          description: projectData.description,
+          icon: projectData.icon
+        }
       });
 
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      // Invalidation is handled by the mutation
 
-      toast.success('Project updated', {
-        description: 'Project settings have been saved'
-      });
       setShowEditProjectForm(false);
     } catch (error) {
-      handleError(error, 'handleEditProject');
+      // Error handled by mutation
     }
-  }, [currentProject, projectId, queryClient]);
+  }, [currentProject, mutation]);
 
   /**
    * Leave the project

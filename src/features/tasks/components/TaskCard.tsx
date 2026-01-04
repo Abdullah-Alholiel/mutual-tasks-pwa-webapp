@@ -8,7 +8,6 @@ import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizonta
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { getDatabaseClient } from '@/db';
-import { useState, useEffect, useMemo, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { cn } from '@/lib/utils';
@@ -23,6 +22,8 @@ import {
 } from '../../../lib/tasks/taskUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
+import { useState, useEffect, useMemo, memo } from 'react';
+import { useProject } from '@/features/projects/hooks/useProjects';
 
 interface TaskCardProps {
   task: Task;
@@ -57,17 +58,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     gcTime: 1000 * 60 * 30, // Keep in garbage collection for 30 minutes
   });
 
-  // Use React Query for project data with proper caching
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: async () => {
-      const db = getDatabaseClient();
-      return await db.projects.getById(projectId);
-    },
-    enabled: !!projectId,
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
-    gcTime: 1000 * 60 * 30, // Keep in garbage collection for 30 minutes
-  });
+  // Use shared useProject hook for consistency
+  const { data: project } = useProject(projectId);
 
   // Extract unique participant user IDs
   const participantUserIds = useMemo(() => {
@@ -139,6 +131,20 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
 
   // Use calculated user status directly for UI
   const uiStatus: TaskStatus = taskStatusUserStatus;
+
+  // Permission checks
+  const isModifiableStatus = uiStatus === 'active' || uiStatus === 'upcoming';
+  const canModify = useMemo(() => {
+    if (!project || !currentUser) return false;
+    const userId = normalizeId(currentUser.id);
+
+    // Project owner always has permission
+    if (normalizeId(project.ownerId) === userId) return true;
+
+    // Check participant role
+    const participant = project.participantRoles?.find(p => normalizeId(p.userId) === userId);
+    return participant?.role === 'owner' || participant?.role === 'manager';
+  }, [project, currentUser]);
 
   const isTaskArchived = uiStatus === 'archived';
 
@@ -256,7 +262,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   {uiStatus}
                 </Badge>
                 <div className="flex items-center gap-1">
-                  {onEdit && (
+                  {onEdit && canModify && isModifiableStatus && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -269,7 +275,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  {onDelete && (
+                  {onDelete && canModify && isModifiableStatus && (
                     <Button
                       variant="ghost"
                       size="icon"

@@ -46,6 +46,9 @@ export const RecurrentTaskSeries = ({
         .filter(task => !completionLogs.some(log => log.taskId === task.id))
         .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
 
+    // Check if the next task is due today
+    const isToday = nextUpTask && new Date(nextUpTask.dueDate).toDateString() === new Date().toDateString();
+
     // Format next due
     const formattedNextDue = nextUpTask?.dueDate
         ? new Date(nextUpTask.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
@@ -78,12 +81,14 @@ export const RecurrentTaskSeries = ({
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground/80">
                                 <div className="flex items-center gap-1.5">
                                     <CheckCircle2 className="w-3.5 h-3.5 text-primary/70" />
-                                    <span>{activeTasks} Active / {totalTasks} Total</span>
+                                    <span>{activeTasks} / {totalTasks} Total</span>
                                 </div>
                                 {nextUpTask && (
-                                    <div className="flex items-center gap-1.5">
-                                        <CalendarClock className="w-3.5 h-3.5 text-accent/70" />
-                                        <span>Upcoming: {formattedNextDue}</span>
+                                    <div className={`flex items-center gap-1.5 ${isToday ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        <CalendarClock className={`w-3.5 h-3.5 ${isToday ? 'text-emerald-600' : 'text-amber-600'}`} />
+                                        <span>
+                                            {isToday ? `Today: ${nextUpTask.title}` : `Upcoming: ${formattedNextDue}`}
+                                        </span>
                                     </div>
                                 )}
                             </div>

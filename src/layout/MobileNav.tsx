@@ -5,11 +5,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/features/auth/useAuth';
 import { useLocation } from 'react-router-dom';
 
+import { useSmartScroll } from '@/hooks/useSmartScroll';
+
 export const MobileNav = () => {
   const { user } = useAuth();
   const location = useLocation();
 
-  // Check active state for each route
+  // Smart scroll for mobile
+  // Sensitivity: Hide after scrolling down past 30px
+  // Show after scrolling UP by 40px (easier to trigger than desktop)
+  const isVisible = useSmartScroll({
+    safeZone: 30,
+    scrollUpThreshold: 40,
+    enabled: true
+  });
 
   // Check active state for each route
   const isActiveRoute = (path: string) => location.pathname === path;
@@ -18,7 +27,16 @@ export const MobileNav = () => {
   const tabBaseStyles = "flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300";
 
   return (
-    <nav
+    <motion.nav
+      initial={{ y: 0 }}
+      animate={{
+        y: isVisible ? 0 : 120, // Hide by sliding down
+        opacity: isVisible ? 1 : 0
+      }}
+      transition={{
+        duration: 0.3,
+        ease: [0.32, 0.72, 0, 1] // Custom ease for "professional" feel
+      }}
       className="md:hidden fixed bottom-0 left-0 right-0 z-50 w-full px-4 flex justify-center items-end bg-gradient-to-t from-background/90 via-background/50 to-transparent pointer-events-none"
       style={{
         paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))',
@@ -128,6 +146,6 @@ export const MobileNav = () => {
           )}
         </NavLink>
       </div>
-    </nav>
+    </motion.nav>
   );
 };

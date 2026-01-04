@@ -16,6 +16,7 @@ import { useState, useEffect, useRef } from 'react';
 import { handleError } from '@/lib/errorUtils';
 import { useAuth } from '@/features/auth/useAuth';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
+import { useSmartScroll } from '@/hooks/useSmartScroll';
 
 
 const navItems = [
@@ -27,9 +28,16 @@ const navItems = [
 
 export const DesktopNav = () => {
   const { user, logout } = useAuth();
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const scrollThreshold = 10; // Minimum scroll distance to trigger hide/show
+
+  // Use shared smart scroll hook
+  // We don't need to strictly check isMobile here because CSS hides this component on mobile,
+  // but it's cleaner to disable the logic if we are on mobile.
+  const isMobile = window.innerWidth < 768; // Simple check or use hook if available
+  const isVisible = useSmartScroll({
+    safeZone: 100,
+    scrollUpThreshold: 150,
+    enabled: !isMobile
+  });
 
   // Use real-time notifications hook
   const userId = user ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : null;
@@ -58,54 +66,6 @@ export const DesktopNav = () => {
   const handleMarkAllAsRead = async () => {
     await markAllAsRead();
   };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      // Only apply on desktop (md breakpoint and above)
-      if (window.innerWidth < 768) {
-        setIsVisible(true);
-        lastScrollY.current = currentScrollY;
-        return;
-      }
-
-      // Show nav when at the top
-      if (currentScrollY < scrollThreshold) {
-        setIsVisible(true);
-        lastScrollY.current = currentScrollY;
-        return;
-      }
-
-      // Determine scroll direction
-      const scrollingDown = currentScrollY > lastScrollY.current;
-      const scrollDifference = Math.abs(currentScrollY - lastScrollY.current);
-
-      // Only update if scroll difference is significant enough
-      if (scrollDifference > scrollThreshold) {
-        setIsVisible(!scrollingDown);
-        lastScrollY.current = currentScrollY;
-      }
-    };
-
-    // Throttle scroll events for better performance
-    let ticking = false;
-    const throttledHandleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          handleScroll();
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
-
-    return () => {
-      window.removeEventListener('scroll', throttledHandleScroll);
-    };
-  }, []);
 
 
   return (
@@ -180,7 +140,7 @@ export const DesktopNav = () => {
 
               <div className="hidden md:block h-6 w-px bg-border/50 mx-1 md:mx-2" />
 
-              <div className="hidden md:block">
+              <div className="hidden md:flex items-center">
                 <ThemeToggle size="compact" />
               </div>
             </div>

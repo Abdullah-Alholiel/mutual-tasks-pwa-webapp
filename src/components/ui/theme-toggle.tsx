@@ -15,7 +15,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
 
     // Scale factors for different sizes
     const isCompact = size === 'compact';
-    const scale = isCompact ? 0.65 : 1;
+    const scale = isCompact ? 0.6 : 1;
 
     const containerWidth = 110 * scale;
     const containerHeight = 50 * scale;
@@ -26,7 +26,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
 
     return (
         <label
-            className={`inline-flex items-center relative cursor-pointer ${className}`}
+            className={`flex items-center justify-center leading-none relative cursor-pointer ${className}`}
             aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
         >
             <input
