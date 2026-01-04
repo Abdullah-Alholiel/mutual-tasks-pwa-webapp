@@ -18,6 +18,7 @@ import {
 } from '../../lib/tasks/taskFilterUtils';
 import { getParticipatingUserIds } from '../../lib/tasks/taskCreationUtils';
 import { getProjectsWhereCanCreateTasks } from '../../lib/projects/projectUtils';
+import { notifyTaskUpdated } from '../../lib/tasks/taskEmailNotifications';
 import { normalizeToStartOfDay } from '../../lib/tasks/taskUtils';
 import { normalizeId, compareIds } from '../../lib/idUtils';
 import { useAuth } from '../auth/useAuth';
@@ -409,6 +410,17 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setTaskToEdit(null);
       setShowTaskForm(false);
+      // Send update notification
+      if (user) {
+        notifyTaskUpdated(
+          taskToEdit.id,
+          taskToEdit.projectId,
+          typeof user.id === 'string' ? parseInt(user.id) : user.id
+        ).catch(err => {
+          console.error('Failed to send task update notification:', err);
+        });
+      }
+
       toast.success('Task updated! ✨');
     } catch (error) {
       console.error('Failed to update task:', error);

@@ -1,13 +1,14 @@
 
+import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useFriend, useCommonProjects } from '../hooks/useFriends';
+import { useFriend, useCommonProjects, useFriends, useAddFriend, useFriendRequests } from '../hooks/useFriends';
 import { calculateLevel } from '@/lib/users/userStatsUtils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Target, Zap, TrendingUp, ArrowLeft, Users } from 'lucide-react';
+import { Trophy, Target, Zap, TrendingUp, ArrowLeft, Users, UserPlus, Loader2, Check } from 'lucide-react';
 import { InlineLoader } from '@/components/ui/loader';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
@@ -23,6 +24,11 @@ const FriendProfile = () => {
     const friendId = Number(id);
     const isMobile = useIsMobile();
     const { user } = useAuth();
+
+    // Friend Management Hooks
+    const { data: friends } = useFriends();
+    const { data: friendRequests } = useFriendRequests();
+    const addFriendMutation = useAddFriend();
 
     // Use real-time notifications hook
     const userId = user ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : null;
@@ -42,6 +48,24 @@ const FriendProfile = () => {
     // Hooks
     const { data: friend, isLoading: loadingFriend } = useFriend(friendId);
     const { data: commonProjects = [], isLoading: loadingProjects } = useCommonProjects(friendId);
+
+    // Sort projects alphabetically by name
+    const sortedCommonProjects = useMemo(() => {
+        return [...commonProjects].sort((a, b) => a.name.localeCompare(b.name));
+    }, [commonProjects]);
+
+    const isCurrentUser = user && friend && (Number(user.id) === friend.id);
+    const isFriend = friends?.some(f => (f.friendId === friendId || f.userId === friendId) && f.status === 'accepted');
+    const hasPendingRequest = friendRequests?.some(req =>
+        (req.userId === friendId && req.friendId === Number(user?.id)) ||
+        (req.userId === Number(user?.id) && req.friendId === friendId)
+    );
+
+    const handleAddFriend = () => {
+        if (friend?.handle) {
+            addFriendMutation.mutate(friend.handle);
+        }
+    };
 
     if (loadingFriend || !friend) {
         return (
@@ -135,8 +159,33 @@ const FriendProfile = () => {
                             </Avatar>
 
                             <div className="flex-1">
-                                <h1 className="text-2xl font-bold mb-1">{friend.name}</h1>
-                                <p className="text-muted-foreground mb-4">@{friend.handle}</p>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <h1 className="text-2xl font-bold mb-1">{friend.name}</h1>
+                                        <p className="text-muted-foreground mb-4">{friend.handle}</p>
+                                    </div>
+                                    {!isCurrentUser && !isFriend && (
+                                        <Button
+                                            size="sm"
+                                            className={hasPendingRequest ? "bg-muted text-muted-foreground" : ""}
+                                            variant={hasPendingRequest ? "ghost" : "default"}
+                                            onClick={!hasPendingRequest && !addFriendMutation.isPending ? handleAddFriend : undefined}
+                                            disabled={hasPendingRequest || addFriendMutation.isPending}
+                                        >
+                                            {addFriendMutation.isPending ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : hasPendingRequest ? (
+                                                <span className="flex items-center gap-1">
+                                                    <Check className="w-4 h-4" /> Request Sent
+                                                </span>
+                                            ) : (
+                                                <span className="flex items-center gap-1">
+                                                    <UserPlus className="w-4 h-4" />
+                                                </span>
+                                            )}
+                                        </Button>
+                                    )}
+                                </div>
 
                                 <div className="flex flex-wrap gap-3 mt-4">
                                     <Badge variant="secondary" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold shadow-sm">
@@ -191,7 +240,7 @@ const FriendProfile = () => {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {commonProjects.map((project) => {
+                                {sortedCommonProjects.map((project) => {
                                     const Icon = getIconByName(project.icon || 'Target');
                                     return (
                                         <div

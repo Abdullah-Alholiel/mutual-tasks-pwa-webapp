@@ -36,7 +36,9 @@ export type NotificationType =
   | 'project_left'
   | 'streak_reminder'
   | 'friend_request'
-  | 'friend_accepted';
+  | 'friend_accepted'
+  | 'project_updated'
+  | 'task_updated';
 
 export const NOTIFICATION_TYPES: NotificationType[] = [
   'task_created',
@@ -50,7 +52,9 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'project_left',
   'streak_reminder',
   'friend_request',
-  'friend_accepted'
+  'friend_accepted',
+  'project_updated',
+  'task_updated'
 ];
 
 // ============================================================================

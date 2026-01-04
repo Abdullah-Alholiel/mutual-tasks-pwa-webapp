@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils';
 import { normalizeId } from '@/lib/idUtils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { MobileHeader } from '@/components/layout/MobileHeader';
+import { useFriends, useAddFriend, useFriendRequests } from '@/features/friends/hooks/useFriends';
 import type { Project, Task } from '@/types';
 
 const ProjectDetail = () => {
@@ -103,12 +104,17 @@ const ProjectDetail = () => {
     canLeave,
     isParticipant,
     navigate,
+    goBack,
     completionLogs,
     isCreatingTask,
   } = useProjectDetail();
 
   const joinProjectMutation = useJoinProject();
   const [isJoining, setIsJoining] = useState(false);
+
+  const { data: friends } = useFriends();
+  const { data: friendRequests } = useFriendRequests();
+  const addFriendMutation = useAddFriend();
 
   const handleJoinProject = async () => {
     if (!project) return;
@@ -214,7 +220,7 @@ const ProjectDetail = () => {
             project={project}
             canManage={canManage}
             isParticipant={isParticipant}
-            onBack={() => navigate('/projects')}
+            onBack={goBack}
             onEdit={() => setShowEditProjectForm(true)}
             onJoin={handleJoinProject}
             isJoining={isJoining}
@@ -245,7 +251,7 @@ const ProjectDetail = () => {
                 <span className="hidden sm:inline">Upcoming</span>
                 <span className="sm:hidden">Upcoming</span>
               </TabsTrigger>
-              <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archive</TabsTrigger>
+              <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archived</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
@@ -266,6 +272,7 @@ const ProjectDetail = () => {
                       onCompleteTask={isParticipant ? handleCompleteWrapper : undefined}
                       onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                       canManage={canManage}
+                      showMemberInfo={isParticipant}
                     />
                   ))}
                 </div>
@@ -282,6 +289,7 @@ const ProjectDetail = () => {
                   onComplete={isParticipant ? handleCompleteWrapper : undefined}
                   onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                   getOnEditTask={getOnEditTask}
+                  showMemberInfo={isParticipant}
                 />
               ) : (
                 projectTasks.length === 0 ? (
@@ -304,6 +312,7 @@ const ProjectDetail = () => {
                             onComplete={isParticipant ? handleCompleteWrapper : undefined}
                             onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                             onEdit={getOnEditTask(task)}
+                            showMemberInfo={isParticipant}
                           />
                         ))}
                       </div>
@@ -335,6 +344,7 @@ const ProjectDetail = () => {
                         onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                         getOnEditTask={getOnEditTask}
                         canManage={canManage}
+                        showMemberInfo={isParticipant}
                       />
                     ))}
                   </div>
@@ -357,6 +367,7 @@ const ProjectDetail = () => {
                         completionLogs={completionLogs}
                         onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                         onEdit={getOnEditTask(task)}
+                        showMemberInfo={isParticipant}
                       />
                     ))
                   ) : (
@@ -391,6 +402,7 @@ const ProjectDetail = () => {
                         onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                         getOnEditTask={getOnEditTask}
                         canManage={canManage}
+                        showMemberInfo={isParticipant}
                       />
                     ))}
                   </div>
@@ -415,6 +427,7 @@ const ProjectDetail = () => {
                         onComplete={isParticipant ? handleCompleteWrapper : undefined}
                         onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                         onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
+                        showMemberInfo={isParticipant}
                       />
                     ))
                   ) : (
@@ -449,6 +462,7 @@ const ProjectDetail = () => {
                         onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
                         getOnEditTask={getOnEditTask}
                         canManage={canManage}
+                        showMemberInfo={isParticipant}
                       />
                     ))}
                   </div>
@@ -473,6 +487,7 @@ const ProjectDetail = () => {
                         onComplete={isParticipant ? handleCompleteWrapper : undefined}
                         onDelete={canManage ? handleDeleteTaskWrapper : undefined}
                         onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
+                        showMemberInfo={isParticipant}
                       />
                     ))
                   ) : (
@@ -780,84 +795,160 @@ const ProjectDetail = () => {
           </DialogHeader>
 
           <div className="space-y-3 max-h-[450px] overflow-y-auto custom-scrollbar pr-1">
-            {participants.map((participant) => {
-              const user = participant.user;
-              if (!user) return null;
+            {/* Members List */}
+            {participants
+              .sort((a, b) => {
+                const userA = a.user;
+                const userB = b.user;
+                if (!userA || !userB) return 0;
 
-              const isCurrentUser = currentUser && participant.userId === currentUser.id;
+                // Priority 1: Owners at the top
+                if (a.role === 'owner' && b.role !== 'owner') return -1;
+                if (a.role !== 'owner' && b.role === 'owner') return 1;
 
-              return (
-                <div key={participant.userId} className="group flex items-center justify-between p-3 rounded-xl border border-border bg-card/50 hover:bg-muted/50 transition-all duration-200">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <div className="relative">
-                      <Avatar className="w-11 h-11 ring-2 ring-background border border-border shadow-sm">
-                        <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
-                          {user.name?.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {participant.role === 'owner' && (
-                        <div className="absolute -top-1 -right-1 bg-yellow-400 text-[8px] font-bold text-white px-1 rounded-full shadow-sm ring-1 ring-background">
-                          👑
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold truncate text-foreground">{user.name}</span>
+                // Priority 2: Alphabetical by name
+                return userA.name.localeCompare(userB.name);
+              })
+              .map((participant) => {
+                const user = participant.user;
+                if (!user) return null;
+
+                const isCurrentUser = currentUser && participant.userId === currentUser.id;
+                const isFriend = friends?.some(f => (f.friendId === user.id || f.userId === user.id) && f.status === 'accepted');
+                const hasPendingRequest = friendRequests?.some(req =>
+                  (req.userId === user.id && req.friendId === currentUser?.id) ||
+                  (req.userId === currentUser?.id && req.friendId === user.id)
+                );
+
+                const handleAddFriendClick = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  if (user.handle) {
+                    addFriendMutation.mutate(user.handle);
+                  }
+                };
+
+                const handleRowClick = () => {
+                  navigate(`/friends/${user.id}`);
+                };
+
+                return (
+                  <div
+                    key={participant.userId}
+                    className="group flex items-center justify-between p-3 rounded-xl border border-border bg-card/50 hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                    onClick={handleRowClick}
+                  >
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="relative">
+                        <Avatar className="w-11 h-11 ring-2 ring-background border border-border shadow-sm">
+                          <AvatarImage src={user.avatar} alt={user.name} />
+                          <AvatarFallback className="bg-primary/5 text-primary text-sm font-semibold">
+                            {user.name?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {participant.role === 'owner' && (
+                          <div className="absolute -top-1 -right-1 bg-yellow-400 text-[10px] flex items-center justify-center w-5 h-5 rounded-full shadow-sm ring-2 ring-background z-10" title="Owner">
+                            👑
+                          </div>
+                        )}
+                        {participant.role === 'manager' && (
+                          <div className="absolute -top-1 -right-1 bg-blue-500 text-[10px] flex items-center justify-center w-5 h-5 rounded-full shadow-sm ring-2 ring-background z-10" title="Manager">
+                            🛡️
+                          </div>
+                        )}
                         {isCurrentUser && (
-                          <span className="text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">You</span>
+                          <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground text-[8px] px-1.5 py-0.5 rounded-full font-bold shadow-sm ring-2 ring-background">
+                            YOU
+                          </div>
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground truncate font-medium">{user.handle}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold truncate text-foreground">{user.name}</span>
+                          {isFriend && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-medium ring-1 ring-green-500/20">
+                              Friend
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate font-medium">{user.handle}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      {!isCurrentUser && !isFriend && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-7 px-2 text-[10px] font-medium transition-all mr-2 shrink-0",
+                            hasPendingRequest
+                              ? "bg-muted text-muted-foreground cursor-default opacity-100"
+                              : "bg-primary/10 text-primary hover:bg-primary/20 opacity-100",
+                            addFriendMutation.isPending && "opacity-50 cursor-wait"
+                          )}
+                          onClick={!hasPendingRequest && !addFriendMutation.isPending ? handleAddFriendClick : undefined}
+                          disabled={hasPendingRequest || addFriendMutation.isPending}
+                        >
+                          {addFriendMutation.isPending ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : hasPendingRequest ? (
+                            "Request Sent"
+                          ) : (
+                            <>
+                              <UserPlus className="w-3 h-3 sm:mr-1" />
+
+
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      {(isOwner || (isManager && participant.role !== 'owner')) && !isCurrentUser && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-muted text-muted-foreground"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Settings className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[160px]">
+                            <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                              Change Role
+                            </div>
+                            {getAvailableRoles(participant.role).map((role) => (
+                              <DropdownMenuItem
+                                key={role}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUpdateRole(participant.userId, role);
+                                }}
+                                className="capitalize cursor-pointer"
+                              >
+                                Set as {role}
+                              </DropdownMenuItem>
+                            ))}
+                            <div className="h-px bg-border my-1" />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setParticipantToRemove(participant.userId);
+                              }}
+                              className="text-destructive focus:bg-destructive/10 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Remove from team
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 ml-4">
-                    {(isOwner || (isManager && participant.role !== 'owner')) && !isCurrentUser ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-9 w-[110px] justify-between px-3 font-medium hover:bg-primary/5 hover:text-primary transition-colors border-border/60"
-                          >
-                            <span className="text-[11px] capitalize">{participant.role}</span>
-                            <Settings className="w-3.5 h-3.5 ml-1 opacity-60 shrink-0" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[160px]">
-                          <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                            Change Role
-                          </div>
-                          {getAvailableRoles(participant.role).map((role) => (
-                            <DropdownMenuItem
-                              key={role}
-                              onClick={() => handleUpdateRole(participant.userId, role)}
-                              className="capitalize cursor-pointer"
-                            >
-                              Set as {role}
-                            </DropdownMenuItem>
-                          ))}
-                          <div className="h-px bg-border my-1" />
-                          <DropdownMenuItem
-                            onClick={() => setParticipantToRemove(participant.userId)}
-                            className="text-destructive focus:bg-destructive/10 cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Remove from team
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <div className="h-9 w-[110px] flex items-center justify-center rounded-md border border-border/40 bg-muted/30 px-3">
-                        <span className="text-[11px] font-semibold capitalize text-muted-foreground">{participant.role}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -881,8 +972,8 @@ const ProjectDetail = () => {
               </Button>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </DialogContent >
+      </Dialog >
     </>
   );
 };

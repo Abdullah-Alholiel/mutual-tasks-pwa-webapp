@@ -88,7 +88,7 @@ export async function notifyTaskCreated(
     try {
       const inAppNotifications = participantUsers.map(participant => ({
         userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
-        type: 'project_joined' as NotificationType, // Fallback to 'project_joined' as 'task_created' is not in DB enum yet
+        type: 'task_created' as NotificationType,
         message: `${creator.name} created "${task.title}" in ${project.name}`,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
@@ -203,7 +203,7 @@ export async function notifyTaskCompleted(
     // Create in-app notifications for all participants
     const inAppNotifications = participantUsers.map(participant => ({
       userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
-      type: 'project_joined' as NotificationType, // Fallback to 'project_joined' as 'task_completed' is not in DB enum yet
+      type: 'task_completed' as NotificationType,
       message: `${completer.name} completed "${task.title}" in ${project.name}`,
       taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
       projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
@@ -314,7 +314,7 @@ export async function notifyTaskRecovered(
     // Create in-app notifications
     const inAppNotifications = participantUsers.map(participant => ({
       userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
-      type: 'project_joined' as NotificationType, // Fallback to 'project_joined' as 'task_recovered' is not in DB enum yet
+      type: 'task_recovered' as NotificationType,
       message: `${recoverer.name} recovered "${task.title}" in ${project.name}`,
       taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
       projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
@@ -325,6 +325,109 @@ export async function notifyTaskRecovered(
     await db.notifications.createMany(inAppNotifications);
   } catch (error) {
     console.error('Error in notifyTaskRecovered:', error);
+  }
+}
+
+/**
+ * Send project update notification to project participants
+ */
+export async function notifyProjectUpdated(
+  projectId: number,
+  updaterId: number
+): Promise<void> {
+  try {
+    const db = getDatabaseClient();
+
+    const [project, updater] = await Promise.all([
+      db.projects.getById(projectId),
+      db.users.getById(updaterId),
+    ]);
+
+    if (!project || !updater) {
+      return;
+    }
+
+    const projectData = await db.projects.getById(projectId);
+    if (!projectData || !projectData.participantRoles) {
+      return;
+    }
+
+    const participants = projectData.participantRoles
+      .filter((pp) => pp.userId !== updaterId && !pp.removedAt)
+      .map((pp) => pp.userId);
+
+    if (participants.length === 0) {
+      return;
+    }
+
+    const participantUsers = await db.users.getByIds(participants);
+
+    // Create in-app notifications
+    const inAppNotifications = participantUsers.map(participant => ({
+      userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
+      type: 'project_updated' as NotificationType,
+      message: `${updater.name} updated the project "${project.name}" details`,
+      projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
+      isRead: false,
+      emailSent: false,
+    }));
+
+    await db.notifications.createMany(inAppNotifications);
+  } catch (error) {
+    console.error('Error in notifyProjectUpdated:', error);
+  }
+}
+
+/**
+ * Send task update notification to project participants
+ */
+export async function notifyTaskUpdated(
+  taskId: number,
+  projectId: number,
+  updaterId: number
+): Promise<void> {
+  try {
+    const db = getDatabaseClient();
+
+    const [task, project, updater] = await Promise.all([
+      db.tasks.getById(taskId),
+      db.projects.getById(projectId),
+      db.users.getById(updaterId),
+    ]);
+
+    if (!task || !project || !updater) {
+      return;
+    }
+
+    const projectData = await db.projects.getById(projectId);
+    if (!projectData || !projectData.participantRoles) {
+      return;
+    }
+
+    const participants = projectData.participantRoles
+      .filter((pp) => pp.userId !== updaterId && !pp.removedAt)
+      .map((pp) => pp.userId);
+
+    if (participants.length === 0) {
+      return;
+    }
+
+    const participantUsers = await db.users.getByIds(participants);
+
+    // Create in-app notifications
+    const inAppNotifications = participantUsers.map(participant => ({
+      userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
+      type: 'task_updated' as NotificationType,
+      message: `${updater.name} updated the task "${task.title}" in ${project.name}`,
+      taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
+      projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
+      isRead: false,
+      emailSent: false,
+    }));
+
+    await db.notifications.createMany(inAppNotifications);
+  } catch (error) {
+    console.error('Error in notifyTaskUpdated:', error);
   }
 }
 

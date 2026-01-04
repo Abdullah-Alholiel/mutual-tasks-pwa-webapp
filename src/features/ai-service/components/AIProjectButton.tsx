@@ -50,13 +50,13 @@ export const AIProjectButton = React.forwardRef<HTMLButtonElement, AIProjectButt
                     className={cn(
                         'w-4 h-4 transition-colors',
                         'text-violet-500 group-hover:text-violet-600',
-                        showLabel && 'mr-2'
+                        showLabel && 'mr-0 sm:mr-2'
                     )}
                 />
 
                 {/* Label */}
                 {showLabel && (
-                    <span className="bg-gradient-to-r from-violet-500 to-purple-600 bg-clip-text text-transparent font-medium">
+                    <span className="hidden sm:inline bg-gradient-to-r from-violet-500 to-purple-600 bg-clip-text text-transparent font-medium">
                         AI Generate
                     </span>
                 )}

@@ -445,8 +445,8 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
               onClick={() => setShowProjectForm(true)}
               className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px] shrink-0"
             >
-              <Plus className="w-4 h-4 mr-1.5" />
-              New Project
+              <Plus className="w-4 h-4 mr-0 sm:mr-1.5" />
+              <span className="hidden sm:inline">New Project</span>
             </Button>
           </div>
         </div>

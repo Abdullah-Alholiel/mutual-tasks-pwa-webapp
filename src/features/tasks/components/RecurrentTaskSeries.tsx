@@ -16,6 +16,7 @@ interface RecurrentTaskSeriesProps {
     onDeleteTask?: (taskId: string | number) => void;
     getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;
     canManage?: boolean;
+    showMemberInfo?: boolean;
 }
 
 export const RecurrentTaskSeries = ({
@@ -26,7 +27,8 @@ export const RecurrentTaskSeries = ({
     onCompleteTask,
     onDeleteTask,
     getOnEditTask,
-    canManage
+    canManage,
+    showMemberInfo
 }: RecurrentTaskSeriesProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -137,6 +139,7 @@ export const RecurrentTaskSeries = ({
                                     onComplete={onCompleteTask}
                                     onDelete={onDeleteTask}
                                     onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
+                                    showMemberInfo={showMemberInfo}
                                 />
                             ))}
                         </div>

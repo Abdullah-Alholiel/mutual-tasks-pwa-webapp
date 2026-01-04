@@ -13,6 +13,7 @@ interface TaskSectionProps {
   onDelete?: (taskId: string | number) => void;
   getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;
   className?: string;
+  showMemberInfo?: boolean;
 }
 
 /**
@@ -29,6 +30,7 @@ export const TaskSection = memo(({
   onDelete,
   getOnEditTask,
   className = '',
+  showMemberInfo,
 }: TaskSectionProps) => {
   if (tasks.length === 0) return null;
 
@@ -64,6 +66,7 @@ export const TaskSection = memo(({
               onComplete={onComplete}
               onDelete={onDelete}
               onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
+              showMemberInfo={showMemberInfo}
             />
           </div>
         ))}
@@ -84,6 +87,7 @@ interface ProjectTaskSectionsProps {
   onComplete?: (taskId: string | number, difficultyRating?: number) => void;
   onDelete?: (taskId: string | number) => void;
   getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;
+  showMemberInfo?: boolean;
 }
 
 /**
@@ -99,6 +103,7 @@ export const ProjectTaskSections = memo(({
   onComplete,
   onDelete,
   getOnEditTask,
+  showMemberInfo,
 }: ProjectTaskSectionsProps) => {
   return (
     <>
@@ -112,6 +117,7 @@ export const ProjectTaskSections = memo(({
           onComplete={onComplete}
           onDelete={onDelete}
           getOnEditTask={getOnEditTask}
+          showMemberInfo={showMemberInfo}
         />
       )}
 
@@ -124,6 +130,7 @@ export const ProjectTaskSections = memo(({
           onComplete={onComplete}
           onDelete={onDelete}
           getOnEditTask={getOnEditTask}
+          showMemberInfo={showMemberInfo}
         />
       )}
 
@@ -136,6 +143,7 @@ export const ProjectTaskSections = memo(({
           onDelete={onDelete}
           getOnEditTask={getOnEditTask}
           className="opacity-60"
+          showMemberInfo={showMemberInfo}
         />
       )}
 
@@ -149,6 +157,7 @@ export const ProjectTaskSections = memo(({
           onComplete={onComplete}
           onDelete={onDelete}
           getOnEditTask={getOnEditTask}
+          showMemberInfo={showMemberInfo}
         />
       )}
     </>

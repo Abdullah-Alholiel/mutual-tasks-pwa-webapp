@@ -11,6 +11,7 @@ import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ParticipantWithUser, ProjectPermissions } from './types';
 import { useLeaveProject, useUpdateProject } from './useProjects';
+import { notifyProjectUpdated } from '@/lib/tasks/taskEmailNotifications';
 
 interface UseProjectSettingsParams {
   projectId: string | undefined;
@@ -86,6 +87,11 @@ export const useProjectSettings = ({
       });
 
       // Invalidation is handled by the mutation
+      if (user) {
+        notifyProjectUpdated(pId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch(err => {
+          console.error('Failed to send project update notification:', err);
+        });
+      }
 
       setShowEditProjectForm(false);
     } catch (error) {

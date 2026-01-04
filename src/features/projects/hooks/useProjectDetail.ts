@@ -161,6 +161,15 @@ export const useProjectDetail = () => {
   const completedSectionTasks = completedTasks;
   const archivedSectionTasks = archivedTasks;
 
+  // Handle back navigation
+  const goBack = () => {
+    if (location.key !== 'default') {
+      navigate(-1);
+    } else {
+      navigate('/projects');
+    }
+  };
+
   // Combined loading state
   const isLoading = projectLoading || tasksLoading || (tasksFetched && projectTasksFromDb.length > 0 && tasks.length === 0);
 
@@ -237,6 +246,7 @@ export const useProjectDetail = () => {
 
     // Navigation
     navigate,
+    goBack,
 
     // Data
     completionLogs,
