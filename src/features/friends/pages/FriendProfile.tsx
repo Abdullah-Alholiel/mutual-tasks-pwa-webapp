@@ -11,11 +11,33 @@ import { Trophy, Target, Zap, TrendingUp, ArrowLeft, Users } from 'lucide-react'
 import { InlineLoader } from '@/components/ui/loader';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Inbox } from '@/features/notifications/Inbox';
+import { useNotifications } from '@/features/notifications/hooks/useNotifications';
+import { useAuth } from '@/features/auth/useAuth';
 
 const FriendProfile = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const friendId = Number(id);
+    const isMobile = useIsMobile();
+    const { user } = useAuth();
+
+    // Use real-time notifications hook
+    const userId = user ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : null;
+    const { notifications, markAsRead, markAllAsRead, deleteAll, deleteList } = useNotifications({
+        userId,
+        enabled: !!user,
+    });
+
+    const handleMarkAsRead = async (notificationId: number) => {
+        await markAsRead(notificationId);
+    };
+
+    const handleMarkAllAsRead = async () => {
+        await markAllAsRead();
+    };
 
     // Hooks
     const { data: friend, isLoading: loadingFriend } = useFriend(friendId);
@@ -64,7 +86,12 @@ const FriendProfile = () => {
     ];
 
     return (
-        <div className="h-full overflow-y-auto bg-background pb-20 custom-scrollbar">
+        <div
+            className="h-full overflow-y-auto bg-background custom-scrollbar"
+            style={{
+                paddingBottom: 'calc(6rem + env(safe-area-inset-bottom, 0px))'
+            }}
+        >
             {/* Header */}
             <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
                 <div className="max-w-md mx-auto px-4 h-16 flex items-center gap-4">
@@ -76,7 +103,19 @@ const FriendProfile = () => {
                     >
                         <ArrowLeft className="w-6 h-6" />
                     </Button>
-                    <h1 className="text-xl font-bold">Friend Profile</h1>
+                    {isMobile && (
+                        <div className="mr-2">
+                            <Inbox
+                                notifications={notifications}
+                                onMarkAsRead={handleMarkAsRead}
+                                onMarkAllAsRead={handleMarkAllAsRead}
+                                onClearAll={deleteAll}
+                                onDeleteList={deleteList}
+                            />
+                        </div>
+                    )}
+                    <h1 className="text-xl font-bold flex-1">Friend Profile</h1>
+                    {isMobile && <ThemeToggle size="compact" />}
                 </div>
             </div>
 

@@ -42,6 +42,8 @@ import { useAuth } from '@/features/auth/useAuth';
 import { PROJECT_ICONS, ICON_CATEGORIES, getIconsByCategory } from '@/lib/projects/projectIcons';
 import { cn } from '@/lib/utils';
 import { normalizeId } from '@/lib/idUtils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { MobileHeader } from '@/components/layout/MobileHeader';
 import type { Project, Task } from '@/types';
 
 const ProjectDetail = () => {
@@ -198,13 +200,16 @@ const ProjectDetail = () => {
           className="px-4 md:px-6 max-w-7xl mx-auto w-full space-y-6 animate-fade-in"
           style={{
             paddingTop: isMobile
-              ? 'calc(1.5rem + env(safe-area-inset-top, 0px))'
+              ? 'calc(1rem + env(safe-area-inset-top, 0px))'
               : '7rem',
-            paddingBottom: '2rem',
+            paddingBottom: isMobile ? 'calc(6rem + env(safe-area-inset-bottom, 0px))' : '2rem',
             paddingLeft: 'max(1rem, env(safe-area-inset-left, 0px))',
             paddingRight: 'max(1rem, env(safe-area-inset-right, 0px))'
           }}
         >
+          {/* Mobile Header - first row on mobile */}
+          {isMobile && <MobileHeader />}
+
           <ProjectHeader
             project={project}
             canManage={canManage}

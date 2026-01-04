@@ -6,6 +6,8 @@ import Index from '../features/pages/Index';
 import Projects from '../features/projects/Projects';
 import FriendsPage from '../features/friends/pages/FriendsPage';
 import Profile from '../features/profile/Profile';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { MobileHeader } from '@/components/layout/MobileHeader';
 
 const NAV_ORDER = ['/', '/projects', '/friends', '/profile'];
 
@@ -39,13 +41,15 @@ const PageWrapper = ({ children, scrollKey }: { children: ReactNode; scrollKey: 
                 className="px-4 md:px-6 max-w-7xl mx-auto w-full"
                 style={{
                     paddingTop: isMobile
-                        ? 'calc(1.5rem + env(safe-area-inset-top, 0px))'
+                        ? 'calc(1rem + env(safe-area-inset-top, 0px))'
                         : '7rem',
-                    paddingBottom: '2rem',
+                    paddingBottom: isMobile ? 'calc(6rem + env(safe-area-inset-bottom, 0px))' : '2rem',
                     paddingLeft: 'max(1rem, env(safe-area-inset-left, 0px))',
                     paddingRight: 'max(1rem, env(safe-area-inset-right, 0px))'
                 }}
             >
+                {/* Mobile header as first row - before any page content */}
+                {isMobile && <MobileHeader />}
                 {children}
             </div>
         </div>

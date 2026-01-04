@@ -205,6 +205,19 @@ export class NotificationsRepository {
   }
 
   /**
+   * Delete multiple notifications
+   */
+  async deleteMany(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.supabase
+      .from('notifications')
+      .delete()
+      .in('id', ids.map(toStringId));
+
+    if (error) throw error;
+  }
+
+  /**
    * Delete old read notifications (cleanup)
    */
   async deleteOldRead(olderThanDays: number = 30): Promise<number> {

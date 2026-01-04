@@ -28,6 +28,8 @@ interface UseNotificationsReturn {
   isLoading: boolean;
   markAsRead: (notificationId: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  deleteAll: () => Promise<void>;
+  deleteList: (ids: number[]) => Promise<void>;
   refetch: () => Promise<void>;
 }
 
@@ -84,7 +86,7 @@ export const useNotifications = ({
     const refetchFn = () => {
       loadNotifications();
     };
-    
+
     if (!notificationStateCallbacks.has(userId)) {
       notificationStateCallbacks.set(userId, new Set());
     }
@@ -92,7 +94,7 @@ export const useNotifications = ({
 
     // Check if subscription already exists for this userId
     let existingChannel = activeNotificationSubscriptions.get(userId);
-    
+
     if (!existingChannel) {
       // Create new subscription
       const channelName = `notifications:${userId}:${Date.now()}`;
@@ -112,7 +114,7 @@ export const useNotifications = ({
                 const newNotification = transformNotificationRow(payload.new as NotificationRow);
                 showBrowserNotification(newNotification);
               }
-              
+
               // Notify all registered callbacks to refetch their notifications
               const callbacks = notificationStateCallbacks.get(userId);
               if (callbacks) {
@@ -212,6 +214,42 @@ export const useNotifications = ({
     }
   }, [userId, notifications]);
 
+  // Delete all notifications for current user
+  const deleteAll = useCallback(async () => {
+    if (!userId) return;
+
+    // Optimistic update
+    const previousNotifications = notifications;
+    setNotifications([]);
+
+    try {
+      const db = getDatabaseClient();
+      await db.notifications.deleteByUserId(userId);
+    } catch (error) {
+      // Revert optimistic update
+      setNotifications(previousNotifications);
+      handleError(error, 'deleteAllNotifications');
+    }
+  }, [userId, notifications]);
+
+  // Delete a list of notifications
+  const deleteList = useCallback(async (ids: number[]) => {
+    if (!userId || ids.length === 0) return;
+
+    // Optimistic update
+    const previousNotifications = notifications;
+    setNotifications(prev => prev.filter(n => !ids.includes(n.id)));
+
+    try {
+      const db = getDatabaseClient();
+      await db.notifications.deleteMany(ids);
+    } catch (error) {
+      // Revert optimistic update
+      setNotifications(previousNotifications);
+      handleError(error, 'deleteNotificationList');
+    }
+  }, [userId, notifications]);
+
   // Refetch notifications
   const refetch = useCallback(async () => {
     await loadNotifications();
@@ -223,6 +261,8 @@ export const useNotifications = ({
     isLoading,
     markAsRead,
     markAllAsRead,
+    deleteAll,
+    deleteList,
     refetch,
   };
 };
@@ -232,7 +272,7 @@ export const useNotifications = ({
  */
 function showBrowserNotification(notification: Notification) {
   if (!('Notification' in window)) return;
-  
+
   if (Notification.permission === 'granted') {
     new Notification('Mutual Tasks', {
       body: notification.message,
