@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/features/auth/useAuth';
 import { useProjects, usePublicProjects, useCreateProject, useUserProjectsWithStats, useJoinProject } from './hooks/useProjects';
+import { useProjectsTabState } from './hooks/useProjectsTabState';
 import { getUserProjects } from '@/lib/projects/projectUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
@@ -41,6 +42,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   const joinProjectMutation = useJoinProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { activeTab, setActiveTab } = useProjectsTabState();
 
   // We no longer block the whole page on loading
   // SWR pattern: show cached data instantly if available
@@ -285,7 +287,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
         </div>
 
         {/* Projects Tabs */}
-        <Tabs defaultValue="my-projects" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'my-projects' | 'public')} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
             <TabsTrigger value="my-projects" className="flex items-center gap-2">
               <FolderKanban className="w-4 h-4" />
@@ -435,7 +437,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      onClick={() => navigate(`/projects/${project.id}`)}
+      onClick={() => navigate(`/projects/${project.id}`, { state: { fromTab: 'public' } })}
       className="cursor-pointer h-full"
     >
       <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 h-full flex flex-col">

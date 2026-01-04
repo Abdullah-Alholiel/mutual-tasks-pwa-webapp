@@ -23,7 +23,7 @@ const FriendProfile = () => {
 
     if (loadingFriend || !friend) {
         return (
-            <div className="min-h-screen bg-background pt-20 flex justify-center">
+            <div className="h-full bg-background pt-20 flex justify-center">
                 <InlineLoader text="Loading profile..." />
             </div>
         );
@@ -64,7 +64,7 @@ const FriendProfile = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-background pb-20">
+        <div className="h-full overflow-y-auto bg-background pb-20 custom-scrollbar">
             {/* Header */}
             <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
                 <div className="max-w-md mx-auto px-4 h-16 flex items-center gap-4">

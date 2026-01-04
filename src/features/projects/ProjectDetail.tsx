@@ -280,7 +280,7 @@ const ProjectDetail = () => {
                 />
               ) : (
                 projectTasks.length === 0 ? (
-                  <EmptyState onCreateTask={() => setShowTaskForm(true)} />
+                  <EmptyState canManage={canManage} onCreateTask={() => setShowTaskForm(true)} />
                 ) : (
                   /* Fallback for when no categorized tasks match but project has tasks (e.g. only habits, handled above) */
                   habitTasks.length === 0 && (
@@ -882,7 +882,7 @@ const ProjectDetail = () => {
   );
 };
 
-const EmptyState = ({ onCreateTask }: { onCreateTask: () => void }) => (
+const EmptyState = ({ canManage, onCreateTask }: { canManage: boolean; onCreateTask: () => void }) => (
   <motion.div
     initial={{ opacity: 0, scale: 0.95 }}
     animate={{ opacity: 1, scale: 1 }}
@@ -893,12 +893,14 @@ const EmptyState = ({ onCreateTask }: { onCreateTask: () => void }) => (
     </div>
     <h3 className="text-xl font-semibold mb-2">No tasks yet</h3>
     <p className="text-muted-foreground mb-6">
-      Create your first task to start building momentum together
+      {canManage ? 'Create your first task to start building momentum together' : 'Join this project to see and create tasks'}
     </p>
-    <Button onClick={onCreateTask} className="gradient-primary text-white">
-      <Plus className="w-4 h-4 mr-2" />
-      Create First Task
-    </Button>
+    {canManage && (
+      <Button onClick={onCreateTask} className="gradient-primary text-white">
+        <Plus className="w-4 h-4 mr-2" />
+        Create First Task
+      </Button>
+    )}
   </motion.div>
 );
 
