@@ -114,21 +114,64 @@ export class FriendsRepository {
             return { success: false, message: 'You cannot add yourself' };
         }
 
-        // 2. Check existing relationship
-        const { data: existing, error: checkError } = await this.supabase
+        // 2. Check existing relationship (check both directions)
+        const { data: existingForward, error: checkError1 } = await this.supabase
             .from('friends')
             .select('*')
-            .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`)
+            .eq('user_id', toStringId(userId))
+            .eq('friend_id', toStringId(friendId))
             .maybeSingle();
 
+        const { data: existingReverse, error: checkError2 } = await this.supabase
+            .from('friends')
+            .select('*')
+            .eq('user_id', toStringId(friendId))
+            .eq('friend_id', toStringId(userId))
+            .maybeSingle();
+
+        if (checkError1 || checkError2) {
+            console.error('Error checking existing relationship:', checkError1 || checkError2);
+            return { success: false, message: 'Failed to check friend status' };
+        }
+
+        const existing = existingForward || existingReverse;
+
         if (existing) {
+            // Already friends - no action needed
             if (existing.status === 'accepted') {
                 return { success: false, message: 'Already friends' };
             }
-            return { success: false, message: 'Friend request already pending' };
+
+            // Handle existing pending request
+            const isIncomingRequest = Number(existing.friend_id) === userId;
+            const isOutgoingRequest = Number(existing.user_id) === userId;
+
+            if (isIncomingRequest) {
+                // They already sent us a request - tell user to check inbox
+                return { success: false, message: 'This user has already sent you a friend request. Check your inbox!' };
+            }
+
+            if (isOutgoingRequest) {
+                // We already sent them a request - it's still pending
+                return { success: false, message: 'Friend request already sent. Waiting for their response.' };
+            }
         }
 
-        // 3. Create relationship (Allocating 'pending' status)
+        // 3. Delete any stale records first (cleanup for edge cases like failed deletions)
+        // Delete in both directions to ensure clean slate
+        await this.supabase
+            .from('friends')
+            .delete()
+            .eq('user_id', toStringId(userId))
+            .eq('friend_id', toStringId(friendId));
+
+        await this.supabase
+            .from('friends')
+            .delete()
+            .eq('user_id', toStringId(friendId))
+            .eq('friend_id', toStringId(userId));
+
+        // 4. Create new pending relationship
         const { error: insertError } = await this.supabase
             .from('friends')
             .insert({
@@ -261,12 +304,35 @@ export class FriendsRepository {
 
     /**
      * Remove a friend
+     * @throws Error if deletion fails
      */
     async removeFriend(userId: number, friendId: number): Promise<void> {
-        await this.supabase
+        // Delete in both directions to handle either relationship direction
+        const { error: error1, data: deleted1 } = await this.supabase
             .from('friends')
             .delete()
-            .or(`and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`);
+            .eq('user_id', toStringId(userId))
+            .eq('friend_id', toStringId(friendId))
+            .select();
+
+        const { error: error2, data: deleted2 } = await this.supabase
+            .from('friends')
+            .delete()
+            .eq('user_id', toStringId(friendId))
+            .eq('friend_id', toStringId(userId))
+            .select();
+
+        if (error1 || error2) {
+            console.error('Error removing friend:', error1 || error2);
+            throw new Error('Failed to remove friend');
+        }
+
+        const totalDeleted = (deleted1?.length || 0) + (deleted2?.length || 0);
+        console.log(`Removed ${totalDeleted} friend record(s) for users ${userId} and ${friendId}`);
+
+        if (totalDeleted === 0) {
+            console.warn('No friend records found to delete - relationship may not have existed');
+        }
     }
 
     /**

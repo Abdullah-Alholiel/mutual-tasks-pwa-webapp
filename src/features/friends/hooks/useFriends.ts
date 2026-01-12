@@ -88,6 +88,9 @@ export function useFriendRequests() {
             return db.friends.getFriendRequests(userId);
         },
         enabled: !!userId,
+        // Realtime subscription (useFriendRequestsRealtime) handles instant updates
+        // Keep refetchOnWindowFocus for manual refresh scenarios
+        refetchOnWindowFocus: true,
     });
 }
 

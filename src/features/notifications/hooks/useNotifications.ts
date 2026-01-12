@@ -1,21 +1,18 @@
 // ============================================================================
-// useNotifications Hook - Real-Time Notifications with Supabase
+// useNotifications Hook - Real-Time Notifications with Supabase + React Query
 // ============================================================================
-// Provides real-time notification updates using Supabase subscriptions
+// Provides real-time notification updates using the centralized RealtimeManager
+// and React Query for global state synchronization.
 // ============================================================================
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Notification } from '@/types';
 import { getDatabaseClient } from '@/db';
 import { handleError } from '@/lib/errorUtils';
-import type { RealtimeChannel } from '@supabase/supabase-js';
-import { getSharedSupabaseClientOrUndefined } from '@/lib/supabaseClient';
-import { toNumberId, transformNotificationRow, type NotificationRow } from '@/db/transformers';
-
-// Module-level subscription tracking to prevent duplicates
-const activeNotificationSubscriptions = new Map<number, RealtimeChannel>();
-const notificationStateCallbacks = new Map<number, Set<() => void>>();
+import { getRealtimeManager } from '@/features/realtime/RealtimeManager';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { transformNotificationRow, type NotificationRow } from '@/db/transformers';
 
 interface UseNotificationsParams {
   userId: number | null | undefined;
@@ -33,239 +30,228 @@ interface UseNotificationsReturn {
   refetch: () => Promise<void>;
 }
 
+// Query keys
+export const NOTIFICATION_KEYS = {
+  all: (userId: number) => ['notifications', userId] as const,
+  lists: (userId: number) => [...NOTIFICATION_KEYS.all(userId), 'list'] as const,
+};
+
 /**
- * Hook for managing notifications with real-time updates
+ * Hook for managing notifications with real-time updates and global state
  */
 export const useNotifications = ({
   userId,
   enabled = true,
 }: UseNotificationsParams): UseNotificationsReturn => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const queryClient = useQueryClient();
 
-  // Calculate unread count
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  // Load notifications from database
-  const loadNotifications = useCallback(async () => {
-    if (!userId) {
-      setNotifications([]);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
+  // Queries
+  const {
+    data: notifications = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: NOTIFICATION_KEYS.lists(userId!),
+    queryFn: async () => {
+      if (!userId) return [];
       const db = getDatabaseClient();
-      const userNotifications = await db.notifications.getByUserId(userId, {
+      return await db.notifications.getByUserId(userId, {
         limit: 100,
         isRead: undefined, // Get both read and unread
       });
-      setNotifications(userNotifications);
-    } catch (error) {
-      handleError(error, 'loadNotifications');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId]);
+    },
+    enabled: !!userId && enabled,
+    staleTime: 1000 * 60 * 5, // 5 minutes (updates handled by realtime/mutations)
+  });
 
-  // Set up real-time subscription (singleton pattern - one subscription per userId)
+  // Calculate unread count from the source of truth
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  // Handle realtime notification updates
+  const handleNotificationChange = useCallback((
+    payload: RealtimePostgresChangesPayload<Record<string, unknown>>
+  ) => {
+    try {
+      if (payload.eventType === 'INSERT' && payload.new) {
+        const newNotification = transformNotificationRow(payload.new as NotificationRow);
+        showBrowserNotification(newNotification);
+      }
+
+      // Small delay to allow DB to be consistent, then invalidate
+      setTimeout(() => {
+        if (userId) {
+          // Invalidate to force a refetch across all components
+          queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Error processing notification update:', err);
+    }
+  }, [userId, queryClient]);
+
+  // Set up real-time subscription using RealtimeManager
   useEffect(() => {
     if (!userId || !enabled) return;
 
-    const supabase = getSharedSupabaseClientOrUndefined();
-    if (!supabase) {
-      console.warn('Supabase not configured, real-time notifications disabled');
-      return;
-    }
-
-    // Register this component's refetch function to receive updates
-    // When notifications change, all registered components will refetch
-    const refetchFn = () => {
-      loadNotifications();
-    };
-
-    if (!notificationStateCallbacks.has(userId)) {
-      notificationStateCallbacks.set(userId, new Set());
-    }
-    notificationStateCallbacks.get(userId)!.add(refetchFn);
-
-    // Check if subscription already exists for this userId
-    let existingChannel = activeNotificationSubscriptions.get(userId);
-
-    if (!existingChannel) {
-      // Create new subscription
-      const channelName = `notifications:${userId}:${Date.now()}`;
-      const channel = supabase
-        .channel(channelName)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${userId}`,
-          },
-          (payload) => {
-            try {
-              if (payload.eventType === 'INSERT' && payload.new) {
-                const newNotification = transformNotificationRow(payload.new as NotificationRow);
-                showBrowserNotification(newNotification);
-              }
-
-              // Notify all registered callbacks to refetch their notifications
-              const callbacks = notificationStateCallbacks.get(userId);
-              if (callbacks) {
-                // Use a small delay to allow DB to be consistent
-                setTimeout(() => {
-                  callbacks.forEach(refetchCallback => {
-                    refetchCallback();
-                  });
-                }, 100);
-              }
-            } catch (err) {
-              console.error('Error processing notification update:', err);
-            }
-          }
-        )
-        .subscribe((status, err) => {
-          if (status === 'SUBSCRIBED') {
-            console.log('Notifications realtime subscription active');
-          } else if (status === 'CHANNEL_ERROR') {
-            if (err) {
-              console.error('Notifications realtime subscription error:', err);
-            }
-          } else if (status === 'TIMED_OUT') {
-            console.warn('Notifications realtime subscription timed out');
-          } else if (status === 'CLOSED') {
-            console.log('Notifications realtime subscription closed');
-            activeNotificationSubscriptions.delete(userId);
-          }
-        });
-
-      activeNotificationSubscriptions.set(userId, channel);
-      existingChannel = channel;
-    }
-
-    channelRef.current = existingChannel;
-
-    // Load initial notifications
-    loadNotifications();
-
-    return () => {
-      // Unregister this component's refetch function
-      const callbacks = notificationStateCallbacks.get(userId);
-      if (callbacks) {
-        callbacks.delete(refetchFn);
-        if (callbacks.size === 0) {
-          notificationStateCallbacks.delete(userId);
-          // Only remove subscription if no callbacks remain
-          const channelToRemove = activeNotificationSubscriptions.get(userId);
-          if (channelToRemove) {
-            try {
-              supabase.removeChannel(channelToRemove);
-            } catch (err) {
-              // Ignore cleanup errors
-            }
-            activeNotificationSubscriptions.delete(userId);
-          }
-        }
-      }
-      channelRef.current = null;
-    };
-  }, [userId, enabled, loadNotifications]);
-
-  // Mark a notification as read
-  const markAsRead = useCallback(async (notificationId: number) => {
-    // Optimistic update
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+    const manager = getRealtimeManager();
+    const unsubscribe = manager.subscribe(
+      'notifications',
+      userId,
+      handleNotificationChange
     );
 
-    try {
+    return unsubscribe;
+  }, [userId, enabled, handleNotificationChange]);
+
+  // Mutations
+
+  // Mark a notification as read
+  const { mutateAsync: markAsRead } = useMutation({
+    mutationFn: async (notificationId: number) => {
       const db = getDatabaseClient();
       await db.notifications.markAsRead(notificationId);
-    } catch (error) {
-      // Revert optimistic update
-      setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, isRead: false } : n)
-      );
-      handleError(error, 'markNotificationRead');
-    }
-  }, []);
+    },
+    onMutate: async (notificationId) => {
+      if (!userId) return;
+      await queryClient.cancelQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+
+      const previousNotifications = queryClient.getQueryData<Notification[]>(NOTIFICATION_KEYS.lists(userId));
+
+      if (previousNotifications) {
+        queryClient.setQueryData<Notification[]>(
+          NOTIFICATION_KEYS.lists(userId),
+          previousNotifications.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+        );
+      }
+
+      return { previousNotifications };
+    },
+    onError: (err, newTodo, context) => {
+      if (userId && context?.previousNotifications) {
+        queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
+      }
+      handleError(err, 'markNotificationRead');
+    },
+    onSettled: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+      }
+    },
+  });
 
   // Mark all notifications as read
-  const markAllAsRead = useCallback(async () => {
-    if (!userId) return;
-
-    // Optimistic update
-    const previousNotifications = notifications;
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-
-    try {
+  const { mutateAsync: markAllAsRead } = useMutation({
+    mutationFn: async () => {
+      if (!userId) return;
       const db = getDatabaseClient();
       await db.notifications.markAllAsRead(userId);
-    } catch (error) {
-      // Revert optimistic update
-      setNotifications(previousNotifications);
-      handleError(error, 'markAllNotificationsRead');
-    }
-  }, [userId, notifications]);
+    },
+    onMutate: async () => {
+      if (!userId) return;
+      await queryClient.cancelQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+
+      const previousNotifications = queryClient.getQueryData<Notification[]>(NOTIFICATION_KEYS.lists(userId));
+
+      if (previousNotifications) {
+        queryClient.setQueryData<Notification[]>(
+          NOTIFICATION_KEYS.lists(userId),
+          previousNotifications.map(n => ({ ...n, isRead: true }))
+        );
+      }
+
+      return { previousNotifications };
+    },
+    onError: (err, variables, context) => {
+      if (userId && context?.previousNotifications) {
+        queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
+      }
+      handleError(err, 'markAllNotificationsRead');
+    },
+    onSettled: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+      }
+    },
+  });
 
   // Delete all notifications for current user
-  const deleteAll = useCallback(async () => {
-    if (!userId) return;
-
-    // Optimistic update
-    const previousNotifications = notifications;
-    setNotifications([]);
-
-    try {
+  const { mutateAsync: deleteAll } = useMutation({
+    mutationFn: async () => {
+      if (!userId) return;
       const db = getDatabaseClient();
       await db.notifications.deleteByUserId(userId);
-    } catch (error) {
-      // Revert optimistic update
-      setNotifications(previousNotifications);
-      handleError(error, 'deleteAllNotifications');
-    }
-  }, [userId, notifications]);
+    },
+    onMutate: async () => {
+      if (!userId) return;
+      await queryClient.cancelQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+
+      const previousNotifications = queryClient.getQueryData<Notification[]>(NOTIFICATION_KEYS.lists(userId));
+
+      // Optimistically clear the list
+      queryClient.setQueryData<Notification[]>(NOTIFICATION_KEYS.lists(userId), []);
+
+      return { previousNotifications };
+    },
+    onError: (err, variables, context) => {
+      if (userId && context?.previousNotifications) {
+        queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
+      }
+      handleError(err, 'deleteAllNotifications');
+    },
+    onSettled: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+      }
+    },
+  });
 
   // Delete a list of notifications
-  const deleteList = useCallback(async (ids: number[]) => {
-    if (!userId || ids.length === 0) return;
-
-    // Optimistic update
-    const previousNotifications = notifications;
-    setNotifications(prev => prev.filter(n => !ids.includes(n.id)));
-
-    try {
+  const { mutateAsync: deleteList } = useMutation({
+    mutationFn: async (ids: number[]) => {
+      if (!userId || ids.length === 0) return;
       const db = getDatabaseClient();
       await db.notifications.deleteMany(ids);
-    } catch (error) {
-      // Revert optimistic update
-      setNotifications(previousNotifications);
-      handleError(error, 'deleteNotificationList');
-    }
-  }, [userId, notifications]);
+    },
+    onMutate: async (ids) => {
+      if (!userId) return;
+      await queryClient.cancelQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
 
-  // Refetch notifications
-  const refetch = useCallback(async () => {
-    await loadNotifications();
-  }, [loadNotifications]);
+      const previousNotifications = queryClient.getQueryData<Notification[]>(NOTIFICATION_KEYS.lists(userId));
+
+      if (previousNotifications) {
+        queryClient.setQueryData<Notification[]>(
+          NOTIFICATION_KEYS.lists(userId),
+          previousNotifications.filter(n => !ids.includes(n.id))
+        );
+      }
+
+      return { previousNotifications };
+    },
+    onError: (err, variables, context) => {
+      if (userId && context?.previousNotifications) {
+        queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
+      }
+      handleError(err, 'deleteNotificationList');
+    },
+    onSettled: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.lists(userId) });
+      }
+    },
+  });
 
   return {
     notifications,
     unreadCount,
     isLoading,
-    markAsRead,
-    markAllAsRead,
-    deleteAll,
-    deleteList,
-    refetch,
+    markAsRead: async (id) => { await markAsRead(id); },
+    markAllAsRead: async () => { await markAllAsRead(); },
+    deleteAll: async () => { await deleteAll(); },
+    deleteList: async (ids) => { await deleteList(ids); },
+    refetch: async () => { await refetch(); },
   };
 };
+
 
 /**
  * Show browser notification if supported and permitted

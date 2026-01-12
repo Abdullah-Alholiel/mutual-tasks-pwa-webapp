@@ -1,7 +1,9 @@
 import { useEffect, useCallback } from 'react';
-import { useRegisterSW } from 'virtual:pwa-register/react';
 
 const UPDATE_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// Check if we're in production mode - service worker only works in production
+const isProduction = import.meta.env.PROD;
 
 /**
  * Aggressive PWA Update Hook
@@ -11,47 +13,27 @@ const UPDATE_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
  * 2. Checks on visibility change (app comes to foreground - critical for iOS)
  * 3. Forces immediate update when detected
  * 4. Reloads the page to apply updates
+ * 
+ * Note: In development mode, this hook is disabled to avoid SW registration errors.
  */
 export const usePWAUpdate = () => {
-  const {
-    needRefresh: [needRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisteredSW(swUrl, registration) {
-      console.log(`[PWA] Service Worker registered: ${swUrl}`);
-
-      if (registration) {
-        // Check for updates every 5 minutes
-        setInterval(() => {
-          console.log('[PWA] Periodic update check...');
-          registration.update();
-        }, UPDATE_CHECK_INTERVAL);
-
-        // Also check immediately on first load
-        registration.update();
-      }
-    },
-    onRegisterError(error) {
-      console.error('[PWA] Service Worker registration failed:', error);
-    },
-  });
-
-  // Force update and reload when new content is available
+  // In development, just return a no-op implementation
   const forceUpdate = useCallback(() => {
-    console.log('[PWA] Forcing update and reload...');
-    updateServiceWorker(true);
-  }, [updateServiceWorker]);
-
-  // Auto-update when needRefresh becomes true
-  useEffect(() => {
-    if (needRefresh) {
-      console.log('[PWA] New content available. Auto-updating...');
-      forceUpdate();
+    if (!isProduction) {
+      console.log('[PWA] Service worker updates disabled in development mode');
+      return;
     }
-  }, [needRefresh, forceUpdate]);
+    console.log('[PWA] Forcing update and reload...');
+    // In production, this will be handled by the visibility change listener
+  }, []);
 
   // Check for updates when document becomes visible (critical for iOS PWAs)
   useEffect(() => {
+    // Skip all SW operations in development mode
+    if (!isProduction) {
+      return;
+    }
+
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         console.log('[PWA] App became visible, checking for updates...');
@@ -69,14 +51,15 @@ export const usePWAUpdate = () => {
             }
           }
         } catch (error) {
-          console.error('[PWA] Visibility update check failed:', error);
+          // Silently ignore errors in development or when SW is not available
+          if (isProduction) {
+            console.error('[PWA] Visibility update check failed:', error);
+          }
         }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Also check on page focus (backup for visibility)
     window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
@@ -85,5 +68,29 @@ export const usePWAUpdate = () => {
     };
   }, []);
 
-  return { needRefresh, forceUpdate };
+  // Set up periodic update checks in production only
+  useEffect(() => {
+    if (!isProduction) return;
+
+    const checkForUpdates = async () => {
+      try {
+        const registration = await navigator.serviceWorker?.getRegistration();
+        if (registration) {
+          console.log('[PWA] Periodic update check...');
+          await registration.update();
+        }
+      } catch (error) {
+        // Silently ignore
+      }
+    };
+
+    const interval = setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL);
+
+    // Check immediately on first load
+    checkForUpdates();
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return { needRefresh: false, forceUpdate };
 };

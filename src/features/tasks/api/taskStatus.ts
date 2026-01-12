@@ -90,7 +90,10 @@ export class TaskStatusRepository {
   async create(
     statusData: Omit<TaskStatusEntity, 'id'>
   ): Promise<TaskStatusEntity> {
+    console.log('[TaskStatusRepository] Creating status:', JSON.stringify(statusData, null, 2));
+
     const row = toTaskStatusRow(statusData);
+    console.log('[TaskStatusRepository] Transformed to row:', JSON.stringify(row, null, 2));
 
     const { data, error } = await this.supabase
       .from('task_statuses')
@@ -98,7 +101,12 @@ export class TaskStatusRepository {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[TaskStatusRepository] Create status error:', error);
+      throw error;
+    }
+
+    console.log('[TaskStatusRepository] Status created successfully:', data);
     return transformTaskStatusRow(data as TaskStatusRow);
   }
 
@@ -110,14 +118,22 @@ export class TaskStatusRepository {
   ): Promise<TaskStatusEntity[]> {
     if (statusesData.length === 0) return [];
 
+    console.log('[TaskStatusRepository] Creating multiple statuses:', statusesData.length);
+
     const rows = statusesData.map((status) => toTaskStatusRow(status));
+    console.log('[TaskStatusRepository] Transformed rows:', JSON.stringify(rows, null, 2));
 
     const { data, error } = await this.supabase
       .from('task_statuses')
       .insert(rows)
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[TaskStatusRepository] CreateMany error:', error);
+      throw error;
+    }
+
+    console.log('[TaskStatusRepository] Statuses created successfully:', data?.length);
     return data.map((row: TaskStatusRow) => transformTaskStatusRow(row));
   }
 

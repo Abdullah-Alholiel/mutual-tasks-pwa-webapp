@@ -25,37 +25,37 @@ export const useProjectTaskData = ({
   projectId,
 }: UseProjectTaskDataParams): UseProjectTaskDataReturn => {
   // Fetch project tasks from database
-  const { 
-    data: projectTasksFromDb = [], 
-    isLoading: tasksLoading, 
-    isFetched: tasksFetched 
+  const {
+    data: projectTasksFromDb = [],
+    isLoading: tasksLoading,
+    isFetched: tasksFetched
   } = useProjectTasks(projectId);
-  
+
   // Local state for optimistic updates
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const [localTaskStatuses, setLocalTaskStatuses] = useState<TaskStatusEntity[]>([]);
   const [localCompletionLogs, setLocalCompletionLogs] = useState<CompletionLog[]>([]);
-  
+
   // Extract task IDs for fetching completion logs
-  const taskIdsForLogs = useMemo(() => 
+  const taskIdsForLogs = useMemo(() =>
     projectTasksFromDb.map(t => typeof t.id === 'string' ? parseInt(t.id) : t.id),
     [projectTasksFromDb]
   );
 
   // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
   // Task status updates are automatically reflected via the global subscription
-  
+
   // Fetch completion logs for all project tasks
-  const { 
-    data: completionLogsFromDb = [], 
-    isLoading: completionLogsLoading 
+  const {
+    data: completionLogsFromDb = [],
+    isLoading: completionLogsLoading
   } = useProjectCompletionLogs(taskIdsForLogs);
-  
+
   // Sync tasks from database to local state when React Query data changes
   useEffect(() => {
     if (projectTasksFromDb.length > 0) {
       setLocalTasks(projectTasksFromDb);
-      
+
       // Extract task statuses from the fetched tasks
       const allStatuses: TaskStatusEntity[] = [];
       projectTasksFromDb.forEach(task => {
@@ -66,14 +66,14 @@ export const useProjectTaskData = ({
       setLocalTaskStatuses(allStatuses);
     }
   }, [projectTasksFromDb]);
-  
+
   // Sync completion logs from database to local state
   useEffect(() => {
     if (completionLogsFromDb.length > 0) {
       setLocalCompletionLogs(completionLogsFromDb);
     }
   }, [completionLogsFromDb]);
-  
+
   // Merged data: use local state for UI (includes optimistic updates)
   const tasks = localTasks.length > 0 ? localTasks : projectTasksFromDb;
   const taskStatuses = localTaskStatuses;

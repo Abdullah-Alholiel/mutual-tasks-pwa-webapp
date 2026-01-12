@@ -15,16 +15,19 @@ import { useProjectTaskCategories } from './useProjectTaskCategories';
 import { useProjectTaskMutations } from './useProjectTaskMutations';
 import { useProjectMembers } from './useProjectMembers';
 import { useProjectSettings } from './useProjectSettings';
-// Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
-// Project detail updates are automatically reflected via the global subscription
+import { useProjectDetailRealtime } from './useProjectRealtime';
 
 export const useProjectDetail = () => {
   const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
 
+  // Subscribe to project-specific realtime updates (tasks, participants)
+  useProjectDetailRealtime(id, user?.id ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : undefined);
+
   // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
-  // No need for project-specific subscription - global subscription handles all projects
+  // but for creating new tasks in a specific project, we need to listen to the 'tasks' table
+  // which is handled by useProjectDetailRealtime above.
 
   // Get project from route state or database
   const projectFromState = location.state?.project as Project | undefined;

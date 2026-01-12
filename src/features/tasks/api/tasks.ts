@@ -97,20 +97,54 @@ export class TasksRepository {
    * Create a new task
    */
   async create(taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
+    console.log('[TasksRepository] Creating task:', JSON.stringify(taskData, null, 2));
+
     const row = toTaskRow(taskData);
+    console.log('[TasksRepository] Transformed to row:', JSON.stringify(row, null, 2));
+
     const now = new Date().toISOString();
 
-    const { data, error } = await this.supabase
+    const insertPayload = {
+      ...row,
+      created_at: now,
+      updated_at: now,
+    };
+
+    console.log('[TasksRepository] Insert payload:', JSON.stringify(insertPayload, null, 2));
+
+    const { data, error, status, statusText } = await this.supabase
       .from('tasks')
-      .insert({
-        ...row,
-        created_at: now,
-        updated_at: now,
-      })
+      .insert(insertPayload)
       .select()
       .single();
 
-    if (error) throw error;
+    console.log('[TasksRepository] Supabase response - status:', status, 'statusText:', statusText);
+
+    if (error) {
+      console.error('[TasksRepository] Create task error:', error);
+      console.error('[TasksRepository] Error code:', error.code, 'Message:', error.message, 'Details:', error.details);
+      throw error;
+    }
+
+    console.log('[TasksRepository] Task insert returned:', data);
+
+    // VERIFICATION: Query the task back to confirm it was actually persisted
+    const { data: verifyData, error: verifyError } = await this.supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', data.id)
+      .single();
+
+    if (verifyError || !verifyData) {
+      console.error('[TasksRepository] ❌ VERIFICATION FAILED - Task not found after insert!');
+      console.error('[TasksRepository] Verify error:', verifyError);
+      console.error('[TasksRepository] This usually means RLS (Row Level Security) is blocking the insert.');
+      console.error('[TasksRepository] Check Supabase Dashboard -> Authentication -> Policies for the tasks table.');
+      console.error('[TasksRepository] Make sure RLS is DISABLED or proper INSERT policies exist.');
+      throw new Error(`Task creation verification failed. The task was not persisted. Check RLS policies on tasks table.`);
+    }
+
+    console.log('[TasksRepository] ✅ VERIFICATION SUCCESS - Task confirmed in database:', verifyData);
 
     const task = transformTaskRow(data as TaskRow);
     return task;

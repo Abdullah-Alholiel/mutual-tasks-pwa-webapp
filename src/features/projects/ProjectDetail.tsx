@@ -45,6 +45,8 @@ import { normalizeId } from '@/lib/idUtils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { MobileHeader } from '@/components/layout/MobileHeader';
 import { useFriends, useAddFriend, useFriendRequests } from '@/features/friends/hooks/useFriends';
+import { AIGenerateButton } from '@/components/ui/ai-generate-button';
+import { useAIGeneration } from '@/hooks/useAIGeneration';
 import type { Project, Task } from '@/types';
 
 const ProjectDetail = () => {
@@ -1024,6 +1026,9 @@ const EditProjectForm = ({
   const [selectedIcon, setSelectedIcon] = useState(project.icon || PROJECT_ICONS[0].name);
   const [iconCategory, setIconCategory] = useState('All');
 
+  // AI Generation Hook
+  const { aiState, generateDescription, setAiState } = useAIGeneration('project');
+
   // Get filtered icons based on selected category
   const filteredIcons = getIconsByCategory(iconCategory);
 
@@ -1110,7 +1115,22 @@ const EditProjectForm = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="description">Description</Label>
+          {canEdit && (
+            <AIGenerateButton
+              state={aiState}
+              onClick={async () => {
+                const desc = await generateDescription(name);
+                if (desc) {
+                  setDescription((prev) => (prev ? `${prev}\n\n${desc}` : desc));
+                }
+              }}
+              disabled={!name.trim() || aiState === 'loading'}
+              className="scale-90 origin-right"
+            />
+          )}
+        </div>
         <textarea
           id="description"
           className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${!canEdit ? "bg-muted cursor-not-allowed" : ""}`}

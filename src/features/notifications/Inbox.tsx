@@ -243,11 +243,12 @@ const NotificationList = ({
     );
   }
 
-  const renderGroup = (title: string, items: Notification[], isUnread = false) => {
+  const renderGroup = (title: string, items: Notification[], isUnread = false, groupKey: string) => {
     if (items.length === 0) return null;
 
     return (
       <motion.div
+        key={groupKey}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, height: 0 }}
@@ -290,12 +291,12 @@ const NotificationList = ({
   return (
     <div className="space-y-6">
       <AnimatePresence mode="popLayout">
-        {renderGroup('New', groups.unread, true)}
-        {renderGroup('Earlier Today', groups.today)}
-        {renderGroup('Yesterday', groups.yesterday)}
-        {renderGroup('Last Week', groups.lastWeek)}
-        {renderGroup('Last Month', groups.lastMonth)}
-        {renderGroup('Older', groups.older)}
+        {renderGroup('New', groups.unread, true, 'group-unread')}
+        {renderGroup('Earlier Today', groups.today, false, 'group-today')}
+        {renderGroup('Yesterday', groups.yesterday, false, 'group-yesterday')}
+        {renderGroup('Last Week', groups.lastWeek, false, 'group-last-week')}
+        {renderGroup('Last Month', groups.lastMonth, false, 'group-last-month')}
+        {renderGroup('Older', groups.older, false, 'group-older')}
       </AnimatePresence>
     </div>
   );

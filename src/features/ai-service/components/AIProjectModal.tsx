@@ -51,7 +51,7 @@ export const AIProjectModal = ({
     onCreateProject,
 }: AIProjectModalProps) => {
     const [description, setDescription] = useState('');
-    const { aiState, generatedProject, generateProject, resetState } = useAIProjectGeneration();
+    const { aiState, generatedProject, generateProject, resetState, confirmProjectCreation } = useAIProjectGeneration();
 
     /**
      * Handle the generate button click
@@ -63,8 +63,10 @@ export const AIProjectModal = ({
     /**
      * Handle project creation confirmation
      */
-    const handleCreate = () => {
+    const handleCreate = async () => {
         if (generatedProject) {
+            // Increment usage count ONLY when user confirms project creation
+            await confirmProjectCreation();
             onCreateProject(generatedProject);
             handleClose();
         }

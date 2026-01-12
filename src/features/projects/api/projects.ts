@@ -26,7 +26,7 @@ export class ProjectsRepository {
       .from('projects')
       .select('*')
       .eq('id', toStringId(id))
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
 
@@ -86,7 +86,11 @@ export class ProjectsRepository {
    * Create a new project
    */
   async create(projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Promise<Project> {
+    console.log('[ProjectsRepository] Creating project:', JSON.stringify(projectData, null, 2));
+
     const row = toProjectRow(projectData);
+    console.log('[ProjectsRepository] Transformed to row:', JSON.stringify(row, null, 2));
+
     const now = new Date().toISOString();
 
     const { data, error } = await this.supabase
@@ -99,10 +103,16 @@ export class ProjectsRepository {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[ProjectsRepository] Create project error:', error);
+      throw error;
+    }
+
+    console.log('[ProjectsRepository] Project created successfully:', data);
 
     // Add owner as participant
     if (projectData.ownerId) {
+      console.log('[ProjectsRepository] Adding owner as participant:', projectData.ownerId);
       await this.addParticipant(Number(data.id), projectData.ownerId, 'owner');
     }
 

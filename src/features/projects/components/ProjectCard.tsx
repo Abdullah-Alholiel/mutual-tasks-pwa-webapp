@@ -63,7 +63,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
                 className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
                 style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}, transparent)` }}
               />
-              <Icon className="w-6 h-6 relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-transform duration-300 group-hover/icon:scale-110" />
+              <Icon className="w-6 h-6 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" />
             </div>
           </div>
 

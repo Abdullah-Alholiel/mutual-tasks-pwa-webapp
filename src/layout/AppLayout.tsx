@@ -4,6 +4,7 @@ import { MobileNav } from './MobileNav';
 import { DesktopNav } from './DesktopNav';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { GlobalRealtimeSubscriptions } from '@/features/realtime/GlobalRealtimeSubscriptions';
+import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 
 interface AppLayoutProps {
   children?: ReactNode;
@@ -16,6 +17,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   return (
     <div className="fixed inset-0 flex flex-col bg-background overflow-hidden">
       <GlobalRealtimeSubscriptions />
+      <SyncStatusIndicator />
       {/* Hide DesktopNav on FriendProfile page as it has its own header */}
       {!matchPath('/friends/:id', location.pathname) && <DesktopNav />}
 

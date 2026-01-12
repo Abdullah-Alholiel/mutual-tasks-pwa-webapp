@@ -13,6 +13,8 @@ import type { Task, TaskStatusEntity, CompletionLog, DifficultyRating } from '@/
 import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
 import { getTodayTasks, getProjectTasks, getUserTasks } from '../../../lib/tasks/taskFilterUtils';
+// Import atomic operations at top level to avoid dynamic require issues
+import { createTaskAtomic, type AtomicTaskInput } from '@/lib/tasks/atomicTaskOperations';
 
 /**
  * Hook to fetch all tasks with optional filters
@@ -181,34 +183,47 @@ export const useCreateTaskWithStatuses = () => {
         throw new Error('User must be authenticated to create a task');
       }
 
-      const db = getDatabaseClient();
+      console.log('[useCreateTaskWithStatuses] Using atomic creation for:', input.task.title);
 
-      // 1. Create the task in the database
-      const createdTask = await db.tasks.create(input.task);
-
-      // 2. Create task statuses for all participants
-      // Only use fields that exist in the database: taskId, userId, status, archivedAt, recoveredAt, ringColor
-      const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
-        taskId: createdTask.id,
-        userId: userId,
-        status: 'active' as const,
-        ringColor: undefined, // Default: no ring color for active tasks
-      }));
-
-      // Create all statuses in the database
-      const createdStatuses = await db.taskStatus.createMany(taskStatuses);
-
-      return {
-        task: createdTask,
-        taskStatuses: createdStatuses,
+      // Helper to map type to atomic input format
+      const atomicInput: AtomicTaskInput = {
+        projectId: Number(input.task.projectId),
+        creatorId: Number(input.task.creatorId),
+        title: input.task.title,
+        description: input.task.description,
+        type: (input.task.type || 'one_off') as 'one_off' | 'habit',
+        recurrencePattern: input.task.recurrencePattern,
+        dueDate: input.dueDate,
+        recurrenceIndex: input.task.recurrenceIndex,
+        recurrenceTotal: input.task.recurrenceTotal,
+        showRecurrenceIndex: input.task.showRecurrenceIndex,
+        participantUserIds: input.participantUserIds,
       };
+
+      try {
+        const result = await createTaskAtomic(atomicInput);
+
+        // Reconstruct expected return format for UI
+        return {
+          task: result.task,
+          // Create optimisitic status objects for immediate UI update
+          taskStatuses: input.participantUserIds.map(uid => ({
+            id: -1, // Temporary ID for optimistic UI
+            taskId: result.task.id,
+            userId: uid,
+            status: 'active' as const,
+          }) as TaskStatusEntity),
+        };
+      } catch (error) {
+        console.error('[useCreateTaskWithStatuses] Atomic creation failed:', error);
+        throw error;
+      }
     },
     onSuccess: (result) => {
-      // Invalidate all relevant queries for proper refetching
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks', 'project', result.task.projectId] });
-      queryClient.invalidateQueries({ queryKey: ['project', result.task.projectId] });
-      queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+      // CRITICAL: Remove stale cache and force fresh DB fetch
+      queryClient.removeQueries({ queryKey: ['tasks'] });
+      queryClient.refetchQueries({ queryKey: ['tasks'] });
+      queryClient.refetchQueries({ queryKey: ['project', result.task.projectId] });
       return result;
     },
     onError: (error) => {
@@ -235,29 +250,44 @@ export const useCreateMultipleTasksWithStatuses = () => {
         throw new Error('No tasks to create');
       }
 
-      const db = getDatabaseClient();
       const results: { task: Task; taskStatuses: TaskStatusEntity[] }[] = [];
 
-      // Create each task with its statuses
+      console.log(`[useCreateMultipleTasksWithStatuses] Creating ${inputs.length} tasks atomically`);
+
+      // Create each task with its statuses atomically
       for (const input of inputs) {
-        // Create the task
-        const createdTask = await db.tasks.create(input.task);
+        // Helper to map type to atomic input format
+        const atomicInput: AtomicTaskInput = {
+          projectId: Number(input.task.projectId),
+          creatorId: Number(input.task.creatorId),
+          title: input.task.title,
+          description: input.task.description,
+          type: (input.task.type || 'one_off') as 'one_off' | 'habit',
+          recurrencePattern: input.task.recurrencePattern,
+          dueDate: input.dueDate,
+          recurrenceIndex: input.task.recurrenceIndex,
+          recurrenceTotal: input.task.recurrenceTotal,
+          showRecurrenceIndex: input.task.showRecurrenceIndex,
+          participantUserIds: input.participantUserIds,
+        };
 
-        // Create task statuses for all participants
-        // Only use fields that exist in the database: taskId, userId, status, archivedAt, recoveredAt, ringColor
-        const taskStatuses: Omit<TaskStatusEntity, 'id'>[] = input.participantUserIds.map(userId => ({
-          taskId: createdTask.id,
-          userId: userId,
-          status: 'active' as const,
-          ringColor: undefined, // Default: no ring color for active tasks
-        }));
+        try {
+          const result = await createTaskAtomic(atomicInput);
 
-        const createdStatuses = await db.taskStatus.createMany(taskStatuses);
-
-        results.push({
-          task: createdTask,
-          taskStatuses: createdStatuses,
-        });
+          results.push({
+            task: result.task,
+            taskStatuses: input.participantUserIds.map(uid => ({
+              id: -1, // Temporary ID
+              taskId: result.task.id,
+              userId: uid,
+              status: 'active' as const,
+            }) as TaskStatusEntity),
+          });
+        } catch (error) {
+          console.error(`[useCreateMultipleTasksWithStatuses] Failed to create one task in batch: ${input.task.title}`, error);
+          // Fail all if any fail in a habit series to prevent partial state
+          throw error;
+        }
       }
 
       return results;
@@ -266,13 +296,12 @@ export const useCreateMultipleTasksWithStatuses = () => {
       // Get unique project IDs
       const projectIds = [...new Set(results.map(r => r.task.projectId))];
 
-      // Invalidate all relevant queries
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+      // CRITICAL: Remove stale cache and force fresh DB fetch
+      queryClient.removeQueries({ queryKey: ['tasks'] });
+      queryClient.refetchQueries({ queryKey: ['tasks'] });
 
       projectIds.forEach(projectId => {
-        queryClient.invalidateQueries({ queryKey: ['tasks', 'project', projectId] });
-        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+        queryClient.refetchQueries({ queryKey: ['project', projectId] });
       });
 
       return results;
@@ -427,29 +456,23 @@ export const useCompletionLogs = () => {
 
 /**
  * Hook to fetch completion logs for specific task IDs
+ * Uses efficient single-query batch fetching to avoid N+1 waterfall
  */
 export const useProjectCompletionLogs = (taskIds: number[]) => {
   return useQuery({
     queryKey: ['completionLogs', 'tasks', taskIds],
     queryFn: async () => {
+      // If no tasks, return empty immediately
       if (taskIds.length === 0) return [];
 
       const db = getDatabaseClient();
-      // Fetch completion logs for all tasks in the project
-      const allLogs: CompletionLog[] = [];
 
-      // Batch fetch - get logs for each task
-      const logPromises = taskIds.map(taskId =>
-        db.completionLogs.getAll({ taskId })
-      );
-
-      const results = await Promise.all(logPromises);
-      results.forEach(logs => allLogs.push(...logs));
-
-      return allLogs;
+      // OPTIMIZATION: Fetch ALL logs for these tasks in ONE query
+      // Replaces previous N+1 loop: taskIds.map(id => db.getAll({ taskId: id }))
+      return await db.completionLogs.getAllForTasks(taskIds);
     },
     enabled: taskIds.length > 0,
-    staleTime: 1000 * 30, // 30 seconds - completion logs change when tasks are completed
+    staleTime: 1000 * 30, // 30 seconds
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
