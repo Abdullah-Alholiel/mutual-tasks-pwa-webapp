@@ -25,8 +25,8 @@ export default defineConfig(({ mode }) => {
               console.log('Injecting Secret:', env.x_momentum_secret ? '***PRESENT***' : 'MISSING');
 
               // Securely inject the secret header on the server side
-              proxyReq.setHeader('x-momentum-secret', env.x_momentum_secret || '');
-              proxyReq.setHeader('x_momentum_secret', env.x_momentum_secret || ''); // Include underscore version just in case
+              proxyReq.setHeader('x-momentum-secret', env.x_momentum_secret);
+              proxyReq.setHeader('x_momentum_secret', env.x_momentum_secret); // Include underscore version just in case
             });
           },
         }
@@ -37,7 +37,11 @@ export default defineConfig(({ mode }) => {
       mode === "development" && componentTagger(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'masked-icon.svg'],
+        includeAssets: ['icons/icon-48x48.png', 'icons/icon-192x192.png', 'masked-icon.svg'],
+        // Service worker only generated during production build, not dev
+        devOptions: {
+          enabled: false
+        },
         manifest: {
           name: 'Momentum - Collaborative Tasks',
           short_name: 'Momentum',
@@ -75,7 +79,10 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          skipWaiting: true,
+          clientsClaim: true,
+          navigateFallback: 'index.html',
+          globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

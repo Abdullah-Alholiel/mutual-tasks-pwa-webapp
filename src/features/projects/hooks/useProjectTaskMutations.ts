@@ -10,7 +10,7 @@ import { normalizeToStartOfDay } from '@/lib/tasks/taskUtils';
 import { recoverTask } from '@/lib/tasks/taskRecoveryUtils';
 import { validateProjectForTaskCreation, getParticipatingUserIds } from '@/lib/tasks/taskCreationUtils';
 import { handleError } from '@/lib/errorUtils';
-import { notifyTaskCreated, notifyTaskCompleted, notifyTaskRecovered } from '@/lib/tasks/taskEmailNotifications';
+import { notifyTaskCreated, notifyTaskCompleted, notifyTaskRecovered, notifyTaskUpdated } from '@/lib/tasks/taskEmailNotifications';
 import { getDatabaseClient } from '@/db';
 import {
   useCreateTaskWithStatuses,
@@ -604,6 +604,13 @@ export const useProjectTaskMutations = ({
 
       // Update local state
       setLocalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+
+      // Send update notification
+      if (user) {
+        notifyTaskUpdated(taskId, updatedTask.projectId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch(err => {
+          console.error('Failed to send task update notification:', err);
+        });
+      }
 
       toast.success('Task updated! ✨');
       onTaskFormClose();

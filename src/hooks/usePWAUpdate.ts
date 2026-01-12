@@ -1,175 +1,96 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 
-interface PWAUpdateState {
-  isUpdateAvailable: boolean;
-  isUpdating: boolean;
-  updateError: Error | null;
-}
+const UPDATE_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// Check if we're in production mode - service worker only works in production
+const isProduction = import.meta.env.PROD;
 
 /**
- * Hook to monitor PWA service worker updates
+ * Aggressive PWA Update Hook
  * 
- * With registerType: 'autoUpdate', vite-plugin-pwa automatically handles
- * service worker registration and updates. Updates are installed in the
- * background and activated on the next page load.
+ * Features:
+ * 1. Checks for updates every 5 minutes
+ * 2. Checks on visibility change (app comes to foreground - critical for iOS)
+ * 3. Forces immediate update when detected
+ * 4. Reloads the page to apply updates
  * 
- * This hook monitors the existing service worker registration (created by
- * vite-plugin-pwa) to provide visibility into the update process.
- * 
- * @returns Update state and methods
+ * Note: In development mode, this hook is disabled to avoid SW registration errors.
  */
-export function usePWAUpdate() {
-  const [state, setState] = useState<PWAUpdateState>({
-    isUpdateAvailable: false,
-    isUpdating: false,
-    updateError: null,
-  });
+export const usePWAUpdate = () => {
+  // In development, just return a no-op implementation
+  const forceUpdate = useCallback(() => {
+    if (!isProduction) {
+      console.log('[PWA] Service worker updates disabled in development mode');
+      return;
+    }
+    console.log('[PWA] Forcing update and reload...');
+    // In production, this will be handled by the visibility change listener
+  }, []);
 
+  // Check for updates when document becomes visible (critical for iOS PWAs)
   useEffect(() => {
-    // Only run in browser environment
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    // Skip all SW operations in development mode
+    if (!isProduction) {
       return;
     }
 
-    let registration: ServiceWorkerRegistration | null = null;
-    let updateInterval: NodeJS.Timeout | null = null;
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[PWA] App became visible, checking for updates...');
 
-    const checkForUpdates = async () => {
-      try {
-        registration = await navigator.serviceWorker.getRegistration();
-        
-        if (!registration) {
-          return;
-        }
-
-        // Check if there's a waiting service worker (update available)
-        if (registration.waiting) {
-          setState(prev => ({
-            ...prev,
-            isUpdateAvailable: true,
-          }));
-        }
-
-        // Listen for when a new service worker is installed
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration?.installing;
-          
-          if (!newWorker) {
-            return;
-          }
-
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed') {
-              // New service worker installed
-              if (navigator.serviceWorker.controller) {
-                // There's a controller, so this is an update
-                setState(prev => ({
-                  ...prev,
-                  isUpdateAvailable: true,
-                }));
-              }
-            }
-          });
-        });
-
-        // Listen for when the service worker takes control (update activated)
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          setState(prev => ({
-            ...prev,
-            isUpdateAvailable: false,
-            isUpdating: false,
-          }));
-        });
-
-        // Check for updates periodically (every 5 minutes)
-        updateInterval = setInterval(() => {
+        try {
+          const registration = await navigator.serviceWorker?.getRegistration();
           if (registration) {
-            registration.update().catch((error) => {
-              setState(prev => ({
-                ...prev,
-                updateError: error instanceof Error ? error : new Error('Update check failed'),
-              }));
-            });
-          }
-        }, 5 * 60 * 1000);
+            await registration.update();
 
-        // Initial update check
-        await registration.update();
-      } catch (error) {
-        setState(prev => ({
-          ...prev,
-          updateError: error instanceof Error ? error : new Error('Unknown error'),
-        }));
+            // If there's a waiting worker, activate it immediately
+            if (registration.waiting) {
+              console.log('[PWA] Found waiting worker, activating...');
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              window.location.reload();
+            }
+          }
+        } catch (error) {
+          // Silently ignore errors in development or when SW is not available
+          if (isProduction) {
+            console.error('[PWA] Visibility update check failed:', error);
+          }
+        }
       }
     };
 
-    // Wait for service worker to be ready, then check for updates
-    navigator.serviceWorker.ready.then(() => {
-      checkForUpdates();
-    });
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
 
-    // Cleanup function
     return () => {
-      if (updateInterval) {
-        clearInterval(updateInterval);
-      }
-      registration = null;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, []);
 
-  /**
-   * Manually check for updates
-   */
-  const checkForUpdate = async () => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-      return;
-    }
+  // Set up periodic update checks in production only
+  useEffect(() => {
+    if (!isProduction) return;
 
-    try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration) {
-        await registration.update();
+    const checkForUpdates = async () => {
+      try {
+        const registration = await navigator.serviceWorker?.getRegistration();
+        if (registration) {
+          console.log('[PWA] Periodic update check...');
+          await registration.update();
+        }
+      } catch (error) {
+        // Silently ignore
       }
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        updateError: error instanceof Error ? error : new Error('Unknown error'),
-      }));
-    }
-  };
+    };
 
-  /**
-   * Skip waiting and activate the new service worker immediately
-   * Note: With autoUpdate, updates activate automatically on next page load.
-   * This method can be used to force immediate activation if needed.
-   */
-  const skipWaiting = async () => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-      return;
-    }
+    const interval = setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL);
 
-    try {
-      setState(prev => ({ ...prev, isUpdating: true }));
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration?.waiting) {
-        // Send skip waiting message to the waiting service worker
-        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        // Reload the page to activate the new service worker
-        window.location.reload();
-      }
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        updateError: error instanceof Error ? error : new Error('Unknown error'),
-        isUpdating: false,
-      }));
-    }
-  };
+    // Check immediately on first load
+    checkForUpdates();
 
-  return {
-    ...state,
-    checkForUpdate,
-    skipWaiting,
-  };
-}
+    return () => clearInterval(interval);
+  }, []);
 
+  return { needRefresh: false, forceUpdate };
+};

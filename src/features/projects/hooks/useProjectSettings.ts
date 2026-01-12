@@ -10,7 +10,8 @@ import { handleError } from '@/lib/errorUtils';
 import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ParticipantWithUser, ProjectPermissions } from './types';
-import { useLeaveProject } from './useProjects';
+import { useLeaveProject, useUpdateProject } from './useProjects';
+import { notifyProjectUpdated } from '@/lib/tasks/taskEmailNotifications';
 
 interface UseProjectSettingsParams {
   projectId: string | undefined;
@@ -40,13 +41,18 @@ export const useProjectSettings = ({
   // Permissions
   const permissions: ProjectPermissions = useMemo(() => {
     if (!currentProject || !user) {
-      return { isOwner: false, isManager: false, canManage: false, canLeave: false };
+      return { isOwner: false, isManager: false, canManage: false, canLeave: false, isParticipant: false };
     }
 
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
     const ownerId = typeof currentProject.ownerId === 'string' ? parseInt(currentProject.ownerId) : currentProject.ownerId;
 
     const isOwner = ownerId === userId;
+    const isParticipant = participants.some(p => {
+      const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+      return pUserId === userId;
+    }) || isOwner;
+
     const isManager = participants.some(p => {
       const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
       return pUserId === userId && p.role === 'manager';
@@ -56,36 +62,42 @@ export const useProjectSettings = ({
       isOwner,
       isManager,
       canManage: isOwner || isManager,
-      canLeave: !isOwner,
+      canLeave: isParticipant && !isOwner,
+      isParticipant,
     };
   }, [currentProject, user, participants]);
 
   /**
    * Edit project details
    */
+
+  const mutation = useUpdateProject();
   const handleEditProject = useCallback(async (projectData: { name: string; description: string; icon?: string }) => {
     if (!currentProject) return;
 
     try {
-      const db = getDatabaseClient();
       const pId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
-      await db.projects.update(pId, {
-        name: projectData.name,
-        description: projectData.description,
-        icon: projectData.icon
+      await mutation.mutateAsync({
+        id: pId,
+        data: {
+          name: projectData.name,
+          description: projectData.description,
+          icon: projectData.icon
+        }
       });
 
-      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      // Invalidation is handled by the mutation
+      if (user) {
+        notifyProjectUpdated(pId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch(err => {
+          console.error('Failed to send project update notification:', err);
+        });
+      }
 
-      toast.success('Project updated', {
-        description: 'Project settings have been saved'
-      });
       setShowEditProjectForm(false);
     } catch (error) {
-      handleError(error, 'handleEditProject');
+      // Error handled by mutation
     }
-  }, [currentProject, projectId, queryClient]);
+  }, [currentProject, mutation]);
 
   /**
    * Leave the project

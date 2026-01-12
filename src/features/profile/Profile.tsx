@@ -111,26 +111,28 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
         animate={{ opacity: 1, y: 0 }}
       >
         <Card className="p-6">
-          <div className="flex items-start gap-6">
-            <Avatar className="w-24 h-24 ring-4 ring-border">
+          <div className="flex items-center gap-6">
+            <Avatar className="w-24 h-24 ring-4 ring-border shrink-0">
               <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-              <AvatarFallback className="text-2xl">
-                {currentUser.name.charAt(0)}
+              <AvatarFallback className="text-2xl font-bold">
+                {currentUser.name.split(' ').map(n => n.charAt(0)).join('').slice(0, 2)}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold mb-1">{currentUser.name}</h1>
-              <p className="text-muted-foreground mb-4">{currentUser.handle}</p>
+            <div className="flex-1 space-y-3">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">{currentUser.name}</h1>
+                <p className="text-muted-foreground text-sm font-medium">{currentUser.handle}</p>
+              </div>
 
-              <div className="flex flex-wrap gap-3 mt-4">
-                <Badge variant="secondary" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold shadow-sm">
-                  <Trophy className="w-4 h-4 text-accent" />
-                  Level {userLevel}
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="px-3 py-1.5 rounded-full border-border bg-background">
+                  <Trophy className="w-4 h-4 mr-1.5 text-accent" />
+                  <span className="font-semibold text-foreground">Level {userLevel}</span>
                 </Badge>
-                <Badge variant="outline" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold bg-background/50 border-border/60">
-                  <Target className="w-4 h-4 text-primary" />
-                  {sortedProjects.length} Active Projects
+                <Badge variant="outline" className="px-3 py-1.5 rounded-full border-border bg-background">
+                  <Target className="w-4 h-4 mr-1.5 text-primary" />
+                  <span className="font-semibold text-foreground">{sortedProjects.length} Active Projects</span>
                 </Badge>
               </div>
             </div>

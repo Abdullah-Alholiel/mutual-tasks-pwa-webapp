@@ -8,7 +8,6 @@ import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizonta
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { getDatabaseClient } from '@/db';
-import { useState, useEffect, useMemo, memo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { cn } from '@/lib/utils';
@@ -23,6 +22,9 @@ import {
 } from '../../../lib/tasks/taskUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
+import { useState, useEffect, useMemo, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useProject } from '@/features/projects/hooks/useProjects';
 
 interface TaskCardProps {
   task: Task;
@@ -34,10 +36,12 @@ interface TaskCardProps {
   onDelete?: (taskId: string | number) => void;
   onEdit?: (task: Task) => void;
   showRecover?: boolean; // If false, hide recover button (for today's view)
+  showMemberInfo?: boolean; // If false, hide participant details for non-members
 }
 
-const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, onDelete, onEdit, showRecover = true }: TaskCardProps) => {
+const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, onDelete, onEdit, showRecover = true, showMemberInfo = true }: TaskCardProps) => {
   const { user: currentUser } = useAuth();
+  const navigate = useNavigate();
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const queryClient = useQueryClient();
@@ -57,17 +61,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     gcTime: 1000 * 60 * 30, // Keep in garbage collection for 30 minutes
   });
 
-  // Use React Query for project data with proper caching
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: async () => {
-      const db = getDatabaseClient();
-      return await db.projects.getById(projectId);
-    },
-    enabled: !!projectId,
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
-    gcTime: 1000 * 60 * 30, // Keep in garbage collection for 30 minutes
-  });
+  // Use shared useProject hook for consistency
+  const { data: project } = useProject(projectId);
 
   // Extract unique participant user IDs
   const participantUserIds = useMemo(() => {
@@ -140,6 +135,20 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
   // Use calculated user status directly for UI
   const uiStatus: TaskStatus = taskStatusUserStatus;
 
+  // Permission checks
+  const isModifiableStatus = uiStatus === 'active' || uiStatus === 'upcoming';
+  const canModify = useMemo(() => {
+    if (!project || !currentUser) return false;
+    const userId = normalizeId(currentUser.id);
+
+    // Project owner always has permission
+    if (normalizeId(project.ownerId) === userId) return true;
+
+    // Check participant role
+    const participant = project.participantRoles?.find(p => normalizeId(p.userId) === userId);
+    return participant?.role === 'owner' || participant?.role === 'manager';
+  }, [project, currentUser]);
+
   const isTaskArchived = uiStatus === 'archived';
 
   // Use modular utilities for task actions
@@ -200,7 +209,11 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   {project && (
                     <Badge
                       variant="outline"
-                      className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all duration-300 shadow-sm"
+                      className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/projects/${project.id}`);
+                      }}
                       style={project.color ? {
                         backgroundColor: adjustColorOpacity(project.color, 0.15),
                         borderColor: adjustColorOpacity(project.color, 0.3),
@@ -256,7 +269,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   {uiStatus}
                 </Badge>
                 <div className="flex items-center gap-1">
-                  {onEdit && (
+                  {onEdit && canModify && isModifiableStatus && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -269,7 +282,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  {onDelete && (
+                  {onDelete && canModify && isModifiableStatus && (
                     <Button
                       variant="ghost"
                       size="icon"
@@ -288,174 +301,195 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             </div>
 
             {/* Participants & Completion Status */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center min-w-0">
-                {/* Show unique participants */}
-                {task.taskStatus && task.taskStatus.length > 0 && (() => {
-                  const uniqueParticipantsMap = new Map<string | number, { userId: string | number; status: TaskStatusEntity }>();
+            {showMemberInfo && (
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center min-w-0">
+                  {/* Show unique participants */}
+                  {task.taskStatus && task.taskStatus.length > 0 && (() => {
+                    const uniqueParticipantsMap = new Map<string | number, { userId: string | number; status: TaskStatusEntity }>();
 
-                  // Add all participants
-                  task.taskStatus.forEach(ts => {
-                    const tsUserId = ts.userId;
-                    if (!uniqueParticipantsMap.has(tsUserId)) {
-                      uniqueParticipantsMap.set(tsUserId, { userId: tsUserId, status: ts });
-                    }
-                  });
+                    // Add all participants
+                    task.taskStatus.forEach(ts => {
+                      const tsUserId = ts.userId;
+                      if (!uniqueParticipantsMap.has(tsUserId)) {
+                        uniqueParticipantsMap.set(tsUserId, { userId: tsUserId, status: ts });
+                      }
+                    });
 
-                  const currentUserIdNum = currentUser ? normalizeId(currentUser.id) : null;
+                    const currentUserIdNum = currentUser ? normalizeId(currentUser.id) : null;
 
-                  const allParticipants = Array.from(uniqueParticipantsMap.values()).sort((a, b) => {
-                    if (currentUserIdNum === null) return 0;
-                    const bId = normalizeId(b.userId);
-                    const aId = normalizeId(a.userId);
+                    const allParticipants = Array.from(uniqueParticipantsMap.values()).sort((a, b) => {
+                      if (currentUserIdNum === null) return 0;
+                      const bId = normalizeId(b.userId);
+                      const aId = normalizeId(a.userId);
 
-                    // Always put current user first
-                    if (aId === currentUserIdNum) return -1;
-                    if (bId === currentUserIdNum) return 1;
-                    return 0;
-                  });
+                      // Always put current user first
+                      if (aId === currentUserIdNum) return -1;
+                      if (bId === currentUserIdNum) return 1;
+                      return 0;
+                    });
 
-                  const maxVisible = 2;
-                  const visibleParticipants = allParticipants.slice(0, maxVisible);
-                  const remainingCount = allParticipants.length - maxVisible;
+                    const maxVisible = 2;
+                    const visibleParticipants = allParticipants.slice(0, maxVisible);
+                    const remainingCount = allParticipants.length - maxVisible;
 
-                  return (
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {/* Added py-1 to prevent ring clipping */}
-                      <div className="flex items-center gap-2 py-1 overflow-visible">
-                        {visibleParticipants.map((participant, index) => {
-                          const participantCompletion = completionLogs.find(log => {
-                            const logTaskId = normalizeId(log.taskId);
-                            const logUserId = normalizeId(log.userId);
-                            const taskIdNum = normalizeId(task.id);
-                            const partUserId = normalizeId(participant.userId);
-                            return logTaskId === taskIdNum && logUserId === partUserId;
-                          });
+                    return (
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {/* Added py-1 to prevent ring clipping */}
+                        <div className="flex items-center gap-2 py-1 overflow-visible">
+                          {visibleParticipants.map((participant, index) => {
+                            const participantCompletion = completionLogs.find(log => {
+                              const logTaskId = normalizeId(log.taskId);
+                              const logUserId = normalizeId(log.userId);
+                              const taskIdNum = normalizeId(task.id);
+                              const partUserId = normalizeId(participant.userId);
+                              return logTaskId === taskIdNum && logUserId === partUserId;
+                            });
 
-                          const participantUiStatus = calculateTaskStatusUserStatus(
-                            participant.status,
-                            participantCompletion,
-                            task
-                          );
-                          const isParticipantCompleted =
-                            participantCompletion !== undefined || participantUiStatus === 'completed';
+                            const participantUiStatus = calculateTaskStatusUserStatus(
+                              participant.status,
+                              participantCompletion,
+                              task
+                            );
+                            const isParticipantCompleted =
+                              participantCompletion !== undefined || participantUiStatus === 'completed';
 
-                          const ringColorClass = getRingColor(participant.status, participantCompletion, task);
+                            const ringColorClass = getRingColor(participant.status, participantCompletion, task);
 
-                          const participantUserId = normalizeId(participant.userId);
-                          const user = participantUsers.get(participantUserId) ||
-                            participant.status.user ||
-                            (currentUser && normalizeId(currentUser.id) === participantUserId ? currentUser : null);
+                            const participantUserId = normalizeId(participant.userId);
+                            const user = participantUsers.get(participantUserId) ||
+                              participant.status.user ||
+                              (currentUser && normalizeId(currentUser.id) === participantUserId ? currentUser : null);
 
-                          const userName = user?.name || '';
-                          const userAvatar = user?.avatar || '';
-                          const userInitial = userName ? userName.charAt(0).toUpperCase() : '?';
+                            const userName = user?.name || '';
+                            const userAvatar = user?.avatar || '';
+                            const userInitial = userName ? userName.charAt(0).toUpperCase() : '?';
 
-                          return (
-                            <div key={String(participant.userId)} className="flex items-center gap-1.5 shrink-0">
-                              {index > 0 && <div className="h-5 w-[1px] bg-border/40 mx-0.5" />}
-                              <Avatar className={cn("w-8 h-8 sm:w-9 sm:h-9 ring-2 ring-offset-2 ring-offset-background shrink-0 transition-all duration-300 hover:scale-110", ringColorClass)}>
-                                <AvatarImage src={userAvatar} alt={userName} />
-                                <AvatarFallback className={!user ? 'text-[10px]' : 'text-[10px]'}>
-                                  {userInitial}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="shrink-0">
-                                {isParticipantCompleted ? (
-                                  <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
-                                ) : (
-                                  <Circle className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground/60" />
-                                )}
+                            return (
+                              <div key={String(participant.userId)} className="flex items-center gap-1.5 shrink-0">
+                                {index > 0 && <div className="h-5 w-[1px] bg-border/40 mx-0.5" />}
+                                <Avatar className={cn("w-8 h-8 sm:w-9 sm:h-9 ring-2 ring-offset-2 ring-offset-background shrink-0 transition-all duration-300 hover:scale-110", ringColorClass)}>
+                                  <AvatarImage src={userAvatar} alt={userName} />
+                                  <AvatarFallback className={!user ? 'text-[10px]' : 'text-[10px]'}>
+                                    {userInitial}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="shrink-0">
+                                  {isParticipantCompleted ? (
+                                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
+                                  ) : (
+                                    <Circle className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground/60" />
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
+
+                        {remainingCount > 0 && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowParticipantsModal(true);
+                            }}
+                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full p-0 flex items-center justify-center text-[11px] sm:text-xs font-bold border-2 border-border/40 bg-muted/50 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-300 shrink-0 shadow-sm"
+                          >
+                            +{remainingCount}
+                          </Button>
+                        )}
                       </div>
+                    );
+                  })()}
+                </div>
 
-                      {remainingCount > 0 && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowParticipantsModal(true);
-                          }}
-                          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full p-0 flex items-center justify-center text-[11px] sm:text-xs font-bold border-2 border-border/40 bg-muted/50 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-300 shrink-0 shadow-sm"
-                        >
-                          +{remainingCount}
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
+                {(() => {
+                  // For recovered tasks, show original due date with yellow "Recovered" badge
+                  // Only show for the current user who recovered the task
+                  if (isRecovered && myTaskStatus?.recoveredAt && task.dueDate) {
+                    const originalDueDate = new Date(task.dueDate);
+                    const recoveredDate = new Date(myTaskStatus.recoveredAt);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const recoveredDateOnly = new Date(recoveredDate);
+                    recoveredDateOnly.setHours(0, 0, 0, 0);
+                    const isRecoveredToday = recoveredDateOnly.getTime() === today.getTime();
 
-              {(() => {
-                // For recovered tasks, show original due date with yellow "Recovered" badge
-                // Only show for the current user who recovered the task
-                if (isRecovered && myTaskStatus?.recoveredAt && task.dueDate) {
-                  const originalDueDate = new Date(task.dueDate);
-                  const recoveredDate = new Date(myTaskStatus.recoveredAt);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const recoveredDateOnly = new Date(recoveredDate);
-                  recoveredDateOnly.setHours(0, 0, 0, 0);
-                  const isRecoveredToday = recoveredDateOnly.getTime() === today.getTime();
+                    // Format the original due date
+                    const originalDateLabel = originalDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-                  // Format the original due date
-                  const originalDateLabel = originalDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    // Show original due date with "Recovered" indicator in yellow
+                    const recoveredLabel = isRecoveredToday ? 'Recovered Today' : `Recovered ${recoveredDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
-                  // Show original due date with "Recovered" indicator in yellow
-                  const recoveredLabel = isRecoveredToday ? 'Recovered Today' : `Recovered ${recoveredDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-
-                  return (
-                    <div className="flex flex-col items-end gap-0.5">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground line-through">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{originalDateLabel}</span>
+                    return (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground line-through">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{originalDateLabel}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-yellow-500 font-medium">
+                          <RotateCcw className="w-3 h-3" />
+                          <span>{recoveredLabel}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-yellow-500 font-medium">
-                        <RotateCcw className="w-3 h-3" />
-                        <span>{recoveredLabel}</span>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Default: show task due date
-                if (task.dueDate) {
-                  const dueDate = new Date(task.dueDate);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const dueDateOnly = new Date(dueDate);
-                  dueDateOnly.setHours(0, 0, 0, 0);
-                  const isToday = dueDateOnly.getTime() === today.getTime();
-                  const isTomorrow = dueDateOnly.getTime() === today.getTime() + 86400000;
-
-                  let dateLabel = '';
-                  if (isToday) {
-                    dateLabel = 'Today';
-                  } else if (isTomorrow) {
-                    dateLabel = 'Tomorrow';
-                  } else {
-                    dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    );
                   }
 
-                  return (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{dateLabel}</span>
-                    </div>
-                  );
-                }
+                  // Default: show task due date
+                  if (task.dueDate) {
+                    const dueDate = new Date(task.dueDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dueDateOnly = new Date(dueDate);
+                    dueDateOnly.setHours(0, 0, 0, 0);
+                    const isToday = dueDateOnly.getTime() === today.getTime();
+                    const isTomorrow = dueDateOnly.getTime() === today.getTime() + 86400000;
 
-                return null;
-              })()}
-            </div>
+                    let dateLabel = '';
+                    if (isToday) {
+                      dateLabel = 'Today';
+                    } else if (isTomorrow) {
+                      dateLabel = 'Tomorrow';
+                    } else {
+                      dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    }
+
+                    return (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{dateLabel}</span>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
+              </div>
+            )}
+
+            {/* Default fallback for date when showMemberInfo is false */}
+            {!showMemberInfo && task.dueDate && (
+              <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                <Clock className="w-3.5 h-3.5" />
+                <span>
+                  {(() => {
+                    const dueDate = new Date(task.dueDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dueDateOnly = new Date(dueDate);
+                    dueDateOnly.setHours(0, 0, 0, 0);
+                    if (dueDateOnly.getTime() === today.getTime()) return 'Today';
+                    if (dueDateOnly.getTime() === today.getTime() + 86400000) return 'Tomorrow';
+                    return dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  })()}
+                </span>
+              </div>
+            )}
 
             {/* Actions */}
             <AnimatePresence mode="wait">
-              {/* Show Recover button for archived tasks, Mark Complete for active tasks */}
+              {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
               {shouldShowRecover && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -488,7 +522,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                     size="sm"
                   >
                     <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Mark Complete
+                    Mark as Completed
                   </Button>
                 </motion.div>
               )}
@@ -675,6 +709,9 @@ export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
 
   // 4. Task status array changed
   if (prevProps.task.taskStatus?.length !== nextProps.task.taskStatus?.length) return false;
+
+  // 5. Member info visibility changed
+  if (prevProps.showMemberInfo !== nextProps.showMemberInfo) return false;
 
   // Props are equal, skip re-render
   return true;

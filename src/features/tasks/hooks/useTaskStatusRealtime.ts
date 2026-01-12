@@ -5,26 +5,16 @@
 // so all task views (Today, Project, etc.) reflect multi-user status updates fast.
 // ============================================================================
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { RealtimeChannel } from '@supabase/supabase-js';
-import { getSharedSupabaseClientOrUndefined } from '@/lib/supabaseClient';
+import { useOptimisticSubscription } from '@/hooks/useOptimisticSubscription';
+import { transformTaskStatusRow, toNumberId, type TaskStatusRow } from '@/db/transformers';
+import type { Task, TaskStatusEntity } from '@/types';
 
 interface UseTaskStatusRealtimeParams {
   enabled?: boolean;
-  /**
-   * Subscribe narrowly to these task IDs when provided (recommended).
-   * If omitted/empty, we fall back to subscribing by `userId` (less useful for multi-user).
-   */
   taskIds?: Array<string | number>;
-  /**
-   * Optional fallback subscription filter.
-   * Note: subscribing by userId only captures *your* status changes, not other users.
-   */
   userId?: number | null;
-  /**
-   * Optional extra query keys to invalidate (beyond the default task + taskStatuses keys).
-   */
   extraInvalidateQueryKeys?: unknown[][];
 }
 
@@ -35,115 +25,98 @@ export const useTaskStatusRealtime = ({
   extraInvalidateQueryKeys = [],
 }: UseTaskStatusRealtimeParams) => {
   const queryClient = useQueryClient();
-  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const normalizedTaskIds = useMemo(() => {
     const ids = (taskIds || [])
       .map((id) => (typeof id === 'string' ? parseInt(id) : id))
       .filter((id): id is number => Number.isFinite(id));
-    // de-dupe for stable filter strings
     return Array.from(new Set(ids));
   }, [taskIds]);
 
-  useEffect(() => {
-    if (!enabled) return;
+  const hasTaskFilter = normalizedTaskIds.length > 0 && normalizedTaskIds.length <= 100;
+  // If no taskIds and no userId provided, we can't subscribe safely (unless we want ALL stats?)
+  // Original logic required userId if no taskIds. 
+  // We'll use 0 as fallback if needed but usually userId is provided.
+  const effectiveUserId = userId ?? 0;
+  const subscriptionEnabled = enabled && (hasTaskFilter || !!userId);
 
-    const supabase = getSharedSupabaseClientOrUndefined();
-    if (!supabase) {
-      console.warn('Supabase not configured, real-time task status updates disabled');
-      return;
-    }
+  // 1. Optimistic Update for 'taskStatuses' (Standalone Status Entities)
+  useOptimisticSubscription<TaskStatusEntity[]>({
+    channelName: 'tasks', // Mapped to 'task_statuses' table in RealtimeManager
+    queryKey: ['taskStatuses'],
+    userId: effectiveUserId,
+    enabled: subscriptionEnabled,
+    filter: { taskIds: hasTaskFilter ? normalizedTaskIds : undefined },
+    invalidateDelay: 1000,
+    updater: (oldData = [], payload) => {
+      const row = payload.new as TaskStatusRow;
+      const oldRow = payload.old as { id: string };
 
-    // Clean up existing subscription if any
-    const existingChannel = channelRef.current;
-    if (existingChannel) {
-      try {
-        supabase.removeChannel(existingChannel);
-      } catch (err) {
-        // Ignore cleanup errors - channel might already be removed
+      switch (payload.eventType) {
+        case 'INSERT':
+          return [...oldData, transformTaskStatusRow(row)];
+        case 'UPDATE':
+          return oldData.map(item => item.id === toNumberId(row.id) ? transformTaskStatusRow(row) : item);
+        case 'DELETE':
+          return oldData.filter(item => item.id !== toNumberId(oldRow.id));
+        default:
+          return oldData;
       }
-      channelRef.current = null;
+    },
+    // Side Effect: Invalidate completion logs and extras
+    sideEffect: () => {
+      queryClient.invalidateQueries({ queryKey: ['completionLogs'] });
+      extraInvalidateQueryKeys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
     }
+  });
 
-    // Prefer task_id IN filter (captures OTHER users completing tasks you can see)
-    const hasTaskFilter = normalizedTaskIds.length > 0 && normalizedTaskIds.length <= 100;
-    const filter = hasTaskFilter
-      ? `task_id=in.(${normalizedTaskIds.join(',')})`
-      : userId
-        ? `user_id=eq.${userId}`
-        : undefined;
+  // 2. Optimistic Update for 'tasks' (Embedded Statuses)
+  // When a status changes, we need to find the task and update its 'taskStatus' array
+  useOptimisticSubscription<Task[]>({
+    channelName: 'tasks',
+    queryKey: ['tasks'],
+    userId: effectiveUserId,
+    enabled: subscriptionEnabled,
+    filter: { taskIds: hasTaskFilter ? normalizedTaskIds : undefined },
+    invalidateDelay: 1000,
+    updater: (oldTasks = [], payload) => {
+      const row = payload.new as TaskStatusRow;
+      const oldRow = payload.old as { id: string };
+      const statusId = payload.eventType === 'DELETE' ? toNumberId(oldRow.id) : toNumberId(row.id);
+      const targetTaskId = payload.eventType === 'DELETE' ? undefined : toNumberId(row.task_id); // DELETE payload might not have task_id
 
-    if (!filter) return;
+      // For DELETE, we might not know which task it belonged to unless we search
+      // Optimistic DELETE for nested items is tricky without parent ID.
+      // If generic DELETE, we iterate all tasks.
 
-    // Use unique channel name to avoid conflicts
-    const baseChannelName = hasTaskFilter 
-      ? `task_statuses:tasks:${normalizedTaskIds.join(',')}` 
-      : `task_statuses:user:${userId}`;
-    const channelName = `${baseChannelName}:${Date.now()}`;
+      return oldTasks.map(task => {
+        // If INSERT/UPDATE, check match
+        if (targetTaskId && task.id === targetTaskId) {
+          const currentStatuses = task.taskStatus || [];
+          let newStatuses = [...currentStatuses];
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'task_statuses',
-          filter,
-        },
-        () => {
-          try {
-            // Immediately refetch active queries for instant UI updates
-            // `tasks` queries include embedded statuses, so refetching tasks is essential.
-            Promise.all([
-              queryClient.refetchQueries({ queryKey: ['tasks'] }),
-              queryClient.refetchQueries({ queryKey: ['taskStatuses'] }),
-              queryClient.refetchQueries({ queryKey: ['completionLogs'] }),
-              ...extraInvalidateQueryKeys.map((key) => queryClient.refetchQueries({ queryKey: key })),
-            ]).catch((err) => {
-              // If refetch fails, fall back to invalidation
-              console.warn('Real-time refetch failed, falling back to invalidation:', err);
-              queryClient.invalidateQueries({ queryKey: ['tasks'] });
-              queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
-              queryClient.invalidateQueries({ queryKey: ['completionLogs'] });
-              extraInvalidateQueryKeys.forEach((key) => {
-                queryClient.invalidateQueries({ queryKey: key });
-              });
-            });
-          } catch (err) {
-            console.error('Error processing task status update:', err);
+          if (payload.eventType === 'INSERT') {
+            newStatuses.push(transformTaskStatusRow(row));
+          } else if (payload.eventType === 'UPDATE') {
+            newStatuses = newStatuses.map(s => s.id === statusId ? transformTaskStatusRow(row) : s);
+          }
+          return { ...task, taskStatus: newStatuses };
+        }
+
+        // If DELETE, remove from any task having this status
+        if (payload.eventType === 'DELETE') {
+          if (task.taskStatus?.some(s => s.id === statusId)) {
+            return {
+              ...task,
+              taskStatus: task.taskStatus.filter(s => s.id !== statusId)
+            };
           }
         }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Task status realtime subscription active');
-        } else if (status === 'CHANNEL_ERROR') {
-          // Only log error, don't attempt cleanup here as it may cause issues
-          if (err) {
-            console.error('Task status realtime subscription error:', err);
-          }
-        } else if (status === 'TIMED_OUT') {
-          console.warn('Task status realtime subscription timed out');
-        } else if (status === 'CLOSED') {
-          console.log('Task status realtime subscription closed');
-        }
+
+        return task;
       });
-
-    channelRef.current = channel;
-
-    return () => {
-      const channelToRemove = channelRef.current;
-      if (channelToRemove) {
-        try {
-          supabase.removeChannel(channelToRemove);
-        } catch (err) {
-          // Ignore cleanup errors
-        }
-        channelRef.current = null;
-      }
-    };
-  }, [enabled, normalizedTaskIds, userId, extraInvalidateQueryKeys, queryClient]);
+    }
+  });
 };
 
 

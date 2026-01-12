@@ -88,6 +88,7 @@ export interface ProjectPermissions {
   isManager: boolean;
   canManage: boolean;
   canLeave: boolean;
+  isParticipant: boolean;
 }
 
 /**

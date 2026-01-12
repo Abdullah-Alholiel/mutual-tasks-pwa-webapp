@@ -141,7 +141,7 @@ export const ProjectStats = ({
                     ...(project.participants?.map(u => typeof u.id === 'string' ? parseInt(u.id) : u.id) || [])
                   ]).size;
                   return totalUnique > 4 && (
-                    <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center shadow-sm">
+                    <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center shadow-sm relative z-10">
                       <span className="text-[10px] font-bold text-muted-foreground">
                         +{totalUnique - 4}
                       </span>

@@ -240,7 +240,7 @@ export const TaskForm = ({
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
           {/* Project Selection (if allowed) */}
-          {allowProjectSelection && (
+          {allowProjectSelection && !initialTask && (
             <div className="space-y-2">
               <Label>Project *</Label>
               <div className="space-y-2">
@@ -315,7 +315,7 @@ export const TaskForm = ({
             </div>
           )}
 
-          {project && !allowProjectSelection && (
+          {project && (!allowProjectSelection || initialTask) && (
             <div className="flex items-center gap-2 mb-2">
               <Badge
                 variant="secondary"

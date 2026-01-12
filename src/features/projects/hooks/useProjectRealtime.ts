@@ -1,14 +1,13 @@
 // ============================================================================
 // useProjectRealtime Hook - Real-Time Project Updates with Supabase
 // ============================================================================
-// Provides real-time project updates when members are added/removed
+// Provides real-time project updates with optimistic caching
 // ============================================================================
 
-import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { RealtimeChannel } from '@supabase/supabase-js';
-import { getSharedSupabaseClientOrUndefined } from '@/lib/supabaseClient';
-
+import { useOptimisticSubscription } from '@/hooks/useOptimisticSubscription';
+import { toNumberId, type TaskRow } from '@/db/transformers';
+import type { Project, Task } from '@/types';
 
 interface UseProjectRealtimeParams {
   userId: number | null | undefined;
@@ -16,299 +15,110 @@ interface UseProjectRealtimeParams {
 }
 
 /**
- * Hook for subscribing to real-time project updates
- * Automatically invalidates project queries when:
- * - User is added to a project
- * - User is removed from a project
- * - Project is updated
+ * Hook for subscribing to real-time project list updates
  */
 export const useProjectRealtime = ({
   userId,
   enabled = true,
 }: UseProjectRealtimeParams) => {
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const queryClient = useQueryClient();
 
-  // Invalidate project-related queries
-  const invalidateProjects = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['projects'] });
-    queryClient.invalidateQueries({ queryKey: ['projects', 'public'] });
-    queryClient.invalidateQueries({ queryKey: ['projects', 'with-stats'] });
-  }, [queryClient]);
-
-  useEffect(() => {
-    if (!userId || !enabled) return;
-
-    const supabase = getSharedSupabaseClientOrUndefined();
-    if (!supabase) {
-      console.warn('Supabase not configured, real-time project updates disabled');
-      return;
+  // Optimistic update for project list is limited because 'project_participants' 
+  // doesn't contain project data (name, icon). So we rely on invalidation.
+  useOptimisticSubscription({
+    channelName: 'projects',
+    queryKey: ['projects'],
+    userId,
+    enabled,
+    updater: (oldData) => oldData, // No optimistic update possible for list items just from ID
+    invalidateDelay: 500,
+    sideEffect: () => {
+      // Also invalidate public/stats variants
+      queryClient.invalidateQueries({ queryKey: ['projects', 'public'] });
+      queryClient.invalidateQueries({ queryKey: ['projects', 'with-stats'] });
     }
-
-    // Clean up existing subscription if any
-    const existingChannel = channelRef.current;
-    if (existingChannel) {
-      try {
-        supabase.removeChannel(existingChannel);
-      } catch (err) {
-        // Ignore cleanup errors - channel might already be removed
-      }
-      channelRef.current = null;
-    }
-
-    // Use unique channel name to avoid conflicts
-    const channelName = `project_participants:${userId}:${Date.now()}`;
-    // Subscribe to project_participants changes for this user
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'project_participants',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          try {
-            // User was added to a project - refetch immediately for instant UI updates
-            console.log('User added to project:', payload);
-            const projectId = payload.new?.project_id;
-            Promise.all([
-              queryClient.refetchQueries({ queryKey: ['projects'] }),
-              queryClient.refetchQueries({ queryKey: ['projects', 'public'] }),
-              queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
-              ...(projectId ? [
-                queryClient.refetchQueries({ queryKey: ['project', projectId] }),
-                queryClient.refetchQueries({ queryKey: ['project', String(projectId)] }),
-              ] : []),
-            ]).catch((err) => {
-              console.warn('Real-time refetch failed, falling back to invalidation:', err);
-              invalidateProjects();
-              if (projectId) {
-                queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-                queryClient.invalidateQueries({ queryKey: ['project', String(projectId)] });
-              }
-            });
-          } catch (err) {
-            console.error('Error processing participant INSERT:', err);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'project_participants',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          try {
-            // Participant info updated (e.g., role change) - refetch immediately
-            console.log('Participant updated:', payload);
-            const projectId = payload.new?.project_id;
-            Promise.all([
-              queryClient.refetchQueries({ queryKey: ['projects'] }),
-              queryClient.refetchQueries({ queryKey: ['projects', 'public'] }),
-              queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
-              ...(projectId ? [
-                queryClient.refetchQueries({ queryKey: ['project', projectId] }),
-                queryClient.refetchQueries({ queryKey: ['project', String(projectId)] }),
-              ] : []),
-            ]).catch((err) => {
-              console.warn('Real-time refetch failed, falling back to invalidation:', err);
-              invalidateProjects();
-              if (projectId) {
-                queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-                queryClient.invalidateQueries({ queryKey: ['project', String(projectId)] });
-              }
-            });
-          } catch (err) {
-            console.error('Error processing participant UPDATE:', err);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'project_participants',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          try {
-            // User was removed from a project - refetch immediately
-            console.log('User removed from project:', payload);
-            const projectId = (payload.old as any)?.project_id;
-            Promise.all([
-              queryClient.refetchQueries({ queryKey: ['projects'] }),
-              queryClient.refetchQueries({ queryKey: ['projects', 'public'] }),
-              queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
-              ...(projectId ? [
-                queryClient.refetchQueries({ queryKey: ['project', projectId] }),
-                queryClient.refetchQueries({ queryKey: ['project', String(projectId)] }),
-              ] : []),
-            ]).catch((err) => {
-              console.warn('Real-time refetch failed, falling back to invalidation:', err);
-              invalidateProjects();
-              if (projectId) {
-                queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-                queryClient.invalidateQueries({ queryKey: ['project', String(projectId)] });
-              }
-            });
-          } catch (err) {
-            console.error('Error processing participant DELETE:', err);
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Project realtime subscription active');
-        } else if (status === 'CHANNEL_ERROR') {
-          // Only log error, don't attempt cleanup here as it may cause issues
-          if (err) {
-            console.error('Project realtime subscription error:', err);
-          }
-        } else if (status === 'TIMED_OUT') {
-          console.warn('Project realtime subscription timed out');
-        } else if (status === 'CLOSED') {
-          console.log('Project realtime subscription closed');
-        }
-      });
-
-    channelRef.current = channel;
-
-    return () => {
-      const channelToRemove = channelRef.current;
-      if (channelToRemove) {
-        try {
-          supabase.removeChannel(channelToRemove);
-        } catch (err) {
-          // Ignore cleanup errors
-        }
-        channelRef.current = null;
-      }
-    };
-  }, [userId, enabled, invalidateProjects, queryClient]);
+  });
 };
 
 /**
- * Hook for subscribing to a specific project's updates
+ * Hook for subscribing to a specific project's updates (Tasks + Participants)
  */
-export const useProjectDetailRealtime = (projectId: string | number | undefined) => {
-  const channelRef = useRef<RealtimeChannel | null>(null);
+export const useProjectDetailRealtime = (projectId: string | number | undefined, userId?: number | null) => {
   const queryClient = useQueryClient();
+  const projectIdNum = typeof projectId === 'string' ? parseInt(projectId) : projectId;
 
-  useEffect(() => {
-    if (!projectId) return;
+  const enabled = !!projectId;
+  const channelName = (`project-detail:${projectId}`) as any; // Cast to SubscriptionType
 
-    const supabase = getSharedSupabaseClientOrUndefined();
-    if (!supabase) {
-      return;
-    }
-    const projectIdStr = String(projectId);
+  // 1. Optimistic Tasks Update
+  useOptimisticSubscription<Task[]>({
+    channelName,
+    queryKey: ['tasks', 'project', projectIdNum],
+    userId,
+    enabled,
+    filter: { projectId },
+    invalidateDelay: 1000,
+    updater: (oldTasks = [], payload) => {
+      if (payload.table !== 'tasks') return oldTasks;
 
-    // Clean up existing subscription if any
-    const existingChannel = channelRef.current;
-    if (existingChannel) {
-      try {
-        supabase.removeChannel(existingChannel);
-      } catch (err) {
-        // Ignore cleanup errors - channel might already be removed
+      const row = payload.new as TaskRow;
+      const oldRow = payload.old as { id: string };
+
+      switch (payload.eventType) {
+        case 'INSERT':
+          // Can't optimistically insert because we miss assignee/reporter joins
+          return oldTasks;
+        case 'UPDATE':
+          // Partial update if we match ID
+          return oldTasks.map(t => t.id === toNumberId(row.id) ? {
+            ...t,
+            title: row.title,
+            description: row.description || undefined,
+            // Note regarding status: Status is joined from task_statuses.
+            // A generic task UPDATE usually doesn't change status directly (status is separate table).
+            // But if backend triggers update 'updated_at', we reflect it.
+          } : t);
+        case 'DELETE':
+          return oldTasks.filter(t => t.id !== toNumberId(oldRow.id));
+        default:
+          return oldTasks;
       }
-      channelRef.current = null;
     }
+  });
 
-    // Use unique channel name to avoid conflicts
-    const channelName = `project:${projectIdStr}:${Date.now()}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'project_participants',
-          filter: `project_id=eq.${projectIdStr}`,
-        },
-        (payload) => {
-          try {
-            // Project participants changed - refetch immediately
-            console.log('Project participants changed:', payload);
-            Promise.all([
-              queryClient.refetchQueries({ queryKey: ['project', projectId] }),
-              queryClient.refetchQueries({ queryKey: ['project', projectIdStr] }),
-              queryClient.refetchQueries({ queryKey: ['projects'] }),
-            ]).catch((err) => {
-              console.warn('Real-time refetch failed, falling back to invalidation:', err);
-              queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-              queryClient.invalidateQueries({ queryKey: ['project', projectIdStr] });
-              queryClient.invalidateQueries({ queryKey: ['projects'] });
-            });
-          } catch (err) {
-            console.error('Error processing project participant update:', err);
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tasks',
-          filter: `project_id=eq.${projectIdStr}`,
-        },
-        (payload) => {
-          try {
-            // Tasks changed - refetch immediately
-            console.log('Project tasks changed:', payload);
-            Promise.all([
-              queryClient.refetchQueries({ queryKey: ['tasks', 'project', Number(projectId)] }),
-              queryClient.refetchQueries({ queryKey: ['project', projectId] }),
-              queryClient.refetchQueries({ queryKey: ['taskStatuses'] }),
-            ]).catch((err) => {
-              console.warn('Real-time refetch failed, falling back to invalidation:', err);
-              queryClient.invalidateQueries({ queryKey: ['tasks', 'project', Number(projectId)] });
-              queryClient.invalidateQueries({ queryKey: ['project', projectId] });
-              queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
-            });
-          } catch (err) {
-            console.error('Error processing project task update:', err);
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Project detail realtime subscription active');
-        } else if (status === 'CHANNEL_ERROR') {
-          // Only log error, don't attempt cleanup here as it may cause issues
-          if (err) {
-            console.error('Project detail realtime subscription error:', err);
-          }
-        } else if (status === 'TIMED_OUT') {
-          console.warn('Project detail realtime subscription timed out');
-        } else if (status === 'CLOSED') {
-          console.log('Project detail realtime subscription closed');
-        }
-      });
+  // 2. Optimistic Project (Participants) Update
+  useOptimisticSubscription<Project>({
+    channelName,
+    queryKey: ['project', projectId], // AND simple ID?
+    userId,
+    enabled,
+    filter: { projectId },
+    invalidateDelay: 1000,
+    updater: (oldProject, payload) => {
+      if (!oldProject) return undefined;
+      if (payload.table !== 'project_participants') return oldProject;
 
-    channelRef.current = channel;
+      const oldRow = payload.old as { user_id: string };
 
-    return () => {
-      const channelToRemove = channelRef.current;
-      if (channelToRemove) {
-        try {
-          supabase.removeChannel(channelToRemove);
-        } catch (err) {
-          // Ignore cleanup errors
-        }
-        channelRef.current = null;
+      // Optimistic DELETE (Remove member)
+      if (payload.eventType === 'DELETE') {
+        const removedUserId = toNumberId(oldRow.user_id);
+        return {
+          ...oldProject,
+          participants: oldProject.participants?.filter(p => p.id !== removedUserId),
+          participantRoles: oldProject.participantRoles?.filter(p => p.userId !== removedUserId)
+        };
       }
-    };
-  }, [projectId, queryClient]);
+
+      // INSERT/UPDATE requires joined user data, rely on refetch
+      return oldProject;
+    },
+    sideEffect: () => {
+      // Invalidate string variant of ID just in case and taskStatuses
+      queryClient.invalidateQueries({ queryKey: ['project', String(projectId)] });
+      queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+    }
+  });
 };
 
 export default useProjectRealtime;
-

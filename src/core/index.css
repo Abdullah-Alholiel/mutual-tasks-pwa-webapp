@@ -172,9 +172,10 @@ All colors MUST be HSL.
   html {
     scroll-behavior: smooth;
     overflow-x: hidden;
+    scrollbar-gutter: stable;
     height: 100%;
-    height: -webkit-fill-available;
     /* iOS Safari */
+    height: -webkit-fill-available;
     position: relative;
     width: 100%;
   }

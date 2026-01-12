@@ -12,7 +12,7 @@ import {
 } from '../../../db/transformers';
 
 export class NotificationsRepository {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient) { }
 
   /**
    * Get a notification by ID
@@ -200,6 +200,19 @@ export class NotificationsRepository {
       .from('notifications')
       .delete()
       .eq('user_id', toStringId(userId));
+
+    if (error) throw error;
+  }
+
+  /**
+   * Delete multiple notifications
+   */
+  async deleteMany(ids: number[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.supabase
+      .from('notifications')
+      .delete()
+      .in('id', ids.map(toStringId));
 
     if (error) throw error;
   }

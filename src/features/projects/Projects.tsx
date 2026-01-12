@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { AppLayout } from '@/layout/AppLayout';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
@@ -15,11 +15,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/features/auth/useAuth';
 import { useProjects, usePublicProjects, useCreateProject, useUserProjectsWithStats, useJoinProject } from './hooks/useProjects';
+import { useProjectsTabState } from './hooks/useProjectsTabState';
 import { getUserProjects } from '@/lib/projects/projectUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
 import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
+import { AIProjectButton, AIProjectModal, type AIGeneratedProject } from '@/features/ai-service';
+import { useCreateTaskWithStatuses, useCreateMultipleTasksWithStatuses, type CreateTaskWithStatusesInput } from '@/features/tasks/hooks/useTasks';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 interface ProjectsProps {
@@ -40,7 +43,11 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   const createProjectMutation = useCreateProject();
   const joinProjectMutation = useJoinProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showAIModal, setShowAIModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { activeTab, setActiveTab } = useProjectsTabState();
+  const createTaskWithStatuses = useCreateTaskWithStatuses();
+  const createMultipleTasksWithStatuses = useCreateMultipleTasksWithStatuses();
 
   // We no longer block the whole page on loading
   // SWR pattern: show cached data instantly if available
@@ -231,6 +238,163 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
   };
 
   const [joiningProject, setJoiningProject] = useState<Project | null>(null);
+  const [isCreatingAIProject, setIsCreatingAIProject] = useState(false);
+
+  /**
+   * Handle AI-generated project creation
+   * Creates the project and all its tasks in one flow
+   */
+  const handleAIProjectCreate = useCallback(async (generatedProject: AIGeneratedProject) => {
+    if (!user || !isAuthenticated) {
+      toast.error('You must be logged in to create a project');
+      return;
+    }
+
+    setIsCreatingAIProject(true);
+    setShowAIModal(false);
+
+    try {
+      const ownerId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+
+      // 1. Create the project
+      const newProject = await createProjectMutation.mutateAsync({
+        name: generatedProject.name,
+        description: generatedProject.description,
+        ownerId,
+        totalTasks: generatedProject.tasks.length,
+        isPublic: generatedProject.isPublic,
+        color: generatedProject.color,
+        icon: generatedProject.icon,
+      });
+
+      const projectId = typeof newProject.id === 'string' ? parseInt(newProject.id) : newProject.id;
+
+      // 2. Create all tasks with statuses
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Collect all tasks to create (including recurring instances)
+      const allTaskInputs: CreateTaskWithStatusesInput[] = [];
+      let totalTaskCount = 0;
+
+      for (const taskData of generatedProject.tasks) {
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() + taskData.daysFromNow);
+        startDate.setHours(0, 0, 0, 0);
+
+        if (taskData.type === 'habit' && taskData.recurrencePattern) {
+          // Handle recurring habit tasks - create the full series
+          let endDate = new Date(today);
+
+          // For AI-generated projects, default to 30 days duration
+          // This ensures daily habits get 30 occurrences, weekly habits get ~4-5 occurrences
+          const projectDurationDays = 30;
+          endDate.setDate(endDate.getDate() + projectDurationDays);
+          endDate.setHours(23, 59, 59, 999);
+
+          // Calculate max occurrences based on pattern
+          let maxOccurrences: number;
+          if (taskData.recurrencePattern === 'Daily') {
+            maxOccurrences = projectDurationDays; // One per day
+          } else if (taskData.recurrencePattern === 'weekly') {
+            maxOccurrences = Math.ceil(projectDurationDays / 7); // One per week
+          } else if (taskData.recurrencePattern === 'custom' && taskData.recurrenceInterval) {
+            maxOccurrences = Math.ceil(projectDurationDays / taskData.recurrenceInterval);
+          } else {
+            maxOccurrences = projectDurationDays; // Fallback to daily
+          }
+
+          let currentDate = new Date(startDate);
+          let occurrenceCount = 0;
+
+          while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
+            const taskDueDate = new Date(currentDate);
+            taskDueDate.setHours(0, 0, 0, 0);
+
+            allTaskInputs.push({
+              task: {
+                projectId,
+                creatorId: ownerId,
+                title: taskData.title,
+                description: taskData.description,
+                type: taskData.type,
+                dueDate: taskDueDate,
+                recurrencePattern: taskData.recurrencePattern,
+                recurrenceIndex: occurrenceCount + 1,
+                recurrenceTotal: maxOccurrences,
+                showRecurrenceIndex: true,
+              },
+              participantUserIds: [ownerId],
+              dueDate: taskDueDate,
+            });
+
+            occurrenceCount++;
+            totalTaskCount++;
+
+            // Advance to next occurrence based on pattern
+            if (taskData.recurrencePattern === 'Daily') {
+              currentDate.setDate(currentDate.getDate() + 1);
+            } else if (taskData.recurrencePattern === 'weekly') {
+              currentDate.setDate(currentDate.getDate() + 7);
+            } else if (taskData.recurrencePattern === 'custom' && taskData.recurrenceInterval) {
+              currentDate.setDate(currentDate.getDate() + taskData.recurrenceInterval);
+            } else {
+              // Default to daily
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+          }
+        } else {
+          // One-off task - single instance
+          allTaskInputs.push({
+            task: {
+              projectId,
+              creatorId: ownerId,
+              title: taskData.title,
+              description: taskData.description,
+              type: taskData.type,
+              dueDate: startDate,
+              recurrencePattern: undefined,
+            },
+            participantUserIds: [ownerId],
+            dueDate: startDate,
+          });
+          totalTaskCount++;
+        }
+      }
+
+      // Create all tasks in batch using the multiple tasks mutation
+      if (allTaskInputs.length > 0) {
+        await createMultipleTasksWithStatuses.mutateAsync(allTaskInputs);
+      }
+
+      // 3. Seed React Query cache and navigate
+      const projectWithParticipants = {
+        ...newProject,
+        participants: [user],
+        participantRoles: [{
+          projectId: newProject.id,
+          userId: ownerId,
+          role: 'owner' as const,
+          addedAt: new Date(),
+          user: user,
+        }],
+      };
+
+      queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
+      queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
+
+      toast.success(`Created \"${generatedProject.name}\" with ${totalTaskCount} tasks! 🎉`);
+      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
+
+    } catch (error) {
+      console.error('Failed to create AI project:', error);
+      toast.error('Failed to create project', {
+        description: 'Please try again or create manually.',
+      });
+    } finally {
+      setIsCreatingAIProject(false);
+    }
+  }, [user, isAuthenticated, createProjectMutation, createMultipleTasksWithStatuses, queryClient, navigate]);
 
   const handleJoinProject = async (project: Project) => {
     setJoiningProject(project);
@@ -269,31 +433,26 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-3xl font-bold mb-2"
+              className="text-3xl font-bold"
             >
               Projects
             </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-muted-foreground"
-            >
-              Collaborate on goals with your friends
-            </motion.p>
           </div>
 
-          <Button
-            onClick={() => setShowProjectForm(true)}
-            className="gradient-primary text-white hover:opacity-90"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Project
-          </Button>
+          <div className="flex items-center gap-2">
+            <AIProjectButton onClick={() => setShowAIModal(true)} />
+            <Button
+              onClick={() => setShowProjectForm(true)}
+              className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px] shrink-0"
+            >
+              <Plus className="w-4 h-4 mr-0 sm:mr-1.5" />
+              <span className="hidden sm:inline">New Project</span>
+            </Button>
+          </div>
         </div>
 
         {/* Projects Tabs */}
-        <Tabs defaultValue="my-projects" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'my-projects' | 'public')} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:w-auto lg:inline-grid">
             <TabsTrigger value="my-projects" className="flex items-center gap-2">
               <FolderKanban className="w-4 h-4" />
@@ -358,7 +517,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
                 </div>
                 <Input
                   type="text"
-                  placeholder="Search public projects by name or description..."
+                  placeholder="Search by name or description"
                   className="pl-10 h-12 bg-card border-border/50 focus:border-primary/50 rounded-2xl shadow-sm transition-all text-base"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -425,6 +584,17 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
         onSubmit={handleCreateProject}
         currentUser={user!}
       />
+
+      <AIProjectModal
+        open={showAIModal}
+        onOpenChange={setShowAIModal}
+        onCreateProject={handleAIProjectCreate}
+      />
+
+      {/* Loading overlay for AI project creation */}
+      {isCreatingAIProject && (
+        <PageLoader text="Creating your AI-generated project..." />
+      )}
     </>
   );
 };
@@ -443,6 +613,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
+      onClick={() => navigate(`/projects/${project.id}`, { state: { fromTab: 'public' } })}
       className="cursor-pointer h-full"
     >
       <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 h-full flex flex-col">
@@ -477,7 +648,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
                 className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
                 style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}, transparent)` }}
               />
-              <Icon className="w-6 h-6 relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+              <Icon className="w-6 h-6 relative z-10" />
             </div>
           </div>
 
@@ -497,10 +668,9 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
               e.stopPropagation();
               onJoin();
             }}
-            className="w-full gradient-primary text-white hover:opacity-90"
-            size="sm"
+            className="w-max mx-auto gradient-primary text-white rounded-full h-10 px-6 text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 hover:translate-y-[-1px]"
           >
-            <Users className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1.5" />
             Join Project
           </Button>
         </div>

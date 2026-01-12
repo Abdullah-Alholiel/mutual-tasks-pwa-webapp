@@ -1,0 +1,115 @@
+{
+  "name": "Momentum Ai agent",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ai-generated-description-momentumPWA",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "177d8bb0-7aae-44aa-aec0-d2b8455e0a42",
+      "name": "Webhook",
+      "webhookId": "bcbae78c-c4c9-4ce2-a344-5a6a744792a6",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HG6NVtOhSlFmjPh5",
+          "name": "Momentum PWA Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a helpful productivity assistant. The user has provided a title for a {{ $json.query.type ? $json.query.type : 'task_title' }}: \"{{ $json.query.project_title }}\".\n\nIf this is a 'project':\n- Generate a comprehensive, high-level overview of what is needed to complete this project.\n- Keep it under 40 words.\n- Be professional and structured.\n\nIf this is a 'task':\n- Generate a concise, actionable, and motivating description.\n- Keep it under 20 words.\n\nOutput ONLY the description text. Do not include quotes or labels like \"Description:\"."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        304,
+        0
+      ],
+      "id": "d106e3a5-8b2c-4973-868a-6d93552ac86b",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "t9NowGCGRDBfjE2M",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.content.parts[0].text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        656,
+        0
+      ],
+      "id": "dcd04db9-8f85-4c88-b854-21000bb88740",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "6ea2a370-066f-4818-ad0f-640f205b9431",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1676731a254e0df31f42899d202a2250f735d9baf837f1de29fcbe8f3ea829a7"
+  },
+  "id": "nxktgODANFrmKV4r",
+  "tags": []
+}

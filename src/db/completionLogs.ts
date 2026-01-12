@@ -12,7 +12,7 @@ import {
 } from './transformers';
 
 export class CompletionLogsRepository {
-  constructor(private supabase: SupabaseClient) {}
+  constructor(private supabase: SupabaseClient) { }
 
   /**
    * Get a completion log by ID
@@ -26,6 +26,26 @@ export class CompletionLogsRepository {
 
     if (error || !data) return null;
     return transformCompletionLogRow(data as CompletionLogRow);
+  }
+
+  /**
+   * Get completion logs for multiple tasks at once
+   */
+  async getAllForTasks(taskIds: number[]): Promise<CompletionLog[]> {
+    if (taskIds.length === 0) return [];
+
+    const { data, error } = await this.supabase
+      .from('completion_logs')
+      .select('*')
+      .in('task_id', taskIds.map(toStringId))
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching completion logs for tasks:', error);
+      return [];
+    }
+
+    return (data || []).map((row: CompletionLogRow) => transformCompletionLogRow(row));
   }
 
   /**

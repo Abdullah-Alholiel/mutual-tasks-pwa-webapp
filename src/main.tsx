@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import App from "./core/App.tsx";
 import "./core/index.css";
 
+// Import diagnostic utility for browser console debugging
+import './lib/dbDiagnostic';
+
 // ============================================================================
 // Dynamic Viewport Height Handler for Mobile PWA
 // ============================================================================

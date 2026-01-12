@@ -18,6 +18,7 @@ import {
 } from '../../lib/tasks/taskFilterUtils';
 import { getParticipatingUserIds } from '../../lib/tasks/taskCreationUtils';
 import { getProjectsWhereCanCreateTasks } from '../../lib/projects/projectUtils';
+import { notifyTaskUpdated } from '../../lib/tasks/taskEmailNotifications';
 import { normalizeToStartOfDay } from '../../lib/tasks/taskUtils';
 import { normalizeId, compareIds } from '../../lib/idUtils';
 import { useAuth } from '../auth/useAuth';
@@ -409,6 +410,17 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setTaskToEdit(null);
       setShowTaskForm(false);
+      // Send update notification
+      if (user) {
+        notifyTaskUpdated(
+          taskToEdit.id,
+          taskToEdit.projectId,
+          typeof user.id === 'string' ? parseInt(user.id) : user.id
+        ).catch(err => {
+          console.error('Failed to send task update notification:', err);
+        });
+      }
+
       toast.success('Task updated! ✨');
     } catch (error) {
       console.error('Failed to update task:', error);
@@ -490,9 +502,9 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
           {projectsWhereCanCreateTasks.length > 0 && (
             <Button
               onClick={() => setShowTaskForm(true)}
-              className="gradient-primary text-white hover:opacity-90"
+              className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1.5" />
               New Task
             </Button>
           )}
@@ -504,19 +516,19 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm"
+            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
           >
             <div className="text-2xl font-bold text-primary mb-1">
               {needsActionTasks.length}
             </div>
-            <div className="text-sm text-muted-foreground">Needs Action</div>
+            <div className="text-sm text-muted-foreground">Active</div>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm"
+            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
           >
             <div className="text-2xl font-bold text-status-completed mb-1">
               {completedTasksForToday.length}
@@ -528,7 +540,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm"
+            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
           >
             <div className="text-2xl font-bold text-muted-foreground mb-1">
               {recoveredTasks.length}
@@ -575,12 +587,12 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
           </div>
         )}
 
-        {/* Completed for the Day */}
+        {/* Done for the Day */}
         {completedTasksForToday.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-semibold">Completed for the Day</h2>
+              <h2 className="text-xl font-semibold">Done for the Day</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
             <div

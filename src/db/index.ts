@@ -28,6 +28,8 @@ import { CompletionLogsRepository } from './completionLogs';
 import { NotificationsRepository } from '../features/notifications/api/notifications';
 import { MagicLinksRepository } from './magicLinks';
 import { SessionsRepository } from './sessions';
+import { FriendsRepository } from '@/features/friends/api/friends';
+import { AIUsageRepository } from './aiUsage';
 
 // ============================================================================
 // Database Client Interface
@@ -50,6 +52,10 @@ export interface DatabaseClient {
   magicLinks: MagicLinksRepository;
   // Sessions
   sessions: SessionsRepository;
+  // Friends
+  friends: FriendsRepository;
+  // AI Usage Tracking
+  aiUsage: AIUsageRepository;
 }
 
 // ============================================================================
@@ -65,6 +71,8 @@ export class SupabaseDatabaseClient implements DatabaseClient {
   public readonly notifications: NotificationsRepository;
   public readonly magicLinks: MagicLinksRepository;
   public readonly sessions: SessionsRepository;
+  public readonly friends: FriendsRepository;
+  public readonly aiUsage: AIUsageRepository;
 
   constructor(private supabase: SupabaseClient) {
     // Initialize repositories
@@ -76,6 +84,8 @@ export class SupabaseDatabaseClient implements DatabaseClient {
     this.notifications = new NotificationsRepository(supabase);
     this.magicLinks = new MagicLinksRepository(supabase);
     this.sessions = new SessionsRepository(supabase);
+    this.friends = new FriendsRepository(supabase, this.notifications);
+    this.aiUsage = new AIUsageRepository(supabase);
   }
 }
 
@@ -99,8 +109,13 @@ import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 export function getDatabaseClient(): DatabaseClient {
   if (dbClient) return dbClient;
 
+  console.log('[DatabaseClient] Initializing Supabase connection...');
+
   const supabaseUrl = getSupabaseUrl();
   const supabaseAnonKey = getSupabaseAnonKey();
+
+  console.log('[DatabaseClient] Supabase URL:', supabaseUrl);
+  console.log('[DatabaseClient] Supabase Key:', supabaseAnonKey ? `${supabaseAnonKey.slice(0, 30)}...` : 'NOT SET');
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
@@ -118,10 +133,13 @@ export function getDatabaseClient(): DatabaseClient {
   // Create Supabase client
   // This requires @supabase/supabase-js to be installed
   try {
+    console.log('[DatabaseClient] Creating Supabase client...');
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     dbClient = new SupabaseDatabaseClient(supabase);
+    console.log('[DatabaseClient] ✅ Database client initialized successfully');
     return dbClient;
   } catch (error) {
+    console.error('[DatabaseClient] ❌ Failed to initialize:', error);
     throw new Error(
       `Failed to initialize Supabase client: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
       'Make sure @supabase/supabase-js is installed: npm install @supabase/supabase-js\n\n' +
@@ -173,6 +191,7 @@ export { CompletionLogsRepository } from './completionLogs';
 export { NotificationsRepository } from '../features/notifications/api/notifications';
 export { MagicLinksRepository } from './magicLinks';
 export { SessionsRepository } from './sessions';
+export { AIUsageRepository } from './aiUsage';
 
 // ============================================================================
 // Export transformers for advanced usage
