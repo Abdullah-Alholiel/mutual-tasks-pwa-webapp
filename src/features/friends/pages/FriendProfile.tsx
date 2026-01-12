@@ -118,7 +118,7 @@ const FriendProfile = () => {
         >
             {/* Header */}
             <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
-                <div className="max-w-md mx-auto px-4 h-16 flex items-center gap-4">
+                <div className="max-w-4xl mx-auto px-4 h-16 flex items-center gap-4">
                     <Button
                         variant="ghost"
                         size="icon"
@@ -143,26 +143,26 @@ const FriendProfile = () => {
                 </div>
             </div>
 
-            <div className="max-w-md mx-auto px-4 py-6 space-y-8">
+            <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
                 {/* Profile Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                 >
                     <Card className="p-6">
-                        <div className="flex items-start gap-6">
-                            <Avatar className="w-24 h-24 ring-4 ring-border">
+                        <div className="flex items-center gap-6">
+                            <Avatar className="w-24 h-24 ring-4 ring-border shrink-0">
                                 <AvatarImage src={friend.avatar} alt={friend.name} />
-                                <AvatarFallback className="text-2xl">
+                                <AvatarFallback className="text-2xl font-bold">
                                     {friend.name.charAt(0)}
                                 </AvatarFallback>
                             </Avatar>
 
-                            <div className="flex-1">
+                            <div className="flex-1 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div>
-                                        <h1 className="text-2xl font-bold mb-1">{friend.name}</h1>
-                                        <p className="text-muted-foreground mb-4">{friend.handle}</p>
+                                        <h1 className="text-2xl font-bold text-foreground">{friend.name}</h1>
+                                        <p className="text-muted-foreground text-sm font-medium">{friend.handle}</p>
                                     </div>
                                     {!isCurrentUser && !isFriend && (
                                         <Button
@@ -187,10 +187,10 @@ const FriendProfile = () => {
                                     )}
                                 </div>
 
-                                <div className="flex flex-wrap gap-3 mt-4">
-                                    <Badge variant="secondary" className="flex items-center gap-2 px-4 py-1.5 text-sm font-bold shadow-sm">
-                                        <Trophy className="w-4 h-4 text-accent" />
-                                        Level {level}
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Badge variant="outline" className="px-3 py-1.5 rounded-full border-border bg-background">
+                                        <Trophy className="w-4 h-4 mr-1.5 text-accent" />
+                                        <span className="font-semibold text-foreground">Level {level}</span>
                                     </Badge>
                                 </div>
                             </div>
@@ -199,7 +199,7 @@ const FriendProfile = () => {
                 </motion.div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {statItems.map((stat, index) => (
                         <motion.div
                             key={stat.label}
@@ -207,13 +207,15 @@ const FriendProfile = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1 }}
                         >
-                            <Card className="p-4 flex flex-col items-center text-center gap-2 border-border/40">
-                                <div className={`w-10 h-10 rounded-full ${stat.bgColor} flex items-center justify-center shrink-0`}>
-                                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                                </div>
-                                <div>
-                                    <div className="text-xl font-black">{stat.value}</div>
-                                    <div className="text-[10px] uppercase font-bold text-muted-foreground">{stat.label}</div>
+                            <Card className="p-5 h-full flex flex-col justify-center border-border/40 hover:border-border/80 transition-colors">
+                                <div className="flex flex-col items-center sm:items-start sm:flex-row sm:items-center gap-3">
+                                    <div className={`w-11 h-11 rounded-xl ${stat.bgColor} flex items-center justify-center shrink-0`}>
+                                        <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                                    </div>
+                                    <div className="text-center sm:text-left">
+                                        <div className="text-2xl font-normal tracking-tight">{stat.value}</div>
+                                        <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">{stat.label}</div>
+                                    </div>
                                 </div>
                             </Card>
                         </motion.div>

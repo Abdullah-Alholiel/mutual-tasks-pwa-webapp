@@ -214,34 +214,41 @@ export class FriendsRepository {
     /**
      * Get pending friend requests for a user
      */
+    /**
+     * Get ALL pending friend requests for a user (both incoming and outgoing)
+     */
     async getFriendRequests(userId: number): Promise<Friend[]> {
-        // Fetch rows where I am the friend_id and status is pending
+        // Fetch rows where I am involved (sender or receiver) and status is pending
         const { data, error } = await this.supabase
             .from('friends')
             .select(`
                 *,
-                friend:users!user_id(*)
+                sender:users!user_id(*),
+                receiver:users!friend_id(*)
             `)
-            .eq('friend_id', toStringId(userId))
+            .or(`friend_id.eq.${toStringId(userId)},user_id.eq.${toStringId(userId)}`)
             .eq('status', 'pending');
 
         if (error || !data) return [];
 
         // Transform results
-        // We need detailed friend objects. In this case, 'friend' is the requester (user_id).
         return data.map(row => {
-            const requesterUserRow = row.friend as UserRow;
-            // Basic transform without stats for now (not needed for requests list usually)
-            const requester = transformUserRow(requesterUserRow);
+            const isInitiator = Number(row.user_id) === userId;
+
+            // If I am the initiator (user_id), the "friend" is the receiver (friend_id).
+            // If I am the receiver (friend_id), the "friend" is the sender (user_id).
+            const otherUserRow = isInitiator ? row.receiver : row.sender;
+
+            const otherUser = transformUserRow(otherUserRow as UserRow);
 
             return {
                 id: Number(row.id),
-                userId: Number(row.user_id), // The requester
-                friendId: userId,            // Me
+                userId: Number(row.user_id), // The initiator
+                friendId: Number(row.friend_id), // The receiver
                 status: 'pending',
                 createdAt: new Date(row.created_at),
-                friend: requester,           // The requester details
-                isInitiator: false
+                friend: otherUser, // The OTHER person (always)
+                isInitiator
             };
         });
     }

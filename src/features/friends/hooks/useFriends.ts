@@ -45,6 +45,7 @@ export function useAddFriend() {
             if (data.success) {
                 toast.success(data.message);
                 queryClient.invalidateQueries({ queryKey: ['friends', userId] });
+                queryClient.invalidateQueries({ queryKey: ['friendRequests', userId] });
             } else {
                 toast.error(data.message);
             }
