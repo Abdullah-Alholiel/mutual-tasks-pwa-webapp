@@ -33,7 +33,9 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
 
     // Hooks
     const { data: friends = [], isLoading } = useFriends();
-    const { data: requests = [], isLoading: isLoadingRequests } = useFriendRequests();
+    const { data: allRequests = [], isLoading: isLoadingRequests } = useFriendRequests();
+    // Only show incoming requests in the inbox
+    const requests = allRequests.filter(req => !req.isInitiator);
     const { mutate: addFriend, isPending: isAdding } = useAddFriend();
     const { mutate: removeFriend } = useRemoveFriend();
     const { mutate: respondToRequest } = useRespondToRequest();

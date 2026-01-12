@@ -129,7 +129,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
                   </Avatar>
                 ))}
                 {project.participants.length > 3 && (
-                  <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center">
+                  <div className="relative z-10 w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center">
                     <span className="text-xs font-medium text-muted-foreground">
                       +{project.participants.length - 3}
                     </span>

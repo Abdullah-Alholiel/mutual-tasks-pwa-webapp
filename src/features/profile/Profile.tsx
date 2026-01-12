@@ -155,7 +155,7 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
                   <stat.icon className={`w-6 h-6 ${stat.color}`} />
                 </div>
                 <div className="text-center sm:text-left">
-                  <div className="text-2xl font-black tracking-tight">{stat.value}</div>
+                  <div className="text-2xl font-normal tracking-tight">{stat.value}</div>
                   <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">{stat.label}</div>
                 </div>
               </div>
