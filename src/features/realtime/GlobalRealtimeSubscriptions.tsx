@@ -12,7 +12,7 @@ import { useUnifiedRealtime } from '@/features/realtime/useUnifiedRealtime';
 import { useFriendRequestsRealtime } from '@/features/friends/hooks/useFriendRequestsRealtime';
 import { getRealtimeManager } from '@/features/realtime/RealtimeManager';
 import { getUserPreloadCache } from '@/features/realtime/UserPreloadCache';
-import { setExternalUserId } from '@/lib/onesignal/oneSignalService';
+import { ensurePushSubscription } from '@/lib/onesignal/oneSignalService';
 
 /**
  * Global realtime subscriptions component
@@ -24,7 +24,7 @@ export const GlobalRealtimeSubscriptions = () => {
 
   const userId = user ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : null;
 
-  // Start health monitor, preload user, and link OneSignal subscription
+  // Start health monitor, preload user, and ensure push subscription
   useEffect(() => {
     if (!user || !isAuthenticated) return;
 
@@ -36,9 +36,9 @@ export const GlobalRealtimeSubscriptions = () => {
     const cache = getUserPreloadCache();
     cache.set(user);
 
-    // Link OneSignal subscription to this user's ID for push targeting
-    setExternalUserId(user.id).catch(() => {
-      // Silent fail - push notifications are optional
+    // Ensure push subscription is active and linked to this user
+    ensurePushSubscription(user.id).catch((err) => {
+      console.warn('[Push] Subscription setup failed:', err);
     });
 
     return () => {

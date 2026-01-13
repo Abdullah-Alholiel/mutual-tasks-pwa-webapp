@@ -16,7 +16,7 @@ let initializationPromise: Promise<void> | null = null;
 
 /**
  * Initialize OneSignal SDK
- * Should be called once at app startup, after authentication is ready
+ * Should be called once at app startup
  */
 export async function initializeOneSignal(): Promise<void> {
     // Return existing promise if already initializing
@@ -31,57 +31,27 @@ export async function initializeOneSignal(): Promise<void> {
 
     // Validate App ID
     if (!ONESIGNAL_APP_ID) {
-        console.error('❌ [OneSignal] ONESIGNAL_APP_ID not configured. Push notifications disabled.');
+        console.error('[OneSignal] ONESIGNAL_APP_ID not configured');
         return Promise.resolve();
     }
 
-    // Skip on localhost to prevent "Can only be used on: https://..." error
+    // Skip on localhost
     if (window.location.hostname === 'localhost') {
         return Promise.resolve();
     }
 
     initializationPromise = (async () => {
         try {
-
             await OneSignal.init({
                 appId: ONESIGNAL_APP_ID,
-                // Safari web ID (optional, for Safari desktop)
-                safari_web_id: undefined,
-                // Allow localhost for development
-                allowLocalhostAsSecureOrigin: true, // Always allow for debugging
-                // Service worker configuration
+                allowLocalhostAsSecureOrigin: true,
                 serviceWorkerPath: '/OneSignalSDKWorker.js',
-                // Prompt options
-                promptOptions: {
-                    slidedown: {
-                        prompts: [
-                            {
-                                type: 'push',
-                                autoPrompt: true, // Automatically show the permission prompt
-                                text: {
-                                    actionMessage: 'Get notified about task updates, friend requests, and more!',
-                                    acceptButton: 'Allow',
-                                    cancelButton: 'Later',
-                                },
-                                delay: {
-                                    pageViews: 1,
-                                    timeDelay: 3,
-                                },
-                            },
-                        ],
-                    },
-                },
             });
 
             isInitialized = true;
-            console.log('✅ [OneSignal] Initialized successfully');
-
-            // Enable debug logging only in development
-            if (import.meta.env.DEV) {
-                OneSignal.Debug.setLogLevel('trace');
-            }
+            console.log('[OneSignal] Initialized successfully');
         } catch (error) {
-            console.error('❌ [OneSignal] Initialization failed:', error);
+            console.error('[OneSignal] Initialization failed:', error);
             throw error;
         }
     })();
@@ -93,58 +63,82 @@ export async function initializeOneSignal(): Promise<void> {
  * Check if OneSignal is initialized and ready
  */
 export function isOneSignalReady(): boolean {
-    return isInitialized && !!ONESIGNAL_APP_ID;
+    return isInitialized && !!ONESIGNAL_APP_ID && window.location.hostname !== 'localhost';
 }
 
 /**
- * Set external user ID to link OneSignal subscription with app user
- * This allows targeting specific users for push notifications
+ * Ensure user is subscribed and linked to their app user ID
+ * This is the main function to call after user authentication
  */
-export async function setExternalUserId(userId: string | number): Promise<void> {
-    console.log('[OneSignal] setExternalUserId called with:', userId);
+export async function ensurePushSubscription(userId: string | number): Promise<void> {
+    console.log('[OneSignal] ensurePushSubscription called for user:', userId);
 
-    // Wait for initialization to complete first
+    // Wait for/trigger initialization
     if (initializationPromise) {
-        console.log('[OneSignal] Waiting for initialization promise...');
         await initializationPromise;
-    }
-
-    if (!isOneSignalReady()) {
-        console.log('[OneSignal] Not ready, trying to initialize...');
+    } else {
         await initializeOneSignal();
     }
 
     if (!isOneSignalReady()) {
-        console.warn('[OneSignal] Still not ready after init attempt');
+        console.log('[OneSignal] Not available (localhost or not configured)');
         return;
     }
 
     try {
-        // Check current subscription state
         const isPushSupported = OneSignal.Notifications.isPushSupported();
-        const permission = OneSignal.Notifications.permission;
+        if (!isPushSupported) {
+            console.log('[OneSignal] Push not supported on this browser');
+            return;
+        }
+
+        // Check current state
+        const permission = Notification.permission;
         const optedIn = OneSignal.User.PushSubscription.optedIn;
         const subscriptionId = OneSignal.User.PushSubscription.id;
 
-        console.log('[OneSignal] Subscription state before login:', {
-            isPushSupported,
-            permission,
-            optedIn,
-            subscriptionId: subscriptionId?.substring(0, 20) + '...',
-        });
+        console.log('[OneSignal] Current state:', { permission, optedIn, subscriptionId: subscriptionId?.substring(0, 15) });
 
-        // Call login to set external user ID
+        // Step 1: If permission not granted, request it
+        if (permission === 'default') {
+            console.log('[OneSignal] Requesting permission...');
+            await OneSignal.Notifications.requestPermission();
+        }
+
+        // Step 2: If permission granted but not opted in, opt in
+        const currentPermission = Notification.permission;
+        if (currentPermission === 'granted') {
+            const currentOptedIn = OneSignal.User.PushSubscription.optedIn;
+            if (!currentOptedIn) {
+                console.log('[OneSignal] Opting in to push...');
+                await OneSignal.User.PushSubscription.optIn();
+            }
+        }
+
+        // Step 3: Set external user ID (login)
+        console.log('[OneSignal] Setting external user ID:', userId);
         await OneSignal.login(String(userId));
 
-        console.log('[OneSignal] ✅ External user ID set successfully:', userId);
+        // Verify final state
+        const finalSubscriptionId = OneSignal.User.PushSubscription.id;
+        const finalOptedIn = OneSignal.User.PushSubscription.optedIn;
 
-        // Verify it was set
-        const externalId = OneSignal.User.externalId;
-        console.log('[OneSignal] Verified external ID:', externalId);
+        console.log('[OneSignal] ✅ Push subscription complete:', {
+            userId,
+            subscriptionId: finalSubscriptionId?.substring(0, 15),
+            optedIn: finalOptedIn,
+        });
 
     } catch (error) {
-        console.error('[OneSignal] ❌ Failed to set external user ID:', error);
+        console.error('[OneSignal] Error in ensurePushSubscription:', error);
     }
+}
+
+/**
+ * Set external user ID - wrapper for backward compatibility
+ */
+export async function setExternalUserId(userId: string | number): Promise<void> {
+    return ensurePushSubscription(userId);
 }
 
 /**
@@ -155,64 +149,55 @@ export async function removeExternalUserId(): Promise<void> {
 
     try {
         await OneSignal.logout();
+        console.log('[OneSignal] Logged out');
     } catch (error) {
-        console.error('[OneSignal] Failed to remove external user ID:', error);
+        console.error('[OneSignal] Logout failed:', error);
     }
 }
 
 /**
- * Check if push notifications are supported on this device/browser
+ * Check if push notifications are supported
  */
 export function isPushSupported(): boolean {
+    if (!isOneSignalReady()) return false;
     return OneSignal.Notifications.isPushSupported();
 }
 
 /**
  * Get current notification permission state
- * Returns: 'default' | 'granted' | 'denied'
  */
-export async function getPermissionState(): Promise<NotificationPermission> {
-    if (!isOneSignalReady()) return 'default';
-    return OneSignal.Notifications.permission ? 'granted' : 'default';
+export function getPermissionState(): NotificationPermission {
+    return Notification.permission;
 }
 
 /**
- * Check if user is currently subscribed to push notifications
+ * Check if user is currently subscribed
  */
-export async function isSubscribed(): Promise<boolean> {
+export function isSubscribed(): boolean {
     if (!isOneSignalReady()) return false;
     return OneSignal.User.PushSubscription.optedIn ?? false;
 }
 
 /**
- * Get the OneSignal player ID (subscription ID)
+ * Get the OneSignal subscription ID
  */
-export async function getPlayerId(): Promise<string | null> {
+export function getSubscriptionId(): string | null {
     if (!isOneSignalReady()) return null;
     return OneSignal.User.PushSubscription.id ?? null;
 }
 
 /**
- * Request push notification permission and subscribe
- * Returns true if successful, false otherwise
+ * Manually request push permission (for UI button)
  */
 export async function requestPushPermission(): Promise<boolean> {
-    if (!isOneSignalReady()) {
-        console.warn('[OneSignal] Cannot request permission - not initialized');
-        return false;
-    }
+    if (!isOneSignalReady()) return false;
 
     try {
-        // Show the native permission prompt
         await OneSignal.Notifications.requestPermission();
-
-        // Opt-in to push
         await OneSignal.User.PushSubscription.optIn();
-
-        const subscribed = await isSubscribed();
-        return subscribed;
+        return OneSignal.User.PushSubscription.optedIn ?? false;
     } catch (error) {
-        console.error('[OneSignal] Failed to request push permission:', error);
+        console.error('[OneSignal] Permission request failed:', error);
         return false;
     }
 }
@@ -226,12 +211,12 @@ export async function unsubscribeFromPush(): Promise<void> {
     try {
         await OneSignal.User.PushSubscription.optOut();
     } catch (error) {
-        console.error('[OneSignal] Failed to unsubscribe:', error);
+        console.error('[OneSignal] Unsubscribe failed:', error);
     }
 }
 
 /**
- * Add a listener for subscription changes
+ * Add listener for subscription changes
  */
 export function onSubscriptionChange(callback: (isSubscribed: boolean) => void): () => void {
     if (!isOneSignalReady()) return () => { };
@@ -241,36 +226,7 @@ export function onSubscriptionChange(callback: (isSubscribed: boolean) => void):
     };
 
     OneSignal.User.PushSubscription.addEventListener('change', handler);
-
-    return () => {
-        OneSignal.User.PushSubscription.removeEventListener('change', handler);
-    };
-}
-
-/**
- * Send a tag to OneSignal for user segmentation
- */
-export async function setTag(key: string, value: string): Promise<void> {
-    if (!isOneSignalReady()) return;
-
-    try {
-        await OneSignal.User.addTag(key, value);
-    } catch (error) {
-        console.error('[OneSignal] Failed to set tag:', error);
-    }
-}
-
-/**
- * Remove a tag from OneSignal
- */
-export async function removeTag(key: string): Promise<void> {
-    if (!isOneSignalReady()) return;
-
-    try {
-        await OneSignal.User.removeTag(key);
-    } catch (error) {
-        console.error('[OneSignal] Failed to remove tag:', error);
-    }
+    return () => OneSignal.User.PushSubscription.removeEventListener('change', handler);
 }
 
 // Export OneSignal instance for advanced use cases
