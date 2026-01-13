@@ -101,26 +101,49 @@ export function isOneSignalReady(): boolean {
  * This allows targeting specific users for push notifications
  */
 export async function setExternalUserId(userId: string | number): Promise<void> {
+    console.log('[OneSignal] setExternalUserId called with:', userId);
+
     // Wait for initialization to complete first
     if (initializationPromise) {
+        console.log('[OneSignal] Waiting for initialization promise...');
         await initializationPromise;
     }
 
     if (!isOneSignalReady()) {
-        // Try to initialize if not ready
+        console.log('[OneSignal] Not ready, trying to initialize...');
         await initializeOneSignal();
     }
 
     if (!isOneSignalReady()) {
-        // Still not ready - likely on localhost or not configured
+        console.warn('[OneSignal] Still not ready after init attempt');
         return;
     }
 
     try {
+        // Check current subscription state
+        const isPushSupported = OneSignal.Notifications.isPushSupported();
+        const permission = OneSignal.Notifications.permission;
+        const optedIn = OneSignal.User.PushSubscription.optedIn;
+        const subscriptionId = OneSignal.User.PushSubscription.id;
+
+        console.log('[OneSignal] Subscription state before login:', {
+            isPushSupported,
+            permission,
+            optedIn,
+            subscriptionId: subscriptionId?.substring(0, 20) + '...',
+        });
+
+        // Call login to set external user ID
         await OneSignal.login(String(userId));
-        console.log('[OneSignal] External user ID set:', userId);
+
+        console.log('[OneSignal] ✅ External user ID set successfully:', userId);
+
+        // Verify it was set
+        const externalId = OneSignal.User.externalId;
+        console.log('[OneSignal] Verified external ID:', externalId);
+
     } catch (error) {
-        console.error('[OneSignal] Failed to set external user ID:', error);
+        console.error('[OneSignal] ❌ Failed to set external user ID:', error);
     }
 }
 
