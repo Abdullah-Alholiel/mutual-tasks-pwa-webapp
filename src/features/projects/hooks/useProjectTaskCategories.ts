@@ -122,7 +122,7 @@ export const useProjectTaskCategories = ({
 
     return {
       activeTasks: active,
-      upcomingTasks: upcoming,
+      upcomingTasks: upcoming.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()),
       completedTasks: completed,
       archivedTasks: archived
     };
@@ -211,7 +211,12 @@ export const useProjectTaskCategories = ({
     return {
       habitTasks: groupHabitsBySeries(habits),
       completedHabitSeries: groupHabitsBySeries(completedHabits),
-      upcomingHabitSeries: groupHabitsBySeries(upcomingHabits),
+      upcomingHabitSeries: groupHabitsBySeries(upcomingHabits).sort((a, b) => {
+        // Sort series by their earliest task's due date
+        const dateA = a.tasks[0] ? new Date(a.tasks[0].dueDate).getTime() : 0;
+        const dateB = b.tasks[0] ? new Date(b.tasks[0].dueDate).getTime() : 0;
+        return dateA - dateB;
+      }),
       archivedHabitSeries: groupHabitsBySeries(archivedHabits)
     };
   }, [projectTasks, user, completionLogs, taskStatuses]);

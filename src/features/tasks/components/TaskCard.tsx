@@ -596,7 +596,16 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                 return (
                   <div
                     key={String(statusEntry.userId)}
-                    className="group flex items-center justify-between p-3 rounded-2xl border border-border/40 bg-card/40 hover:bg-muted/40 hover:border-border/80 transition-all duration-200"
+                    onClick={() => {
+                      if (user) {
+                        if (currentUser && normalizeId(user.id) === normalizeId(currentUser.id)) {
+                          navigate('/profile');
+                        } else {
+                          navigate(`/friends/${user.id}`);
+                        }
+                      }
+                    }}
+                    className="group flex items-center justify-between p-3 rounded-2xl border border-border/40 bg-card/40 hover:bg-muted/40 hover:border-border/80 transition-all duration-200 cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
                       <Avatar className={cn("w-11 h-11 ring-2 transition-all duration-300 group-hover:scale-105 shadow-sm", ringColorClass)}>
@@ -669,17 +678,9 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             </div>
           </div>
 
-          <div className="p-4 bg-muted/20 border-t border-border/40 relative z-10">
-            <Button
-              variant="outline"
-              className="w-full font-bold rounded-xl"
-              onClick={() => setShowParticipantsModal(false)}
-            >
-              Close List
-            </Button>
-          </div>
+
         </DialogContent>
-      </Dialog>
+      </Dialog >
     </>
   );
 };

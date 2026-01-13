@@ -2,14 +2,14 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useFriend, useCommonProjects, useFriends, useAddFriend, useFriendRequests } from '../hooks/useFriends';
+import { useFriend, useCommonProjects, useFriends, useAddFriend, useFriendRequests, useCancelRequest, useRemoveFriend } from '../hooks/useFriends';
 import { calculateLevel } from '@/lib/users/userStatsUtils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Target, Zap, TrendingUp, ArrowLeft, Users, UserPlus, Loader2, Check } from 'lucide-react';
-import { InlineLoader } from '@/components/ui/loader';
+import { Trophy, Target, Zap, TrendingUp, ArrowLeft, Users, UserPlus, Loader2, Check, X, Clock, UserCheck, Trash2 } from 'lucide-react';
+import { InlineLoader, PageLoader } from '@/components/ui/loader';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -17,6 +17,12 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Inbox } from '@/features/notifications/Inbox';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { useAuth } from '@/features/auth/useAuth';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const FriendProfile = () => {
     const { id } = useParams<{ id: string }>();
@@ -29,6 +35,8 @@ const FriendProfile = () => {
     const { data: friends } = useFriends();
     const { data: friendRequests } = useFriendRequests();
     const addFriendMutation = useAddFriend();
+    const cancelRequestMutation = useCancelRequest();
+    const removeFriendMutation = useRemoveFriend();
 
     // Use real-time notifications hook
     const userId = user ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : null;
@@ -56,10 +64,14 @@ const FriendProfile = () => {
 
     const isCurrentUser = user && friend && (Number(user.id) === friend.id);
     const isFriend = friends?.some(f => (f.friendId === friendId || f.userId === friendId) && f.status === 'accepted');
-    const hasPendingRequest = friendRequests?.some(req =>
+    const hasPendingRequest = friendRequests?.find(req =>
         (req.userId === friendId && req.friendId === Number(user?.id)) ||
         (req.userId === Number(user?.id) && req.friendId === friendId)
     );
+
+    const isOutgoingRequest = hasPendingRequest?.isInitiator === true;
+    // We are looking at a profile, so if we are the initiator, it means we sent it to THEM.
+    // If hasPendingRequest.isInitiator is TRUE, it means currentUser initiated it (per getFriendRequests logic)
 
     const handleAddFriend = () => {
         if (friend?.handle) {
@@ -67,11 +79,21 @@ const FriendProfile = () => {
         }
     };
 
+    const handleCancelRequest = () => {
+        if (friend) {
+            cancelRequestMutation.mutate(friend.id);
+        }
+    };
+
+    const handleRemoveFriend = () => {
+        if (friend) {
+            removeFriendMutation.mutate(friend.id);
+        }
+    };
+
     if (loadingFriend || !friend) {
         return (
-            <div className="h-full bg-background pt-20 flex justify-center">
-                <InlineLoader text="Loading profile..." />
-            </div>
+            <PageLoader text="Loading profile..." />
         );
     }
 
@@ -164,26 +186,85 @@ const FriendProfile = () => {
                                         <h1 className="text-2xl font-bold text-foreground">{friend.name}</h1>
                                         <p className="text-muted-foreground text-sm font-medium">{friend.handle}</p>
                                     </div>
-                                    {!isCurrentUser && !isFriend && (
-                                        <Button
-                                            size="sm"
-                                            className={hasPendingRequest ? "bg-muted text-muted-foreground" : ""}
-                                            variant={hasPendingRequest ? "ghost" : "default"}
-                                            onClick={!hasPendingRequest && !addFriendMutation.isPending ? handleAddFriend : undefined}
-                                            disabled={hasPendingRequest || addFriendMutation.isPending}
-                                        >
-                                            {addFriendMutation.isPending ? (
-                                                <Loader2 className="w-4 h-4 animate-spin" />
-                                            ) : hasPendingRequest ? (
-                                                <span className="flex items-center gap-1">
-                                                    <Check className="w-4 h-4" /> Request Sent
-                                                </span>
+                                    {!isCurrentUser && (
+                                        <>
+                                            {isFriend ? (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-primary/10 text-primary hover:bg-primary/20"
+                                                            variant="ghost"
+                                                        >
+                                                            <span className="flex items-center gap-1">
+                                                                <UserCheck className="w-4 h-4" /> <span className="hidden sm:inline">Friends</span>
+                                                            </span>
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem
+                                                            onClick={handleRemoveFriend}
+                                                            className="text-destructive focus:text-destructive cursor-pointer"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                            Remove Friend
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             ) : (
-                                                <span className="flex items-center gap-1">
-                                                    <UserPlus className="w-4 h-4" />
-                                                </span>
+                                                <>
+                                                    {isOutgoingRequest ? (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    size="sm"
+                                                                    className="bg-muted text-muted-foreground"
+                                                                    variant="ghost"
+                                                                    disabled={addFriendMutation.isPending || cancelRequestMutation.isPending}
+                                                                >
+                                                                    {addFriendMutation.isPending || cancelRequestMutation.isPending ? (
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                    ) : (
+                                                                        <span className="flex items-center gap-1">
+                                                                            <Clock className="w-4 h-4" /> <span className="hidden sm:inline">Request Sent</span>
+                                                                        </span>
+                                                                    )}
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem
+                                                                    onClick={handleCancelRequest}
+                                                                    className="text-destructive focus:text-destructive cursor-pointer"
+                                                                >
+                                                                    <X className="w-4 h-4 mr-2" />
+                                                                    Cancel Request
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    ) : (
+                                                        <Button
+                                                            size="sm"
+                                                            className={hasPendingRequest ? "bg-muted text-muted-foreground" : ""}
+                                                            variant={hasPendingRequest ? "ghost" : "default"}
+                                                            onClick={handleAddFriend}
+                                                            disabled={!!hasPendingRequest || addFriendMutation.isPending}
+                                                        >
+                                                            {addFriendMutation.isPending ? (
+                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                            ) : hasPendingRequest ? (
+                                                                <span className="flex items-center gap-1">
+                                                                    <Check className="w-4 h-4" /> <span className="hidden sm:inline">Request Received</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1">
+                                                                    <UserPlus className="w-4 h-4" /> <span className="hidden sm:inline">Add Friend</span>
+                                                                </span>
+                                                            )}
+                                                        </Button>
+                                                    )}
+                                                </>
                                             )}
-                                        </Button>
+                                        </>
                                     )}
                                 </div>
 
@@ -268,7 +349,7 @@ const FriendProfile = () => {
                     </Card>
                 </motion.div>
             </div>
-        </div>
+        </div >
     );
 };
 

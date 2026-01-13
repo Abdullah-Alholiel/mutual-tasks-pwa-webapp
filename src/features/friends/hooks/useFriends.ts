@@ -78,6 +78,29 @@ export function useRemoveFriend() {
     });
 }
 
+export function useCancelRequest() {
+    const queryClient = useQueryClient();
+    const { data: user } = useCurrentUser();
+    const userId = user?.id;
+
+    return useMutation({
+        mutationFn: async (friendId: number) => {
+            if (!userId) throw new Error('User not authenticated');
+            return db.friends.cancelRequest(userId, friendId);
+        },
+        onSuccess: () => {
+            toast.success('Friend request canceled');
+            queryClient.invalidateQueries({ queryKey: ['friendRequests', userId] });
+            // Also invalidate friends queries just in case
+            queryClient.invalidateQueries({ queryKey: ['friends', userId] });
+        },
+        onError: (error) => {
+            console.error('Failed to cancel request:', error);
+            toast.error('Failed to cancel friend request');
+        },
+    });
+}
+
 export function useFriendRequests() {
     const { data: user } = useCurrentUser();
     const userId = user?.id;
@@ -129,5 +152,17 @@ export function useCommonProjects(friendId: number) {
             return db.friends.getCommonProjects(userId, friendId);
         },
         enabled: !!userId && !!friendId,
+    });
+}
+
+export function useSearchUsers(query: string) {
+    return useQuery({
+        queryKey: ['searchUsers', query],
+        queryFn: async () => {
+            if (!query || query.length < 2) return [];
+            return db.friends.searchUsers(query);
+        },
+        enabled: !!query && query.length >= 2,
+        staleTime: 1000 * 60 * 1, // cache for 1 minute
     });
 }

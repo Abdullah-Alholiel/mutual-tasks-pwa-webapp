@@ -343,6 +343,24 @@ export class FriendsRepository {
     }
 
     /**
+     * Cancel an outgoing friend request
+     */
+    async cancelRequest(userId: number, friendId: number): Promise<void> {
+        // Only allow deleting PENDING requests where I am the INITIATOR (user_id)
+        const { error } = await this.supabase
+            .from('friends')
+            .delete()
+            .eq('user_id', toStringId(userId))
+            .eq('friend_id', toStringId(friendId))
+            .eq('status', 'pending');
+
+        if (error) {
+            console.error('Error canceling friend request:', error);
+            throw new Error('Failed to cancel friend request');
+        }
+    }
+
+    /**
      * Get common projects between two users
      */
     async getCommonProjects(userId1: number, userId2: number): Promise<Project[]> {
@@ -377,5 +395,31 @@ export class FriendsRepository {
         if (error || !projects) return [];
 
         return projects.map((row: ProjectRow) => transformProjectRow(row));
+    }
+
+    /**
+     * Search users by handle or name
+     */
+    async searchUsers(query: string): Promise<User[]> {
+        if (!query || query.length < 2) return [];
+
+        const cleanQuery = query.startsWith('@') ? query.slice(1) : query;
+        // Search by handle (exact or partial) or name (partial)
+        // detailed search logic:
+        // 1. match handle exactly or partially
+        // 2. match name partially
+        // Limit to 10 results
+        const { data, error } = await this.supabase
+            .from('users')
+            .select('*')
+            .or(`handle.ilike.%${cleanQuery}%,name.ilike.%${cleanQuery}%`)
+            .limit(10);
+
+        if (error) {
+            console.error('Error searching users:', error);
+            return [];
+        }
+
+        return (data || []).map((row: UserRow) => transformUserRow(row));
     }
 }

@@ -1,9 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/useAuth';
-import { useAddFriend, useFriendRequests, useFriends } from '@/features/friends/hooks/useFriends';
+import { useAddFriend, useFriendRequests, useFriends, useCancelRequest } from '@/features/friends/hooks/useFriends';
 import { cn } from '@/lib/utils';
-import { Clock, Loader2, UserCheck, UserPlus } from 'lucide-react';
-import React from 'react';
+import { Clock, Loader2, UserCheck, UserPlus, X } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import React, { useState } from 'react';
 import type { User } from '@/types';
 
 interface FriendActionButtonProps {
@@ -18,6 +24,7 @@ export const FriendActionButton = ({ user, className }: FriendActionButtonProps)
     const { data: friends } = useFriends();
     const { data: friendRequests } = useFriendRequests();
     const addFriendMutation = useAddFriend();
+    const cancelRequestMutation = useCancelRequest();
 
     const isCurrentUser = currentUser && user.id === currentUser.id;
 
@@ -41,7 +48,12 @@ export const FriendActionButton = ({ user, className }: FriendActionButtonProps)
         }
     };
 
-    return (
+    const handleCancelRequest = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        cancelRequestMutation.mutate(user.id);
+    };
+
+    const buttonContent = (
         <Button
             variant="ghost"
             size="icon"
@@ -50,28 +62,61 @@ export const FriendActionButton = ({ user, className }: FriendActionButtonProps)
                 isFriend
                     ? "bg-green-500/10 text-green-500 cursor-default hover:bg-green-500/20"
                     : hasPendingRequest
-                        ? "bg-muted text-muted-foreground cursor-default"
+                        ? "bg-muted text-muted-foreground"
                         : "bg-primary/10 text-primary hover:bg-primary/20",
-                addFriendMutation.isPending && "opacity-50 cursor-wait",
+                (addFriendMutation.isPending || cancelRequestMutation.isPending) && "opacity-50 cursor-wait",
                 className
             )}
             onClick={(e) => {
-                if (!isFriend && !hasPendingRequest && !addFriendMutation.isPending) {
+                if (isFriend || addFriendMutation.isPending || cancelRequestMutation.isPending || isOutgoingRequest) return;
+
+                if (!hasPendingRequest) {
                     handleAddFriendClick(e);
                 }
             }}
-            disabled={isFriend || hasPendingRequest || addFriendMutation.isPending}
-            title={isFriend ? "Friends" : isOutgoingRequest ? "Request Sent" : isIncomingRequest ? "Request Received (Check Inbox)" : "Add Friend"}
+            disabled={isFriend || addFriendMutation.isPending || cancelRequestMutation.isPending || isIncomingRequest}
+            title={
+                isFriend ? "Friends"
+                    : isOutgoingRequest ? "Request Sent"
+                        : isIncomingRequest ? "Request Received"
+                            : "Add Friend"
+            }
         >
-            {addFriendMutation.isPending ? (
+            {(addFriendMutation.isPending || cancelRequestMutation.isPending) ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
             ) : isFriend ? (
                 <UserCheck className="w-4 h-4" />
-            ) : hasPendingRequest ? (
+            ) : isOutgoingRequest ? (
+                <Clock className="w-4 h-4" />
+            ) : isIncomingRequest ? (
                 <Clock className="w-4 h-4" />
             ) : (
                 <UserPlus className="w-4 h-4" />
             )}
         </Button>
     );
+
+    if (isOutgoingRequest) {
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    {buttonContent}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            cancelRequestMutation.mutate(user.id);
+                        }}
+                        className="text-destructive focus:text-destructive cursor-pointer"
+                    >
+                        <X className="w-4 h-4 mr-2" />
+                        Cancel Request
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        );
+    }
+
+    return buttonContent;
 };

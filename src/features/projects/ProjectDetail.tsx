@@ -24,7 +24,7 @@ import { FriendActionButton } from '@/features/projects/components/FriendActionB
 import { useProjectDetail } from './hooks/useProjectDetail';
 import { useJoinProject } from './hooks/useProjects';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { InlineLoader, Loader } from '@/components/ui/loader';
+import { InlineLoader, Loader, PageLoader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -167,7 +167,7 @@ const ProjectDetail = () => {
 
   if (isLoading) {
     return (
-      <InlineLoader text="Loading project..." />
+      <PageLoader text="Loading project..." />
     );
   }
 
