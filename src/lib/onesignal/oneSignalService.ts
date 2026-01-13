@@ -101,13 +101,24 @@ export function isOneSignalReady(): boolean {
  * This allows targeting specific users for push notifications
  */
 export async function setExternalUserId(userId: string | number): Promise<void> {
+    // Wait for initialization to complete first
+    if (initializationPromise) {
+        await initializationPromise;
+    }
+
     if (!isOneSignalReady()) {
-        console.warn('[OneSignal] Cannot set external user ID - not initialized');
+        // Try to initialize if not ready
+        await initializeOneSignal();
+    }
+
+    if (!isOneSignalReady()) {
+        // Still not ready - likely on localhost or not configured
         return;
     }
 
     try {
         await OneSignal.login(String(userId));
+        console.log('[OneSignal] External user ID set:', userId);
     } catch (error) {
         console.error('[OneSignal] Failed to set external user ID:', error);
     }
