@@ -8,6 +8,7 @@
 import { getDatabaseClient } from '@/db';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 import type { NotificationType } from '@/types';
+import { sendPushNotification } from '@/lib/onesignal/pushNotificationApi';
 
 /**
  * Get Supabase URL lazily (called inside functions, not at module load)
@@ -86,10 +87,11 @@ export async function notifyTaskCreated(
 
     // Create in-app notifications for all participants
     try {
+      const message = `${creator.name} created "${task.title}" in ${project.name}`;
       const inAppNotifications = participantUsers.map(participant => ({
         userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
         type: 'task_created' as NotificationType,
-        message: `${creator.name} created "${task.title}" in ${project.name}`,
+        message,
         taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
         isRead: false,
@@ -97,6 +99,17 @@ export async function notifyTaskCreated(
       }));
 
       await db.notifications.createMany(inAppNotifications);
+
+      // Send push notifications to all participants
+      participantUsers.forEach(participant => {
+        sendPushNotification({
+          externalUserId: participant.id,
+          title: 'New Task',
+          message,
+          url: `/projects/${project.id}`,
+          data: { taskId: task.id, projectId: project.id },
+        }).catch(() => { /* silent fail */ });
+      });
     } catch (notifError) {
       console.error('Failed to create in-app notifications:', notifError);
       // Don't throw - continue with email notifications
@@ -201,10 +214,11 @@ export async function notifyTaskCompleted(
     const participantUsers = await db.users.getByIds(participants);
 
     // Create in-app notifications for all participants
+    const message = `${completer.name} completed "${task.title}" in ${project.name}`;
     const inAppNotifications = participantUsers.map(participant => ({
       userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
       type: 'task_completed' as NotificationType,
-      message: `${completer.name} completed "${task.title}" in ${project.name}`,
+      message,
       taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
       projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
       isRead: false,
@@ -212,6 +226,16 @@ export async function notifyTaskCompleted(
     }));
 
     await db.notifications.createMany(inAppNotifications);
+
+    // Send push notifications to all participants
+    participantUsers.forEach(participant => {
+      sendPushNotification({
+        externalUserId: participant.id,
+        title: 'Task Completed! 🎉',
+        message,
+        url: `/projects/${project.id}`,
+      }).catch(() => { /* silent fail */ });
+    });
 
     // Optionally send emails (if configured)
     try {
@@ -312,10 +336,11 @@ export async function notifyTaskRecovered(
     const participantUsers = await db.users.getByIds(participants);
 
     // Create in-app notifications
+    const message = `${recoverer.name} recovered "${task.title}" in ${project.name}`;
     const inAppNotifications = participantUsers.map(participant => ({
       userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
       type: 'task_recovered' as NotificationType,
-      message: `${recoverer.name} recovered "${task.title}" in ${project.name}`,
+      message,
       taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
       projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
       isRead: false,
@@ -323,6 +348,16 @@ export async function notifyTaskRecovered(
     }));
 
     await db.notifications.createMany(inAppNotifications);
+
+    // Send push notifications
+    participantUsers.forEach(participant => {
+      sendPushNotification({
+        externalUserId: participant.id,
+        title: 'Task Recovered',
+        message,
+        url: `/projects/${project.id}`,
+      }).catch(() => { /* silent fail */ });
+    });
   } catch (error) {
     console.error('Error in notifyTaskRecovered:', error);
   }
@@ -415,10 +450,11 @@ export async function notifyTaskUpdated(
     const participantUsers = await db.users.getByIds(participants);
 
     // Create in-app notifications
+    const message = `${updater.name} updated the task "${task.title}" in ${project.name}`;
     const inAppNotifications = participantUsers.map(participant => ({
       userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
       type: 'task_updated' as NotificationType,
-      message: `${updater.name} updated the task "${task.title}" in ${project.name}`,
+      message,
       taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
       projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
       isRead: false,
@@ -426,6 +462,16 @@ export async function notifyTaskUpdated(
     }));
 
     await db.notifications.createMany(inAppNotifications);
+
+    // Send push notifications
+    participantUsers.forEach(participant => {
+      sendPushNotification({
+        externalUserId: participant.id,
+        title: 'Task Updated',
+        message,
+        url: `/projects/${project.id}`,
+      }).catch(() => { /* silent fail */ });
+    });
   } catch (error) {
     console.error('Error in notifyTaskUpdated:', error);
   }
