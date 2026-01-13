@@ -1,0 +1,128 @@
+{
+  "name": "Momentum AI Project Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ai-generated-project-momentumPWA",
+        "httpMethod": "POST",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "webhook-project-gen",
+      "name": "Webhook",
+      "webhookId": "ai-project-gen-webhook",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "HG6NVtOhSlFmjPh5",
+          "name": "Momentum PWA Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a project planning assistant for a task management app called Momentum.\n\nGiven a user's project description, create a structured project with tasks.\n\nUser's description:\n\"{{ $json.body.description }}\"\n\nOutput MUST be valid JSON with this EXACT structure (no markdown, no code blocks, ONLY raw JSON):\n{\n  \"name\": \"Project Name (max 50 chars, catchy and descriptive)\",\n  \"description\": \"Brief project description (max 200 chars, explains the goal)\",\n  \"icon\": \"MUST be one of: Target, Rocket, Zap, Star, Flag, Briefcase, Presentation, Building2, Laptop, Code, Dumbbell, Coffee, Book, Music, Home, Plane, Users, Heart, Smile, PartyPopper, PiggyBank, CreditCard, GraduationCap, Palette, Camera, Gamepad2, Gift\",\n  \"color\": \"MUST be one of these exact HSL values: hsl(199, 89%, 48%), hsl(142, 76%, 36%), hsl(32, 95%, 58%), hsl(280, 70%, 50%), hsl(340, 75%, 55%), hsl(180, 70%, 45%)\",\n  \"isPublic\": true,\n  \"tasks\": [\n    {\n      \"title\": \"Task title (max 100 chars, action-oriented)\",\n      \"description\": \"Brief task description (max 200 chars, what to do)\",\n      \"daysFromNow\": 0,\n      \"type\": \"one_off\"\n    }\n  ]\n}\n\nTASK RULES:\n- Generate 3-10 tasks based on project complexity\n- daysFromNow: 0 = today, 1 = tomorrow, 7 = next week, etc.\n- Space tasks logically over the project timeline\n- type: \"one_off\" for single tasks, \"habit\" for recurring tasks\n- For habit tasks, add: \"recurrencePattern\": \"Daily\" | \"weekly\" | \"custom\" and optionally \"recurrenceInterval\": number (for custom pattern, represents days between repetitions)\n- Use action verbs in task titles (Complete, Review, Set up, etc.)\n- Keep descriptions motivating and clear\n\nICON SELECTION:\n- Goals/Achievements: Target, Rocket, Zap, Star, Flag\n- Work/Professional: Briefcase, Presentation, Building2, Laptop, Code\n- Lifestyle/Health: Dumbbell, Coffee, Book, Music, Home, Plane\n- Social: Users, Heart, Smile, PartyPopper\n- Finance: PiggyBank, CreditCard\n- Education: GraduationCap\n- Creative: Palette, Camera, Gamepad2, Gift\n\nCOLOR SELECTION:\n- Blue (hsl(199, 89%, 48%)): Professional, calm, productivity\n- Green (hsl(142, 76%, 36%)): Health, growth, nature\n- Orange (hsl(32, 95%, 58%)): Energy, creativity, warmth\n- Purple (hsl(280, 70%, 50%)): Creativity, wisdom, luxury\n- Pink (hsl(340, 75%, 55%)): Fun, social, compassion\n- Teal (hsl(180, 70%, 45%)): Balance, sophistication, unique\n\nIMPORTANT:\n- Output ONLY the JSON object, no explanation, no markdown formatting\n- Ensure all strings are properly escaped\n- isPublic should generally be true unless the description mentions privacy"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [304, 0],
+      "id": "gemini-project-gen",
+      "name": "Generate Project with Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "t9NowGCGRDBfjE2M",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and validate the Gemini response\nconst geminiResponse = $input.first().json;\n\nlet rawText = '';\n\n// Extract text from Gemini response format\nif (geminiResponse.content && geminiResponse.content.parts && geminiResponse.content.parts[0]) {\n  rawText = geminiResponse.content.parts[0].text || '';\n} else if (typeof geminiResponse === 'string') {\n  rawText = geminiResponse;\n}\n\n// Clean up the response (remove markdown code blocks if present)\nrawText = rawText\n  .replace(/```json\\n?/g, '')\n  .replace(/```\\n?/g, '')\n  .trim();\n\n// Try to find JSON object in the text\nconst jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\nif (jsonMatch) {\n  rawText = jsonMatch[0];\n}\n\ntry {\n  const project = JSON.parse(rawText);\n  \n  // Validate required fields\n  if (!project.name || typeof project.name !== 'string') {\n    throw new Error('Invalid or missing project name');\n  }\n  \n  if (!Array.isArray(project.tasks) || project.tasks.length === 0) {\n    throw new Error('Invalid or missing tasks array');\n  }\n  \n  // Validate and sanitize the project\n  const validIcons = ['Target', 'Rocket', 'Zap', 'Star', 'Flag', 'Briefcase', 'Presentation', 'Building2', 'Laptop', 'Code', 'Dumbbell', 'Coffee', 'Book', 'Music', 'Home', 'Plane', 'Users', 'Heart', 'Smile', 'PartyPopper', 'PiggyBank', 'CreditCard', 'GraduationCap', 'Palette', 'Camera', 'Gamepad2', 'Gift'];\n  const validColors = ['hsl(199, 89%, 48%)', 'hsl(142, 76%, 36%)', 'hsl(32, 95%, 58%)', 'hsl(280, 70%, 50%)', 'hsl(340, 75%, 55%)', 'hsl(180, 70%, 45%)'];\n  \n  const sanitizedProject = {\n    name: String(project.name).slice(0, 50),\n    description: String(project.description || '').slice(0, 200),\n    icon: validIcons.includes(project.icon) ? project.icon : 'Target',\n    color: validColors.includes(project.color) ? project.color : 'hsl(199, 89%, 48%)',\n    isPublic: project.isPublic !== false,\n    tasks: []\n  };\n  \n  // Validate and sanitize tasks\n  for (const task of project.tasks) {\n    if (!task.title || typeof task.title !== 'string') continue;\n    \n    const sanitizedTask = {\n      title: String(task.title).slice(0, 100),\n      description: String(task.description || '').slice(0, 200),\n      daysFromNow: typeof task.daysFromNow === 'number' ? Math.max(0, Math.floor(task.daysFromNow)) : 0,\n      type: task.type === 'habit' ? 'habit' : 'one_off'\n    };\n    \n    // Add recurrence fields for habit tasks\n    if (sanitizedTask.type === 'habit') {\n      if (['Daily', 'weekly', 'custom'].includes(task.recurrencePattern)) {\n        sanitizedTask.recurrencePattern = task.recurrencePattern;\n      } else {\n        sanitizedTask.recurrencePattern = 'Daily';\n      }\n      \n      if (task.recurrencePattern === 'custom' && typeof task.recurrenceInterval === 'number') {\n        sanitizedTask.recurrenceInterval = Math.max(1, Math.floor(task.recurrenceInterval));\n      }\n    }\n    \n    sanitizedProject.tasks.push(sanitizedTask);\n  }\n  \n  // Ensure at least one task\n  if (sanitizedProject.tasks.length === 0) {\n    throw new Error('No valid tasks found');\n  }\n  \n  return [{ json: sanitizedProject }];\n  \n} catch (error) {\n  // Return error response\n  return [{ json: { error: 'Failed to parse AI response: ' + error.message, rawText: rawText.slice(0, 500) } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [608, 0],
+      "id": "code-parse-validate",
+      "name": "Parse and Validate Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [912, 0],
+      "id": "respond-webhook",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate Project with Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Project with Gemini": {
+      "main": [
+        [
+          {
+            "node": "Parse and Validate Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Validate Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "ai-project-gen-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1676731a254e0df31f42899d202a2250f735d9baf837f1de29fcbe8f3ea829a7"
+  },
+  "id": "ai-project-generator",
+  "tags": ["ai", "project-generation", "momentum"]
+}

@@ -20,6 +20,23 @@ import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 import { MainTabsShell } from "../layout/MainTabsShell";
 import { AppLayout } from "../layout/AppLayout";
 import { DataIntegrityGuard } from "@/components/DataIntegrityGuard";
+import { useEffect } from "react";
+import { initializeOneSignal } from "@/lib/onesignal/oneSignalService";
+
+/**
+ * OneSignal Initializer - runs once on app load
+ * Placed inside AuthProvider to ensure user context is available
+ */
+function OneSignalInitializer() {
+  useEffect(() => {
+    // Initialize OneSignal in the background
+    initializeOneSignal().catch((err) => {
+      console.warn('[OneSignal] Initialization error (non-fatal):', err);
+    });
+  }, []);
+
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,6 +104,8 @@ const App = () => {
       >
         {/* AuthProvider must be inside QueryClientProvider for useQueryClient access */}
         <AuthProvider>
+          {/* Initialize OneSignal push notifications */}
+          <OneSignalInitializer />
           <DataIntegrityGuard>
             <TooltipProvider>
               <Toaster />
