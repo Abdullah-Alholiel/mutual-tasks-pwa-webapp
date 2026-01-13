@@ -27,8 +27,6 @@ export const GlobalRealtimeSubscriptions = () => {
   useEffect(() => {
     if (!user || !isAuthenticated) return;
 
-    console.log('👤 [GlobalRealtime] User authenticated:', user.id);
-
     // Start health monitoring
     const manager = getRealtimeManager();
     manager.startHealthMonitor();
@@ -37,21 +35,13 @@ export const GlobalRealtimeSubscriptions = () => {
     const cache = getUserPreloadCache();
     cache.set(user);
 
-    // Debug: Log realtime status periodically
-    const interval = setInterval(() => {
-      console.log('📊 [GlobalRealtime] Status check at:', new Date().toISOString());
-    }, 60000); // Every minute
-
     return () => {
       manager.stopHealthMonitor();
-      clearInterval(interval);
     };
   }, [user, isAuthenticated]);
 
-  // Force refetch on reconnect
   useEffect(() => {
     const handleOnline = () => {
-      console.log('🔄 [GlobalRealtime] Online detected - forcing sync...');
       queryClient.refetchQueries({ queryKey: ['tasks'] });
       queryClient.refetchQueries({ queryKey: ['projects'] });
       queryClient.refetchQueries({ queryKey: ['notifications'] });

@@ -159,5 +159,4 @@ export async function checkTaskIds() {
 // Export for browser console access
 if (typeof window !== 'undefined') {
     (window as any).dbDiagnostic = { runDiagnostic, checkTaskIds };
-    console.log('[DB Diagnostic] Available: window.dbDiagnostic.runDiagnostic(), window.dbDiagnostic.checkTaskIds()');
 }

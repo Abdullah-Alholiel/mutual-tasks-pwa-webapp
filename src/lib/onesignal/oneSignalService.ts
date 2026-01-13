@@ -19,50 +19,29 @@ let initializationPromise: Promise<void> | null = null;
  * Should be called once at app startup, after authentication is ready
  */
 export async function initializeOneSignal(): Promise<void> {
-    console.log('🔔 [OneSignal] ========== INITIALIZATION START ==========');
-    console.log('🔔 [OneSignal] Current URL:', window.location.href);
-    console.log('🔔 [OneSignal] Protocol:', window.location.protocol);
-    console.log('🔔 [OneSignal] Is HTTPS:', window.location.protocol === 'https:');
-    console.log('🔔 [OneSignal] Is Localhost:', window.location.hostname === 'localhost');
-    console.log('🔔 [OneSignal] DEV mode:', import.meta.env.DEV);
-    console.log('🔔 [OneSignal] PROD mode:', import.meta.env.PROD);
-
     // Return existing promise if already initializing
     if (initializationPromise) {
-        console.log('🔔 [OneSignal] Already initializing, returning existing promise');
         return initializationPromise;
     }
 
     // Skip if already initialized
     if (isInitialized) {
-        console.log('🔔 [OneSignal] Already initialized, skipping');
         return Promise.resolve();
     }
 
     // Validate App ID
-    console.log('🔔 [OneSignal] App ID from env:', ONESIGNAL_APP_ID ? `${ONESIGNAL_APP_ID}` : 'MISSING');
-    console.log('🔔 [OneSignal] VITE_ONESIGNAL_APP_ID:', import.meta.env.VITE_ONESIGNAL_APP_ID || 'NOT SET');
-    console.log('🔔 [OneSignal] ONESIGNAL_APP_ID:', import.meta.env.ONESIGNAL_APP_ID || 'NOT SET');
-
     if (!ONESIGNAL_APP_ID) {
         console.error('❌ [OneSignal] ONESIGNAL_APP_ID not configured. Push notifications disabled.');
-        console.log('🔔 [OneSignal] ========== INITIALIZATION ABORTED ==========');
         return Promise.resolve();
     }
 
-    // Check browser support
-    console.log('🔔 [OneSignal] Checking browser support...');
-    console.log('🔔 [OneSignal] Service Worker supported:', 'serviceWorker' in navigator);
-    console.log('🔔 [OneSignal] Push API supported:', 'PushManager' in window);
-    console.log('🔔 [OneSignal] Notification API supported:', 'Notification' in window);
-
-    if ('Notification' in window) {
-        console.log('🔔 [OneSignal] Current notification permission:', Notification.permission);
+    // Skip on localhost to prevent "Can only be used on: https://..." error
+    if (window.location.hostname === 'localhost') {
+        return Promise.resolve();
     }
 
     initializationPromise = (async () => {
         try {
-            console.log('🔔 [OneSignal] Calling OneSignal.init()...');
 
             await OneSignal.init({
                 appId: ONESIGNAL_APP_ID,
@@ -95,23 +74,14 @@ export async function initializeOneSignal(): Promise<void> {
             });
 
             isInitialized = true;
-            console.log('✅ [OneSignal] Initialized successfully!');
+            console.log('✅ [OneSignal] Initialized successfully');
 
-            // Check subscription state after init
-            console.log('🔔 [OneSignal] Checking post-init state...');
-            console.log('🔔 [OneSignal] isPushSupported:', OneSignal.Notifications.isPushSupported());
-            console.log('🔔 [OneSignal] permission:', OneSignal.Notifications.permission);
-            console.log('🔔 [OneSignal] optedIn:', OneSignal.User.PushSubscription.optedIn);
-            console.log('🔔 [OneSignal] subscriptionId:', OneSignal.User.PushSubscription.id);
-
-            // Always enable debug logging for troubleshooting
-            console.log('🔔 [OneSignal] Enabling debug mode...');
-            OneSignal.Debug.setLogLevel('trace');
-
-            console.log('🔔 [OneSignal] ========== INITIALIZATION COMPLETE ==========');
+            // Enable debug logging only in development
+            if (import.meta.env.DEV) {
+                OneSignal.Debug.setLogLevel('trace');
+            }
         } catch (error) {
             console.error('❌ [OneSignal] Initialization failed:', error);
-            console.log('🔔 [OneSignal] ========== INITIALIZATION FAILED ==========');
             throw error;
         }
     })();
@@ -138,7 +108,6 @@ export async function setExternalUserId(userId: string | number): Promise<void> 
 
     try {
         await OneSignal.login(String(userId));
-        console.log('[OneSignal] External user ID set:', userId);
     } catch (error) {
         console.error('[OneSignal] Failed to set external user ID:', error);
     }
@@ -152,7 +121,6 @@ export async function removeExternalUserId(): Promise<void> {
 
     try {
         await OneSignal.logout();
-        console.log('[OneSignal] External user ID removed');
     } catch (error) {
         console.error('[OneSignal] Failed to remove external user ID:', error);
     }
@@ -208,7 +176,6 @@ export async function requestPushPermission(): Promise<boolean> {
         await OneSignal.User.PushSubscription.optIn();
 
         const subscribed = await isSubscribed();
-        console.log('[OneSignal] Push permission result:', subscribed ? 'subscribed' : 'not subscribed');
         return subscribed;
     } catch (error) {
         console.error('[OneSignal] Failed to request push permission:', error);
@@ -224,7 +191,6 @@ export async function unsubscribeFromPush(): Promise<void> {
 
     try {
         await OneSignal.User.PushSubscription.optOut();
-        console.log('[OneSignal] Unsubscribed from push');
     } catch (error) {
         console.error('[OneSignal] Failed to unsubscribe:', error);
     }

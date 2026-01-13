@@ -120,12 +120,8 @@ class RealtimeSubscriptionManager {
 
         channel.subscribe((status, err) => {
             this.isInitializing.set(type, false);
-            if (status === 'SUBSCRIBED') {
-                console.log(`[RealtimeManager] ${type} subscription active`);
-            } else if (status === 'CHANNEL_ERROR' && err) {
+            if (status === 'CHANNEL_ERROR' && err) {
                 console.error(`[RealtimeManager] ${type} subscription error:`, err);
-            } else if (status === 'CLOSED') {
-                console.log(`[RealtimeManager] ${type} subscription closed`);
             }
         });
 
@@ -328,7 +324,6 @@ class RealtimeSubscriptionManager {
     startHealthMonitor(): void {
         if (this.healthCheckInterval) return; // Already running
 
-        console.log('[RealtimeManager] Starting health monitor');
         this.healthCheckInterval = setInterval(() => {
             this.performHealthCheck();
         }, this.HEALTH_CHECK_INTERVAL);
@@ -344,7 +339,6 @@ class RealtimeSubscriptionManager {
         if (this.healthCheckInterval) {
             clearInterval(this.healthCheckInterval);
             this.healthCheckInterval = null;
-            console.log('[RealtimeManager] Health monitor stopped');
         }
     }
 
@@ -399,8 +393,6 @@ class RealtimeSubscriptionManager {
             this.MAX_RECONNECT_DELAY
         );
 
-        console.log(`[RealtimeManager] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-
         await new Promise(resolve => setTimeout(resolve, delay));
 
         // Re-subscribe to all channels
@@ -430,7 +422,6 @@ class RealtimeSubscriptionManager {
         if (this.connectionStatus === status) return;
 
         this.connectionStatus = status;
-        console.log(`[RealtimeManager] Connection status: ${status}`);
 
         this.statusCallbacks.forEach(cb => {
             try {

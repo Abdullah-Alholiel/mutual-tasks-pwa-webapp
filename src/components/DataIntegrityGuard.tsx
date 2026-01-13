@@ -30,9 +30,8 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
     const [isChecking, setIsChecking] = useState(false);
     const queryClient = useQueryClient();
 
-    // Force nuclear reset of all storage
     const forceNuclearReset = () => {
-        console.warn('[DataIntegrityGuard] ☢️ INITIATING NUCLEAR RESET');
+        console.warn('[DataIntegrityGuard] Initiating reset');
 
         // 1. Clear LocalStorage
         localStorage.clear();
@@ -48,7 +47,6 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
             navigator.serviceWorker.getRegistrations().then(function (registrations) {
                 for (let registration of registrations) {
                     registration.unregister();
-                    console.log('[DataIntegrityGuard] Unregistered SW:', registration);
                 }
             });
         }
@@ -60,8 +58,6 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
     const checkIntegrity = async (): Promise<IntegrityCheckResult> => {
         const issues: IntegrityIssue[] = [];
         const db = getDatabaseClient();
-
-        console.log('[DataIntegrityGuard] Starting DEEP integrity check...');
 
         try {
             // 1. Fetch ALL authentic tasks from Database
@@ -94,14 +90,12 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
             const cachedTasks = queryClient.getQueryData(['tasks']) as Task[] | undefined;
 
             if (cachedTasks && Array.isArray(cachedTasks)) {
-                console.log(`[DataIntegrityGuard] Validating ${cachedTasks.length} cached tasks against DB...`);
-
                 let phantomCount = 0;
                 for (const cachedTask of cachedTasks) {
                     if (!dbTaskIds.has(cachedTask.id)) {
                         phantomCount++;
                         if (phantomCount <= 5) { // Only log details for first 5
-                            console.error(`[DataIntegrityGuard] 👻 PHANTOM TASK FOUND: "${cachedTask.title}" (ID: ${cachedTask.id}) exists in cache but NOT in database!`);
+                            console.error(`[DataIntegrityGuard] Phantom Task: "${cachedTask.title}" (ID: ${cachedTask.id}) in cache but not in DB`);
                             issues.push({
                                 type: 'phantom_tasks',
                                 description: `Phantom Task: "${cachedTask.title}" (ID: ${cachedTask.id}) is in UI but not DB.`,
@@ -112,7 +106,7 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
                 }
 
                 if (phantomCount > 0) {
-                    console.error(`[DataIntegrityGuard] 🚨 TOTAL PHANTOM TASKS: ${phantomCount}`);
+                    console.error(`[DataIntegrityGuard] Total phantom tasks: ${phantomCount}`);
                 }
             }
 
@@ -157,7 +151,6 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
                             .filter(Boolean) as number[];
 
                         if (phantomTasks.length > 0) {
-                            console.log('[DataIntegrityGuard] 🧹 Auto-removing', phantomTasks.length, 'phantom tasks from cache');
                             // AUTO-FIX: Remove cached task data and force fresh DB fetch
                             queryClient.removeQueries({ queryKey: ['tasks'] });
                             queryClient.refetchQueries({ queryKey: ['tasks'] });

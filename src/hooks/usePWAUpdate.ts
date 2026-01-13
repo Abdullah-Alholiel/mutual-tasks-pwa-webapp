@@ -20,10 +20,8 @@ export const usePWAUpdate = () => {
   // In development, just return a no-op implementation
   const forceUpdate = useCallback(() => {
     if (!isProduction) {
-      console.log('[PWA] Service worker updates disabled in development mode');
       return;
     }
-    console.log('[PWA] Forcing update and reload...');
     // In production, this will be handled by the visibility change listener
   }, []);
 
@@ -36,8 +34,6 @@ export const usePWAUpdate = () => {
 
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
-        console.log('[PWA] App became visible, checking for updates...');
-
         try {
           const registration = await navigator.serviceWorker?.getRegistration();
           if (registration) {
@@ -45,7 +41,6 @@ export const usePWAUpdate = () => {
 
             // If there's a waiting worker, activate it immediately
             if (registration.waiting) {
-              console.log('[PWA] Found waiting worker, activating...');
               registration.waiting.postMessage({ type: 'SKIP_WAITING' });
               window.location.reload();
             }
@@ -53,7 +48,7 @@ export const usePWAUpdate = () => {
         } catch (error) {
           // Silently ignore errors in development or when SW is not available
           if (isProduction) {
-            console.error('[PWA] Visibility update check failed:', error);
+            console.error('[PWA] Update check failed:', error);
           }
         }
       }
@@ -76,7 +71,6 @@ export const usePWAUpdate = () => {
       try {
         const registration = await navigator.serviceWorker?.getRegistration();
         if (registration) {
-          console.log('[PWA] Periodic update check...');
           await registration.update();
         }
       } catch (error) {

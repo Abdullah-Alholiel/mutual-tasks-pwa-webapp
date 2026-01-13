@@ -106,44 +106,20 @@ let dbClient: DatabaseClient | null = null;
  */
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 
+import { getSharedSupabaseClient } from '@/lib/supabaseClient';
+
 export function getDatabaseClient(): DatabaseClient {
   if (dbClient) return dbClient;
 
-  console.log('[DatabaseClient] Initializing Supabase connection...');
-
-  const supabaseUrl = getSupabaseUrl();
-  const supabaseAnonKey = getSupabaseAnonKey();
-
-  console.log('[DatabaseClient] Supabase URL:', supabaseUrl);
-  console.log('[DatabaseClient] Supabase Key:', supabaseAnonKey ? `${supabaseAnonKey.slice(0, 30)}...` : 'NOT SET');
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Supabase configuration missing. Please set:\n' +
-      '  - Vite: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY\n' +
-      '  - Next.js: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY\n\n' +
-      'Alternatively, initialize the database at app startup:\n' +
-      'import { createClient } from "@supabase/supabase-js";\n' +
-      'import { initializeDatabase } from "@/db";\n' +
-      'const supabase = createClient(url, key);\n' +
-      'initializeDatabase(supabase);'
-    );
-  }
-
-  // Create Supabase client
-  // This requires @supabase/supabase-js to be installed
+  // Use the shared Supabase client singleton
   try {
-    console.log('[DatabaseClient] Creating Supabase client...');
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = getSharedSupabaseClient();
     dbClient = new SupabaseDatabaseClient(supabase);
-    console.log('[DatabaseClient] ✅ Database client initialized successfully');
     return dbClient;
   } catch (error) {
     console.error('[DatabaseClient] ❌ Failed to initialize:', error);
     throw new Error(
-      `Failed to initialize Supabase client: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
-      'Make sure @supabase/supabase-js is installed: npm install @supabase/supabase-js\n\n' +
-      'For better control, initialize at app startup using initializeDatabase()'
+      `Failed to initialize Supabase client: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }

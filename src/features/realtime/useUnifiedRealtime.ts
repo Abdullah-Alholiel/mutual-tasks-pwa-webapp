@@ -97,7 +97,6 @@ function updateAllTaskCaches(
             const updated = updateCacheData(currentData, payload);
             if (updated !== currentData) {
                 queryClient.setQueryData(query.queryKey, updated);
-                console.log('✅ [UnifiedRealtime] Updated cache for:', query.queryKey);
             }
         } catch (error) {
             console.warn(
@@ -117,7 +116,6 @@ function handleTaskChange(
     queryClient: ReturnType<typeof useQueryClient>,
     payload: Payload
 ) {
-    console.log('🔥 [UnifiedRealtime] TASK CHANGE:', payload.eventType, payload);
 
     // 1. IMMEDIATE optimistic cache update
     updateAllTaskCaches(queryClient, payload);
@@ -157,7 +155,6 @@ async function handleStatusChange(
     queryClient: ReturnType<typeof useQueryClient>,
     payload: Payload
 ) {
-    console.log('🔥 [UnifiedRealtime] STATUS CHANGE:', payload.eventType, payload);
 
     const newData = payload.new as Record<string, unknown> | undefined;
 
@@ -204,7 +201,6 @@ function handleLogChange(
     queryClient: ReturnType<typeof useQueryClient>,
     payload: Payload
 ) {
-    console.log('🔥 [UnifiedRealtime] LOG CHANGE:', payload.eventType, payload);
 
     queryClient.refetchQueries({
         predicate: (query) => {
@@ -218,7 +214,6 @@ function handleParticipantChange(
     queryClient: ReturnType<typeof useQueryClient>,
     payload: Payload
 ) {
-    console.log('🔥 [UnifiedRealtime] PARTICIPANT CHANGE:', payload.eventType, payload);
 
     const newData = payload.new as Record<string, unknown> | undefined;
 
@@ -247,8 +242,6 @@ export function useUnifiedRealtime() {
     const queryClient = useQueryClient();
 
     useEffect(() => {
-        console.log('🚀 [UnifiedRealtime] Setting up UNIFIED realtime subscriptions');
-
         const supabase = getSharedSupabaseClient();
 
         // ===========================================================
@@ -292,15 +285,9 @@ export function useUnifiedRealtime() {
                 },
                 (payload) => handleParticipantChange(queryClient, payload)
             )
-            .subscribe((status) => {
-                console.log('🔌 [UnifiedRealtime] Channel status:', status);
-                if (status === 'SUBSCRIBED') {
-                    console.log('✅ [UnifiedRealtime] Ready! Events will be instant.');
-                }
-            });
+            .subscribe();
 
         return () => {
-            console.log('🧹 [UnifiedRealtime] Cleaning up subscription');
             supabase.removeChannel(unifiedChannel);
         };
     }, [queryClient]);
