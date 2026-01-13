@@ -84,6 +84,8 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           navigateFallback: 'index.html',
           globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
+          // Exclude OneSignal service worker files from workbox precaching
+          globIgnores: ['**/OneSignalSDK*.js'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
