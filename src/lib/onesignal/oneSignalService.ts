@@ -74,6 +74,7 @@ export function isOneSignalReady(): boolean {
  * - User previously dismissed the prompt
  * - Subscription was deleted from OneSignal dashboard
  * - Permission granted but not opted in
+ * - External ID was previously assigned to different user
  */
 export async function ensurePushSubscription(userId: string | number): Promise<void> {
     console.log('[OneSignal] ensurePushSubscription called for user:', userId);
@@ -101,16 +102,17 @@ export async function ensurePushSubscription(userId: string | number): Promise<v
         const permission = Notification.permission;
         const optedIn = OneSignal.User.PushSubscription.optedIn;
         const subscriptionId = OneSignal.User.PushSubscription.id;
+        const currentExternalId = OneSignal.User.externalId;
 
         console.log('[OneSignal] Current state:', {
             permission,
             optedIn,
-            subscriptionId: subscriptionId?.substring(0, 15)
+            subscriptionId: subscriptionId?.substring(0, 15),
+            currentExternalId,
         });
 
         // Step 1: Handle permission
         if (permission === 'default') {
-            // Use native browser API to bypass OneSignal's "previously dismissed" check
             console.log('[OneSignal] Requesting native permission...');
             const result = await Notification.requestPermission();
             console.log('[OneSignal] Native permission result:', result);
@@ -122,33 +124,48 @@ export async function ensurePushSubscription(userId: string | number): Promise<v
         // Step 2: Force opt-in if permission granted
         const currentPermission = Notification.permission;
         if (currentPermission === 'granted') {
-            // Always try to opt in - this recreates subscription if it was deleted
             console.log('[OneSignal] Forcing opt-in...');
             try {
                 await OneSignal.User.PushSubscription.optIn();
             } catch (optInError) {
-                console.log('[OneSignal] OptIn error (may be already opted in):', optInError);
+                console.log('[OneSignal] OptIn note:', optInError);
             }
         }
 
-        // Step 3: Set external user ID (login)
-        console.log('[OneSignal] Setting external user ID:', userId);
+        // Step 3: CRITICAL - Logout first to clear any previous external ID
+        // This ensures the external ID is properly updated
+        console.log('[OneSignal] Logging out to clear previous external ID...');
+        try {
+            await OneSignal.logout();
+            await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (logoutError) {
+            console.log('[OneSignal] Logout note:', logoutError);
+        }
+
+        // Step 4: Login with new external user ID
+        console.log('[OneSignal] Logging in with external user ID:', userId);
         await OneSignal.login(String(userId));
 
-        // Wait a moment for subscription to register
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for subscription to register
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Verify final state
         const finalSubscriptionId = OneSignal.User.PushSubscription.id;
         const finalOptedIn = OneSignal.User.PushSubscription.optedIn;
+        const finalExternalId = OneSignal.User.externalId;
 
         console.log('[OneSignal] ✅ Push subscription complete:', {
-            userId,
+            requestedUserId: userId,
+            assignedExternalId: finalExternalId,
             subscriptionId: finalSubscriptionId?.substring(0, 15),
             optedIn: finalOptedIn,
         });
 
-        // If no subscription ID, there's an issue
+        // Verify external ID matches
+        if (String(finalExternalId) !== String(userId)) {
+            console.error('[OneSignal] ❌ External ID MISMATCH! Requested:', userId, 'Got:', finalExternalId);
+        }
+
         if (!finalSubscriptionId) {
             console.warn('[OneSignal] ⚠️ No subscription ID - subscription may not have been created');
         }
