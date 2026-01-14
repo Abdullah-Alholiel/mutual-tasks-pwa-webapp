@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { getTodayTasks, getProjectTasks, getUserTasks } from '../../../lib/tasks/taskFilterUtils';
 // Import atomic operations at top level to avoid dynamic require issues
 import { createTaskAtomic, type AtomicTaskInput } from '@/lib/tasks/atomicTaskOperations';
+import { notifyTaskCreated } from '@/lib/tasks/taskEmailNotifications';
 
 /**
  * Hook to fetch all tasks with optional filters
@@ -219,11 +220,21 @@ export const useCreateTaskWithStatuses = () => {
         throw error;
       }
     },
-    onSuccess: (result) => {
+    onSuccess: (result, input) => {
       // CRITICAL: Remove stale cache and force fresh DB fetch
       queryClient.removeQueries({ queryKey: ['tasks'] });
       queryClient.refetchQueries({ queryKey: ['tasks'] });
       queryClient.refetchQueries({ queryKey: ['project', result.task.projectId] });
+
+      // Send notifications to participants (in-app + push)
+      notifyTaskCreated(
+        Number(result.task.id),
+        Number(result.task.projectId),
+        Number(result.task.creatorId)
+      ).catch(error => {
+        console.error('[useCreateTaskWithStatuses] Failed to send notifications:', error);
+      });
+
       return result;
     },
     onError: (error) => {
@@ -303,6 +314,18 @@ export const useCreateMultipleTasksWithStatuses = () => {
       projectIds.forEach(projectId => {
         queryClient.refetchQueries({ queryKey: ['project', projectId] });
       });
+
+      // Send notification for first task only (to avoid spamming for habit series)
+      if (results.length > 0) {
+        const firstTask = results[0].task;
+        notifyTaskCreated(
+          Number(firstTask.id),
+          Number(firstTask.projectId),
+          Number(firstTask.creatorId)
+        ).catch(error => {
+          console.error('[useCreateMultipleTasksWithStatuses] Failed to send notifications:', error);
+        });
+      }
 
       return results;
     },
