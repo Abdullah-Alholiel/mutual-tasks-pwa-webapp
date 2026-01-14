@@ -10,6 +10,8 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSharedSupabaseClient } from '@/lib/supabaseClient';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { transformNotificationRow, type NotificationRow } from '@/db/transformers';
+import type { Notification } from '@/types';
 
 type Payload = RealtimePostgresChangesPayload<Record<string, unknown>>;
 
@@ -234,6 +236,71 @@ function handleParticipantChange(
     });
 }
 
+/**
+ * Show browser notification if supported and permitted
+ */
+function showBrowserNotification(notification: Notification) {
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'granted') {
+        new Notification('Mutual Tasks', {
+            body: notification.message,
+            icon: '/icons/icon-192x192.png',
+            tag: `notification-${notification.id}`,
+        });
+    } else if (Notification.permission !== 'denied') {
+        // Request permission
+        Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+                new Notification('Mutual Tasks', {
+                    body: notification.message,
+                    icon: '/icons/icon-192x192.png',
+                    tag: `notification-${notification.id}`,
+                });
+            }
+        });
+    }
+}
+
+function handleNotificationChange(
+    queryClient: ReturnType<typeof useQueryClient>,
+    payload: Payload
+) {
+    // Show browser notification for new items
+    if (payload.eventType === 'INSERT' && payload.new) {
+        try {
+            const newNotification = transformNotificationRow(payload.new as NotificationRow);
+            showBrowserNotification(newNotification);
+        } catch (e) {
+            console.warn('[UnifiedRealtime] Failed to show browser notification:', e);
+        }
+    }
+
+    // Identify user ID from payload to invalidate specific user cache if possible
+    const userId = (payload.new as any)?.user_id || (payload.old as any)?.user_id;
+
+    // Invalidate all notification queries
+    queryClient.invalidateQueries({
+        predicate: (query) => {
+            const keyStr = JSON.stringify(query.queryKey).toLowerCase();
+            const matchesType = keyStr.includes('notification');
+
+            // If we have a user ID, strictly match it to avoid invalidating everyone's cache (though RLS prevents seeing others)
+            const matchesUser = userId ? keyStr.includes(String(userId)) : true;
+
+            return matchesType && matchesUser;
+        },
+    });
+
+    // Also force refetch for immediate UI update
+    if (userId) {
+        queryClient.refetchQueries({ queryKey: ['notifications', userId] });
+    } else {
+        queryClient.refetchQueries({ queryKey: ['notifications'] });
+    }
+}
+
+
 // ============================================================================
 // MAIN HOOK
 // ============================================================================
@@ -284,6 +351,15 @@ export function useUnifiedRealtime() {
                     table: 'project_participants',
                 },
                 (payload) => handleParticipantChange(queryClient, payload)
+            )
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'notifications',
+                },
+                (payload) => handleNotificationChange(queryClient, payload)
             )
             .subscribe();
 
