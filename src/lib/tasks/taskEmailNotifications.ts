@@ -86,8 +86,12 @@ export async function notifyTaskCreated(
     const participantUsers = await db.users.getByIds(participants);
 
     // Create in-app notifications for all participants
+    const message = `${creator.name} created "${task.title}" in ${project.name}`;
+
+    // 1. In-app notifications
     try {
-      const message = `${creator.name} created "${task.title}" in ${project.name}`;
+      console.log('[Notification] Creating in-app notifications for:', participantUsers.map(u => u.id));
+
       const inAppNotifications = participantUsers.map(participant => ({
         userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
         type: 'task_created' as NotificationType,
@@ -99,6 +103,15 @@ export async function notifyTaskCreated(
       }));
 
       await db.notifications.createMany(inAppNotifications);
+      console.log('[Notification] ✅ In-app notifications created');
+    } catch (notifError) {
+      console.error('[Notification] ❌ Failed to create in-app notifications:', notifError);
+      // Continue to push notifications even if in-app fails
+    }
+
+    // 2. Push notifications
+    try {
+      console.log('[Notification] Sending push notifications to:', participantUsers.map(u => u.id));
 
       // Send push notifications to all participants
       participantUsers.forEach(participant => {
@@ -108,11 +121,12 @@ export async function notifyTaskCreated(
           message,
           url: `/projects/${project.id}`,
           data: { taskId: task.id, projectId: project.id },
-        }).catch(() => { /* silent fail */ });
+        }).catch((err) => {
+          console.error('[Notification] Failed individual push send:', err);
+        });
       });
-    } catch (notifError) {
-      console.error('Failed to create in-app notifications:', notifError);
-      // Don't throw - continue with email notifications
+    } catch (pushError) {
+      console.error('[Notification] ❌ Failed to initiate push notifications:', pushError);
     }
 
     // Send email to each participant via Supabase Edge Function

@@ -34,9 +34,10 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
             body: JSON.stringify(payload),
         });
 
-        if (!response.ok) {
-            const errorData = await response.text();
-            console.error('[Push] Failed:', response.status, errorData);
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            console.error('[Push] Failed:', result);
             return false;
         }
 
