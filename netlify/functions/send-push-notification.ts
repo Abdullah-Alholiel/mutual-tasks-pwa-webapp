@@ -100,7 +100,25 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         }
 
         const result = JSON.parse(responseText);
-        console.log('[send-push-notification] Success! Recipients:', result.recipients, 'ID:', result.id);
+
+        // Check for the common "not subscribed" error
+        if (result.errors && result.errors.includes('All included players are not subscribed')) {
+            console.error('[send-push-notification] ⚠️ EXTERNAL ID NOT FOUND:', externalUserId);
+            console.error('[send-push-notification] This means no OneSignal subscription has external_id:', externalUserId);
+            console.error('[send-push-notification] The user needs to log in on the deployed site to link their subscription');
+            return {
+                statusCode: 200, // Return 200 as it's not a server error
+                headers,
+                body: JSON.stringify({
+                    success: false,
+                    error: 'No subscription found for user',
+                    externalUserId,
+                    hint: 'User must log in on deployed site to create/link subscription'
+                }),
+            };
+        }
+
+        console.log('[send-push-notification] ✅ Success! Recipients:', result.recipients, 'ID:', result.id);
 
         return {
             statusCode: 200,

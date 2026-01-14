@@ -69,6 +69,11 @@ export function isOneSignalReady(): boolean {
 /**
  * Ensure user is subscribed and linked to their app user ID
  * This is the main function to call after user authentication
+ * 
+ * Handles edge cases:
+ * - User previously dismissed the prompt
+ * - Subscription was deleted from OneSignal dashboard
+ * - Permission granted but not opted in
  */
 export async function ensurePushSubscription(userId: string | number): Promise<void> {
     console.log('[OneSignal] ensurePushSubscription called for user:', userId);
@@ -97,27 +102,41 @@ export async function ensurePushSubscription(userId: string | number): Promise<v
         const optedIn = OneSignal.User.PushSubscription.optedIn;
         const subscriptionId = OneSignal.User.PushSubscription.id;
 
-        console.log('[OneSignal] Current state:', { permission, optedIn, subscriptionId: subscriptionId?.substring(0, 15) });
+        console.log('[OneSignal] Current state:', {
+            permission,
+            optedIn,
+            subscriptionId: subscriptionId?.substring(0, 15)
+        });
 
-        // Step 1: If permission not granted, request it
+        // Step 1: Handle permission
         if (permission === 'default') {
-            console.log('[OneSignal] Requesting permission...');
-            await OneSignal.Notifications.requestPermission();
+            // Use native browser API to bypass OneSignal's "previously dismissed" check
+            console.log('[OneSignal] Requesting native permission...');
+            const result = await Notification.requestPermission();
+            console.log('[OneSignal] Native permission result:', result);
+        } else if (permission === 'denied') {
+            console.log('[OneSignal] Permission denied - user must enable in browser settings');
+            return;
         }
 
-        // Step 2: If permission granted but not opted in, opt in
+        // Step 2: Force opt-in if permission granted
         const currentPermission = Notification.permission;
         if (currentPermission === 'granted') {
-            const currentOptedIn = OneSignal.User.PushSubscription.optedIn;
-            if (!currentOptedIn) {
-                console.log('[OneSignal] Opting in to push...');
+            // Always try to opt in - this recreates subscription if it was deleted
+            console.log('[OneSignal] Forcing opt-in...');
+            try {
                 await OneSignal.User.PushSubscription.optIn();
+            } catch (optInError) {
+                console.log('[OneSignal] OptIn error (may be already opted in):', optInError);
             }
         }
 
         // Step 3: Set external user ID (login)
         console.log('[OneSignal] Setting external user ID:', userId);
         await OneSignal.login(String(userId));
+
+        // Wait a moment for subscription to register
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Verify final state
         const finalSubscriptionId = OneSignal.User.PushSubscription.id;
@@ -128,6 +147,11 @@ export async function ensurePushSubscription(userId: string | number): Promise<v
             subscriptionId: finalSubscriptionId?.substring(0, 15),
             optedIn: finalOptedIn,
         });
+
+        // If no subscription ID, there's an issue
+        if (!finalSubscriptionId) {
+            console.warn('[OneSignal] ⚠️ No subscription ID - subscription may not have been created');
+        }
 
     } catch (error) {
         console.error('[OneSignal] Error in ensurePushSubscription:', error);
