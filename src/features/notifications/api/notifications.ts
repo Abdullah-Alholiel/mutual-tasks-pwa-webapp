@@ -114,12 +114,41 @@ export class NotificationsRepository {
       created_at: now,
     }));
 
+    console.log('[NotificationsRepo] createMany - Input rows:', JSON.stringify(rows, null, 2));
+
     const { data, error } = await this.supabase
       .from('notifications')
       .insert(rows)
       .select();
 
-    if (error) throw error;
+    console.log('[NotificationsRepo] createMany - Supabase response:', {
+      hasError: !!error,
+      errorMessage: error?.message,
+      errorCode: error?.code,
+      dataLength: data?.length ?? 'null',
+      data: data,
+    });
+
+    if (error) {
+      console.error('[NotificationsRepo] createMany - ERROR:', error);
+      throw error;
+    }
+
+    // CRITICAL: Check for RLS silent failure (insert succeeds but select returns empty)
+    if (!data || data.length === 0) {
+      console.error('[NotificationsRepo] ❌ CRITICAL: Insert succeeded but SELECT returned no data!');
+      console.error('[NotificationsRepo] This indicates an RLS policy issue on the notifications table.');
+      console.error('[NotificationsRepo] Check that the INSERT and SELECT policies are correctly configured.');
+      console.error('[NotificationsRepo] Attempted to insert:', rows.length, 'notifications');
+      throw new Error('RLS policy error: INSERT succeeded but SELECT returned no data. Check notifications table RLS policies.');
+    }
+
+    if (data.length !== rows.length) {
+      console.warn('[NotificationsRepo] ⚠️ WARNING: Inserted', rows.length, 'but only got', data.length, 'back');
+      console.warn('[NotificationsRepo] Some notifications may have been filtered by RLS');
+    }
+
+    console.log('[NotificationsRepo] ✅ createMany succeeded:', data.length, 'notifications created');
     return data.map((row: NotificationRow) => transformNotificationRow(row));
   }
 

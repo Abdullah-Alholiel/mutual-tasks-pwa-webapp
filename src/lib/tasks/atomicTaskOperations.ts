@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
 import type { Task, TaskStatusEntity } from '@/types';
 import { transformTaskRow, type TaskRow } from '@/db/transformers';
+import { notifyTaskCreated } from '@/lib/tasks/taskEmailNotifications';
 
 // Get Supabase client for RPC calls
 function getSupabaseClient() {
@@ -113,6 +114,16 @@ export async function createTaskAtomic(input: AtomicTaskInput): Promise<AtomicTa
     // Transform and return
     const task = transformTaskRow(taskData as TaskRow);
 
+    // Send notifications to all participants (except creator)
+    notifyTaskCreated(task.id, input.projectId, input.creatorId)
+        .then(() => {
+            console.log('[AtomicTask] ✅ notifyTaskCreated completed successfully for task:', task.id);
+        })
+        .catch(error => {
+            console.error('[AtomicTask] ❌ notifyTaskCreated FAILED for task:', task.id, error);
+            // Error is logged but not re-thrown - notification failure shouldn't block task creation
+        });
+
     return {
         task,
         statusesCreated: statuses.length,
@@ -121,19 +132,33 @@ export async function createTaskAtomic(input: AtomicTaskInput): Promise<AtomicTa
 
 /**
  * Delete a task completely using direct DELETE
- * Related records (statuses, logs) are handled by CASCADE constraints
+ * Related records (statuses, logs, notifications) are cleaned up explicitly.
+ * 
+ * NOTE: We fetch notification IDs BEFORE deleting the task because the DB
+ * might have ON DELETE SET NULL on the task_id foreign key, which would
+ * set task_id to null before our delete query runs.
  */
 export async function deleteTaskAtomic(taskId: number): Promise<boolean> {
     const supabase = getSupabaseClient();
 
     console.log('[AtomicTask] Deleting task:', taskId);
 
-    // Delete related records first (in case CASCADE not set up)
+    // STEP 1: Fetch notification IDs BEFORE any deletes
+    // This is critical because ON DELETE SET NULL might fire when we delete the task
+    const { data: notificationData } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('task_id', taskId);
+
+    const notificationIds = notificationData?.map(n => n.id) || [];
+    console.log('[AtomicTask] Found', notificationIds.length, 'notifications to delete for task', taskId);
+
+    // STEP 2: Delete related records first (in case CASCADE not set up)
     await supabase.from('task_statuses').delete().eq('task_id', taskId);
     await supabase.from('completion_logs').delete().eq('task_id', taskId);
     await supabase.from('task_recurrence').delete().eq('task_id', taskId);
 
-    // Delete the task
+    // STEP 3: Delete the task itself
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
 
     if (error) {
@@ -141,7 +166,21 @@ export async function deleteTaskAtomic(taskId: number): Promise<boolean> {
         throw new Error(`Failed to delete task: ${error.message}`);
     }
 
-    console.log('[AtomicTask] ✅ Task deleted:', taskId);
+    // STEP 4: Delete notifications BY ID (not by task_id, which may now be null)
+    if (notificationIds.length > 0) {
+        const { error: notifError } = await supabase
+            .from('notifications')
+            .delete()
+            .in('id', notificationIds);
+
+        if (notifError) {
+            console.warn('[AtomicTask] Failed to delete notifications:', notifError);
+        } else {
+            console.log('[AtomicTask] ✅ Deleted', notificationIds.length, 'notifications');
+        }
+    }
+
+    console.log('[AtomicTask] ✅ Task deleted (with statuses, logs, and notifications):', taskId);
     return true;
 }
 
@@ -215,6 +254,16 @@ export async function createTaskWithStatusesFallback(input: AtomicTaskInput): Pr
     }
 
     const task = transformTaskRow(taskData as TaskRow);
+
+    // Send notifications to all participants (except creator)
+    notifyTaskCreated(task.id, input.projectId, input.creatorId)
+        .then(() => {
+            console.log('[AtomicTask] ✅ notifyTaskCreated completed successfully for task:', task.id);
+        })
+        .catch(error => {
+            console.error('[AtomicTask] ❌ notifyTaskCreated FAILED for task:', task.id, error);
+            // Error is logged but not re-thrown - notification failure shouldn't block task creation
+        });
 
     return {
         task,

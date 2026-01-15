@@ -49,6 +49,8 @@ export async function notifyTaskCreated(
   projectId: number,
   creatorId: number
 ): Promise<void> {
+  console.log('[Notification] notifyTaskCreated called:', { taskId, projectId, creatorId });
+
   try {
     // Get Supabase configuration lazily (when function is called, not at module load)
     const supabaseUrl = getSupabaseUrlLazy();
@@ -64,33 +66,46 @@ export async function notifyTaskCreated(
     ]);
 
     if (!task || !project || !creator) {
-      console.error('Failed to fetch task, project, or creator data');
+      console.error('[Notification] ❌ Failed to fetch task, project, or creator data', { task: !!task, project: !!project, creator: !!creator });
       return;
     }
+
+    console.log('[Notification] Fetched data:', { taskTitle: task.title, projectName: project.name, creatorName: creator.name });
 
     // Get project participants (excluding creator)
     const projectData = await db.projects.getById(projectId);
     if (!projectData || !projectData.participantRoles) {
+      console.warn('[Notification] ❌ No project data or participantRoles found');
       return;
     }
+
+    console.log('[Notification] Project participantRoles:', projectData.participantRoles);
 
     const participants = projectData.participantRoles
       .filter((pp) => pp.userId !== creatorId && !pp.removedAt)
       .map((pp) => pp.userId);
 
+    console.log('[Notification] Filtered participants (excluding creator):', participants);
+
     if (participants.length === 0) {
+      console.warn('[Notification] ⚠️ No participants to notify (all filtered out or empty)');
       return; // No participants to notify
     }
 
     // Get participant user details
     const participantUsers = await db.users.getByIds(participants);
+    console.log('[Notification] Participant users fetched:', participantUsers.map(u => ({ id: u.id, name: u.name })));
 
     // Create in-app notifications for all participants
     const message = `${creator.name} created "${task.title}" in ${project.name}`;
 
     // 1. In-app notifications
     try {
-      console.log('[Notification] Creating in-app notifications for:', participantUsers.map(u => u.id));
+      console.log('[Notification] Creating in-app notifications for participants:', {
+        participantIds: participantUsers.map(u => u.id),
+        count: participantUsers.length,
+        message,
+      });
 
       const inAppNotifications = participantUsers.map(participant => ({
         userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
@@ -102,11 +117,30 @@ export async function notifyTaskCreated(
         emailSent: false,
       }));
 
+      console.log('[Notification] Calling db.notifications.createMany with:', inAppNotifications.length, 'notifications');
+
       await db.notifications.createMany(inAppNotifications);
-      console.log('[Notification] ✅ In-app notifications created');
+
+      // VERIFICATION: Query DB to confirm notifications were created
+      const firstParticipantId = participantUsers[0]?.id;
+      if (firstParticipantId) {
+        const verifyNotifications = await db.notifications.getByUserId(
+          typeof firstParticipantId === 'string' ? parseInt(firstParticipantId) : firstParticipantId
+        );
+        const justCreated = verifyNotifications.filter(n => n.taskId === task.id);
+        console.log('[Notification] ✅ VERIFIED: Found', justCreated.length, 'notifications in DB for task', task.id);
+
+        if (justCreated.length === 0) {
+          console.error('[Notification] ⚠️ WARNING: createMany() succeeded but no notifications found in DB!');
+          console.error('[Notification] This may indicate an RLS policy issue or silent failure.');
+        }
+      }
+
+      console.log('[Notification] ✅ In-app notifications created successfully');
     } catch (notifError) {
       console.error('[Notification] ❌ Failed to create in-app notifications:', notifError);
-      // Continue to push notifications even if in-app fails
+      // RE-THROW the error so caller knows notification creation failed
+      throw notifError;
     }
 
     // 2. Push notifications

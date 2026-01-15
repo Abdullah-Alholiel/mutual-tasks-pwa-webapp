@@ -5,12 +5,12 @@
 // and React Query for global state synchronization.
 // ============================================================================
 
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Notification } from '@/types';
 import { getDatabaseClient } from '@/db';
 import { handleError } from '@/lib/errorUtils';
-
+import { NOTIFICATION_KEYS } from '@/lib/queryKeys';
 
 interface UseNotificationsParams {
   userId: number | null | undefined;
@@ -28,12 +28,6 @@ interface UseNotificationsReturn {
   refetch: () => Promise<void>;
 }
 
-// Query keys
-export const NOTIFICATION_KEYS = {
-  all: (userId: number) => ['notifications', userId] as const,
-  lists: (userId: number) => [...NOTIFICATION_KEYS.all(userId), 'list'] as const,
-};
-
 /**
  * Hook for managing notifications with real-time updates and global state
  */
@@ -43,7 +37,7 @@ export const useNotifications = ({
 }: UseNotificationsParams): UseNotificationsReturn => {
   const queryClient = useQueryClient();
 
-  // Queries
+  // Queries - with optimized settings for real-time updates
   const {
     data: notifications = [],
     isLoading,
@@ -53,13 +47,18 @@ export const useNotifications = ({
     queryFn: async () => {
       if (!userId) return [];
       const db = getDatabaseClient();
-      return await db.notifications.getByUserId(userId, {
+      const result = await db.notifications.getByUserId(userId, {
         limit: 100,
         isRead: undefined, // Get both read and unread
       });
+      return result;
     },
     enabled: !!userId && enabled,
-    staleTime: 1000 * 60 * 5, // 5 minutes (updates handled by realtime/mutations)
+    // Critical: These settings ensure the query re-renders when cache updates
+    staleTime: 0, // Always consider data stale
+    gcTime: 0, // Don't garbage collect - ensures data is always fresh
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnWindowFocus: true,
   });
 
   // Calculate unread count from the source of truth
@@ -216,9 +215,6 @@ export const useNotifications = ({
     refetch: async () => { await refetch(); },
   };
 };
-
-
-
 
 export default useNotifications;
 

@@ -68,9 +68,11 @@ export const Inbox = ({
       whileTap={{ scale: 0.9 }}
       aria-label="Notifications"
     >
+      {/* Bell icon with dynamic key to force re-render on count change */}
       <motion.div
+        key={`bell-${unreadCount}`}
         animate={unreadCount > 0 ? { rotate: [0, -10, 10, -10, 10, 0] } : {}}
-        transition={{ duration: 0.5, delay: 1, repeat: unreadCount > 0 ? Infinity : 0, repeatDelay: 5 }}
+        transition={{ duration: 0.5, delay: unreadCount > 0 ? 0.3 : 0, repeat: unreadCount > 0 ? Infinity : 0, repeatDelay: 5 }}
       >
         <Bell className={cn(
           "w-5 h-5 transition-colors",
@@ -78,9 +80,11 @@ export const Inbox = ({
         )} />
       </motion.div>
 
-      <AnimatePresence>
+      {/* Badge with mode="wait" to prevent animation conflicts and key to force re-mount */}
+      <AnimatePresence mode="wait">
         {unreadCount > 0 && (
           <motion.div
+            key={`badge-${unreadCount}`}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
