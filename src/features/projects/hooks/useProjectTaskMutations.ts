@@ -10,7 +10,7 @@ import { normalizeToStartOfDay } from '@/lib/tasks/taskUtils';
 import { recoverTask } from '@/lib/tasks/taskRecoveryUtils';
 import { validateProjectForTaskCreation, getParticipatingUserIds } from '@/lib/tasks/taskCreationUtils';
 import { handleError } from '@/lib/errorUtils';
-import { notifyTaskCreated, notifyTaskCompleted, notifyTaskRecovered, notifyTaskUpdated } from '@/lib/tasks/taskEmailNotifications';
+import { notifyTaskCreated, notifyTaskCompleted, notifyTaskRecovered, notifyTaskUpdated, notifyTaskDeleted } from '@/lib/tasks/taskEmailNotifications';
 import { getDatabaseClient } from '@/db';
 import {
   useCreateTaskWithStatuses,
@@ -515,6 +515,21 @@ export const useProjectTaskMutations = ({
   const handleDeleteTask = useCallback(async (taskId: number) => {
     try {
       const db = getDatabaseClient();
+
+      // Capture task data and participant IDs BEFORE deletion
+      const task = tasks.find(t => t.id === taskId);
+      const taskTitle = task?.title || 'Unknown Task';
+      const projectId = task?.projectId || projectWithParticipants?.id;
+
+      // Get participant IDs from task statuses (users who have status for this task)
+      const participantIds = taskStatuses
+        .filter(ts => {
+          const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
+          return tsTaskId === taskId;
+        })
+        .map(ts => typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId);
+
+      // Delete the task
       await db.tasks.delete(taskId);
 
       setLocalTasks(prev => prev.filter(t => t.id !== taskId));
@@ -528,7 +543,6 @@ export const useProjectTaskMutations = ({
       }));
 
       // Invalidate React Query cache for data freshness
-      const projectId = projectWithParticipants?.id;
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
       if (projectId) {
@@ -539,10 +553,18 @@ export const useProjectTaskMutations = ({
       toast.success('Task deleted', {
         description: 'The task has been removed from the project'
       });
+
+      // Send deletion notification to participants (fire and forget)
+      if (projectId && user && participantIds.length > 0) {
+        const deleterId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        notifyTaskDeleted(taskId, projectId, deleterId, taskTitle, participantIds).catch(err => {
+          console.error('[TaskDelete] Notification failed:', err);
+        });
+      }
     } catch (error) {
       handleError(error, 'handleDeleteTask');
     }
-  }, [setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
+  }, [user, tasks, taskStatuses, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
 
   /**
    * Delete a habit task series
@@ -551,12 +573,24 @@ export const useProjectTaskMutations = ({
     try {
       const db = getDatabaseClient();
       const taskIds = series.tasks.map((t: Task) => t.id);
+      const seriesTitle = series.title;
+      const projectId = projectWithParticipants?.id;
+
+      // Capture participant IDs BEFORE deletion (users who have status for any task in the series)
+      const taskIdSet = new Set(taskIds);
+      const participantIds = [...new Set(
+        taskStatuses
+          .filter(ts => {
+            const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
+            return taskIdSet.has(tsTaskId);
+          })
+          .map(ts => typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId)
+      )];
 
       // Delete all tasks in the series
       await Promise.all(taskIds.map((id: number) => db.tasks.delete(id)));
 
       // Update local state by filtering out all tasks in the series
-      const taskIdSet = new Set(taskIds);
       setLocalTasks(prev => prev.filter(t => !taskIdSet.has(t.id)));
       setLocalTaskStatuses(prev => prev.filter(ts => {
         const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
@@ -568,7 +602,6 @@ export const useProjectTaskMutations = ({
       }));
 
       // Invalidate React Query cache
-      const projectId = projectWithParticipants?.id;
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
       if (projectId) {
@@ -577,13 +610,22 @@ export const useProjectTaskMutations = ({
       }
 
       toast.success('Series deleted', {
-        description: `All occurrences of "${series.title}" have been removed.`
+        description: `All occurrences of "${seriesTitle}" have been removed.`
       });
+
+      // Send deletion notification for the series (fire and forget)
+      if (projectId && user && participantIds.length > 0 && taskIds.length > 0) {
+        const deleterId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        // Use first task ID and series title for the notification
+        notifyTaskDeleted(taskIds[0], projectId, deleterId, `${seriesTitle} (series)`, participantIds).catch(err => {
+          console.error('[TaskDelete] Series notification failed:', err);
+        });
+      }
     } catch (error) {
       handleError(error, 'handleDeleteTaskSeries');
       toast.error('Failed to delete series');
     }
-  }, [setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
+  }, [user, taskStatuses, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
 
   /**
    * Update an existing task

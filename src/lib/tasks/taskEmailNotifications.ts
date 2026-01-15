@@ -525,3 +525,117 @@ export async function notifyTaskUpdated(
   }
 }
 
+/**
+ * Send task deletion notification to participants who had a task status
+ * Unlike other notifications, this takes task data as params since the task is already deleted
+ */
+export async function notifyTaskDeleted(
+  taskId: number,
+  projectId: number,
+  deleterId: number,
+  taskTitle: string,
+  participantUserIds: number[]
+): Promise<void> {
+  console.log('[Notification] notifyTaskDeleted called:', { taskId, projectId, deleterId, taskTitle, participantUserIds });
+
+  try {
+    const db = getDatabaseClient();
+
+    // Get project and deleter data
+    const [project, deleter] = await Promise.all([
+      db.projects.getById(projectId),
+      db.users.getById(deleterId),
+    ]);
+
+    if (!project || !deleter) {
+      console.error('[Notification] ❌ Failed to fetch project or deleter data');
+      return;
+    }
+
+    // Filter out the deleter from participants
+    const recipientIds = participantUserIds.filter(id => id !== deleterId);
+
+    if (recipientIds.length === 0) {
+      console.warn('[Notification] ⚠️ No participants to notify (deleter was the only participant)');
+      return;
+    }
+
+    // Get participant user details
+    const participantUsers = await db.users.getByIds(recipientIds);
+    console.log('[Notification] Participants to notify:', participantUsers.map(u => ({ id: u.id, name: u.name })));
+
+    // Create in-app notifications for all participants
+    const message = `${deleter.name} deleted "${taskTitle}" in ${project.name}`;
+
+    try {
+      const inAppNotifications = participantUsers.map(participant => ({
+        userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
+        type: 'task_deleted' as NotificationType,
+        message,
+        taskId: undefined, // Task no longer exists
+        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
+        isRead: false,
+        emailSent: false,
+      }));
+
+      console.log('[Notification] Creating in-app notifications for task deletion:', inAppNotifications.length);
+      await db.notifications.createMany(inAppNotifications);
+      console.log('[Notification] ✅ In-app notifications created successfully');
+    } catch (notifError) {
+      console.error('[Notification] ❌ Failed to create in-app notifications:', notifError);
+      // Don't throw - notifications are non-critical
+    }
+
+    // Send push notifications
+    try {
+      participantUsers.forEach(participant => {
+        sendPushNotification({
+          externalUserId: participant.id,
+          title: 'Task Deleted',
+          message,
+          url: `/projects/${project.id}`,
+        }).catch(() => { /* silent fail */ });
+      });
+    } catch (pushError) {
+      console.error('[Notification] ❌ Failed to initiate push notifications:', pushError);
+    }
+
+    // Send emails (optional - fire and forget)
+    try {
+      const supabaseUrl = getSupabaseUrlLazy();
+      const supabaseAnonKey = getSupabaseAnonKeyLazy();
+
+      participantUsers.forEach(async (participant) => {
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+              'apikey': supabaseAnonKey,
+            },
+            body: JSON.stringify({
+              type: 'task-deleted',
+              to: participant.email,
+              task: { title: taskTitle },
+              project: { id: project.id, name: project.name },
+              deleter: { id: deleter.id, name: deleter.name, email: deleter.email },
+              recipient: { id: participant.id, name: participant.name, email: participant.email },
+            }),
+          });
+        } catch (emailError) {
+          console.error(`[Notification] Error sending deletion email to ${participant.email}:`, emailError);
+        }
+      });
+    } catch (emailError) {
+      // Email sending is optional
+      if (!(emailError instanceof Error && emailError.message.includes('not configured'))) {
+        console.error('[Notification] Error sending task deletion emails:', emailError);
+      }
+    }
+  } catch (error) {
+    console.error('[Notification] Error in notifyTaskDeleted:', error);
+    // Don't throw - notifications are non-critical
+  }
+}
+
