@@ -7,10 +7,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Task, TaskStatusEntity, CompletionLog, DifficultyRating, TaskStatus, User, RingColor } from '@/types';
 import { normalizeToStartOfDay } from '@/lib/tasks/taskUtils';
-import { recoverTask } from '@/lib/tasks/taskRecoveryUtils';
 import { validateProjectForTaskCreation, getParticipatingUserIds } from '@/lib/tasks/taskCreationUtils';
 import { handleError } from '@/lib/errorUtils';
-import { notifyTaskCreated, notifyTaskCompleted, notifyTaskRecovered, notifyTaskUpdated, notifyTaskDeleted } from '@/lib/tasks/taskEmailNotifications';
+import { notifyTaskCreated, notifyTaskCompleted, notifyTaskUpdated, notifyTaskDeleted } from '@/lib/notifications/taskNotifications';
+import { recoverTask } from '@/lib/tasks/taskRecoveryUtils';
 import { getDatabaseClient } from '@/db';
 import {
   useCreateTaskWithStatuses,
@@ -19,6 +19,7 @@ import {
   type CreateTaskWithStatusesInput
 } from '../../tasks/hooks/useTasks';
 import type { TaskCreationData, ProjectWithParticipants, ProjectTaskState } from './types';
+import { notifyTaskRecovered } from '@/lib/tasks/taskEmailNotifications';
 
 interface UseProjectTaskMutationsParams {
   user: User | null;
@@ -516,18 +517,10 @@ export const useProjectTaskMutations = ({
     try {
       const db = getDatabaseClient();
 
-      // Capture task data and participant IDs BEFORE deletion
+      // Capture task data BEFORE deletion
       const task = tasks.find(t => t.id === taskId);
       const taskTitle = task?.title || 'Unknown Task';
       const projectId = task?.projectId || projectWithParticipants?.id;
-
-      // Get participant IDs from task statuses (users who have status for this task)
-      const participantIds = taskStatuses
-        .filter(ts => {
-          const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-          return tsTaskId === taskId;
-        })
-        .map(ts => typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId);
 
       // Delete the task
       await db.tasks.delete(taskId);
@@ -554,43 +547,39 @@ export const useProjectTaskMutations = ({
         description: 'The task has been removed from the project'
       });
 
-      // Send deletion notification to participants (fire and forget)
-      if (projectId && user && participantIds.length > 0) {
+      // Send deletion notification to participants
+      if (projectId && user) {
         const deleterId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-        notifyTaskDeleted(taskId, projectId, deleterId, taskTitle, participantIds).catch(err => {
-          console.error('[TaskDelete] Notification failed:', err);
-        });
+        try {
+          await notifyTaskDeleted(projectId, deleterId, taskTitle);
+          console.log('[TaskDelete] ✅ Notifications sent successfully');
+        } catch (err) {
+          console.error('[TaskDelete] ❌ Notification failed:', err);
+          toast.error('Failed to notify participants', {
+            description: 'Task was deleted but participants may not be notified'
+          });
+        }
       }
     } catch (error) {
       handleError(error, 'handleDeleteTask');
     }
-  }, [user, tasks, taskStatuses, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
+  }, [user, tasks, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
 
   /**
    * Delete a habit task series
    */
-  const handleDeleteTaskSeries = useCallback(async (series: any) => { // Using any for series to avoid type circularity issues in this callback if any
+  const handleDeleteTaskSeries = useCallback(async (series: any) => {
     try {
       const db = getDatabaseClient();
       const taskIds = series.tasks.map((t: Task) => t.id);
       const seriesTitle = series.title;
       const projectId = projectWithParticipants?.id;
 
-      // Capture participant IDs BEFORE deletion (users who have status for any task in the series)
-      const taskIdSet = new Set(taskIds);
-      const participantIds = [...new Set(
-        taskStatuses
-          .filter(ts => {
-            const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-            return taskIdSet.has(tsTaskId);
-          })
-          .map(ts => typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId)
-      )];
-
       // Delete all tasks in the series
       await Promise.all(taskIds.map((id: number) => db.tasks.delete(id)));
 
       // Update local state by filtering out all tasks in the series
+      const taskIdSet = new Set(taskIds);
       setLocalTasks(prev => prev.filter(t => !taskIdSet.has(t.id)));
       setLocalTaskStatuses(prev => prev.filter(ts => {
         const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
@@ -613,19 +602,24 @@ export const useProjectTaskMutations = ({
         description: `All occurrences of "${seriesTitle}" have been removed.`
       });
 
-      // Send deletion notification for the series (fire and forget)
-      if (projectId && user && participantIds.length > 0 && taskIds.length > 0) {
+      // Send deletion notification for the series
+      if (projectId && user) {
         const deleterId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-        // Use first task ID and series title for the notification
-        notifyTaskDeleted(taskIds[0], projectId, deleterId, `${seriesTitle} (series)`, participantIds).catch(err => {
-          console.error('[TaskDelete] Series notification failed:', err);
-        });
+        try {
+          await notifyTaskDeleted(projectId, deleterId, `${seriesTitle} (series)`);
+          console.log('[TaskDelete] ✅ Series notifications sent successfully');
+        } catch (err) {
+          console.error('[TaskDelete] ❌ Series notification failed:', err);
+          toast.error('Failed to notify participants', {
+            description: 'Series was deleted but participants may not be notified'
+          });
+        }
       }
     } catch (error) {
       handleError(error, 'handleDeleteTaskSeries');
       toast.error('Failed to delete series');
     }
-  }, [user, taskStatuses, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
+  }, [user, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
 
   /**
    * Update an existing task

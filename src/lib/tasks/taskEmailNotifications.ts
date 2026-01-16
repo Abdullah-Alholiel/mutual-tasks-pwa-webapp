@@ -526,19 +526,21 @@ export async function notifyTaskUpdated(
 }
 
 /**
- * Send task deletion notification to participants who had a task status
- * Unlike other notifications, this takes task data as params since the task is already deleted
+ * Send task deletion notification to project participants
+ * Follows the same pattern as notifyTaskCreated - fetches participants from project.participantRoles
  */
 export async function notifyTaskDeleted(
-  taskId: number,
   projectId: number,
   deleterId: number,
-  taskTitle: string,
-  participantUserIds: number[]
+  taskTitle: string
 ): Promise<void> {
-  console.log('[Notification] notifyTaskDeleted called:', { taskId, projectId, deleterId, taskTitle, participantUserIds });
+  console.log('[Notification] notifyTaskDeleted called:', { projectId, deleterId, taskTitle });
 
   try {
+    // Get Supabase configuration lazily (when function is called, not at module load)
+    const supabaseUrl = getSupabaseUrlLazy();
+    const supabaseAnonKey = getSupabaseAnonKeyLazy();
+
     const db = getDatabaseClient();
 
     // Get project and deleter data
@@ -548,94 +550,141 @@ export async function notifyTaskDeleted(
     ]);
 
     if (!project || !deleter) {
-      console.error('[Notification] ❌ Failed to fetch project or deleter data');
+      console.error('[Notification] ❌ Failed to fetch project or deleter data', { project: !!project, deleter: !!deleter });
       return;
     }
 
-    // Filter out the deleter from participants
-    const recipientIds = participantUserIds.filter(id => id !== deleterId);
+    console.log('[Notification] Fetched data:', { projectName: project.name, deleterName: deleter.name });
 
-    if (recipientIds.length === 0) {
-      console.warn('[Notification] ⚠️ No participants to notify (deleter was the only participant)');
+    // Get project participants (excluding deleter) - SAME pattern as notifyTaskCreated
+    const projectData = await db.projects.getById(projectId);
+    if (!projectData || !projectData.participantRoles) {
+      console.warn('[Notification] ❌ No project data or participantRoles found');
       return;
+    }
+
+    console.log('[Notification] Project participantRoles:', projectData.participantRoles);
+
+    const participants = projectData.participantRoles
+      .filter((pp) => pp.userId !== deleterId && !pp.removedAt)
+      .map((pp) => pp.userId);
+
+    console.log('[Notification] Filtered participants (excluding deleter):', participants);
+
+    if (participants.length === 0) {
+      console.warn('[Notification] ⚠️ No participants to notify (all filtered out or empty)');
+      return; // No participants to notify
     }
 
     // Get participant user details
-    const participantUsers = await db.users.getByIds(recipientIds);
-    console.log('[Notification] Participants to notify:', participantUsers.map(u => ({ id: u.id, name: u.name })));
+    const participantUsers = await db.users.getByIds(participants);
+    console.log('[Notification] Participant users fetched:', participantUsers.map(u => ({ id: u.id, name: u.name })));
 
     // Create in-app notifications for all participants
     const message = `${deleter.name} deleted "${taskTitle}" in ${project.name}`;
 
+    // 1. In-app notifications
     try {
+      console.log('[Notification] Creating in-app notifications for participants:', {
+        participantIds: participantUsers.map(u => u.id),
+        count: participantUsers.length,
+        message,
+      });
+
       const inAppNotifications = participantUsers.map(participant => ({
         userId: typeof participant.id === 'string' ? parseInt(participant.id) : participant.id,
         type: 'task_deleted' as NotificationType,
         message,
-        taskId: undefined, // Task no longer exists
+        // taskId is omitted - task no longer exists, transformer will not set task_id
         projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
         isRead: false,
         emailSent: false,
       }));
 
-      console.log('[Notification] Creating in-app notifications for task deletion:', inAppNotifications.length);
+      console.log('[Notification] Calling db.notifications.createMany with:', inAppNotifications.length, 'notifications');
+
       await db.notifications.createMany(inAppNotifications);
+
+      // VERIFICATION: Query DB to confirm notifications were created
+      const firstParticipantId = participantUsers[0]?.id;
+      if (firstParticipantId) {
+        const verifyNotifications = await db.notifications.getByUserId(
+          typeof firstParticipantId === 'string' ? parseInt(firstParticipantId) : firstParticipantId
+        );
+        const justCreated = verifyNotifications.filter(n => n.type === 'task_deleted' && n.message.includes(taskTitle));
+        console.log('[Notification] ✅ VERIFIED: Found', justCreated.length, 'task_deleted notifications in DB');
+
+        if (justCreated.length === 0) {
+          console.error('[Notification] ⚠️ WARNING: createMany() succeeded but no notifications found in DB!');
+          console.error('[Notification] This may indicate an RLS policy issue or silent failure.');
+        }
+      }
+
       console.log('[Notification] ✅ In-app notifications created successfully');
     } catch (notifError) {
       console.error('[Notification] ❌ Failed to create in-app notifications:', notifError);
-      // Don't throw - notifications are non-critical
+      // RE-THROW the error so caller knows notification creation failed
+      throw notifError;
     }
 
-    // Send push notifications
+    // 2. Push notifications
     try {
+      console.log('[Notification] Sending push notifications to:', participantUsers.map(u => u.id));
+
+      // Send push notifications to all participants
       participantUsers.forEach(participant => {
         sendPushNotification({
           externalUserId: participant.id,
           title: 'Task Deleted',
           message,
           url: `/projects/${project.id}`,
-        }).catch(() => { /* silent fail */ });
+          data: { projectId: project.id },
+        }).catch((err) => {
+          console.error('[Notification] Failed individual push send:', err);
+        });
       });
     } catch (pushError) {
       console.error('[Notification] ❌ Failed to initiate push notifications:', pushError);
     }
 
-    // Send emails (optional - fire and forget)
-    try {
-      const supabaseUrl = getSupabaseUrlLazy();
-      const supabaseAnonKey = getSupabaseAnonKeyLazy();
+    // Send email to each participant via Supabase Edge Function
+    const emailPromises = participantUsers.map(async (participant) => {
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'apikey': supabaseAnonKey,
+          },
+          body: JSON.stringify({
+            type: 'task-deleted',
+            to: participant.email,
+            task: { title: taskTitle },
+            project: { id: project.id, name: project.name },
+            deleter: { id: deleter.id, name: deleter.name, email: deleter.email },
+            recipient: { id: participant.id, name: participant.name, email: participant.email },
+          }),
+        });
 
-      participantUsers.forEach(async (participant) => {
-        try {
-          await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${supabaseAnonKey}`,
-              'apikey': supabaseAnonKey,
-            },
-            body: JSON.stringify({
-              type: 'task-deleted',
-              to: participant.email,
-              task: { title: taskTitle },
-              project: { id: project.id, name: project.name },
-              deleter: { id: deleter.id, name: deleter.name, email: deleter.email },
-              recipient: { id: participant.id, name: participant.name, email: participant.email },
-            }),
-          });
-        } catch (emailError) {
-          console.error(`[Notification] Error sending deletion email to ${participant.email}:`, emailError);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Failed to send email to ${participant.email}:`, response.status, errorText);
         }
-      });
-    } catch (emailError) {
-      // Email sending is optional
-      if (!(emailError instanceof Error && emailError.message.includes('not configured'))) {
-        console.error('[Notification] Error sending task deletion emails:', emailError);
+      } catch (error) {
+        console.error(`Error sending email to ${participant.email}:`, error);
       }
-    }
+    });
+
+    await Promise.all(emailPromises);
   } catch (error) {
-    console.error('[Notification] Error in notifyTaskDeleted:', error);
-    // Don't throw - notifications are non-critical
+    // Only log warning if it's a configuration error (which we've already logged)
+    if (error instanceof Error && error.message.includes('not configured')) {
+      // Configuration error already logged in lazy getters
+      return;
+    }
+    console.error('Error sending task deletion notifications:', error);
+    // Don't throw - notification failures shouldn't block task deletion
   }
 }
 
