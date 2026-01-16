@@ -35,7 +35,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
           <div className="flex items-start justify-between gap-3 flex-1">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-lg text-foreground break-words line-clamp-1">
+                <h3 className="font-semibold text-lg text-foreground break-words">
                   {project.name}
                 </h3>
                 {project.isPublic && (

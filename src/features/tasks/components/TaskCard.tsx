@@ -205,11 +205,11 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {project && (
                     <Badge
                       variant="outline"
-                      className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80"
+                      className="text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80 text-left h-auto min-h-[1.5rem]"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/projects/${project.id}`);
@@ -242,12 +242,12 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   )}
                 </div>
 
-                <h3 className="font-semibold text-lg text-foreground truncate">
+                <h3 className="font-semibold text-lg text-foreground">
                   {task.title}
                 </h3>
 
                 {task.description && (
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {task.description}
                   </p>
                 )}
