@@ -205,11 +205,11 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   {project && (
                     <Badge
                       variant="outline"
-                      className="text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80"
+                      className="text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80 text-left h-auto min-h-[1.5rem]"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/projects/${project.id}`);
@@ -242,12 +242,12 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   )}
                 </div>
 
-                <h3 className="font-semibold text-lg text-foreground truncate">
+                <h3 className="font-semibold text-lg text-foreground">
                   {task.title}
                 </h3>
 
                 {task.description && (
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {task.description}
                   </p>
                 )}
@@ -596,7 +596,16 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                 return (
                   <div
                     key={String(statusEntry.userId)}
-                    className="group flex items-center justify-between p-3 rounded-2xl border border-border/40 bg-card/40 hover:bg-muted/40 hover:border-border/80 transition-all duration-200"
+                    onClick={() => {
+                      if (user) {
+                        if (currentUser && normalizeId(user.id) === normalizeId(currentUser.id)) {
+                          navigate('/profile');
+                        } else {
+                          navigate(`/friends/${user.id}`);
+                        }
+                      }
+                    }}
+                    className="group flex items-center justify-between p-3 rounded-2xl border border-border/40 bg-card/40 hover:bg-muted/40 hover:border-border/80 transition-all duration-200 cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
                       <Avatar className={cn("w-11 h-11 ring-2 transition-all duration-300 group-hover:scale-105 shadow-sm", ringColorClass)}>
@@ -669,17 +678,9 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             </div>
           </div>
 
-          <div className="p-4 bg-muted/20 border-t border-border/40 relative z-10">
-            <Button
-              variant="outline"
-              className="w-full font-bold rounded-xl"
-              onClick={() => setShowParticipantsModal(false)}
-            >
-              Close List
-            </Button>
-          </div>
+
         </DialogContent>
-      </Dialog>
+      </Dialog >
     </>
   );
 };

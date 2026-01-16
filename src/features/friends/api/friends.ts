@@ -214,34 +214,41 @@ export class FriendsRepository {
     /**
      * Get pending friend requests for a user
      */
+    /**
+     * Get ALL pending friend requests for a user (both incoming and outgoing)
+     */
     async getFriendRequests(userId: number): Promise<Friend[]> {
-        // Fetch rows where I am the friend_id and status is pending
+        // Fetch rows where I am involved (sender or receiver) and status is pending
         const { data, error } = await this.supabase
             .from('friends')
             .select(`
                 *,
-                friend:users!user_id(*)
+                sender:users!user_id(*),
+                receiver:users!friend_id(*)
             `)
-            .eq('friend_id', toStringId(userId))
+            .or(`friend_id.eq.${toStringId(userId)},user_id.eq.${toStringId(userId)}`)
             .eq('status', 'pending');
 
         if (error || !data) return [];
 
         // Transform results
-        // We need detailed friend objects. In this case, 'friend' is the requester (user_id).
         return data.map(row => {
-            const requesterUserRow = row.friend as UserRow;
-            // Basic transform without stats for now (not needed for requests list usually)
-            const requester = transformUserRow(requesterUserRow);
+            const isInitiator = Number(row.user_id) === userId;
+
+            // If I am the initiator (user_id), the "friend" is the receiver (friend_id).
+            // If I am the receiver (friend_id), the "friend" is the sender (user_id).
+            const otherUserRow = isInitiator ? row.receiver : row.sender;
+
+            const otherUser = transformUserRow(otherUserRow as UserRow);
 
             return {
                 id: Number(row.id),
-                userId: Number(row.user_id), // The requester
-                friendId: userId,            // Me
+                userId: Number(row.user_id), // The initiator
+                friendId: Number(row.friend_id), // The receiver
                 status: 'pending',
                 createdAt: new Date(row.created_at),
-                friend: requester,           // The requester details
-                isInitiator: false
+                friend: otherUser, // The OTHER person (always)
+                isInitiator
             };
         });
     }
@@ -336,6 +343,24 @@ export class FriendsRepository {
     }
 
     /**
+     * Cancel an outgoing friend request
+     */
+    async cancelRequest(userId: number, friendId: number): Promise<void> {
+        // Only allow deleting PENDING requests where I am the INITIATOR (user_id)
+        const { error } = await this.supabase
+            .from('friends')
+            .delete()
+            .eq('user_id', toStringId(userId))
+            .eq('friend_id', toStringId(friendId))
+            .eq('status', 'pending');
+
+        if (error) {
+            console.error('Error canceling friend request:', error);
+            throw new Error('Failed to cancel friend request');
+        }
+    }
+
+    /**
      * Get common projects between two users
      */
     async getCommonProjects(userId1: number, userId2: number): Promise<Project[]> {
@@ -370,5 +395,31 @@ export class FriendsRepository {
         if (error || !projects) return [];
 
         return projects.map((row: ProjectRow) => transformProjectRow(row));
+    }
+
+    /**
+     * Search users by handle or name
+     */
+    async searchUsers(query: string): Promise<User[]> {
+        if (!query || query.length < 2) return [];
+
+        const cleanQuery = query.startsWith('@') ? query.slice(1) : query;
+        // Search by handle (exact or partial) or name (partial)
+        // detailed search logic:
+        // 1. match handle exactly or partially
+        // 2. match name partially
+        // Limit to 10 results
+        const { data, error } = await this.supabase
+            .from('users')
+            .select('*')
+            .or(`handle.ilike.%${cleanQuery}%,name.ilike.%${cleanQuery}%`)
+            .limit(10);
+
+        if (error) {
+            console.error('Error searching users:', error);
+            return [];
+        }
+
+        return (data || []).map((row: UserRow) => transformUserRow(row));
     }
 }

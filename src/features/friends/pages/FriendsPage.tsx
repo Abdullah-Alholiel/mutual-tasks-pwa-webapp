@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
+import { Loader } from '@/components/ui/loader';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useFriends, useAddFriend, useRemoveFriend, useFriendRequests, useRespondToRequest } from '../hooks/useFriends';
+import { useFriends, useAddFriend, useRemoveFriend, useFriendRequests, useRespondToRequest, useSearchUsers } from '../hooks/useFriends';
+import { FriendActionButton } from '@/features/projects/components/FriendActionButton';
 import { useCurrentUser, useCurrentUserStats } from '@/features/auth/useCurrentUser';
 import { calculateLevel } from '@/lib/users/userStatsUtils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { Trophy, UserPlus, Search, ArrowLeft, Crown, Medal, UserMinus, MoreHorizontal, Inbox, Check, X } from 'lucide-react';
+import { Trophy, UserPlus, Search, ArrowLeft, Crown, Medal, UserMinus, MoreHorizontal, Inbox, Check, X, ArrowUpDown } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -33,13 +35,30 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
 
     // Hooks
     const { data: friends = [], isLoading } = useFriends();
-    const { data: requests = [], isLoading: isLoadingRequests } = useFriendRequests();
+    const { data: allRequests = [], isLoading: isLoadingRequests } = useFriendRequests();
+    // Only show incoming requests in the inbox
+    const requests = allRequests.filter(req => !req.isInitiator);
     const { mutate: addFriend, isPending: isAdding } = useAddFriend();
     const { mutate: removeFriend } = useRemoveFriend();
     const { mutate: respondToRequest } = useRespondToRequest();
 
     const [handle, setHandle] = useState('');
+    const [debouncedHandle, setDebouncedHandle] = useState('');
     const [requestsOpen, setRequestsOpen] = useState(false);
+    const [sortBy, setSortBy] = useState<'score' | 'handle'>('score');
+
+    // Debounce search input
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedHandle(handle);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [handle]);
+
+    const { data: searchResults = [], isLoading: isSearching } = useSearchUsers(debouncedHandle);
+
+    // Sort results alphabetically
+    const sortedSearchResults = [...searchResults].sort((a, b) => a.name.localeCompare(b.name));
 
     // Check for navigation state to open requests modal
     useEffect(() => {
@@ -48,12 +67,14 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
         }
     }, [location.state]);
 
-    const handleAddFriend = (e: React.FormEvent) => {
+    const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!handle.trim()) return;
-        addFriend(handle, {
-            onSuccess: () => setHandle('')
-        });
+        // Trigger generic search if needed, but the effect handles it
+    };
+
+    const handleClearSearch = () => {
+        setHandle('');
+        setDebouncedHandle('');
     };
 
     const handleRemoveFriend = (friendId: number, friendName: string, e: React.MouseEvent) => {
@@ -84,11 +105,15 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
         }))
     ].filter(item => item.user); // safety filter
 
-    // Sort by total score descending
+    // Sort leaderboard
     const sortedLeaderboard = leaderboardItems.sort((a, b) => {
-        const scoreA = a.stats?.totalscore || 0;
-        const scoreB = b.stats?.totalscore || 0;
-        return scoreB - scoreA;
+        if (sortBy === 'score') {
+            const scoreA = a.stats?.totalscore || 0;
+            const scoreB = b.stats?.totalscore || 0;
+            return scoreB - scoreA;
+        } else {
+            return a.user.name.localeCompare(b.user.name);
+        }
     });
 
     const getRankIcon = (index: number) => {
@@ -267,137 +292,192 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                 <div className={`space-y-8 ${isInternalSlide ? '' : 'max-w-md mx-auto px-4 py-6 pb-10'}`}>
                     {/* Add Friend Section */}
                     <section className="space-y-4">
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">Add Friend</h2>
+                        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-1">Find Friends</h2>
                         <Card className="p-2 border-border/50 shadow-sm">
-                            <form onSubmit={handleAddFriend} className="flex gap-2">
+                            <form onSubmit={handleSearch} className="flex gap-2">
                                 <div className="relative flex-1">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Enter username (e.g. @nada)"
+                                        placeholder="Search by name or handle..."
                                         value={handle}
                                         onChange={(e) => setHandle(e.target.value)}
-                                        className="pl-9 h-11 bg-transparent border-none focus-visible:ring-0"
+                                        className="pl-9 pr-8 h-11 bg-transparent border-none focus-visible:ring-0"
                                     />
+                                    {handle && (
+                                        <button
+                                            type="button"
+                                            onClick={handleClearSearch}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                    {isSearching && !handle && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                        </div>
+                                    )}
                                 </div>
-                                <Button
-                                    type="submit"
-                                    disabled={!handle.trim() || isAdding}
-                                    className="h-11 px-6 rounded-xl gradient-primary text-white font-semibold shadow-md hover:shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                                >
-                                    {isAdding ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Add'}
-                                </Button>
                             </form>
                         </Card>
-                    </section>
 
-                    {/* Leaderboard Section */}
-                    <section className="space-y-4">
-                        <div className="flex items-center justify-between px-1">
-                            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leaderboard</h2>
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-accent">
-                                <Trophy className="w-3.5 h-3.5" />
-                                <span>Ranked by Score</span>
-                            </div>
-                        </div>
-
-                        {isLoading ? (
-                            <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
-                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                                <p className="text-sm">Loading leaderboard...</p>
-                            </div>
-                        ) : sortedLeaderboard.length === 0 ? (
-                            <div className="text-center py-12 px-4 rounded-2xl bg-muted/30 border border-dashed border-border">
-                                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                                    <UserPlus className="w-6 h-6 text-muted-foreground" />
-                                </div>
-                                <h3 className="text-lg font-semibold mb-1">No friends yet</h3>
-                                <p className="text-muted-foreground text-sm max-w-[200px] mx-auto">
-                                    Add friends by their username to see them on the leaderboard!
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {sortedLeaderboard.map((item, index) => {
-                                    const { user, stats, isSelf } = item;
-                                    const score = stats?.totalscore || 0;
-                                    const level = calculateLevel(score);
-
-                                    return (
-                                        <motion.div
-                                            key={isSelf ? 'self' : item.id}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: index * 0.05 }}
-                                            onClick={() => !isSelf && navigate(`/friends/${item.id}`)}
-                                        >
+                        {/* Search Results */}
+                        {debouncedHandle.length >= 2 && (
+                            <div className="space-y-2">
+                                {sortedSearchResults.length === 0 && !isSearching ? (
+                                    <div className="text-center py-4 text-muted-foreground text-sm">
+                                        No users found.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {sortedSearchResults.map((user) => (
                                             <div
-                                                className={`group relative bg-card border rounded-2xl p-4 transition-all duration-300 hover:shadow-md cursor-pointer flex items-center gap-4 ${isSelf ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20' : 'border-border/50 hover:bg-muted/40'}`}
+                                                key={user.id}
+                                                className="flex items-center justify-between p-3 rounded-xl border border-border/50 bg-card hover:bg-muted/30 transition-colors cursor-pointer"
+                                                onClick={() => navigate(`/friends/${user.id}`)}
                                             >
-                                                {/* Rank */}
-                                                <div className="flex items-center justify-center w-6 shrink-0">
-                                                    {getRankIcon(index)}
-                                                </div>
-
-                                                {/* Avatar */}
-                                                <div className="relative shrink-0">
-                                                    <Avatar className="w-12 h-12 ring-2 ring-border/50 group-hover:ring-primary/30 transition-all">
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar>
                                                         <AvatarImage src={user.avatar} />
                                                         <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                                     </Avatar>
-                                                    <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm ring-1 ring-border/20">
-                                                        <div className="w-4 h-4 rounded-full gradient-accent flex items-center justify-center text-[9px] font-bold text-white">
-                                                            {level}
-                                                        </div>
+                                                    <div>
+                                                        <div className="font-semibold text-sm">{user.name}</div>
+                                                        <div className="text-xs text-muted-foreground">{formatHandle(user.handle)}</div>
                                                     </div>
                                                 </div>
-
-                                                {/* Info */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <h3 className={`font-semibold truncate transition-colors ${isSelf ? 'text-primary' : 'text-foreground/90 group-hover:text-primary'}`}>
-                                                            {user.name} {isSelf && '(You)'}
-                                                        </h3>
-                                                    </div>
-                                                    <p className="text-xs text-muted-foreground truncate">
-                                                        {formatHandle(user.handle)}
-                                                    </p>
+                                                <div onClick={(e) => e.stopPropagation()}>
+                                                    <FriendActionButton user={user} className="h-8 shadow-none" />
                                                 </div>
-
-                                                {/* Score */}
-                                                <div className="text-right shrink-0">
-                                                    <div className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
-                                                        {score.toLocaleString()}
-                                                    </div>
-                                                </div>
-
-                                                {/* Actions (Only for friends) */}
-                                                {!isSelf && (
-                                                    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground hover:text-destructive">
-                                                                    <MoreHorizontal className="w-4 h-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem
-                                                                    className="text-destructive focus:text-destructive cursor-pointer"
-                                                                    onClick={(e) => handleRemoveFriend(item.id, user.name, e as any)}
-                                                                >
-                                                                    <UserMinus className="w-4 h-4 mr-2" />
-                                                                    Remove Friend
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </div>
-                                                )}
                                             </div>
-                                        </motion.div>
-                                    );
-                                })}
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </section>
+
+                    {/* Leaderboard Section - Hide if searching */}
+                    {debouncedHandle.length < 2 && (
+                        <section className="space-y-4">
+                            <div className="flex items-center justify-between px-1">
+                                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leaderboard</h2>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs font-medium text-accent hover:text-accent hover:bg-accent/10 px-2">
+                                            {sortBy === 'score' ? <Trophy className="w-3.5 h-3.5" /> : <ArrowUpDown className="w-3.5 h-3.5" />}
+                                            <span>Ranked by {sortBy === 'score' ? 'Score' : 'Name'}</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setSortBy('score')} className="cursor-pointer">
+                                            <Trophy className="w-4 h-4 mr-2" />
+                                            Score
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setSortBy('handle')} className="cursor-pointer">
+                                            <ArrowUpDown className="w-4 h-4 mr-2" />
+                                            Name
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+
+                            {isLoading ? (
+                                <Loader text="Loading leaderboard..." className="py-12" />
+                            ) : sortedLeaderboard.length === 0 ? (
+                                <div className="text-center py-12 px-4 rounded-2xl bg-muted/30 border border-dashed border-border">
+                                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                                        <UserPlus className="w-6 h-6 text-muted-foreground" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold mb-1">No friends yet</h3>
+                                    <p className="text-muted-foreground text-sm max-w-[200px] mx-auto">
+                                        Add friends by their username to see them on the leaderboard!
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {sortedLeaderboard.map((item, index) => {
+                                        const { user, stats, isSelf } = item;
+                                        const score = stats?.totalscore || 0;
+                                        const level = calculateLevel(score);
+
+                                        return (
+                                            <motion.div
+                                                key={isSelf ? 'self' : item.id}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: index * 0.05 }}
+                                                onClick={() => !isSelf && navigate(`/friends/${item.id}`)}
+                                            >
+                                                <div
+                                                    className={`group relative bg-card border rounded-2xl p-4 transition-all duration-300 hover:shadow-md cursor-pointer flex items-center gap-4 ${isSelf ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20' : 'border-border/50 hover:bg-muted/40'}`}
+                                                >
+                                                    {/* Rank */}
+                                                    <div className="flex items-center justify-center w-6 shrink-0">
+                                                        {getRankIcon(index)}
+                                                    </div>
+
+                                                    {/* Avatar */}
+                                                    <div className="relative shrink-0">
+                                                        <Avatar className="w-12 h-12 ring-2 ring-border/50 group-hover:ring-primary/30 transition-all">
+                                                            <AvatarImage src={user.avatar} />
+                                                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 shadow-sm ring-1 ring-border/20">
+                                                            <div className="w-4 h-4 rounded-full gradient-accent flex items-center justify-center text-[9px] font-bold text-white">
+                                                                {level}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Info */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <h3 className={`font-semibold truncate transition-colors ${isSelf ? 'text-primary' : 'text-foreground/90 group-hover:text-primary'}`}>
+                                                                {user.name} {isSelf && '(You)'}
+                                                            </h3>
+                                                        </div>
+                                                        <p className="text-xs text-muted-foreground truncate">
+                                                            {formatHandle(user.handle)}
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Score */}
+                                                    <div className="text-right shrink-0">
+                                                        <div className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+                                                            {score.toLocaleString()}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Actions (Only for friends) */}
+                                                    {!isSelf && (
+                                                        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground hover:text-destructive">
+                                                                        <MoreHorizontal className="w-4 h-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem
+                                                                        className="text-destructive focus:text-destructive cursor-pointer"
+                                                                        onClick={(e) => handleRemoveFriend(item.id, user.name, e as any)}
+                                                                    >
+                                                                        <UserMinus className="w-4 h-4 mr-2" />
+                                                                        Remove Friend
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </motion.div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </section>
+                    )}
                 </div>
             </div>
         </div>

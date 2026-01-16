@@ -12,7 +12,6 @@ import {
   Sparkles,
   Loader2,
   ChevronDown,
-  ChevronRight,
   Trash2,
   UserPlus,
   LogOut,
@@ -21,10 +20,11 @@ import {
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { ProjectStats } from '@/features/projects/components/ProjectStats';
 import { ProjectTaskSections } from '@/features/projects/components/ProjectTaskSections';
+import { FriendActionButton } from '@/features/projects/components/FriendActionButton';
 import { useProjectDetail } from './hooks/useProjectDetail';
 import { useJoinProject } from './hooks/useProjects';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { InlineLoader, Loader } from '@/components/ui/loader';
+import { InlineLoader, Loader, PageLoader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,7 +44,7 @@ import { cn } from '@/lib/utils';
 import { normalizeId } from '@/lib/idUtils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { MobileHeader } from '@/components/layout/MobileHeader';
-import { useFriends, useAddFriend, useFriendRequests } from '@/features/friends/hooks/useFriends';
+
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
 import type { Project, Task } from '@/types';
@@ -114,9 +114,7 @@ const ProjectDetail = () => {
   const joinProjectMutation = useJoinProject();
   const [isJoining, setIsJoining] = useState(false);
 
-  const { data: friends } = useFriends();
-  const { data: friendRequests } = useFriendRequests();
-  const addFriendMutation = useAddFriend();
+
 
   const handleJoinProject = async () => {
     if (!project) return;
@@ -169,7 +167,7 @@ const ProjectDetail = () => {
 
   if (isLoading) {
     return (
-      <InlineLoader text="Loading project..." />
+      <PageLoader text="Loading project..." />
     );
   }
 
@@ -816,18 +814,8 @@ const ProjectDetail = () => {
                 if (!user) return null;
 
                 const isCurrentUser = currentUser && participant.userId === currentUser.id;
-                const isFriend = friends?.some(f => (f.friendId === user.id || f.userId === user.id) && f.status === 'accepted');
-                const hasPendingRequest = friendRequests?.some(req =>
-                  (req.userId === user.id && req.friendId === currentUser?.id) ||
-                  (req.userId === currentUser?.id && req.friendId === user.id)
-                );
 
-                const handleAddFriendClick = (e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  if (user.handle) {
-                    addFriendMutation.mutate(user.handle);
-                  }
-                };
+                // Removed inline friendship logic as it is now handled by FriendActionButton
 
                 const handleRowClick = () => {
                   navigate(`/friends/${user.id}`);
@@ -866,43 +854,15 @@ const ProjectDetail = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold truncate text-foreground">{user.name}</span>
-                          {isFriend && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-medium ring-1 ring-green-500/20">
-                              Friend
-                            </span>
-                          )}
                         </div>
                         <div className="text-xs text-muted-foreground truncate font-medium">{user.handle}</div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
-                      {!isCurrentUser && !isFriend && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={cn(
-                            "h-7 px-2 text-[10px] font-medium transition-all mr-2 shrink-0",
-                            hasPendingRequest
-                              ? "bg-muted text-muted-foreground cursor-default opacity-100"
-                              : "bg-primary/10 text-primary hover:bg-primary/20 opacity-100",
-                            addFriendMutation.isPending && "opacity-50 cursor-wait"
-                          )}
-                          onClick={!hasPendingRequest && !addFriendMutation.isPending ? handleAddFriendClick : undefined}
-                          disabled={hasPendingRequest || addFriendMutation.isPending}
-                        >
-                          {addFriendMutation.isPending ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : hasPendingRequest ? (
-                            "Request Sent"
-                          ) : (
-                            <>
-                              <UserPlus className="w-3 h-3 sm:mr-1" />
-
-
-                            </>
-                          )}
-                        </Button>
+                      {/* Friend Action Button */}
+                      {!isCurrentUser && (
+                        <FriendActionButton user={user} className="mr-1" />
                       )}
 
                       {(isOwner || (isManager && participant.role !== 'owner')) && !isCurrentUser && (
