@@ -80,18 +80,59 @@ export class NotificationsRepository {
 
   /**
    * Create a new notification
+   * Includes deduplication to prevent identical notifications within 10 seconds
    */
   async create(
     notificationData: Omit<Notification, 'id' | 'createdAt'>
-  ): Promise<Notification> {
+  ): Promise<Notification | null> {
     const row = toNotificationRow(notificationData);
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const tenSecondsAgo = new Date(now.getTime() - 10000).toISOString();
+
+    // Deduplication: Check for a recent duplicate
+    let query = this.supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', row.user_id)
+      .eq('type', row.type)
+      .eq('message', row.message)
+      .gte('created_at', tenSecondsAgo)
+      .limit(1);
+
+    // Add optional project_id filter if present
+    if (row.project_id !== undefined && row.project_id !== null) {
+      query = query.eq('project_id', row.project_id);
+    } else {
+      query = query.is('project_id', null);
+    }
+
+    // Add optional task_id filter if present
+    if (row.task_id !== undefined && row.task_id !== null) {
+      query = query.eq('task_id', row.task_id);
+    } else {
+      query = query.is('task_id', null);
+    }
+
+    const { data: existingDuplicates, error: checkError } = await query;
+
+    if (checkError) {
+      console.warn('[NotificationsRepo] Deduplication check failed:', checkError.message);
+      // Continue with creation if check fails
+    } else if (existingDuplicates && existingDuplicates.length > 0) {
+      console.log('[NotificationsRepo] ⚠️ Skipping duplicate notification:', {
+        userId: notificationData.userId,
+        type: notificationData.type,
+        message: notificationData.message.substring(0, 50) + '...',
+      });
+      return null; // Return null to indicate skipped duplicate
+    }
 
     const { data, error } = await this.supabase
       .from('notifications')
       .insert({
         ...row,
-        created_at: now,
+        created_at: nowIso,
       })
       .select()
       .single();
@@ -102,16 +143,76 @@ export class NotificationsRepository {
 
   /**
    * Create multiple notifications (for bulk notifications)
+   * Includes deduplication to prevent identical notifications within 10 seconds
    */
   async createMany(
     notificationsData: Omit<Notification, 'id' | 'createdAt'>[]
   ): Promise<Notification[]> {
     if (notificationsData.length === 0) return [];
 
-    const now = new Date().toISOString();
-    const rows = notificationsData.map((notification) => ({
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const tenSecondsAgo = new Date(now.getTime() - 10000).toISOString();
+
+    // Deduplication: Check for recently created duplicates
+    const deduplicatedNotifications: Omit<Notification, 'id' | 'createdAt'>[] = [];
+
+    for (const notification of notificationsData) {
+      // Build a query to check for a recent duplicate
+      let query = this.supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', toStringId(notification.userId))
+        .eq('type', notification.type)
+        .eq('message', notification.message)
+        .gte('created_at', tenSecondsAgo)
+        .limit(1);
+
+      // Add optional project_id filter if present
+      if (notification.projectId !== undefined && notification.projectId !== null) {
+        query = query.eq('project_id', toStringId(notification.projectId));
+      } else {
+        query = query.is('project_id', null);
+      }
+
+      // Add optional task_id filter if present
+      if (notification.taskId !== undefined && notification.taskId !== null) {
+        query = query.eq('task_id', toStringId(notification.taskId));
+      } else {
+        query = query.is('task_id', null);
+      }
+
+      const { data: existingDuplicates, error: checkError } = await query;
+
+      if (checkError) {
+        console.warn('[NotificationsRepo] Deduplication check failed:', checkError.message);
+        // If check fails, include the notification anyway to avoid data loss
+        deduplicatedNotifications.push(notification);
+        continue;
+      }
+
+      if (existingDuplicates && existingDuplicates.length > 0) {
+        console.log('[NotificationsRepo] ⚠️ Skipping duplicate notification:', {
+          userId: notification.userId,
+          type: notification.type,
+          message: notification.message.substring(0, 50) + '...',
+        });
+        continue; // Skip this duplicate
+      }
+
+      deduplicatedNotifications.push(notification);
+    }
+
+    if (deduplicatedNotifications.length === 0) {
+      console.log('[NotificationsRepo] All notifications were duplicates, nothing to insert.');
+      return [];
+    }
+
+    console.log('[NotificationsRepo] After deduplication:', deduplicatedNotifications.length, 'of', notificationsData.length, 'notifications to create.');
+
+    const rows = deduplicatedNotifications.map((notification) => ({
       ...toNotificationRow(notification),
-      created_at: now,
+      created_at: nowIso,
     }));
 
     console.log('[NotificationsRepo] createMany - Input rows:', JSON.stringify(rows, null, 2));

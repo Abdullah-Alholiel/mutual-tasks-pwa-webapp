@@ -39,6 +39,7 @@ export const useProjectMembers = ({
   const [projectParticipants, setProjectParticipants] = useState<ProjectParticipant[]>(
     projectParticipantsFromState || (currentProject?.participantRoles || [])
   );
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
   // Sync project participants with database data
   useEffect(() => {
@@ -73,6 +74,13 @@ export const useProjectMembers = ({
    */
   const handleAddMember = useCallback(async () => {
     if (!currentProject || !user) return;
+
+    // Prevent rapid double-clicks
+    if (isAddingMember) {
+      console.log('[useProjectMembers] Add member already in progress, skipping duplicate call.');
+      return;
+    }
+    setIsAddingMember(true);
 
     // Check if the current user has permission to add members (owner or manager)
     const currentUserId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
@@ -233,8 +241,10 @@ export const useProjectMembers = ({
       setShowAddMemberForm(false);
     } catch (error) {
       handleError(error, 'handleAddMember');
+    } finally {
+      setIsAddingMember(false);
     }
-  }, [currentProject, user, memberIdentifier, participants, projectId, queryClient]);
+  }, [currentProject, user, memberIdentifier, participants, projectId, queryClient, isAddingMember]);
 
   /**
    * Remove a participant from the project
@@ -350,6 +360,7 @@ export const useProjectMembers = ({
     setShowMembersDialog,
     memberIdentifier,
     setMemberIdentifier,
+    isAddingMember,
 
     // Handlers
     handleAddMember,
