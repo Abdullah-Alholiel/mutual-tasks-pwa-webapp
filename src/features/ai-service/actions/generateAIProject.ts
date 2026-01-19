@@ -23,18 +23,19 @@ export async function generateAIProject(
 
     aiLogger.info('Starting AI project generation', { descriptionLength: description.length });
 
-    try {
-        const sessionToken = getSessionToken();
-        if (!sessionToken) {
-            aiLogger.error('No session token available');
-            return { success: false, error: 'Not authenticated' };
-        }
+    // Get session token for authorization
+    const sessionToken = getSessionToken();
+    if (!sessionToken) {
+        aiLogger.error('No session token found');
+        return { success: false, error: 'Please log in to use AI features' };
+    }
 
+    try {
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'authorization': `Bearer ${sessionToken}`,
+                'Authorization': `Bearer ${sessionToken}`,
                 'x-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
             },
             body: JSON.stringify({ description: description.trim() }),
