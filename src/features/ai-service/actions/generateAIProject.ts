@@ -4,6 +4,7 @@
 
 import type { GenerateProjectResult, AIGeneratedProject, N8nGeminiResponse } from '../types';
 import { aiLogger } from '../utils';
+import { getSessionToken } from '@/lib/auth/sessionStorage';
 
 /**
  * Generate a complete project with tasks from a natural language description.
@@ -23,10 +24,18 @@ export async function generateAIProject(
     aiLogger.info('Starting AI project generation', { descriptionLength: description.length });
 
     try {
+        const sessionToken = getSessionToken();
+        if (!sessionToken) {
+            aiLogger.error('No session token available');
+            return { success: false, error: 'Not authenticated' };
+        }
+
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'authorization': `Bearer ${sessionToken}`,
+                'x-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
             },
             body: JSON.stringify({ description: description.trim() }),
             cache: 'no-store',

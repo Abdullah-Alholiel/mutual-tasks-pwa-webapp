@@ -28,7 +28,14 @@ export async function checkRateLimit(
         .eq('usage_date', today)
         .maybeSingle();
     
+    if (error) {
+        console.error('[AI Rate Limit] Failed to check usage:', error.code, error.message);
+        return { allowed: false, remaining: 0, limit, used: 0 };
+    }
+    
     const used = data?.count ?? 0;
+    console.log('[AI Rate Limit] Usage check:', { userId, usageType, today, used, limit, remaining: Math.max(0, limit - used) });
+    
     return {
         allowed: used < limit,
         remaining: Math.max(0, limit - used),
@@ -72,6 +79,8 @@ export async function incrementUsage(
             throw new Error('Failed to update usage count');
         }
     } else {
+        console.log('[AI Usage] No existing usage record, inserting new one');
+        
         const { error: insertError } = await supabaseAdmin
             .from('ai_usage_logs')
             .insert({
@@ -89,6 +98,8 @@ export async function incrementUsage(
 }
 
 export async function verifyMagicLinkSession(token: string): Promise<number | null> {
+    console.log('[Session] Verifying magic link session token');
+    
     try {
         const supabase = createClient(
             process.env.SUPABASE_URL!,
@@ -103,18 +114,19 @@ export async function verifyMagicLinkSession(token: string): Promise<number | nu
             .maybeSingle();
         
         if (error) {
-            console.error('[Session] Verification failed:', error.message);
+            console.error('[Session] Verification failed:', error.code, error.message);
             return null;
         }
         
         if (!data) {
-            console.error('[Session] Token not found or expired');
+            console.error('[Session] Token not found or expired in database');
             return null;
         }
         
+        console.log('[Session] Session verified successfully for user ID:', data.user_id);
         return data.user_id;
     } catch (err) {
-        console.error('[Session] Unexpected error:', err);
+        console.error('[Session] Unexpected error during verification:', err);
         return null;
     }
 }
