@@ -70,16 +70,34 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
         const secretKey = process.env.x_momentum_secret;
 
-        const response = await fetch(n8nUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-momentum-secret': secretKey || '',
-                'x_momentum_secret': secretKey || '',
-            },
-            body: JSON.stringify({ description: description.trim() }),
-            cache: 'no-store',
+        console.log('[AI Project] Calling n8n:', {
+            urlPrefix: n8nUrl.substring(0, 50) + '...',
+            hasSecret: !!secretKey,
+            descriptionLength: description.length
         });
+
+        let response;
+        try {
+            response = await fetch(n8nUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-momentum-secret': secretKey || '',
+                    'x_momentum_secret': secretKey || '',
+                },
+                body: JSON.stringify({ description: description.trim() }),
+            });
+        } catch (fetchError) {
+            console.error('[AI Project] Fetch to n8n failed:', fetchError);
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({
+                    error: 'Failed to connect to AI service',
+                    details: fetchError instanceof Error ? fetchError.message : 'Network error'
+                })
+            };
+        }
 
         if (!response.ok) {
             const errText = await response.text();
