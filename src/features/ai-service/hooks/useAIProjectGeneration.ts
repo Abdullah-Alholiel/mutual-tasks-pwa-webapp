@@ -8,12 +8,11 @@ import type { AIProjectState, AIGeneratedProject } from '../types';
 import { generateAIProject } from '../actions';
 import {
     aiLogger,
-    checkUsageLimit,
-    incrementUsage,
     AI_ERROR_MESSAGES,
     getAIErrorMessage,
 } from '../utils';
 import { useAuth } from '@/features/auth/useAuth';
+import { getSessionToken } from '@/lib/auth/sessionStorage';
 
 /**
  * Hook result interface for AI project generation
@@ -88,28 +87,7 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
             return null;
         }
 
-        // Check usage limit before proceeding
-        try {
-            const limitCheck = await checkUsageLimit(user.id, 'project_generation');
-            setRemainingToday(limitCheck.remaining);
-
-            if (!limitCheck.allowed) {
-                toast.error(AI_ERROR_MESSAGES.LIMIT_EXCEEDED_PROJECT.title, {
-                    description: AI_ERROR_MESSAGES.LIMIT_EXCEEDED_PROJECT.description,
-                });
-                return null;
-            }
-
-            // Warn if running low
-            if (limitCheck.remaining <= 1) {
-                toast.warning(AI_ERROR_MESSAGES.LIMIT_WARNING_PROJECT(limitCheck.remaining).title, {
-                    description: AI_ERROR_MESSAGES.LIMIT_WARNING_PROJECT(limitCheck.remaining).description,
-                });
-            }
-        } catch (error) {
-            aiLogger.warn('Failed to check usage limit, proceeding anyway', error);
-            // Continue anyway - don't block users if limit check fails
-        }
+         setRemainingToday(3);
 
         setAiState('loading');
         setGeneratedProject(null);
@@ -150,26 +128,50 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
         }
     }, [user?.id]);
 
-    /**
-     * Confirm that the generated project will be used
-     * This is when we actually increment the usage count
-     */
-    const confirmProjectCreation = useCallback(async (): Promise<void> => {
-        if (!user?.id || !generatedProject) return;
+     /**
+      * Confirm that the generated project will be used
+      * This is when we actually increment the usage count
+      */
+     const confirmProjectCreation = useCallback(async (): Promise<void> => {
+         if (!user?.id || !generatedProject) return;
 
-        try {
-            await incrementUsage(user.id, 'project_generation');
-            aiLogger.info('Project generation usage incremented');
+         try {
+             const sessionToken = getSessionToken();
+             if (!sessionToken) {
+                 toast.error('Session expired');
+                 return;
+             }
 
-            // Update remaining count
-            if (remainingToday !== null && remainingToday > 0) {
-                setRemainingToday(remainingToday - 1);
-            }
-        } catch (error) {
-            aiLogger.warn('Failed to increment usage count', error);
-            // Don't block the user - just log the error
-        }
-    }, [user?.id, generatedProject, remainingToday]);
+             const response = await fetch('/.netlify/functions/ai-confirm-usage', {
+                 method: 'POST',
+                 headers: {
+                     'Content-Type': 'application/json',
+                     'authorization': `Bearer ${sessionToken}`,
+                     'x-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+                 },
+                 body: JSON.stringify({
+                     usageType: 'project_generation',
+                     userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                 }),
+             });
+
+             if (!response.ok) {
+                 throw new Error('Failed to record usage');
+             }
+
+             aiLogger.info('Project generation usage incremented');
+
+             // Update remaining count
+             if (remainingToday !== null && remainingToday > 0) {
+                 setRemainingToday(remainingToday - 1);
+             }
+         } catch (error) {
+             aiLogger.warn('Failed to increment usage count', error);
+             toast.error('Failed to record usage', {
+                 description: 'Please try again',
+             });
+         }
+     }, [user?.id, generatedProject, remainingToday]);
 
     /**
      * Reset the hook state

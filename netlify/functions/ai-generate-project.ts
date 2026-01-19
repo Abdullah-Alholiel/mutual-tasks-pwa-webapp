@@ -1,109 +1,111 @@
 import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import { createClient } from '@supabase/supabase-js';
+import {
+    verifyMagicLinkSession,
+    checkRateLimit,
+    getCorsHeaders,
+    buildRateLimitResponse,
+    AI_USAGE_LIMITS
+} from './shared/utils';
 
-/**
- * Netlify Serverless Function to Securely Proxy AI Project Generation Requests
- * 
- * This function runs on the server (Netlify), so it can safely access
- * environment variables like x_momentum_secret without exposing them to the client.
- */
+const USAGE_TYPE = 'project_generation';
+
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    // CORS Headers for security
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, x-momentum-session, x-momentum-secret',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    };
+    const headers = getCorsHeaders();
 
-    // Handle preflight requests
     if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers,
-            body: '',
-        };
+        return { statusCode: 200, headers, body: '' };
     }
 
-    // Only accept POST requests
     if (event.httpMethod !== 'POST') {
-        return {
-            statusCode: 405,
-            headers,
-            body: JSON.stringify({ error: 'Method not allowed. Use POST.' }),
-        };
+        return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed. Use POST.' }) };
     }
 
     try {
-        // Parse request body
         let description: string | undefined;
-
         if (event.body) {
             try {
                 const body = JSON.parse(event.body);
                 description = body.description;
             } catch {
-                return {
-                    statusCode: 400,
-                    headers,
-                    body: JSON.stringify({ error: 'Invalid JSON body' }),
-                };
+                return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
             }
         }
 
         if (!description || typeof description !== 'string' || !description.trim()) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Missing required parameter: description' }),
-            };
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required parameter: description' }) };
+        }
+
+        const authHeader = event.headers['authorization'];
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }) };
+        }
+        const sessionToken = authHeader.substring(7);
+
+        const userTimezone = event.headers['x-user-timezone'] || 'UTC';
+
+        const userId = await verifyMagicLinkSession(sessionToken);
+        if (!userId) {
+            return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Invalid or expired session' }) };
+        }
+
+        const supabaseAdmin = createClient(
+            process.env.SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
+        );
+
+        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
+        
+        if (!rateLimit.allowed) {
+            return buildRateLimitResponse(headers, rateLimit.limit);
         }
 
         const n8nUrl = process.env.N8N_PROJECT_WEBHOOK_URL;
-        const secretKey = process.env.x_momentum_secret;
-
-        console.log('[Netlify Function] AI Project Generation - Starting...');
-        console.log('[Netlify Function] Description length:', description.length);
-        console.log('[Netlify Function] n8n URL defined:', !!n8nUrl);
-
         if (!n8nUrl) {
-            console.error('[Netlify Function] Missing N8N_PROJECT_WEBHOOK_URL');
-            return {
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({ error: 'Server configuration error: Missing Project Webhook URL' }),
-            };
+            console.error('[AI Project] Missing N8N_PROJECT_WEBHOOK_URL');
+            return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: Missing Project Webhook URL' }) };
         }
 
-        // Call n8n Webhook with POST body
+        const secretKey = process.env.x_momentum_secret;
+
         const response = await fetch(n8nUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'x-momentum-secret': secretKey || '',
-                'x_momentum_secret': secretKey || '', // Fallback for specific n8n config
+                'x_momentum_secret': secretKey || '',
             },
             body: JSON.stringify({ description: description.trim() }),
+            cache: 'no-store',
         });
-
-        console.log('[Netlify Function] n8n Response Status:', response.status);
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error('[Netlify Function] n8n Error Body:', errText);
-            throw new Error(`n8n responded with ${response.status}: ${response.statusText}`);
+            console.error('[AI Project] n8n Error:', response.status, errText);
+            return { 
+                statusCode: 502, 
+                headers, 
+                body: JSON.stringify({ error: 'AI service unavailable', details: response.statusText }) 
+            };
         }
 
-        // Get response text (should be JSON with project data)
         const responseText = await response.text();
-        console.log('[Netlify Function] Response length:', responseText.length);
+        console.log('[AI Project] Success, response length:', responseText.length);
 
         return {
             statusCode: 200,
-            headers,
-            body: responseText, // Return raw response, frontend handles parsing
+            headers: {
+                ...headers,
+                'X-RateLimit-Limit': String(rateLimit.limit),
+                'X-RateLimit-Remaining': String(rateLimit.remaining),
+                'X-RateLimit-Reset': String(Date.now() + 86400000),
+            },
+            body: responseText,
         };
 
     } catch (error) {
-        console.error('Function execution failed:', error);
+        console.error('[AI Project] Function error:', error);
         return {
             statusCode: 500,
             headers,

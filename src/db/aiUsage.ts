@@ -42,7 +42,9 @@ export class AIUsageRepository {
      * Get today's date in YYYY-MM-DD format (user's local timezone)
      */
     private getTodayDate(): string {
-        return new Date().toISOString().split('T')[0];
+        return new Date().toLocaleDateString('en-CA', {
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        });
     }
 
     /**

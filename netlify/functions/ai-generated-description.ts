@@ -1,99 +1,131 @@
 import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import { createClient } from '@supabase/supabase-js';
+import {
+    verifyMagicLinkSession,
+    checkRateLimit,
+    incrementUsage,
+    getCorsHeaders,
+    buildRateLimitResponse,
+    AI_USAGE_LIMITS
+} from './shared/utils';
 
-/**
- * Netlify Serverless Function to Securely Proxy AI Gen Requests
- * 
- * This function runs on the server (Netlify), so it can safely access
- * environment variables like x_momentum_secret without exposing them to the client.
- */
+const USAGE_TYPE = 'description_generation';
+
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    // CORS Headers for security
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, x-momentum-session, x-momentum-secret',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-    };
+    const headers = getCorsHeaders();
 
-    // Handle preflight requests
     if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers,
-            body: ''
-        };
+        return { statusCode: 200, headers, body: '' };
+    }
+
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed. Use POST.' }) };
     }
 
     try {
-        const { type, project_title } = event.queryStringParameters || {};
+        let title: string | undefined;
+        let type: 'task' | 'project' = 'task';
+        
+        if (event.body) {
+            try {
+                const body = JSON.parse(event.body);
+                title = body.title;
+                type = body.type || 'task';
+            } catch {
+                return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+            }
+        }
 
-        if (!type || !project_title) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Missing required parameters: type, project_title' })
-            };
+        if (!title || typeof title !== 'string' || !title.trim()) {
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing required parameter: title' }) };
+        }
+
+        const authHeader = event.headers['authorization'];
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }) };
+        }
+        const sessionToken = authHeader.substring(7);
+
+        const userTimezone = event.headers['x-user-timezone'] || 'UTC';
+
+        const userId = await verifyMagicLinkSession(sessionToken);
+        if (!userId) {
+            return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Invalid or expired session' }) };
+        }
+
+        const supabaseAdmin = createClient(
+            process.env.SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
+        );
+
+        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
+        
+        if (!rateLimit.allowed) {
+            return buildRateLimitResponse(headers, rateLimit.limit);
         }
 
         const n8nUrl = process.env.N8N_WEBHOOK_URL;
-        const secretKey = process.env.x_momentum_secret;
-
-        console.log('[Netlify Function] Starting execution...');
-        console.log('[Netlify Function] Params:', { type, n8nUrlDefined: !!n8nUrl });
-
         if (!n8nUrl) {
-            console.error('[Netlify Function] Missing N8N_WEBHOOK_URL');
-            return {
-                statusCode: 500,
-                headers,
-                body: JSON.stringify({ error: 'Server configuration error: Missing Webhook URL' })
-            };
+            console.error('[AI Description] Missing N8N_WEBHOOK_URL');
+            return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: Missing Description Webhook URL' }) };
         }
 
-        // Construct query parameters
-        const params = new URLSearchParams({
-            type: type,
-            project_title: project_title
-        });
+        const secretKey = process.env.x_momentum_secret;
 
-        const fullUrl = `${n8nUrl}?${params.toString()}`;
-        console.log('[Netlify Function] Fetching URL (masked):', fullUrl.replace(secretKey || 'xxx', '***'));
-
-        // Call n8n Webhook
-        const response = await fetch(fullUrl, {
-            method: 'GET',
+        const response = await fetch(n8nUrl, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'x-momentum-secret': secretKey || '',
-                'x_momentum_secret': secretKey || '' // Fallback for specific n8n config
-            }
+                'x_momentum_secret': secretKey || '',
+            },
+            body: JSON.stringify({ 
+                title: title.trim(), 
+                type 
+            }),
+            cache: 'no-store',
         });
-
-        console.log('[Netlify Function] n8n Response Status:', response.status);
 
         if (!response.ok) {
             const errText = await response.text();
-            console.error('[Netlify Function] n8n Error Body:', errText);
-            throw new Error(`n8n responded with ${response.status}: ${response.statusText}`);
+            console.error('[AI Description] n8n Error:', response.status, errText);
+            return { 
+                statusCode: 502, 
+                headers, 
+                body: JSON.stringify({ error: 'AI service unavailable', details: response.statusText }) 
+            };
         }
 
-        // Get response text (it might be JSON or plain text)
         const responseText = await response.text();
+
+        try {
+            await incrementUsage(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
+            console.log('[AI Description] Usage incremented for userId:', userId);
+        } catch (e) {
+            console.error('[AI Description] Failed to increment usage:', e);
+        }
 
         return {
             statusCode: 200,
-            headers,
-            body: responseText // Return raw response, frontend handles parsing
+            headers: {
+                ...headers,
+                'X-RateLimit-Limit': String(rateLimit.limit),
+                'X-RateLimit-Remaining': String(rateLimit.remaining - 1),
+                'X-RateLimit-Reset': String(Date.now() + 86400000),
+            },
+            body: responseText,
         };
 
     } catch (error) {
-        console.error('Function execution failed:', error);
+        console.error('[AI Description] Function error:', error);
         return {
             statusCode: 500,
             headers,
             body: JSON.stringify({
                 error: 'Failed to generate description',
-                details: error instanceof Error ? error.message : 'Unknown error'
-            })
+                details: error instanceof Error ? error.message : 'Unknown error',
+            }),
         };
     }
 };
