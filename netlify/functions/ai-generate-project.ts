@@ -49,14 +49,15 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Invalid or expired session' }) };
         }
 
+        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
         const supabaseAdmin = createClient(
-            process.env.SUPABASE_URL!,
+            supabaseUrl!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!,
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
         const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
-        
+
         if (!rateLimit.allowed) {
             return buildRateLimitResponse(headers, rateLimit.limit);
         }
@@ -83,10 +84,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         if (!response.ok) {
             const errText = await response.text();
             console.error('[AI Project] n8n Error:', response.status, errText);
-            return { 
-                statusCode: 502, 
-                headers, 
-                body: JSON.stringify({ error: 'AI service unavailable', details: response.statusText }) 
+            return {
+                statusCode: 502,
+                headers,
+                body: JSON.stringify({ error: 'AI service unavailable', details: response.statusText })
             };
         }
 

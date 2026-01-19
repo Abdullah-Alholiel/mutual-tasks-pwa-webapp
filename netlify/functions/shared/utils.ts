@@ -101,10 +101,24 @@ export async function verifyMagicLinkSession(token: string): Promise<number | nu
     console.log('[Session] Verifying magic link session token');
 
     try {
-        const supabase = createClient(
-            process.env.SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!  // Use service role to bypass RLS
-        );
+        // Use VITE_SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL as fallback)
+        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        console.log('[Session] Env vars check:', {
+            hasViteUrl: !!process.env.VITE_SUPABASE_URL,
+            hasNextUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+            hasSupabaseUrl: !!process.env.SUPABASE_URL,
+            hasServiceKey: !!serviceRoleKey,
+            urlUsed: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'MISSING'
+        });
+
+        if (!supabaseUrl || !serviceRoleKey) {
+            console.error('[Session] Missing SUPABASE_URL or SERVICE_ROLE_KEY env vars');
+            return null;
+        }
+
+        const supabase = createClient(supabaseUrl, serviceRoleKey);
 
         const { data, error } = await supabase
             .from('sessions')
