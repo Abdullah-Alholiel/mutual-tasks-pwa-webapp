@@ -19,7 +19,7 @@ export async function checkRateLimit(
 ): Promise<{ allowed: boolean; remaining: number; limit: number; used: number }> {
     const today = getTodayDate(timezone);
     const limit = AI_USAGE_LIMITS[usageType];
-    
+
     const { data, error } = await supabaseAdmin
         .from('ai_usage_logs')
         .select('count')
@@ -27,15 +27,15 @@ export async function checkRateLimit(
         .eq('usage_type', usageType)
         .eq('usage_date', today)
         .maybeSingle();
-    
+
     if (error) {
         console.error('[AI Rate Limit] Failed to check usage:', error.code, error.message);
         return { allowed: false, remaining: 0, limit, used: 0 };
     }
-    
+
     const used = data?.count ?? 0;
     console.log('[AI Rate Limit] Usage check:', { userId, usageType, today, used, limit, remaining: Math.max(0, limit - used) });
-    
+
     return {
         allowed: used < limit,
         remaining: Math.max(0, limit - used),
@@ -51,7 +51,7 @@ export async function incrementUsage(
     timezone: string = 'UTC'
 ): Promise<void> {
     const today = getTodayDate(timezone);
-    
+
     const { data: existing, error: fetchError } = await supabaseAdmin
         .from('ai_usage_logs')
         .select('id, count')
@@ -59,28 +59,28 @@ export async function incrementUsage(
         .eq('usage_type', usageType)
         .eq('usage_date', today)
         .maybeSingle();
-    
+
     if (fetchError) {
         console.error('[AI Usage] Failed to fetch usage record:', fetchError);
         throw new Error('Failed to check usage record');
     }
-    
+
     if (existing) {
         const { error: updateError } = await supabaseAdmin
             .from('ai_usage_logs')
-            .update({ 
+            .update({
                 count: existing.count + 1,
                 updated_at: new Date().toISOString()
             })
             .eq('id', existing.id);
-        
+
         if (updateError) {
             console.error('[AI Usage] Failed to update usage:', updateError);
             throw new Error('Failed to update usage count');
         }
     } else {
         console.log('[AI Usage] No existing usage record, inserting new one');
-        
+
         const { error: insertError } = await supabaseAdmin
             .from('ai_usage_logs')
             .insert({
@@ -89,7 +89,7 @@ export async function incrementUsage(
                 usage_date: today,
                 count: 1,
             });
-        
+
         if (insertError) {
             console.error('[AI Usage] Failed to insert usage:', insertError);
             throw new Error('Failed to record usage');
@@ -99,30 +99,30 @@ export async function incrementUsage(
 
 export async function verifyMagicLinkSession(token: string): Promise<number | null> {
     console.log('[Session] Verifying magic link session token');
-    
+
     try {
         const supabase = createClient(
             process.env.SUPABASE_URL!,
-            process.env.SUPABASE_ANON_KEY!
+            process.env.SUPABASE_SERVICE_ROLE_KEY!  // Use service role to bypass RLS
         );
-        
+
         const { data, error } = await supabase
             .from('sessions')
             .select('user_id, expires_at')
             .eq('token', token)
             .gt('expires_at', new Date().toISOString())
             .maybeSingle();
-        
+
         if (error) {
             console.error('[Session] Verification failed:', error.code, error.message);
             return null;
         }
-        
+
         if (!data) {
             console.error('[Session] Token not found or expired in database');
             return null;
         }
-        
+
         console.log('[Session] Session verified successfully for user ID:', data.user_id);
         return data.user_id;
     } catch (err) {
