@@ -21,6 +21,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { useBackNavigation } from '@/hooks/useBackNavigation';
 
 interface FriendsPageProps {
     isInternalSlide?: boolean;
@@ -30,6 +31,7 @@ interface FriendsPageProps {
 const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPageProps) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const goBack = useBackNavigation({ fallbackPath: '/profile' });
     const { data: currentUser } = useCurrentUser();
     const { data: currentUserStats } = useCurrentUserStats();
 
@@ -140,7 +142,7 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => navigate('/profile')}
+                                onClick={goBack}
                                 className="-ml-2 hover:bg-transparent"
                             >
                                 <ArrowLeft className="w-6 h-6" />

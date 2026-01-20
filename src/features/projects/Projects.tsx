@@ -630,7 +630,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
                   Public
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground line-clamp-2">
+              <p className="text-sm text-muted-foreground">
                 {project.description}
               </p>
             </div>

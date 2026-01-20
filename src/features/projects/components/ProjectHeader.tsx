@@ -48,7 +48,7 @@ export const ProjectHeader = ({
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words">{project.name}</h1>
-            <p className="text-sm sm:text-base text-muted-foreground line-clamp-2">{project.description}</p>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">{project.description}</p>
           </div>
         </div>
       </div>

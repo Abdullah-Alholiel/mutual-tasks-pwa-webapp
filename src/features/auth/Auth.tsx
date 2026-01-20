@@ -253,8 +253,9 @@ const Auth = () => {
   // Show "Continue to App" success screen
   if (verificationComplete) {
     return (
-      <div className="min-h-[100dvh] min-h-screen bg-background flex items-center justify-center p-4 md:p-6">
-        <div className="w-full max-w-md">
+      <div className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto">
+        <div className="flex flex-col items-center justify-center p-4 md:p-6 py-8 md:py-12">
+          <div className="w-full max-w-md">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -375,6 +376,7 @@ const Auth = () => {
             </Card>
           </motion.div>
         </div>
+        </div>
       </div>
     );
   }
@@ -460,8 +462,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 md:p-6">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto">
+      <div className="flex flex-col items-center justify-center p-4 md:p-6 py-8 md:py-12">
+        <div className="w-full max-w-md">
         {/* Logo/Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -743,6 +746,7 @@ const Auth = () => {
             By continuing, you agree to our Terms of Service and Privacy Policy
           </motion.p>
         </motion.div>
+        </div>
       </div>
     </div>
   );

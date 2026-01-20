@@ -4,11 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import type { Project, User } from '@/types';
 import { motion } from 'framer-motion';
-import { FolderKanban, Users, Sparkles, Globe, Lock, AtSign, Plus } from 'lucide-react';
+import { FolderKanban, Sparkles, Globe, Lock, AtSign, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { adjustColorOpacity } from '@/lib/colorUtils';
 import { Switch } from '@/components/ui/switch';
@@ -17,6 +15,7 @@ import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
 import { useFriends } from '@/features/friends/hooks/useFriends';
+import { FriendSelector } from './FriendSelector';
 
 const PROJECT_COLORS = [
   { name: 'Blue', value: 'hsl(199, 89%, 48%)' },
@@ -387,7 +386,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
                   <Input
                     id="friend-handle"
                     type="text"
-                    placeholder="@username"
+                    placeholder="username"
                     value={friendHandle}
                     onChange={(e) => {
                       let value = e.target.value;
@@ -421,55 +420,15 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
             {/* Friends List */}
             <div className="space-y-2">
               <Label className="text-sm">Select Friends</Label>
-              <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
-                {allFriends.map((user) => {
-                  const userIdStr = String(user.id);
-                  const isSelected = selectedParticipants.includes(userIdStr);
-                  const isHighlighted = highlightedFriendIds.has(userIdStr);
-
-                  return (
-                    <motion.button
-                      key={user.id}
-                      type="button"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => toggleParticipant(userIdStr)}
-                      className={cn(
-                        "flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left relative",
-                        isSelected
-                          ? "border-primary bg-primary/5 shadow-primary"
-                          : isHighlighted
-                            ? "border-accent bg-accent/5 shadow-accent/20"
-                            : "border-border hover:border-primary/50"
-                      )}
-                      style={isSelected ? { borderColor: selectedColor } : {}}
-                    >
-                      {isHighlighted && !isSelected && (
-                        <div className="absolute top-1 right-1">
-                          <Badge variant="secondary" className="text-xs">New</Badge>
-                        </div>
-                      )}
-                      <Avatar className="w-10 h-10 ring-2 ring-border">
-                        <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate">{user.name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{user.handle}</div>
-                      </div>
-                      {isSelected && (
-                        <Badge variant="default" className="shrink-0" style={{ backgroundColor: selectedColor }}>Selected</Badge>
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-              {allFriends.length === 0 && (
-                <div className="text-sm text-muted-foreground flex items-center gap-2 p-3 bg-muted rounded-lg">
-                  <Users className="w-4 h-4" />
-                  <span>No friends available. Add friends by handle above!</span>
-                </div>
-              )}
+              <FriendSelector
+                availableFriends={allFriends}
+                selectedUserIds={selectedParticipants}
+                highlightedUserIds={highlightedFriendIds}
+                onToggleUser={toggleParticipant}
+                selectedColor={selectedColor}
+                maxHeight="300px"
+                emptyMessage="No friends available. Add friends by handle above!"
+              />
             </div>
           </div>
 

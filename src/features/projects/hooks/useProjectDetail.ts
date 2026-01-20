@@ -71,6 +71,7 @@ export const useProjectDetail = () => {
     memberIdentifier,
     setMemberIdentifier,
     handleAddMember,
+    handleAddMembers,
     handleRemoveParticipant,
     handleUpdateRole,
   } = members;
@@ -232,6 +233,7 @@ export const useProjectDetail = () => {
 
     // Member handlers
     handleAddMember,
+    handleAddMembers,
     handleRemoveParticipant,
     handleUpdateRole,
 

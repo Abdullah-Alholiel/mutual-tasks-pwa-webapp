@@ -45,7 +45,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground line-clamp-2">
+              <p className="text-sm text-muted-foreground">
                 {project.description}
               </p>
             </div>

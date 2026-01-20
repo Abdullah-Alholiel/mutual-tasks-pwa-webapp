@@ -14,6 +14,7 @@ import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useBackNavigation } from '@/hooks/useBackNavigation';
 import { Inbox } from '@/features/notifications/Inbox';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { useAuth } from '@/features/auth/useAuth';
@@ -23,10 +24,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import ResourceNotFound from '@/components/ui/ResourceNotFound';
 
 const FriendProfile = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const goBack = useBackNavigation({ fallbackPath: '/friends' });
     const friendId = Number(id);
     const isMobile = useIsMobile();
     const { user } = useAuth();
@@ -70,7 +73,7 @@ const FriendProfile = () => {
     );
 
     const isOutgoingRequest = hasPendingRequest?.isInitiator === true;
-    // We are looking at a profile, so if we are the initiator, it means we sent it to THEM.
+    // We are looking at a profile, so if we are initiator, it means we sent it to THEM.
     // If hasPendingRequest.isInitiator is TRUE, it means currentUser initiated it (per getFriendRequests logic)
 
     const handleAddFriend = () => {
@@ -91,9 +94,19 @@ const FriendProfile = () => {
         }
     };
 
-    if (loadingFriend || !friend) {
+    if (loadingFriend) {
         return (
             <PageLoader text="Loading profile..." />
+        );
+    }
+
+    if (!friend) {
+        return (
+            <ResourceNotFound
+                type="friend"
+                status="not_found"
+                onBack={() => navigate('/friends')}
+            />
         );
     }
 
@@ -144,7 +157,7 @@ const FriendProfile = () => {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => navigate('/friends')}
+                        onClick={goBack}
                         className="-ml-2 hover:bg-transparent"
                     >
                         <ArrowLeft className="w-6 h-6" />

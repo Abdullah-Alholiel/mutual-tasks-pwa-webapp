@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Flame, Trophy } from 'lucide-react';
+
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentUser, useCurrentUserStats } from '@/features/auth/useCurrentUser';
 import { getDatabaseClient } from '@/db';
@@ -104,36 +104,14 @@ export const StreakCalendar = () => {
   }
 
   return (
-    <Card className="p-4 sm:p-6 overflow-hidden">
+    <Card className="p-4 sm:p-6 overflow-hidden md:max-w-2xl md:mx-auto">
       <div className="flex flex-col items-center">
         {/* Content Container - responsive width */}
         <div className="w-full">
           {/* Header - responsive layout */}
-          <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
-            <div className="flex-shrink-0">
-              <h3 className="text-base sm:text-lg font-semibold">Activity & Streaks</h3>
-              <p className="text-[10px] sm:text-sm text-muted-foreground">Your completion heatmap</p>
-            </div>
-
-            <div className="flex items-center gap-1.5 sm:gap-4 flex-shrink-0">
-              <div className="flex flex-row items-center gap-2 sm:gap-4">
-                <div className="flex items-center gap-1 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-accent/10 min-w-[3.8rem] sm:min-w-[7rem] justify-center sm:justify-between">
-                  <Flame className="w-3 h-3 sm:w-5 sm:h-5 text-accent" />
-                  <div className="text-right">
-                    <div className="text-[7px] sm:text-xs text-muted-foreground font-medium uppercase tracking-tighter">Streak</div>
-                    <div className="text-sm sm:text-lg font-bold text-accent leading-none">{stats.currentStreak}</div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-muted min-w-[3.8rem] sm:min-w-[7rem] justify-center sm:justify-between">
-                  <Trophy className="w-3 h-3 sm:w-5 sm:h-5 text-foreground" />
-                  <div className="text-right">
-                    <div className="text-[7px] sm:text-xs text-muted-foreground font-medium uppercase tracking-tighter">Best</div>
-                    <div className="text-sm sm:text-lg font-bold text-foreground leading-none">{stats.longestStreak}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="mb-4 sm:mb-6">
+            <h3 className="text-base sm:text-lg font-semibold">Activity & Streaks</h3>
+            <p className="text-[10px] sm:text-sm text-muted-foreground">Your completion heatmap</p>
           </div>
 
           {/* Calendar Grid Container - ensures horizontal fit */}
@@ -175,7 +153,7 @@ export const StreakCalendar = () => {
                         className="group relative flex items-center justify-center aspect-square"
                       >
                         <div
-                          className={`w-full h-full rounded-lg sm:rounded-xl md:rounded-2xl ${getIntensityColor(
+                          className={`w-full h-full rounded-lg sm:rounded-xl md:rounded-full ${getIntensityColor(
                             dayData.intensity
                           )} ${dayData.isToday ? 'ring-2 ring-primary ring-offset-1 sm:ring-offset-2 ring-offset-background' : ''
                             } transition-colors cursor-pointer flex items-center justify-center`}
@@ -186,7 +164,7 @@ export const StreakCalendar = () => {
                           })} - ${dayData.count} ${dayData.count === 1 ? 'task' : 'tasks'}`}
                         >
                           {dayData.intensity > 0 && (
-                            <span className="text-[11px] sm:text-sm font-bold text-primary-foreground transform scale-110">
+                            <span className="text-[11px] sm:text-sm md:text-base font-bold text-foreground transform scale-110">
                               {dayData.count}
                             </span>
                           )}

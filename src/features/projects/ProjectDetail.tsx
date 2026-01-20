@@ -21,12 +21,15 @@ import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { ProjectStats } from '@/features/projects/components/ProjectStats';
 import { ProjectTaskSections } from '@/features/projects/components/ProjectTaskSections';
 import { FriendActionButton } from '@/features/projects/components/FriendActionButton';
+import { FriendSelector } from '@/features/projects/components/FriendSelector';
+import { useFriends } from '@/features/friends/hooks/useFriends';
 import { useProjectDetail } from './hooks/useProjectDetail';
 import { useJoinProject } from './hooks/useProjects';
+import type { HabitSeries } from './hooks/types';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { InlineLoader, Loader, PageLoader } from '@/components/ui/loader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Input as InputComponent } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
@@ -44,6 +47,7 @@ import { cn } from '@/lib/utils';
 import { normalizeId } from '@/lib/idUtils';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { MobileHeader } from '@/components/layout/MobileHeader';
+import ResourceNotFound from '@/components/ui/ResourceNotFound';
 
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
@@ -93,6 +97,7 @@ const ProjectDetail = () => {
     handleCreateTask,
     handleUpdateTask,
     handleAddMember,
+    handleAddMembers,
     handleRemoveParticipant,
     handleUpdateRole,
     handleEditProject,
@@ -131,9 +136,36 @@ const ProjectDetail = () => {
 
   // Confirmation dialog states
   const [participantToRemove, setParticipantToRemove] = useState<number | null>(null);
-  const [seriesToDelete, setSeriesToDelete] = useState<any | null>(null);
+  const [seriesToDelete, setSeriesToDelete] = useState<HabitSeries | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+
+  // Friend selection for adding multiple members
+  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const { data: friends = [] } = useFriends();
+
+  // Toggle friend selection
+  const handleToggleFriend = (friendId: string) => {
+    setSelectedFriendIds(prev =>
+      prev.includes(friendId)
+        ? prev.filter(id => id !== friendId)
+        : [...prev, friendId]
+    );
+  };
+
+  // Handle adding selected friends
+  const handleAddSelectedFriends = async () => {
+    if (selectedFriendIds.length === 0) {
+      handleAddMember();
+      return;
+    }
+
+    const friendIdsAsNumbers = selectedFriendIds.map(id => typeof id === 'string' ? parseInt(id) : parseInt(id));
+    await handleAddMembers(friendIdsAsNumbers);
+    setSelectedFriendIds([]);
+    setMemberIdentifier('');
+    setShowAddMemberForm(false);
+  };
 
 
 
@@ -171,12 +203,26 @@ const ProjectDetail = () => {
     );
   }
 
-  if (!project || !currentProject) {
+  if (!currentProject) {
     return (
-      <div className="text-center py-16">
-        <h2 className="text-2xl font-bold mb-4">Project not found</h2>
-        <Button onClick={() => navigate('/projects')}>Back to Projects</Button>
-      </div>
+      <ResourceNotFound
+        type="project"
+        status="not_found"
+        onBack={() => navigate('/projects')}
+      />
+    );
+  }
+
+  // Only show access denied for private projects when user is not a participant
+  // Public projects are accessible to all users
+  if (!currentProject.isPublic && !isParticipant) {
+    return (
+      <ResourceNotFound
+        type="project"
+        status="private_project"
+        entityName={project.name}
+        onBack={() => navigate('/projects')}
+      />
     );
   }
 
@@ -534,29 +580,29 @@ const ProjectDetail = () => {
           <DialogHeader>
             <DialogTitle>Add Team Member</DialogTitle>
             <DialogDescription>
-              Add a new member to this project by entering their handle
+              Add a new member to this project by entering their handle or selecting from your friends
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="handle">Handle</Label>
-              <div className="relative">
-                <Input
-                  id="handle"
-                  type="text"
-                  placeholder="username"
-                  value={memberIdentifier}
-                  onChange={(e) => {
-                    let value = e.target.value;
-                    if (value && !value.startsWith('@')) {
-                      value = `@${value}`;
-                    }
-                    setMemberIdentifier(value);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleAddMember();
+              <div className="space-y-2">
+                <Label htmlFor="handle">Handle</Label>
+                <div className="relative">
+                  <InputComponent
+                    id="handle"
+                    type="text"
+                    placeholder="username"
+                    value={memberIdentifier}
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      if (value && !value.startsWith('@')) {
+                        value = `@${value}`;
+                      }
+                      setMemberIdentifier(value);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && memberIdentifier.trim()) {
+                        handleAddMember();
                     }
                   }}
                 />
@@ -566,24 +612,46 @@ const ProjectDetail = () => {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-sm">Select Friends</Label>
+              <FriendSelector
+                availableFriends={friends.map(f => f.friend).filter(f => {
+                  if (!f) return false;
+                  return !participants.some(p => {
+                    const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+                    return pUserId === f.id;
+                  });
+                })}
+                selectedUserIds={selectedFriendIds}
+                onToggleUser={handleToggleFriend}
+                selectedColor={currentProject?.color}
+                maxHeight="250px"
+                emptyMessage="No friends available to add"
+              />
+            </div>
+
             <div className="flex gap-3 pt-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowAddMemberForm(false);
                   setMemberIdentifier('');
+                  setSelectedFriendIds([]);
                 }}
                 className="flex-1"
               >
                 Cancel
               </Button>
               <Button
-                onClick={handleAddMember}
-                disabled={!memberIdentifier.trim()}
+                onClick={handleAddSelectedFriends}
+                disabled={!memberIdentifier.trim() && selectedFriendIds.length === 0}
                 className="flex-1 gradient-primary text-white"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
-                Add Member
+                {selectedFriendIds.length > 0
+                  ? `Add ${selectedFriendIds.length} Member${selectedFriendIds.length > 1 ? 's' : ''}`
+                  : 'Add Member'
+                }
               </Button>
             </div>
           </div>
@@ -1059,7 +1127,7 @@ const EditProjectForm = ({
 
       <div className="space-y-2">
         <Label htmlFor="name">Project Name *</Label>
-        <Input
+        <InputComponent
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}

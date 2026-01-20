@@ -237,6 +237,162 @@ export const useProjectMembers = ({
   }, [currentProject, user, memberIdentifier, participants, projectId, queryClient]);
 
   /**
+   * Add multiple members to the project (batch operation)
+   */
+  const handleAddMembers = useCallback(async (userIds: number[]) => {
+    if (!currentProject || !user || userIds.length === 0) return;
+
+    // Check if the current user has permission to add members (owner or manager)
+    const currentUserId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+    const isOwner = (typeof currentProject.ownerId === 'string' ? parseInt(currentProject.ownerId) : currentProject.ownerId) === currentUserId;
+    const isManager = participants.some(p => {
+      const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+      return pUserId === currentUserId && p.role === 'manager';
+    });
+
+    if (!isOwner && !isManager) {
+      toast.error('Permission denied', {
+        description: 'Only project owners and managers can add members'
+      });
+      return;
+    }
+
+    try {
+      const pId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
+      const db = getDatabaseClient();
+
+      // Filter out users who are already in the project
+      const existingParticipantUserIds = participants.map(p => typeof p.userId === 'string' ? parseInt(p.userId) : p.userId);
+      const userIdsToAdd = userIds.filter(id => !existingParticipantUserIds.includes(id));
+
+      if (userIdsToAdd.length === 0) {
+        toast.info('No new members to add', {
+          description: 'All selected users are already in this project'
+        });
+        return;
+      }
+
+      const now = new Date();
+
+      // Get all existing tasks in the project once (shared across all new members)
+      const projectTasks = await db.tasks.getAll({ projectId: pId });
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Add each user as participant
+      const addedParticipants: ProjectParticipant[] = [];
+
+      for (const userIdToAdd of userIdsToAdd) {
+        await db.projects.addParticipant(pId, userIdToAdd, 'participant');
+
+        // Create task statuses for all existing tasks for this user
+        const taskStatusesToCreate = projectTasks
+          .map(task => {
+            const dueDate = new Date(task.dueDate);
+            dueDate.setHours(0, 0, 0, 0);
+            const isPastDue = dueDate.getTime() < today.getTime();
+
+            return {
+              taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
+              userId: userIdToAdd,
+              status: isPastDue ? ('archived' as const) : ('active' as const),
+              archivedAt: isPastDue ? now : undefined,
+              ringColor: undefined,
+            };
+          });
+
+        // Create task statuses (checking for existence first to avoid duplicates)
+        if (taskStatusesToCreate.length > 0) {
+          await Promise.all(
+            taskStatusesToCreate.map(async (statusData) => {
+              const existingStatus = await db.taskStatus.getByTaskAndUser(statusData.taskId, statusData.userId);
+              if (!existingStatus) {
+                await db.taskStatus.create(statusData);
+              }
+            })
+          );
+        }
+
+        addedParticipants.push({
+          projectId: pId,
+          userId: userIdToAdd,
+          role: 'participant',
+          addedAt: now,
+          removedAt: undefined
+        });
+      }
+
+      // Update local state
+      setProjectParticipants(prev => [...prev, ...addedParticipants]);
+
+      // Get user details for notifications
+      const userIdsStr = userIdsToAdd.map(id => String(id));
+      const usersToAdd = await Promise.all(
+        userIdsStr.map(async (userIdStr) => {
+          const userData = await db.users.getById(parseInt(userIdStr));
+          return userData;
+        })
+      );
+
+      // Send notifications to all newly added members
+      try {
+        const notificationsForNewMembers = userIdsToAdd.map(userIdToAdd => ({
+          userId: userIdToAdd,
+          type: 'project_joined' as const,
+          message: `You've been added to "${currentProject.name}" by ${user.name}`,
+          projectId: pId,
+          isRead: false,
+          emailSent: false,
+        }));
+        await db.notifications.createMany(notificationsForNewMembers);
+
+        // Notify existing project members (except the adder) about new members
+        const existingParticipants = participants.filter(p => {
+          const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+          const currentUserId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+          return pUserId !== currentUserId && !userIdsToAdd.includes(pUserId);
+        });
+
+        if (existingParticipants.length > 0 && usersToAdd.length > 0) {
+          const memberNames = usersToAdd.map(u => u?.name || 'Unknown').join(', ');
+          const notificationsToCreate = existingParticipants.map(p => ({
+            userId: typeof p.userId === 'string' ? parseInt(p.userId) : p.userId,
+            type: 'project_joined' as const,
+            message: `${usersToAdd.length} ${usersToAdd.length === 1 ? 'member' : 'members'} joined "${currentProject.name}"`,
+            projectId: pId,
+            isRead: false,
+            emailSent: false,
+          }));
+          await db.notifications.createMany(notificationsToCreate);
+        }
+      } catch (notifError) {
+        console.error('Failed to send notifications:', notifError);
+      }
+
+      // Immediately refetch to ensure UI updates instantly
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['project', projectId] }),
+        queryClient.refetchQueries({ queryKey: ['project', String(pId)] }),
+        queryClient.refetchQueries({ queryKey: ['project', pId] }),
+        queryClient.refetchQueries({ queryKey: ['projects'] }),
+        queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
+        ...userIdsToAdd.map(userIdToAdd => queryClient.refetchQueries({ queryKey: ['projects', userIdToAdd] })),
+        queryClient.refetchQueries({ queryKey: ['tasks'] }),
+        queryClient.refetchQueries({ queryKey: ['taskStatuses'] }),
+        ...userIdsToAdd.map(userIdToAdd => queryClient.refetchQueries({ queryKey: ['tasks', 'today', userIdToAdd] })),
+      ]);
+
+      toast.success(`${addedParticipants.length} member${addedParticipants.length > 1 ? 's' : ''} added! 🎉`, {
+        description: addedParticipants.length === 1
+          ? `${usersToAdd[0]?.name} has been added to the project`
+          : `${addedParticipants.length} members have been added to the project`
+      });
+    } catch (error) {
+      handleError(error, 'handleAddMembers');
+    }
+  }, [currentProject, user, participants, projectId, queryClient]);
+
+  /**
    * Remove a participant from the project
    */
   const handleRemoveParticipant = useCallback(async (userIdToRemove: number) => {
@@ -353,6 +509,7 @@ export const useProjectMembers = ({
 
     // Handlers
     handleAddMember,
+    handleAddMembers,
     handleRemoveParticipant,
     handleUpdateRole,
   };
