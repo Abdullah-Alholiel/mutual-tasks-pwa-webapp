@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 import { useCurrentUser } from '@/features/auth/useCurrentUser';
 import { toast } from 'sonner';
+import { PERFORMANCE_CONFIG } from '@/config/appConfig';
 
 const db = getDatabaseClient();
 
@@ -163,6 +164,6 @@ export function useSearchUsers(query: string) {
             return db.friends.searchUsers(query);
         },
         enabled: !!query && query.length >= 2,
-        staleTime: 1000 * 60 * 1, // cache for 1 minute
+        staleTime: PERFORMANCE_CONFIG.CACHING.SEARCH_DATA_STALE_TIME,
     });
 }

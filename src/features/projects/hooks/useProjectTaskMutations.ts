@@ -20,6 +20,11 @@ import {
 } from '../../tasks/hooks/useTasks';
 import type { TaskCreationData, ProjectWithParticipants, ProjectTaskState } from './types';
 import { notifyTaskRecovered } from '@/lib/tasks/taskEmailNotifications';
+import { validateTaskCreation } from '@/lib/tasks/taskValidation';
+import { ValidationError } from '@/lib/errors';
+import { deleteTaskAtomic } from '@/lib/tasks/atomicTaskOperations';
+import { TASK_CONFIG, PERFORMANCE_CONFIG } from '@/config/appConfig';
+import { generateOccurrenceDates, getMaxOccurrences, type CustomRecurrence } from '@/lib/tasks/recurringTaskUtils';
 
 interface UseProjectTaskMutationsParams {
   user: User | null;
@@ -221,16 +226,16 @@ export const useProjectTaskMutations = ({
     const isLate = !isRecovered && !isOnOrBeforeDueDate;
 
     // Calculate XP (baseXP is fixed, not dependent on difficulty):
-    // - Recovered tasks: ALWAYS give fixed 100 XP
-    // - Late tasks (not recovered): give half of base XP (100 XP)
-    // - On-time tasks: give full base XP (200 XP)
-    const baseXP = 200; // Fixed base XP, not dependent on difficulty
+    // - Recovered tasks: ALWAYS give fixed RECOVERED_XP
+    // - Late tasks (not recovered): give half of base XP
+    // - On-time tasks: give full base XP
+    const baseXP = TASK_CONFIG.BASE_XP;
     let xpEarned: number;
     let penaltyApplied: boolean;
 
     if (isRecovered) {
-      // Recovered tasks always give fixed 100 XP
-      xpEarned = 100;
+      // Recovered tasks always give fixed XP
+      xpEarned = TASK_CONFIG.RECOVERED_XP;
       penaltyApplied = true;
     } else if (isLate) {
       // Late tasks (not recovered) give half XP
@@ -390,75 +395,78 @@ export const useProjectTaskMutations = ({
     }
 
     try {
+      // Validate task data before creation
+      try {
+        validateTaskCreation(taskData);
+      } catch (validationError) {
+        if (validationError instanceof ValidationError) {
+          toast.error('Validation Error', {
+            description: validationError.message
+          });
+          return;
+        }
+        throw validationError;
+      }
+
       if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
         // Handle habit tasks (multiple recurring tasks)
         const startDate = normalizeToStartOfDay(taskData.dueDate);
-        let endDate: Date;
 
+        // Calculate end date based on recurrence pattern
+        let endDate: Date | undefined;
         if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
           if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
             endDate = new Date(taskData.customRecurrence.endDate);
             endDate.setHours(23, 59, 59, 999);
-          } else {
-            endDate = new Date(startDate);
-            const maxOccurrences = taskData.customRecurrence.occurrenceCount || 10;
-            endDate.setDate(endDate.getDate() + (maxOccurrences * 30));
           }
-        } else {
+        }
+        if (!endDate) {
           endDate = new Date(startDate);
-          if (taskData.recurrencePattern === 'Daily') {
-            endDate.setDate(endDate.getDate() + 30);
-          } else if (taskData.recurrencePattern === 'weekly') {
-            endDate.setDate(endDate.getDate() + 30);
-          }
+          endDate.setDate(endDate.getDate() + TASK_CONFIG.DEFAULT_RECURRING_DURATION_DAYS);
           endDate.setHours(23, 59, 59, 999);
         }
 
-        // Build array of tasks to create
-        const tasksToCreate: CreateTaskWithStatusesInput[] = [];
-        let currentDate = new Date(startDate);
-        let occurrenceCount = 0;
-        const maxOccurrences = taskData.customRecurrence?.occurrenceCount ||
-          (taskData.recurrencePattern === 'Daily' ? 30 : taskData.recurrencePattern === 'weekly' ? 5 : 999);
+        // Get max occurrences from config
+        const maxOccurrences = getMaxOccurrences(
+          taskData.recurrencePattern,
+          taskData.customRecurrence?.occurrenceCount
+        );
 
-        while (currentDate <= endDate && occurrenceCount < maxOccurrences) {
-          const taskDueDate = normalizeToStartOfDay(currentDate);
+        // Build custom recurrence config for utility
+        const customRecurrence: CustomRecurrence | undefined = taskData.customRecurrence ? {
+          frequency: taskData.customRecurrence.frequency as 'days' | 'weeks' | 'months',
+          interval: taskData.customRecurrence.interval,
+          endType: taskData.customRecurrence.endType,
+          occurrenceCount: taskData.customRecurrence.occurrenceCount,
+        } : undefined;
 
-          tasksToCreate.push({
-            task: {
-              projectId: taskData.projectId,
-              creatorId: userId,
-              type: taskData.type,
-              recurrencePattern: taskData.recurrencePattern,
-              title: taskData.title,
-              description: taskData.description,
-              dueDate: taskDueDate,
-              recurrenceIndex: occurrenceCount + 1,
-              recurrenceTotal: taskData.customRecurrence?.endType === 'count' ? maxOccurrences : undefined,
-              showRecurrenceIndex: taskData.showRecurrenceIndex,
-            },
-            participantUserIds,
-            dueDate: taskDueDate,
-          });
+        // Use utility to generate all occurrence dates
+        const occurrenceDates = generateOccurrenceDates(
+          startDate,
+          taskData.recurrencePattern,
+          1, // Default interval
+          maxOccurrences,
+          endDate,
+          customRecurrence
+        );
 
-          occurrenceCount++;
-
-          // Advance to next occurrence
-          if (taskData.recurrencePattern === 'Daily') {
-            currentDate.setDate(currentDate.getDate() + 1);
-          } else if (taskData.recurrencePattern === 'weekly') {
-            currentDate.setDate(currentDate.getDate() + 7);
-          } else if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
-            const { frequency, interval } = taskData.customRecurrence;
-            if (frequency === 'days') {
-              currentDate.setDate(currentDate.getDate() + interval);
-            } else if (frequency === 'weeks') {
-              currentDate.setDate(currentDate.getDate() + (interval * 7));
-            } else if (frequency === 'months') {
-              currentDate.setMonth(currentDate.getMonth() + interval);
-            }
-          }
-        }
+        // Build array of tasks from generated dates
+        const tasksToCreate: CreateTaskWithStatusesInput[] = occurrenceDates.map((dueDate, index) => ({
+          task: {
+            projectId: taskData.projectId,
+            creatorId: userId,
+            type: taskData.type,
+            recurrencePattern: taskData.recurrencePattern,
+            title: taskData.title,
+            description: taskData.description,
+            dueDate: normalizeToStartOfDay(dueDate),
+            recurrenceIndex: index + 1,
+            recurrenceTotal: taskData.customRecurrence?.endType === 'count' ? maxOccurrences : undefined,
+            showRecurrenceIndex: taskData.showRecurrenceIndex,
+          },
+          participantUserIds,
+          dueDate: normalizeToStartOfDay(dueDate),
+        }));
 
         // Create all habit tasks in the database
         const results = await createMultipleTasksMutation.mutateAsync(tasksToCreate);
@@ -623,38 +631,176 @@ export const useProjectTaskMutations = ({
 
   /**
    * Update an existing task
+   * Supports converting one_off tasks to habits by generating additional occurrences
    */
   const handleUpdateTask = useCallback(async (taskId: number, taskData: TaskCreationData) => {
     try {
-      const updatedTask = await updateTaskMutation.mutateAsync({
-        id: taskId,
-        data: {
-          title: taskData.title,
-          description: taskData.description,
-          type: taskData.type,
-          recurrencePattern: taskData.recurrencePattern,
-          dueDate: taskData.dueDate,
-          showRecurrenceIndex: taskData.showRecurrenceIndex,
-        }
-      });
+      const db = getDatabaseClient();
+      const existingTask = tasks.find(t => t.id === taskId);
 
-      // Update local state
-      setLocalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+      if (!existingTask) {
+        toast.error('Task not found');
+        return;
+      }
+
+      // Check if converting from one_off to habit
+      const isConvertingToHabit = existingTask.type === 'one_off' && taskData.type === 'habit' && taskData.recurrencePattern;
+
+      if (isConvertingToHabit && projectWithParticipants && user) {
+        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        const participantUserIds = getParticipatingUserIds(projectWithParticipants, userId);
+
+        // Update the original task to be a habit
+        const updatedTask = await updateTaskMutation.mutateAsync({
+          id: taskId,
+          data: {
+            title: taskData.title,
+            description: taskData.description,
+            type: taskData.type,
+            recurrencePattern: taskData.recurrencePattern,
+            dueDate: taskData.dueDate,
+            showRecurrenceIndex: taskData.showRecurrenceIndex,
+            recurrenceIndex: existingTask.recurrenceIndex && existingTask.recurrenceIndex > 0
+              ? existingTask.recurrenceIndex
+              : 1, // Preserve existing or start at 1
+          }
+        });
+
+        // Generate additional occurrences using utility function
+        const startDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
+
+        // Calculate end date based on recurrence pattern
+        let endDate: Date | undefined;
+        if (taskData.recurrencePattern === 'custom' && taskData.customRecurrence) {
+          if (taskData.customRecurrence.endType === 'date' && taskData.customRecurrence.endDate) {
+            endDate = new Date(taskData.customRecurrence.endDate);
+            endDate.setHours(23, 59, 59, 999);
+          }
+        }
+        if (!endDate) {
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + TASK_CONFIG.DEFAULT_RECURRING_DURATION_DAYS);
+          endDate.setHours(23, 59, 59, 999);
+        }
+
+        // Get max occurrences from config
+        const maxOccurrences = getMaxOccurrences(
+          taskData.recurrencePattern,
+          taskData.customRecurrence?.occurrenceCount
+        );
+
+        // Build custom recurrence config for utility
+        const customRecurrence: CustomRecurrence | undefined = taskData.customRecurrence ? {
+          frequency: taskData.customRecurrence.frequency as 'days' | 'weeks' | 'months',
+          interval: taskData.customRecurrence.interval,
+          endType: taskData.customRecurrence.endType,
+          occurrenceCount: taskData.customRecurrence.occurrenceCount,
+        } : undefined;
+
+        // Use utility to generate all occurrence dates
+        const occurrenceDates = generateOccurrenceDates(
+          startDate,
+          taskData.recurrencePattern,
+          1, // Default interval
+          maxOccurrences,
+          endDate,
+          customRecurrence
+        );
+
+        // Build array of tasks to create (skip first occurrence - already updated)
+        const tasksToCreate: CreateTaskWithStatusesInput[] = occurrenceDates
+          .slice(1) // Skip first occurrence
+          .map((dueDate, index) => ({
+            task: {
+              projectId: taskData.projectId,
+              creatorId: userId,
+              type: taskData.type,
+              recurrencePattern: taskData.recurrencePattern,
+              title: taskData.title,
+              description: taskData.description,
+              dueDate: normalizeToStartOfDay(dueDate),
+              recurrenceIndex: index + 2, // Start from 2 since first occurrence is already updated
+              recurrenceTotal: taskData.customRecurrence?.endType === 'count' ? maxOccurrences : undefined,
+              showRecurrenceIndex: taskData.showRecurrenceIndex,
+            },
+            participantUserIds,
+            dueDate: normalizeToStartOfDay(dueDate),
+          }));
+
+        // Create additional recurring tasks with rollback on failure
+        let createdTaskIds: number[] = [];
+        if (tasksToCreate.length > 0) {
+          try {
+            const results = await createMultipleTasksMutation.mutateAsync(tasksToCreate);
+            createdTaskIds = results.map(r => r.task.id);
+          } catch (conversionError) {
+            // ROLLBACK: Delete any tasks that were created
+            console.error('[handleUpdateTask] Conversion failed, rolling back...');
+            if (createdTaskIds.length > 0) {
+              await Promise.all(createdTaskIds.map(id => deleteTaskAtomic(id).catch(() => { })));
+              console.log(`[handleUpdateTask] Rolled back ${createdTaskIds.length} tasks`);
+            }
+
+            // Restore original task type and settings
+            await updateTaskMutation.mutateAsync({
+              id: taskId,
+              data: {
+                type: existingTask.type,
+                recurrencePattern: existingTask.recurrencePattern,
+                recurrenceIndex: existingTask.recurrenceIndex,
+                recurrenceTotal: existingTask.recurrenceTotal,
+              }
+            }).catch(() => {
+              console.error('[handleUpdateTask] Failed to restore original task');
+            });
+
+            throw conversionError;
+          }
+        }
+
+        // Update local state with the modified task
+        setLocalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+
+        toast.success('Task converted to recurring! 🔄', {
+          description: `${tasksToCreate.length} additional occurrences created`
+        });
+
+        // Invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['tasks', 'project', taskData.projectId] });
+      } else {
+        // Normal update (no conversion)
+        const updatedTask = await updateTaskMutation.mutateAsync({
+          id: taskId,
+          data: {
+            title: taskData.title,
+            description: taskData.description,
+            type: taskData.type,
+            recurrencePattern: taskData.recurrencePattern,
+            dueDate: taskData.dueDate,
+            showRecurrenceIndex: taskData.showRecurrenceIndex,
+          }
+        });
+
+        // Update local state
+        setLocalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+
+        toast.success('Task updated! ✨');
+      }
 
       // Send update notification
       if (user) {
-        notifyTaskUpdated(taskId, updatedTask.projectId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch(err => {
+        notifyTaskUpdated(taskId, taskData.projectId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch(err => {
           console.error('Failed to send task update notification:', err);
         });
       }
 
-      toast.success('Task updated! ✨');
       onTaskFormClose();
     } catch (error) {
       handleError(error, 'handleUpdateTask');
       toast.error('Failed to update task');
     }
-  }, [updateTaskMutation, setLocalTasks, onTaskFormClose]);
+  }, [updateTaskMutation, createMultipleTasksMutation, setLocalTasks, onTaskFormClose, user, projectWithParticipants, tasks, queryClient]);
 
   return {
     handleRecover,

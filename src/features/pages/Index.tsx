@@ -34,6 +34,7 @@ import { useCreateCompletionLog, useUpdateTaskStatus, useDeleteTask, useUpdateTa
 import { useTodayTasks, useUserTasks } from '../tasks/hooks/useTasks';
 import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
+import { TASK_CONFIG } from '@/config/appConfig';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 interface IndexProps {
@@ -184,16 +185,16 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
     const isLate = !isRecovered && !isOnOrBeforeDueDate;
 
     // Calculate XP (baseXP is fixed, not dependent on difficulty):
-    // - Recovered tasks: ALWAYS give fixed 100 XP
-    // - Late tasks (not recovered): give half of base XP (100 XP)
-    // - On-time tasks: give full base XP (200 XP)
-    const baseXP = 200; // Fixed base XP, not dependent on difficulty
+    // - Recovered tasks: ALWAYS give fixed RECOVERED_XP
+    // - Late tasks (not recovered): give half of base XP
+    // - On-time tasks: give full base XP
+    const baseXP = TASK_CONFIG.BASE_XP;
     let xpEarned: number;
     let penaltyApplied: boolean;
 
     if (isRecovered) {
-      // Recovered tasks always give fixed 100 XP
-      xpEarned = 100;
+      // Recovered tasks always give fixed XP
+      xpEarned = TASK_CONFIG.RECOVERED_XP;
       penaltyApplied = true;
     } else if (isLate) {
       // Late tasks (not recovered) give half XP

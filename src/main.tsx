@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./core/App.tsx";
 import "./core/index.css";
+import { GlobalErrorBoundary } from "./components/ui/GlobalErrorBoundary";
 
 // Import diagnostic utility for browser console debugging
 import './lib/dbDiagnostic';
@@ -36,5 +37,9 @@ if (window.visualViewport) {
 }
 
 // Entry point for Vite; delegates to core App setup
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(
+  <GlobalErrorBoundary>
+    <App />
+  </GlobalErrorBoundary>
+);
 

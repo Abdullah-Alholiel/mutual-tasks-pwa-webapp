@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCurrentUser, useCurrentUserStats } from '@/features/auth/useCurrentUser';
 import { getDatabaseClient } from '@/db';
 import { groupCompletionsByDate, calculateIntensity } from '@/lib/users/userStatsUtils';
+import { PERFORMANCE_CONFIG } from '@/config/appConfig';
 
 /**
  * Get date string in YYYY-MM-DD format in the given timezone
@@ -27,7 +28,7 @@ export const StreakCalendar = () => {
       return await db.users.getCompletionLogs(currentUser.id);
     },
     enabled: !!currentUser,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: PERFORMANCE_CONFIG.CACHING.COMPLETION_DATA_STALE_TIME,
   });
 
   // Group completions by date for heatmap

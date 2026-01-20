@@ -13,6 +13,8 @@ import type { Project, NotificationType } from '@/types';
 import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
 import { normalizeId } from '@/lib/idUtils';
+import { PERFORMANCE_CONFIG } from '@/config/appConfig';
+import { perf } from '@/lib/monitoring/performance';
 
 /**
  * Hook to fetch all projects for the current user
@@ -27,10 +29,12 @@ export const useProjects = () => {
 
       const db = getDatabaseClient();
       const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-      return await db.projects.getAll({ userId });
+      return await perf.measure('projects.getAll', async () => {
+        return await db.projects.getAll({ userId });
+      }, { userId });
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: PERFORMANCE_CONFIG.CACHING.PROJECT_DATA_STALE_TIME,
   });
 };
 
@@ -45,7 +49,9 @@ export const useProject = (projectId: string | number | undefined) => {
 
       const db = getDatabaseClient();
       const id = normalizeId(projectId);
-      return await db.projects.getById(id);
+      return await perf.measure('projects.getById', async () => {
+        return await db.projects.getById(id);
+      }, { projectId: id });
     },
     enabled: !!projectId,
     staleTime: 0, // Always allow refetch for instant updates when members change
@@ -83,7 +89,7 @@ export const usePublicProjects = () => {
 
       return allProjects;
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: PERFORMANCE_CONFIG.CACHING.PROJECT_DATA_STALE_TIME,
   });
 };
 
@@ -199,7 +205,7 @@ export const useUserProjectsWithStats = () => {
       return projectsWithStats;
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: PERFORMANCE_CONFIG.CACHING.COMPLETION_DATA_STALE_TIME, // Stats use similar cache as completion logs
   });
 };
 

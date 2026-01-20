@@ -13,8 +13,10 @@ import type { Task, TaskStatusEntity, CompletionLog, DifficultyRating } from '@/
 import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
 import { getTodayTasks, getProjectTasks, getUserTasks } from '../../../lib/tasks/taskFilterUtils';
+import { PERFORMANCE_CONFIG } from '@/config/appConfig';
 // Import atomic operations at top level to avoid dynamic require issues
 import { createTaskAtomic, type AtomicTaskInput } from '@/lib/tasks/atomicTaskOperations';
+import { perf } from '@/lib/monitoring/performance';
 
 /**
  * Hook to fetch all tasks with optional filters
@@ -34,9 +36,11 @@ export const useTasks = (filters?: { projectId?: string | number; userId?: strin
         dbFilters.userId = typeof filters.userId === 'string' ? parseInt(filters.userId) : filters.userId;
       }
 
-      return await db.tasks.getAll(dbFilters);
+      return await perf.measure('tasks.getAll', async () => {
+        return await db.tasks.getAll(dbFilters);
+      }, { filters: dbFilters });
     },
-    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
@@ -53,10 +57,12 @@ export const useTask = (taskId: string | number | undefined) => {
 
       const db = getDatabaseClient();
       const id = typeof taskId === 'string' ? parseInt(taskId) : taskId;
-      return await db.tasks.getById(id);
+      return await perf.measure('tasks.getById', async () => {
+        return await db.tasks.getById(id);
+      }, { taskId: id });
     },
     enabled: !!taskId,
-    staleTime: 1000 * 30, // 30 seconds
+    staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
@@ -79,7 +85,7 @@ export const useTodayTasks = () => {
       return getTodayTasks(allTasks, String(userId));
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
@@ -101,7 +107,7 @@ export const useUserTasks = () => {
       return await db.tasks.getAll({ userId });
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
@@ -122,7 +128,7 @@ export const useProjectTasks = (projectId: string | number | undefined) => {
       return getProjectTasks(allTasks, String(projectId));
     },
     enabled: !!projectId,
-    staleTime: 1000 * 30, // 30 seconds - tasks change frequently
+    staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
@@ -426,7 +432,7 @@ export const useTaskStatuses = () => {
       return await db.taskStatus.getByUserId(userId);
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 30, // 30 seconds - task statuses change frequently
+    staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
     refetchOnMount: true, // Always refetch when component mounts
     refetchOnWindowFocus: true, // Refetch when user returns to the tab
   });
@@ -448,7 +454,7 @@ export const useCompletionLogs = () => {
       return await db.completionLogs.getAll({ userId });
     },
     enabled: !!user && isAuthenticated,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: PERFORMANCE_CONFIG.CACHING.COMPLETION_DATA_STALE_TIME,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });
@@ -472,7 +478,7 @@ export const useProjectCompletionLogs = (taskIds: number[]) => {
       return await db.completionLogs.getAllForTasks(taskIds);
     },
     enabled: taskIds.length > 0,
-    staleTime: 1000 * 30, // 30 seconds
+    staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });

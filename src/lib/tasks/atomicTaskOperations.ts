@@ -90,10 +90,17 @@ export async function createTaskAtomic(input: AtomicTaskInput): Promise<AtomicTa
     console.log('[AtomicTask] ✅ Task verified in database:', taskData.id);
 
     // 3. CREATE statuses for all participants
+    // Determine initial status based on due date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const taskDueDate = new Date(input.dueDate);
+    taskDueDate.setHours(0, 0, 0, 0);
+    const initialStatus = taskDueDate > today ? 'upcoming' : 'active';
+
     const statuses = input.participantUserIds.map(userId => ({
         task_id: taskData.id,
         user_id: userId,
-        status: 'active',
+        status: initialStatus,
     }));
 
     if (statuses.length > 0) {
@@ -234,10 +241,17 @@ export async function createTaskWithStatusesFallback(input: AtomicTaskInput): Pr
     console.log('[AtomicTask] ✅ Task verified in database:', verifyData.id);
 
     // 2. Create statuses for all participants
+    // Determine initial status based on due date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const taskDueDate = new Date(input.dueDate);
+    taskDueDate.setHours(0, 0, 0, 0);
+    const initialStatus = taskDueDate > today ? 'upcoming' : 'active';
+
     const statuses = input.participantUserIds.map(userId => ({
         task_id: taskData.id,
         user_id: userId,
-        status: 'active',
+        status: initialStatus,
     }));
 
     if (statuses.length > 0) {

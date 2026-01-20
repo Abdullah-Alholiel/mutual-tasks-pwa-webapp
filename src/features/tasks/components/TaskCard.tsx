@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon, Trash2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
-import { getDatabaseClient } from '@/db';
+import { useUser, useBatchUsers } from '@/features/users/hooks/useUsers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,7 @@ import { adjustColorOpacity } from '@/lib/colorUtils';
 import { useState, useEffect, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProjects';
+import { deduplicator } from '@/lib/utils/requestDeduplicator';
 
 interface TaskCardProps {
   task: Task;
@@ -49,17 +50,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
   const creatorId = normalizeId(task.creatorId);
   const projectId = normalizeId(task.projectId);
 
-  // Use React Query for creator data with proper caching
-  const { data: creator } = useQuery({
-    queryKey: ['user', creatorId],
-    queryFn: async () => {
-      const db = getDatabaseClient();
-      return await db.users.getById(creatorId);
-    },
-    enabled: !!creatorId,
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
-    gcTime: 1000 * 60 * 30, // Keep in garbage collection for 30 minutes
-  });
+  // Use centralized useUser hook for creator data with proper caching
+  const { data: creator } = useUser(creatorId);
 
   // Use shared useProject hook for consistency
   const { data: project } = useProject(projectId);
@@ -74,20 +66,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     return Array.from(uniqueIds);
   }, [task.taskStatus]);
 
-  // Prefetch and cache participant user data
-  const { data: participantUsersData = [] } = useQuery({
-    queryKey: ['users', 'batch', participantUserIds.join(',')],
-    queryFn: async () => {
-      const db = getDatabaseClient();
-      const users = await Promise.all(
-        participantUserIds.map(userId => db.users.getById(userId))
-      );
-      return users.filter((u): u is User => u !== null);
-    },
-    enabled: participantUserIds.length > 0,
-    staleTime: 1000 * 60 * 10, // Cache for 10 minutes
-    gcTime: 1000 * 60 * 30, // Keep in garbage collection for 30 minutes
-  });
+  // Use centralized useBatchUsers hook for efficient batch fetching
+  const { data: participantUsersData = [] } = useBatchUsers(participantUserIds);
 
   // Build a map of userId -> User for quick lookup
   const participantUsers = useMemo(() => {
@@ -183,10 +163,13 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
   };
 
   const handleRatingSubmit = (rating: number | undefined) => {
-    if (onComplete) {
-      onComplete(task.id, rating);
-    }
-    setShowRatingModal(false);
+    // Deduplicate to prevent rapid double-clicks from creating duplicate completions
+    deduplicator.deduplicate(`complete-${task.id}`, async () => {
+      if (onComplete) {
+        await onComplete(task.id, rating);
+      }
+      setShowRatingModal(false);
+    });
   };
 
 

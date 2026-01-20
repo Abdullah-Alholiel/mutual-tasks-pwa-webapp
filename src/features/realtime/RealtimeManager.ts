@@ -1,6 +1,10 @@
 // ============================================================================
 // RealtimeManager - Singleton for All Supabase Realtime Subscriptions
 // ============================================================================
+// @deprecated This class is deprecated. For new code, use the useUnifiedRealtime
+// hook from '@/features/realtime/useUnifiedRealtime' instead. It provides better
+// React integration with React Query cache invalidation.
+// ============================================================================
 // Provides a centralized, singleton-based subscription manager that ensures
 // only ONE channel per subscription type exists, preventing redundant
 // subscriptions when navigating between tabs.

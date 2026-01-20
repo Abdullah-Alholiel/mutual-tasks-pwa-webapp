@@ -22,6 +22,7 @@ import { AppLayout } from "../layout/AppLayout";
 import { DataIntegrityGuard } from "@/components/DataIntegrityGuard";
 import { useEffect } from "react";
 import { initializeOneSignal } from "@/lib/onesignal/oneSignalService";
+import { PERFORMANCE_CONFIG } from "@/config/appConfig";
 
 /**
  * OneSignal Initializer - runs once on app load
@@ -43,8 +44,8 @@ const queryClient = new QueryClient({
     queries: {
       networkMode: 'offlineFirst', // Try cache first, retry on reconnect
       // CRITICAL: Short staleTime for instant realtime updates
-      staleTime: 1000, // 1 second - data becomes stale quickly for realtime
-      gcTime: 1000 * 60 * 5, // 5 minutes - garbage collect stale data faster
+      staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
+      gcTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_GC_TIME,
       refetchOnWindowFocus: true, // Refetch when user returns to tab
       refetchOnMount: true, // Refetch when component mounts
       refetchOnReconnect: true, // Refetch on network reconnect
