@@ -1,4 +1,4 @@
-import type { Task, User, TaskStatus, TaskStatusEntity, CompletionLog } from '@/types';
+import type { Task, User, TaskStatus, TaskStatusEntity, CompletionLog, RingColor } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,8 @@ import {
   canRecoverTask,
   getStatusBadgeVariant,
   getStatusColor,
-  calculateTaskStatusUserStatus
+  calculateTaskStatusUserStatus,
+  normalizeToStartOfDay
 } from '../../../lib/tasks/taskUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
@@ -26,6 +27,7 @@ import { useState, useEffect, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProjects';
 import { deduplicator } from '@/lib/utils/requestDeduplicator';
+import { validateAndLogIssues } from '@/lib/tasks/taskStatusValidation';
 
 interface TaskCardProps {
   task: Task;
@@ -111,6 +113,23 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
 
   // Calculate task status user status using the utility function
   const taskStatusUserStatus = calculateTaskStatusUserStatus(myTaskStatus, myCompletion, task);
+
+  // DEFENSIVE CHECK: Validate data consistency between task status and completion logs
+  // Uses centralized validation utility for maintainability
+  useEffect(() => {
+    if (!task.taskStatus || task.taskStatus.length === 0) return;
+
+    const taskDueDate = new Date(task.dueDate);
+
+    task.taskStatus.forEach(ts => {
+      const completionLog = completionLogs.find(log =>
+        normalizeId(log.taskId) === normalizeId(task.id) &&
+        normalizeId(log.userId) === normalizeId(ts.userId)
+      );
+
+      validateAndLogIssues(ts, completionLog, taskDueDate, 'TaskCard');
+    });
+  }, [task.taskStatus, completionLogs, task.id, task.dueDate]);
 
   // Use calculated user status directly for UI
   const uiStatus: TaskStatus = taskStatusUserStatus;

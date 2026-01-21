@@ -15,14 +15,14 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Simulate Netlify Function locally
         '/.netlify/functions/ai-generated-description': {
-          target: env.N8N_WEBHOOK_URL,
+          target: env.N8N_DESCRIPTION_WEBHOOK_URL,
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path.replace(/^\/.netlify\/functions\/ai-generated-description/, ''),
           configure: (proxy, _options) => {
             proxy.on('proxyReq', (proxyReq, _req, _res) => {
               // DEBUG: Check if env vars are loaded
-              console.log('Proxying to:', env.N8N_WEBHOOK_URL);
+              console.log('Proxying to:', env.N8N_DESCRIPTION_WEBHOOK_URL);
               console.log('Injecting Secret:', env.x_momentum_secret ? '***PRESENT***' : 'MISSING');
 
               // Securely inject the secret header on the server side

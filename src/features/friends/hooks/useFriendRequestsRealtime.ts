@@ -1,11 +1,12 @@
 // ============================================================================
-// useFriendRequestsRealtime Hook - Real-time Friend Request Updates
+// useFriendRequestsRealtime Hook - Legacy Compatibility Hook
 // ============================================================================
-// Provides real-time updates for friend requests using the RealtimeManager
+// This hook is now a NO-OP since all realtime updates are handled
+// globally by useUnifiedRealtime in GlobalRealtimeSubscriptions.tsx.
+//
+// Kept for backward compatibility with existing code.
+// All friendship updates are now automatically reflected via React Query invalidation.
 // ============================================================================
-
-import { useOptimisticSubscription } from '@/hooks/useOptimisticSubscription';
-import type { Friend } from '@/types';
 
 interface UseFriendRequestsRealtimeParams {
     userId: number | null | undefined;
@@ -16,46 +17,10 @@ export const useFriendRequestsRealtime = ({
     userId,
     enabled = true,
 }: UseFriendRequestsRealtimeParams) => {
-    // 1. Optimistic friend requests (Incoming)
-    // We only optimistically handle DELETE (reject/accept removes from pending list)
-    // INSERTs need joined user data, so we rely on the fast invalidation
-    useOptimisticSubscription<Friend[]>({
-        channelName: 'friend-requests',
-        queryKey: ['friendRequests'],
-        userId,
-        enabled,
-        updater: (oldData = [], payload) => {
-            if (payload.eventType === 'DELETE') {
-                return oldData.filter(f => f.id !== payload.old.id);
-            }
-            if (payload.eventType === 'UPDATE') {
-                // If status changed to something other than pending, remove it
-                if (payload.new.status !== 'pending') {
-                    return oldData.filter(f => f.id !== payload.new.id);
-                }
-            }
-            // For INSERT, we can't construct the full User object easily without preloading.
-            // We rely on the hook's background invalidation to fetch it quickly.
-            return oldData;
-        },
-        invalidateDelay: 500
-    });
-
-    // 2. Optimistic friends list (Accepted)
-    useOptimisticSubscription<Friend[]>({
-        channelName: 'friend-requests', // Reuse the same channel connection
-        queryKey: ['friends'],
-        userId,
-        enabled,
-        updater: (oldData = [], payload) => {
-            if (payload.eventType === 'DELETE') {
-                return oldData.filter(f => f.id !== payload.old.id);
-            }
-            // For INSERT/UPDATE (Accepted), we rely on invalidation for full profile data
-            return oldData;
-        },
-        invalidateDelay: 500
-    });
+    // All realtime updates now handled by useUnifiedRealtime at app level
+    // This hook exists only for backward compatibility
+    // Friendship table changes are automatically invalidating ['friends'] and ['friendRequests'] queries
+    return null;
 };
 
 export default useFriendRequestsRealtime;

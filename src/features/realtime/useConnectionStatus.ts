@@ -1,27 +1,51 @@
 // ============================================================================
 // useConnectionStatus - React Hook for Realtime Connection Status
 // ============================================================================
-// Exposes the RealtimeManager's connection status to React components.
-// Useful for showing connection indicators in the UI.
+// Exposes connection status from useUnifiedRealtime to React components.
+// Useful for showing connection indicators in UI.
+//
+// Replaces old RealtimeManager-based connection status hook.
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { getRealtimeManager, type ConnectionStatus } from './RealtimeManager';
+import React from 'react';
+import { logger } from '@/lib/monitoring/logger';
 
-/**
- * React hook to subscribe to realtime connection status changes.
- * Returns the current connection status.
- */
-export const useConnectionStatus = (): ConnectionStatus => {
+export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting';
+
+interface ConnectionStatusContextValue {
+    status: ConnectionStatus;
+    setStatus: (status: ConnectionStatus) => void;
+}
+
+const ConnectionStatusContext = React.createContext<ConnectionStatusContextValue | null>(null);
+
+// Module-level flag to only warn once about missing provider
+let hasWarnedAboutMissingProvider = false;
+
+interface ConnectionStatusProviderProps {
+    children: React.ReactNode;
+}
+
+export function ConnectionStatusProvider({ children }: ConnectionStatusProviderProps) {
     const [status, setStatus] = useState<ConnectionStatus>('disconnected');
 
-    useEffect(() => {
-        const manager = getRealtimeManager();
-        const unsubscribe = manager.onConnectionChange(setStatus);
-        return unsubscribe;
-    }, []);
+    const value = { status, setStatus };
 
-    return status;
-};
+    return React.createElement(ConnectionStatusContext.Provider, { value }, children);
+}
+
+export function useConnectionStatus(): ConnectionStatus {
+    const context = React.useContext(ConnectionStatusContext);
+    if (!context) {
+        if (!hasWarnedAboutMissingProvider) {
+            logger.warn('[useConnectionStatus] Not inside ConnectionStatusProvider');
+            hasWarnedAboutMissingProvider = true;
+        }
+        return 'connected';
+    }
+    return context.status;
+}
 
 export default useConnectionStatus;
+

@@ -66,9 +66,9 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             return buildRateLimitResponse(headers, rateLimit.limit);
         }
 
-        const n8nUrl = process.env.N8N_WEBHOOK_URL;
+        const n8nUrl = process.env.N8N_DESCRIPTION_WEBHOOK_URL;
         if (!n8nUrl) {
-            console.error('[AI Description] Missing N8N_WEBHOOK_URL');
+            console.error('[AI Description] Missing N8N_DESCRIPTION_WEBHOOK_URL');
             return { statusCode: 500, headers, body: JSON.stringify({ error: 'Server configuration error: Missing Description Webhook URL' }) };
         }
 

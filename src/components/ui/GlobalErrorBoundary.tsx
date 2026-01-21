@@ -3,6 +3,7 @@ import React, { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { logger } from "@/lib/monitoring/logger";
 
 interface Props {
     children: ReactNode;
@@ -28,7 +29,11 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.error("[GlobalErrorBoundary] Uncaught error:", error, errorInfo);
+        logger.error("[GlobalErrorBoundary] Uncaught error:", error, errorInfo);
+        // TODO: Send to error tracking service (Sentry, LogRocket, etc.)
+        // if (import.meta.env.PROD) {
+        //   Sentry.captureException(error, { contexts: { react: errorInfo } });
+        // }
     }
 
     private handleReload = () => {

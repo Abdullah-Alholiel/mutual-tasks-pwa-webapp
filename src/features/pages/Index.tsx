@@ -28,7 +28,8 @@ import {
   useCreateMultipleTasksWithStatuses,
   type CreateTaskWithStatusesInput,
   useTaskStatuses,
-  useCompletionLogs
+  useCompletionLogs,
+  useProjectCompletionLogs
 } from '../tasks/hooks/useTasks';
 import { useCreateCompletionLog, useUpdateTaskStatus, useDeleteTask, useUpdateTask } from '../tasks/hooks/useTasks';
 import { useTodayTasks, useUserTasks } from '../tasks/hooks/useTasks';
@@ -60,7 +61,6 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
   // No need to create subscriptions here - they're managed globally
 
   const { data: taskStatuses = [], isLoading: statusesLoading } = useTaskStatuses();
-  const { data: completionLogs = [], isLoading: logsLoading } = useCompletionLogs();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
@@ -76,6 +76,16 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
     updateTasksWithStatuses(allUserTasks, taskStatuses),
     [allUserTasks, taskStatuses]
   );
+
+  // Get all task IDs to fetch completion logs for ALL participants (not just current user)
+  const allTaskIds = useMemo(() => {
+    return allTasksWithStatuses
+      .map(task => typeof task.id === 'string' ? parseInt(task.id) : task.id)
+      .filter(id => !isNaN(id));
+  }, [allTasksWithStatuses]);
+
+  // Fetch completion logs for all tasks (includes all participants' completions)
+  const { data: completionLogs = [], isLoading: logsLoading } = useProjectCompletionLogs(allTaskIds);
 
   // Update projects with participant roles for permission checking
   const projectsWithRoles = useMemo(() =>
@@ -225,6 +235,10 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
         }
       });
 
+      // Note: Data consistency validation is handled by useProjectTaskMutations.ts
+      // when completing tasks from the project detail view. For today's view completions,
+      // we rely on the same database operations to maintain consistency.
+
       // Recalculate and update user stats based on all completion logs
       try {
         const db = getDatabaseClient();
@@ -241,6 +255,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
       queryClient.invalidateQueries({ queryKey: ['taskStatuses', userIdNum] });
+      queryClient.invalidateQueries({ queryKey: ['completionLogs', 'tasks'] });
 
       toast.success('Great job! 💪', {
         description: penaltyApplied

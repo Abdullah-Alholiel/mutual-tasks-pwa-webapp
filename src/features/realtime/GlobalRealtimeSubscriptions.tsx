@@ -14,26 +14,25 @@
 // - Single instance rendered at app level (AppLayout or App)
 // - Multiple useEffect hooks for different initialization concerns
 // - No UI rendering (returns null) - pure side-effect management
-// - All real-time logic delegated to specialized hooks and services
+// - All real-time logic delegated to useUnifiedRealtime
 //
 // Subscription Flow:
-// 1. Health monitoring starts (RealtimeManager)
-// 2. User data preloaded (UserPreloadCache)
-// 3. Push subscription ensured (OneSignal)
-// 4. Unified realtime channel created (useUnifiedRealtime)
-// 5. Friend requests realtime created (useFriendRequestsRealtime)
+// 1. User data preloaded (UserPreloadCache)
+// 2. Push subscription ensured (OneSignal)
+// 3. Unified realtime channel created (useUnifiedRealtime)
+// 4. Connection status managed
 // ============================================================================
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth/useAuth';
 import { useUnifiedRealtime } from '@/features/realtime/useUnifiedRealtime';
-import { useFriendRequestsRealtime } from '@/features/friends/hooks/useFriendRequestsRealtime';
-import { getRealtimeManager } from '@/features/realtime/RealtimeManager';
 import { getUserPreloadCache } from '@/features/realtime/UserPreloadCache';
 import { ensurePushSubscription } from '@/lib/onesignal/oneSignalService';
 import { browserNotificationService } from '@/lib/notifications/browserNotificationService';
 import { TASK_KEYS, PROJECT_KEYS, NOTIFICATION_KEYS } from '@/lib/queryKeys';
+import { logger } from '@/lib/monitoring/logger';
+
 
 /**
  * GlobalRealtimeSubscriptions - Root-Level Realtime Manager
@@ -45,20 +44,18 @@ import { TASK_KEYS, PROJECT_KEYS, NOTIFICATION_KEYS } from '@/lib/queryKeys';
  *
  * Responsibilities:
  * 1. Initialize and manage the unified realtime channel
- * 2. Start health monitoring for connection status
- * 3. Preload user data for real-time access
- * 4. Ensure push notification subscription is linked to user
- * 5. Handle online/offline events for data synchronization
+ * 2. Preload user data for real-time access
+ * 3. Ensure push notification subscription is linked to user
+ * 4. Handle online/offline events for data synchronization
+ * 5. Provide connection status to entire app
  *
  * @example
  * ```tsx
  * // In App.tsx or AppLayout.tsx
  * function App() {
  *   return (
- *     <>
- *       <GlobalRealtimeSubscriptions />
- *       <Router />
- *     </>
+ *     <GlobalRealtimeSubscriptions />
+ *     <Router />
  *   );
  * }
  * ```
@@ -66,13 +63,14 @@ import { TASK_KEYS, PROJECT_KEYS, NOTIFICATION_KEYS } from '@/lib/queryKeys';
 export const GlobalRealtimeSubscriptions = () => {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
   // Extract numeric userId from auth state
   // Handles both string and numeric ID types from auth provider
   const userId = user ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : null;
 
   // =========================================================================
-  // Initialization Effect: Health Monitor, User Preload, Push Subscription
+  // Initialization Effect: User Preload, Push Subscription
   // =========================================================================
   // Runs once on mount and whenever user/auth state changes
   // Cleans up resources on unmount
@@ -81,11 +79,6 @@ export const GlobalRealtimeSubscriptions = () => {
     // Exit early if user is not authenticated
     // Prevents unnecessary initialization and potential errors
     if (!user || !isAuthenticated) return;
-
-    // Start the realtime connection health monitor
-    // This periodically checks channel status and auto-reconnects if needed
-    const manager = getRealtimeManager();
-    manager.startHealthMonitor();
 
     // Preload current user data into the cache
     // This enables immediate access to user data without additional fetches
@@ -96,13 +89,11 @@ export const GlobalRealtimeSubscriptions = () => {
     // This is critical for push notifications to work correctly
     // Any errors are logged but don't block the application
     ensurePushSubscription(user.id).catch((err) => {
-      console.warn('[Push] Subscription setup failed:', err);
+      logger.warn('[GlobalRealtimeSubscriptions] Push subscription setup failed:', err);
     });
 
-    // Cleanup: Stop health monitoring when component unmounts
-    // This prevents memory leaks and unnecessary background activity
     return () => {
-      manager.stopHealthMonitor();
+      // Cleanup if needed
     };
   }, [user, isAuthenticated]);
 
@@ -124,7 +115,7 @@ export const GlobalRealtimeSubscriptions = () => {
     const checkBrowserNotificationSupport = () => {
       // Check if browser supports notifications at all
       if (!browserNotificationService.isSupported()) {
-        console.log('[Notifications] Browser notifications not supported');
+        logger.info('[GlobalRealtimeSubscriptions] Browser notifications not supported');
         return;
       }
 
@@ -132,7 +123,7 @@ export const GlobalRealtimeSubscriptions = () => {
       const permission = browserNotificationService.getPermission();
 
       if (permission === 'denied') {
-        console.log('[Notifications] Browser notifications denied - user must enable in browser settings');
+        logger.info('[GlobalRealtimeSubscriptions] Browser notifications denied - user must enable in browser settings');
       }
     };
 
@@ -151,7 +142,7 @@ export const GlobalRealtimeSubscriptions = () => {
      * Refetches all realtime data to sync with server
      */
     const handleOnline = () => {
-      console.log('[GlobalRealtime] Network restored - refetching data...');
+      logger.info('[GlobalRealtimeSubscriptions] Network restored - refetching data...');
 
       // Refetch all task and project data
       queryClient.refetchQueries({ queryKey: TASK_KEYS.all });
@@ -180,17 +171,10 @@ export const GlobalRealtimeSubscriptions = () => {
   // CRITICAL: userId must be provided for user-specific notification filtering
   // Without it, notifications will be skipped and real-time updates may fail
   // =========================================================================
-  useUnifiedRealtime({ userId: userId ?? undefined });
-
-  // =========================================================================
-  // Friend Requests Realtime
-  // =========================================================================
-  // Friend requests are a separate domain with their own subscription
-  // This keeps the concerns separate while still using the unified manager
-  // =========================================================================
-  useFriendRequestsRealtime({
-    userId,
+  useUnifiedRealtime({
+    userId: userId ?? undefined,
     enabled: !!user && isAuthenticated,
+    onConnectionStatusChange: setConnectionStatus
   });
 
   // =========================================================================

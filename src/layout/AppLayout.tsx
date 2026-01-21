@@ -21,8 +21,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       {/* Hide DesktopNav on FriendProfile page as it has its own header */}
       {!matchPath('/friends/:id', location.pathname) && <DesktopNav />}
 
-      {/* 
-          The main area is now a rigid container. 
+      {/*
+          The main area is now a rigid container.
           Its children (like MainTabsShell or ProjectDetail) handle their own scrolling.
       */}
       <main className="flex-1 relative w-full overflow-hidden">

@@ -269,6 +269,56 @@ export const useProjectTaskMutations = ({
         ringColor: completionRingColor,
       });
 
+      // DATA CONSISTENCY VALIDATION: Only run in development to avoid production DB overhead
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          const [verifyLog, verifyStatus] = await Promise.all([
+            db.completionLogs.getByTaskAndUser(taskId, userId),
+            db.taskStatus.getByTaskAndUser(taskId, userId)
+          ]);
+
+          if (!verifyLog) {
+            console.error('[handleComplete] DATA INCONSISTENCY: Completion log was created but not found in DB after creation', {
+              taskId,
+              userId,
+              newCompletionLog
+            });
+          } else if (verifyLog.id !== newCompletionLog.id) {
+            console.error('[handleComplete] DATA INCONSISTENCY: Completion log ID mismatch', {
+              taskId,
+              userId,
+              expectedId: newCompletionLog.id,
+              foundId: verifyLog.id
+            });
+          }
+
+          if (!verifyStatus) {
+            console.error('[handleComplete] DATA INCONSISTENCY: Task status not found after update', {
+              taskId,
+              userId,
+              expectedStatus: 'completed',
+              expectedRingColor: completionRingColor
+            });
+          } else if (verifyStatus.status !== 'completed') {
+            console.error('[handleComplete] DATA INCONSISTENCY: Task status not marked as completed', {
+              taskId,
+              userId,
+              expectedStatus: 'completed',
+              actualStatus: verifyStatus.status
+            });
+          } else if (verifyStatus.ringColor !== completionRingColor) {
+            console.error('[handleComplete] DATA INCONSISTENCY: Task ring color mismatch', {
+              taskId,
+              userId,
+              expectedRingColor: completionRingColor,
+              actualRingColor: verifyStatus.ringColor
+            });
+          }
+        } catch (verifyError) {
+          console.error('[handleComplete] Error during data consistency validation:', verifyError);
+        }
+      }
+
       // 3. Recalculate and update user stats based on all completion logs
       try {
         await db.users.recalculateStats(userId, user.timezone || 'UTC');
@@ -289,6 +339,7 @@ export const useProjectTaskMutations = ({
         queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       }
       queryClient.invalidateQueries({ queryKey: ['taskStatuses', userId] });
+      queryClient.invalidateQueries({ queryKey: ['completionLogs', 'tasks'] });
 
       // 4. Update local completion logs
       setLocalCompletionLogs(prev => [...prev, newCompletionLog]);

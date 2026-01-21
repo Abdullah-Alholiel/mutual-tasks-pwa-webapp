@@ -20,9 +20,11 @@ import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 import { MainTabsShell } from "../layout/MainTabsShell";
 import { AppLayout } from "../layout/AppLayout";
 import { DataIntegrityGuard } from "@/components/DataIntegrityGuard";
+import { GlobalErrorBoundary } from "@/components/ui/GlobalErrorBoundary";
 import { useEffect } from "react";
 import { initializeOneSignal } from "@/lib/onesignal/oneSignalService";
 import { PERFORMANCE_CONFIG } from "@/config/appConfig";
+import { logger } from "@/lib/monitoring/logger";
 
 /**
  * OneSignal Initializer - runs once on app load
@@ -30,9 +32,9 @@ import { PERFORMANCE_CONFIG } from "@/config/appConfig";
  */
 function OneSignalInitializer() {
   useEffect(() => {
-    // Initialize OneSignal in the background
+    // Initialize OneSignal in background
     initializeOneSignal().catch((err) => {
-      console.warn('[OneSignal] Initialization error (non-fatal):', err);
+      logger.warn('[OneSignal] Initialization error (non-fatal):', err);
     });
   }, []);
 
@@ -84,25 +86,26 @@ const App = () => {
   usePWAUpdate();
 
   return (
-    <ThemeProvider>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={{
-          persister,
-          dehydrateOptions: {
-            shouldDehydrateQuery: (query) => {
-              const queryKey = query.queryKey;
-              // CRITICAL: Never persist task data - always fetch from DB
-              const keyStr = JSON.stringify(queryKey).toLowerCase();
-              if (keyStr.includes('task')) {
-                return false; // Tasks must always come from database
-              }
-              // Exclude session queries from persistence
-              return queryKey[0] !== 'session_v2';
+    <GlobalErrorBoundary>
+      <ThemeProvider>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister,
+            dehydrateOptions: {
+              shouldDehydrateQuery: (query) => {
+                const queryKey = query.queryKey;
+                // CRITICAL: Never persist task data - always fetch from DB
+                const keyStr = JSON.stringify(queryKey).toLowerCase();
+                if (keyStr.includes('task')) {
+                  return false; // Tasks must always come from database
+                }
+                // Exclude session queries from persistence
+                return queryKey[0] !== 'session_v2';
+              },
             },
-          },
-        }}
-      >
+          }}
+        >
         {/* AuthProvider must be inside QueryClientProvider for useQueryClient access */}
         <AuthProvider>
           {/* Initialize OneSignal push notifications */}
@@ -142,13 +145,14 @@ const App = () => {
 
                   {/* Catch-all route - not protected (404 page) */}
                   <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </DataIntegrityGuard>
-        </AuthProvider>
-      </PersistQueryClientProvider>
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </DataIntegrityGuard>
+      </AuthProvider>
+    </PersistQueryClientProvider>
     </ThemeProvider>
+    </GlobalErrorBoundary>
   );
 };
 
