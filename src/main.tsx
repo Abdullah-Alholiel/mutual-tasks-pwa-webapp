@@ -24,17 +24,34 @@ const setViewportHeight = () => {
 // Set initial viewport height
 setViewportHeight();
 
-// Update on resize (including orientation changes and browser UI changes)
-window.addEventListener('resize', setViewportHeight);
-window.addEventListener('orientationchange', () => {
-  // Delay slightly to allow the browser to finish orientation change
+// Store event listener references for potential cleanup
+const handleResize = () => setViewportHeight();
+const handleOrientationChange = () => {
   setTimeout(setViewportHeight, 100);
-});
+};
 
-// Also update when the visual viewport changes (for virtual keyboard on mobile)
+// Update on resize (including orientation changes and browser UI changes)
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', handleOrientationChange);
+
+// Also update when visual viewport changes (for virtual keyboard on mobile)
+let visualViewportListener: (() => void) | null = null;
 if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', setViewportHeight);
+  visualViewportListener = handleResize;
+  window.visualViewport.addEventListener('resize', handleResize);
 }
+
+// Cleanup function for event listeners (useful for testing, hot reload, or PWA lifecycle)
+const cleanupEventListeners = () => {
+  window.removeEventListener('resize', handleResize);
+  window.removeEventListener('orientationchange', handleOrientationChange);
+  if (window.visualViewport && visualViewportListener) {
+    window.visualViewport.removeEventListener('resize', visualViewportListener);
+  }
+};
+
+// Cleanup on page unload (for PWA lifecycle and testing)
+window.addEventListener('beforeunload', cleanupEventListeners);
 
 // Entry point for Vite; delegates to core App setup
 createRoot(document.getElementById("root")!).render(
@@ -42,4 +59,9 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </GlobalErrorBoundary>
 );
+
+// Export cleanup for use in tests or hot module replacement
+if (import.meta.hot) {
+  import.meta.hot.dispose(cleanupEventListeners);
+}
 

@@ -28,3 +28,5 @@ export function compareIds(id1: string | number, id2: string | number): boolean 
   return normalizeId(id1) === normalizeId(id2);
 }
 
+// Re-export from transformers for consistency
+export { toNumberId, toStringId } from '@/db/transformers';

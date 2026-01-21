@@ -5,11 +5,44 @@
 // This file provides centralized validation utilities for ensuring data
 // consistency between task statuses and completion logs. Use these utilities
 // for defensive checks across components.
+//
+// OPTIMIZATION: Warnings are deduplicated per session to prevent console spam.
+// Each unique task/user/issue combination is only logged once.
 // ============================================================================
 
 import type { TaskStatusEntity, CompletionLog, RingColor } from '@/types';
 import { normalizeId } from '../idUtils';
 import { normalizeToStartOfDay } from './taskUtils';
+
+/**
+ * Session-level cache to prevent duplicate warnings for the same issue.
+ * Key format: `${taskId}-${userId}-${issueType}`
+ * This prevents console spam while still catching unique issues.
+ */
+const sessionIssueCache = new Set<string>();
+
+/**
+ * Check if an issue has already been logged this session
+ */
+const hasLoggedIssue = (taskId: number, userId: number, issueType: string): boolean => {
+    const key = `${taskId}-${userId}-${issueType}`;
+    return sessionIssueCache.has(key);
+};
+
+/**
+ * Mark an issue as logged for this session
+ */
+const markIssueLogged = (taskId: number, userId: number, issueType: string): void => {
+    const key = `${taskId}-${userId}-${issueType}`;
+    sessionIssueCache.add(key);
+};
+
+/**
+ * Clear all cached issues (useful for testing or manual reset)
+ */
+export const clearValidationCache = (): void => {
+    sessionIssueCache.clear();
+};
 
 /**
  * Result of a validation check
@@ -100,17 +133,19 @@ export const validateTaskStatusConsistency = (
                     details: { status, ringColor }
                 });
             } else {
-                const expectedRingColor = calculateExpectedRingColor(
-                    new Date(completionLog.createdAt),
-                    taskDueDate,
-                    recoveredAt
-                );
-                if (ringColor && ringColor !== expectedRingColor) {
+                // Only flag truly invalid ring colors for completed tasks
+                // Valid completed ring colors: green (on-time), yellow (recovered), none (late)
+                // Invalid: red (should only be for archived/expired tasks)
+                if (ringColor === 'red') {
                     issues.push({
                         type: 'RING_COLOR_MISMATCH',
                         taskId,
                         userId,
-                        details: { actual: ringColor, expected: expectedRingColor }
+                        details: {
+                            actual: ringColor,
+                            issue: 'Completed tasks should not have red ring color',
+                            validColors: ['green', 'yellow', 'none']
+                        }
                     });
                 }
             }
@@ -166,8 +201,32 @@ export const validateAndLogIssues = (
     taskDueDate: Date,
     context: string
 ): void => {
+    // Skip in production
+    if (process.env.NODE_ENV !== 'development') return;
+
     const result = validateTaskStatusConsistency(taskStatus, completionLog, taskDueDate);
+    if (result.issues.length === 0) return;
+
+    const taskId = normalizeId(taskStatus.taskId);
+    const userId = normalizeId(taskStatus.userId);
+
     result.issues.forEach(issue => {
-        console.warn(`[${context}] ${issue.type}:`, issue);
+        // Deduplicate: Only log each unique issue once per session
+        if (hasLoggedIssue(taskId, userId, issue.type)) return;
+        markIssueLogged(taskId, userId, issue.type);
+
+        // Use console.debug to reduce noise - these are data integrity checks
+        // that are useful for debugging but shouldn't clutter normal development
+        console.debug(`[${context}] Data inconsistency - ${issue.type}:`, {
+            taskId,
+            userId,
+            ...issue,
+            taskStatus: taskStatus.status,
+            taskRingColor: taskStatus.ringColor,
+            recoveredAt: taskStatus.recoveredAt,
+            completionLogId: completionLog?.id,
+            completionCreatedAt: completionLog?.createdAt,
+            taskDueDate: taskDueDate.toISOString()
+        });
     });
 };

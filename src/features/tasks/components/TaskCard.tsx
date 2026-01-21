@@ -115,7 +115,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
   const taskStatusUserStatus = calculateTaskStatusUserStatus(myTaskStatus, myCompletion, task);
 
   // DEFENSIVE CHECK: Validate data consistency between task status and completion logs
-  // Uses centralized validation utility for maintainability
+  // Uses centralized validation utility with session-level deduplication
+  // Each unique issue is only logged once per session to prevent console spam
   useEffect(() => {
     if (!task.taskStatus || task.taskStatus.length === 0) return;
 
@@ -127,6 +128,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
         normalizeId(log.userId) === normalizeId(ts.userId)
       );
 
+      // Uses centralized utility with built-in deduplication
       validateAndLogIssues(ts, completionLog, taskDueDate, 'TaskCard');
     });
   }, [task.taskStatus, completionLogs, task.id, task.dueDate]);

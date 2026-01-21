@@ -23,9 +23,16 @@ export interface PushNotificationPayload {
 /**
  * Send a push notification to a specific user via Netlify serverless function
  * The function securely holds the OneSignal REST API key
+ * 
+ * Note: This will fail gracefully on localhost since Netlify functions require
+ * either `netlify dev` or deployed environment.
  */
 export async function sendPushNotification(payload: PushNotificationPayload): Promise<boolean> {
     try {
+        // Skip on localhost where Netlify functions aren't available
+        const isLocalhost = window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1';
+
         const response = await fetch('/.netlify/functions/send-push-notification', {
             method: 'POST',
             headers: {
@@ -34,7 +41,26 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
             body: JSON.stringify(payload),
         });
 
-        const result = await response.json();
+        // Handle 404 (function not found) - common on localhost
+        if (response.status === 404) {
+            if (isLocalhost) {
+                // Silent fail on localhost - expected behavior
+                console.debug('[Push] Netlify function not available (localhost)');
+            } else {
+                console.warn('[Push] Netlify function not found (404)');
+            }
+            return false;
+        }
+
+        // Safely parse JSON response
+        let result;
+        try {
+            const text = await response.text();
+            result = text ? JSON.parse(text) : { success: false };
+        } catch {
+            console.warn('[Push] Failed to parse response');
+            return false;
+        }
 
         if (!response.ok || !result.success) {
             console.error('[Push] Failed:', result);
@@ -43,7 +69,12 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
 
         return true;
     } catch (error) {
-        console.error('[Push] Error:', error);
+        // Network errors are expected on localhost
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.debug('[Push] Network error (localhost):', (error as Error).message);
+        } else {
+            console.error('[Push] Error:', error);
+        }
         return false;
     }
 }

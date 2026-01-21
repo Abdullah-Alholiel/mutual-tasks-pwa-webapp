@@ -112,23 +112,30 @@ export const calculateRingColor = (
   taskStatus: TaskStatusEntity | undefined,
   task?: Task
 ): RingColor => {
-  // PRIORITY 1: If completed, determine color based on recovery and timing
+  // PRIORITY 1: If completed, determine color based on stored value or recovery/timing
   if (completionLog) {
     // Yellow: recovered task (always yellow when completed after recovery)
-    // Note: recoveredCompletion not in CompletionLog type, check taskStatus instead
     if (taskStatus?.recoveredAt) {
       return 'yellow';
     }
 
-    // Green: completed on time or early (use createdAt vs task dueDate to determine timing)
-    // Note: timingStatus not in CompletionLog type, calculate from dates
+    // BEST PRACTICE: Trust the stored ringColor if it exists
+    // The ringColor was set at completion time with the correct calculation
+    // This prevents mismatches when recalculating with current dates
+    if (taskStatus?.ringColor) {
+      return taskStatus.ringColor;
+    }
+
+    // FALLBACK: Calculate from dates only if no stored ringColor
+    // (This handles legacy data or edge cases where ringColor wasn't stored)
     const completionDate = normalizeToStartOfDay(new Date(completionLog.createdAt));
     const taskDueDate = normalizeToStartOfDay(new Date(task?.dueDate || new Date()));
+
     if (completionDate.getTime() <= taskDueDate.getTime()) {
       return 'green';
     }
 
-    // None: late completion but not recovered
+    // Late completion but not recovered
     return 'none';
   }
 
