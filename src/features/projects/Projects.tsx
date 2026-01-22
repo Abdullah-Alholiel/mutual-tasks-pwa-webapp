@@ -614,29 +614,28 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => navigate(`/projects/${project.id}`, { state: { fromTab: 'public' } })}
-      className="cursor-pointer h-full"
+      className="cursor-pointer h-[240px]"
     >
       <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 h-full flex flex-col">
-        <div className="flex flex-col gap-4 h-full">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-3 flex-1">
+        <div className="flex flex-col h-full">
+          <div className="flex items-start justify-between gap-3 flex-none">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-lg text-foreground break-words">
+              <div className="flex items-center gap-2 mb-1.5">
+                <h3 className="font-semibold text-lg text-foreground truncate">
                   {project.name}
                 </h3>
-                <Badge variant="outline" className="text-xs flex items-center gap-1">
+                <Badge variant="outline" className="text-xs flex items-center gap-1 flex-none">
                   <Globe className="w-3 h-3" />
                   Public
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground line-clamp-2">
                 {project.description}
               </p>
             </div>
 
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon flex-none"
               style={{
                 backgroundColor: adjustColorOpacity(project.color || '#3b82f6', 0.15),
                 boxShadow: `0 8px 15px -4px ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}`,
@@ -652,27 +651,29 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
             </div>
           </div>
 
-          {/* Members */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/50">
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                {project.participants?.length || project.participantRoles?.length || 0} members
-              </span>
-            </div>
-          </div>
+          <div className="flex-1 min-h-0" />
 
-          {/* Join Button */}
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onJoin();
-            }}
-            className="w-max mx-auto gradient-primary text-white rounded-full h-10 px-6 text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 hover:translate-y-[-1px]"
-          >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Join Project
-          </Button>
+          <div className="flex flex-col gap-3 flex-none">
+            <div className="flex items-center justify-between pt-3 border-t border-border/50">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {project.participants?.length || project.participantRoles?.length || 0} members
+                </span>
+              </div>
+            </div>
+
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onJoin();
+              }}
+              className="w-max mx-auto gradient-primary text-white rounded-full h-10 px-6 text-sm font-semibold shadow-sm hover:shadow-md transition-all duration-300 hover:translate-y-[-1px]"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Join Project
+            </Button>
+          </div>
         </div>
       </div>
     </motion.div>

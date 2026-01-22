@@ -570,7 +570,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 180px',
+                    containIntrinsicSize: '0 260px',
                   }}
                 >
                   <TaskCard
@@ -608,7 +608,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 180px',
+                    containIntrinsicSize: '0 260px',
                   }}
                 >
                   <TaskCard
@@ -644,7 +644,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 180px',
+                    containIntrinsicSize: '0 260px',
                   }}
                 >
                   <TaskCard

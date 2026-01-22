@@ -28,66 +28,108 @@ export const ProjectHeader = ({
   const Icon = getIconByName(project.icon || 'Target');
 
   return (
-    <div className="flex items-start gap-2 sm:gap-4">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onBack}
-        className="shrink-0"
-      >
-        <ArrowLeft className="w-5 h-5" />
-      </Button>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 sm:gap-3 mb-2">
-          <div
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: adjustColorOpacity(project.color, 0.15) }}
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex items-center justify-between gap-2 sm:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          className="shrink-0 w-10 h-10"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onEdit}
+            className="shrink-0 h-10 w-10 rounded-full"
           >
-            <Icon className="w-6 h-6 sm:w-7 sm:h-7" style={{ color: project.color }} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold break-words">{project.name}</h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">{project.description}</p>
-          </div>
+            <Settings className="w-4 h-4" />
+          </Button>
+          {canManage && (
+            <Button
+              onClick={onCreateTask}
+              className="gradient-primary text-white rounded-full h-10 w-10 p-0"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        {!isParticipant && project.isPublic ? (
-          <Button
-            onClick={onJoin}
-            disabled={isJoining}
-            className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-4 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
+      <div className="hidden sm:flex items-center gap-3 w-full">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          className="shrink-0 w-10 h-10"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: adjustColorOpacity(project.color, 0.15) }}
           >
-            {isJoining ? (
-              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4 sm:mr-1.5" />
-            )}
-            <span>{isJoining ? 'Joining...' : 'Join Project'}</span>
-          </Button>
-        ) : (
-          <>
+            <Icon className="w-7 h-7" style={{ color: project.color }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-bold break-words">{project.name}</h1>
+            <p className="text-base text-muted-foreground break-words">{project.description}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {!isParticipant && project.isPublic ? (
             <Button
-              variant="outline"
-              size="icon"
-              onClick={onEdit}
-              className="shrink-0 h-10 w-10 rounded-full border-border/60 hover:border-primary/50 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all duration-300"
+              onClick={onJoin}
+              disabled={isJoining}
+              className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold"
             >
-              <Settings className="w-4 h-4" />
+              {isJoining ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-1.5" />
+              )}
+              <span>Join</span>
             </Button>
-            {canManage && (
+          ) : (
+            <>
               <Button
-                onClick={onCreateTask}
-                className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
+                variant="outline"
+                size="icon"
+                onClick={onEdit}
+                className="shrink-0 h-10 w-10 rounded-full"
               >
-                <Plus className="w-4 h-4 sm:mr-1.5" />
-                <span className="hidden sm:inline">New Task</span>
+                <Settings className="w-4 h-4" />
               </Button>
-            )}
-          </>
-        )}
+              {canManage && (
+                <Button
+                  onClick={onCreateTask}
+                  className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  <span>New</span>
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3 flex-1 min-w-0 sm:hidden">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-1"
+          style={{ backgroundColor: adjustColorOpacity(project.color, 0.15) }}
+        >
+          <Icon className="w-6 h-6" style={{ color: project.color }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold break-words">{project.name}</h1>
+          <p className="text-sm text-muted-foreground break-words">{project.description}</p>
+        </div>
       </div>
     </div>
   );

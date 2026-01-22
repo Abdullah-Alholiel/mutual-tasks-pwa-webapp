@@ -93,15 +93,15 @@ export const normalizeToStartOfDay = (date: Date): Date => {
 /**
  * Calculate ring color value (RingColor type) based on completion log and task status
  * This is the core logic for determining ring color that should be used consistently
- * 
+ *
  * Rules (in priority order):
- * 1. If completed: Green (on-time/early), Yellow (recovered), or None (late)
- * 2. If task is archived: Red for all participants
- * 3. If task has expired (past due date): Red for all participants
- * 4. If individual status is archived: Red
- * 5. If recovered but not completed: Yellow
+ * 1. If completed on-time/early: Green
+ * 2. If completed late (after due date): Yellow (tardy)
+ * 3. If recovered but not completed: Red
+ * 4. If task is archived: Red
+ * 5. If task has expired (past due date): Red
  * 6. Otherwise: None
- * 
+ *
  * @param completionLog - The completion log for this user (if completed)
  * @param taskStatus - The user's task status entity
  * @param task - The task entity (for checking overall task status and due date)
@@ -112,33 +112,25 @@ export const calculateRingColor = (
   taskStatus: TaskStatusEntity | undefined,
   task?: Task
 ): RingColor => {
-  // PRIORITY 1: If completed, determine color based on recovery and timing
+  // PRIORITY 1: If completed, determine color based on timing
   if (completionLog) {
-    // Yellow: recovered task (always yellow when completed after recovery)
-    // Note: recoveredCompletion not in CompletionLog type, check taskStatus instead
-    if (taskStatus?.recoveredAt) {
-      return 'yellow';
-    }
-
-    // Green: completed on time or early (use createdAt vs task dueDate to determine timing)
-    // Note: timingStatus not in CompletionLog type, calculate from dates
+    // Green: completed on time or early
     const completionDate = normalizeToStartOfDay(new Date(completionLog.createdAt));
     const taskDueDate = normalizeToStartOfDay(new Date(task?.dueDate || new Date()));
     if (completionDate.getTime() <= taskDueDate.getTime()) {
       return 'green';
     }
 
-    // None: late completion but not recovered
-    return 'none';
+    // Yellow: late completion (tardy) - completed after deadline
+    return 'yellow';
   }
 
   if (!taskStatus) return 'none';
 
-  // PRIORITY 2: Check if task is recovered
-  // Recovered tasks show yellow until end of recovery day, then expire again (red)
-  if (taskStatus.recoveredAt || taskStatus.status === 'recovered') {
+  // PRIORITY 2: Check if task is recovered but NOT completed
+  // Recovered-but-not-completed tasks show RED (expired)
+  if ((taskStatus?.recoveredAt || taskStatus?.status === 'recovered') && !completionLog) {
     // Check if the recovered task has expired again
-    // The "new due date" for recovered tasks is the END of the day they were recovered
     if (taskStatus.recoveredAt) {
       const now = new Date();
       const recoveryDayEnd = new Date(taskStatus.recoveredAt);
@@ -149,8 +141,8 @@ export const calculateRingColor = (
         return 'red';
       }
     }
-    // Within recovery day or just marked as recovered, show yellow
-    return 'yellow';
+    // Within recovery day but not completed, still show red (recovered tasks are still expired)
+    return 'red';
   }
 
   // PRIORITY 3: Check if task status user status would be archived (past due, not completed)
@@ -202,11 +194,11 @@ export const calculateRingColor = (
  * information about when and how a task was completed.
  * 
  * Rules:
- * - Green: when a user completes a task on time/early (timingStatus: 'on_time' or 'early')
- * - Yellow: when a user completes a recovered task or has recovered but not completed
- * - Red: when a task is expired (past due date) and not completed, OR archived but not completed
- * - No highlight: when a task is completed late but not recovered
- * 
+ * - Green: on-time/early completion
+ * - Yellow: late completion (tardy)
+ * - Red: expired, archived, or recovered-but-not-completed
+ * - No highlight: active task (not completed, not expired)
+ *
  * @param taskStatus - The user's task status entity
  * @param completionLog - The completion log for this user (if completed)
  * @param task - The task entity (for checking overall task status and due date)
@@ -266,9 +258,10 @@ export const getRingColor = (
     }
   }
 
-  // PRIORITY 2.5: Check if task is recovered - show yellow ring immediately
-  // This takes precedence over stored ringColor to ensure instant feedback after recovery
-  if (taskStatus.recoveredAt || taskStatus.status === 'recovered') {
+  // PRIORITY 2.5: Check if task is recovered but NOT completed - show red ring
+  // Recovered-but-not-completed tasks should show red (expired)
+  // Completed tasks are handled in PRIORITY 1 using calculateRingColor
+  if (!completionLog && (taskStatus.recoveredAt || taskStatus.status === 'recovered')) {
     // Check if recovery has expired (past end of recovery day)
     if (taskStatus.recoveredAt) {
       const now = new Date();
@@ -280,8 +273,8 @@ export const getRingColor = (
         return 'ring-red-500';
       }
     }
-    // Within recovery day, show yellow
-    return 'ring-yellow-500';
+    // Within recovery day but not completed, still show red (recovered tasks are still expired)
+    return 'ring-red-500';
   }
 
   // PRIORITY 3: Use taskStatus.ringColor if set (for non-completed tasks with explicit ring color)
