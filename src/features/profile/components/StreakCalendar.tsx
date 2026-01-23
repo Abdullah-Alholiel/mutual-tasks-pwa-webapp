@@ -153,7 +153,7 @@ export const StreakCalendar = () => {
                         className="group relative flex items-center justify-center aspect-square"
                       >
                         <div
-                          className={`w-full h-full rounded-lg sm:rounded-xl md:rounded-full ${getIntensityColor(
+                          className={`w-full h-full rounded-full ${getIntensityColor(
                             dayData.intensity
                           )} ${dayData.isToday ? 'ring-2 ring-primary ring-offset-1 sm:ring-offset-2 ring-offset-background' : ''
                             } transition-colors cursor-pointer flex items-center justify-center`}
