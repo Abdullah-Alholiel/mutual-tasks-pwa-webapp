@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus, Settings, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Settings } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import type { Project } from '@/types';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
@@ -89,7 +90,7 @@ export const ProjectHeader = ({
               className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold"
             >
               {isJoining ? (
-                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                <Spinner size={16} className="mr-1.5" />
               ) : (
                 <Plus className="w-4 h-4 mr-1.5" />
               )}

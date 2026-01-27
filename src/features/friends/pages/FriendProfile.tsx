@@ -8,10 +8,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, Target, Zap, TrendingUp, ArrowLeft, Users, UserPlus, Loader2, Check, X, Clock, UserCheck, Trash2 } from 'lucide-react';
+import { Trophy, Target, Zap, TrendingUp, ArrowLeft, Users, UserPlus, Check, X, Clock, UserCheck, Trash2 } from 'lucide-react';
 import { InlineLoader, PageLoader } from '@/components/ui/loader';
+import { Spinner } from '@/components/ui/spinner';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
+import { DEFAULT_PROJECT_COLOR } from '@/constants/projectColors';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useBackNavigation } from '@/hooks/useBackNavigation';
@@ -236,7 +238,7 @@ const FriendProfile = () => {
                                                                     disabled={addFriendMutation.isPending || cancelRequestMutation.isPending}
                                                                 >
                                                                     {addFriendMutation.isPending || cancelRequestMutation.isPending ? (
-                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                        <Spinner size={16} />
                                                                     ) : (
                                                                         <span className="flex items-center gap-1">
                                                                             <Clock className="w-4 h-4" /> <span className="hidden sm:inline">Request Sent</span>
@@ -263,7 +265,7 @@ const FriendProfile = () => {
                                                             disabled={!!hasPendingRequest || addFriendMutation.isPending}
                                                         >
                                                             {addFriendMutation.isPending ? (
-                                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                                <Spinner size={16} />
                                                             ) : hasPendingRequest ? (
                                                                 <span className="flex items-center gap-1">
                                                                     <Check className="w-4 h-4" /> <span className="hidden sm:inline">Request Received</span>
@@ -346,9 +348,9 @@ const FriendProfile = () => {
                                         >
                                             <div
                                                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
-                                                style={{ backgroundColor: adjustColorOpacity(project.color || '#3b82f6', 0.1) }}
+                                                style={{ backgroundColor: adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.1) }}
                                             >
-                                                <Icon className="w-5 h-5" style={{ color: project.color || '#3b82f6' }} />
+                                                <Icon className="w-5 h-5" style={{ color: project.color || DEFAULT_PROJECT_COLOR }} />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-semibold truncate">{project.name}</div>

@@ -78,7 +78,7 @@ export const ProjectStats = ({
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Completed</div>
           </div>
           <div className="text-center group transition-transform hover:scale-105">
-            <div className="text-2xl font-bold text-blue-500">{upcomingCount}</div>
+            <div className="text-2xl font-bold text-[#1D4ED8]">{upcomingCount}</div>
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Upcoming</div>
           </div>
           <div className="text-center group transition-transform hover:scale-105">

@@ -8,10 +8,10 @@ const LOG_PREFIX = '[AI-Service]';
  * Log levels with styling for browser console
  */
 const LOG_STYLES = {
-    info: 'color: #3b82f6; font-weight: bold;',
-    error: 'color: #ef4444; font-weight: bold;',
-    warn: 'color: #f59e0b; font-weight: bold;',
-    success: 'color: #22c55e; font-weight: bold;',
+    info: 'color: #1D4ED8; font-weight: bold;',
+    error: 'color: #EF4444; font-weight: bold;',
+    warn: 'color: #FCD34D; font-weight: bold;',
+    success: 'color: #10B981; font-weight: bold;',
 };
 
 /**

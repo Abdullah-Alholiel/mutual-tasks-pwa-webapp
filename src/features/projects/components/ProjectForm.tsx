@@ -16,15 +16,7 @@ import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
 import { useFriends } from '@/features/friends/hooks/useFriends';
 import { FriendSelector } from './FriendSelector';
-
-const PROJECT_COLORS = [
-  { name: 'Blue', value: 'hsl(199, 89%, 48%)' },
-  { name: 'Green', value: 'hsl(142, 76%, 36%)' },
-  { name: 'Orange', value: 'hsl(32, 95%, 58%)' },
-  { name: 'Purple', value: 'hsl(280, 70%, 50%)' },
-  { name: 'Pink', value: 'hsl(340, 75%, 55%)' },
-  { name: 'Teal', value: 'hsl(180, 70%, 45%)' },
-];
+import { PROJECT_COLORS, DEFAULT_PROJECT_COLOR, type ProjectColor } from '@/constants/projectColors';
 
 import { PROJECT_ICONS, ICON_CATEGORIES, getIconsByCategory } from '@/lib/projects/projectIcons';
 
@@ -47,7 +39,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
-  const [selectedColor, setSelectedColor] = useState(PROJECT_COLORS[0].value);
+  const [selectedColor, setSelectedColor] = useState<ProjectColor>(DEFAULT_PROJECT_COLOR);
   const [selectedIcon, setSelectedIcon] = useState(PROJECT_ICONS[0].name);
   const [isPublic, setIsPublic] = useState(true);
   const [friendHandle, setFriendHandle] = useState('');
@@ -189,7 +181,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
     setName('');
     setDescription('');
     setSelectedParticipants([]);
-    setSelectedColor(PROJECT_COLORS[0].value);
+    setSelectedColor(DEFAULT_PROJECT_COLOR);
     setSelectedIcon(PROJECT_ICONS[0].name);
     setIsPublic(true);
     setFriendHandle('');
@@ -204,7 +196,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
       setName('');
       setDescription('');
       setSelectedParticipants([]);
-      setSelectedColor(PROJECT_COLORS[0].value);
+      setSelectedColor(DEFAULT_PROJECT_COLOR);
       setSelectedIcon(PROJECT_ICONS[0].name);
       setIsPublic(true);
       setFriendHandle('');
@@ -325,7 +317,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
                   type="button"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setSelectedColor(color.value)}
+                  onClick={() => setSelectedColor(color.value as ProjectColor)}
                   className={cn(
                     "flex items-center gap-2 p-3 rounded-xl border-2 transition-all",
                     selectedColor === color.value

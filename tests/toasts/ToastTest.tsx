@@ -128,7 +128,7 @@ export function ToastTest() {
               }
               className="w-full md:w-auto"
             >
-              <Info className="mr-2 h-4 w-4 text-blue-500" />
+              <Info className="mr-2 h-4 w-4 text-[#1D4ED8]" />
               Info Toast
             </Button>
           </CardContent>
@@ -299,13 +299,13 @@ export function ToastTest() {
         <Separator />
 
         {/* Instructions */}
-        <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+        <Card className="bg-[#1D4ED8]/10 dark:bg-[#1D4ED8]/20 border-[#1D4ED8]/20 dark:border-[#1D4ED8]/30">
           <CardHeader>
-            <CardTitle className="text-blue-900 dark:text-blue-100">
+            <CardTitle className="text-[#1D4ED8] dark:text-[#1D4ED8]">
               Testing Instructions
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
+          <CardContent className="text-sm text-[#1D4ED8] dark:text-[#1D4ED8] space-y-2">
             <p>1. On mobile: Toasts should appear at the top of the screen, below the safe area.</p>
             <p>2. On desktop: Toasts should appear at the bottom-right of the screen.</p>
             <p>3. Test on actual mobile device or resize browser to &lt; 768px width.</p>

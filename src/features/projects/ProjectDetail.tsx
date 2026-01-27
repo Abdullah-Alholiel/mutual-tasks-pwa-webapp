@@ -10,13 +10,13 @@ import {
   Plus,
   Repeat,
   Sparkles,
-  Loader2,
   ChevronDown,
   Trash2,
   UserPlus,
   LogOut,
   Settings
 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { ProjectStats } from '@/features/projects/components/ProjectStats';
 import { ProjectTaskSections } from '@/features/projects/components/ProjectTaskSections';
@@ -909,7 +909,7 @@ const ProjectDetail = () => {
                           </div>
                         )}
                         {participant.role === 'manager' && (
-                          <div className="absolute -top-1 -right-1 bg-blue-500 text-[10px] flex items-center justify-center w-5 h-5 rounded-full shadow-sm ring-2 ring-background z-10" title="Manager">
+                          <div className="absolute -top-1 -right-1 bg-[#1D4ED8] text-[10px] flex items-center justify-center w-5 h-5 rounded-full shadow-sm ring-2 ring-background z-10" title="Manager">
                             🛡️
                           </div>
                         )}

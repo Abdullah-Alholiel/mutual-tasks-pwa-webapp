@@ -8,6 +8,7 @@
 import { Helix } from 'ldrs/react';
 import 'ldrs/react/Helix.css';
 import { cn } from '@/lib/utils';
+import { DEFAULT_LOADER_COLOR } from '@/constants/loader';
 
 interface LoaderProps {
   /**
@@ -19,7 +20,7 @@ interface LoaderProps {
    */
   speed?: number;
   /**
-   * Color of the loader (default: 'hsl(199 89% 48%)' - primary theme color)
+   * Color of the loader (default: '#1D4ED8' - primary theme color)
    * Can be any valid CSS color value
    */
   color?: string;
@@ -65,7 +66,7 @@ interface LoaderProps {
 export function Loader({
   size = 45,
   speed = 2.5,
-  color = 'hsl(199 89% 48%)', // Primary theme color
+  color = DEFAULT_LOADER_COLOR,
   className,
   text,
   fullScreen = false,

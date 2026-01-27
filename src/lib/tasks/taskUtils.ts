@@ -8,6 +8,7 @@
 
 import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatus, Task } from '@/types';
 import { normalizeId } from '../idUtils';
+import { STATUS_COLORS } from '@/constants/statusColors';
 
 /**
  * Calculate the task status user status based on due date, completion, and recovery
@@ -215,11 +216,11 @@ export const getRingColor = (
     const calculatedColor = calculateRingColor(completionLog, taskStatus, task);
     switch (calculatedColor) {
       case 'green':
-        return 'ring-green-500';
+        return 'ring-[#10B981]';
       case 'yellow':
-        return 'ring-yellow-500';
+        return 'ring-[#FCD34D]';
       case 'red':
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       case 'none':
         return 'ring-border';
     }
@@ -231,11 +232,11 @@ export const getRingColor = (
       const calculatedColor = calculateRingColor(undefined, undefined, task);
       switch (calculatedColor) {
         case 'green':
-          return 'ring-green-500';
+          return 'ring-[#10B981]';
         case 'yellow':
-          return 'ring-yellow-500';
+          return 'ring-[#FCD34D]';
         case 'red':
-          return 'ring-red-500';
+          return 'ring-[#EF4444]';
         case 'none':
           return 'ring-border';
       }
@@ -248,11 +249,11 @@ export const getRingColor = (
   if (taskStatus.status === 'completed' && taskStatus.ringColor) {
     switch (taskStatus.ringColor) {
       case 'green':
-        return 'ring-green-500';
+        return 'ring-[#10B981]';
       case 'yellow':
-        return 'ring-yellow-500';
+        return 'ring-[#FCD34D]';
       case 'red':
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       case 'none':
         return 'ring-border';
     }
@@ -270,11 +271,11 @@ export const getRingColor = (
 
       // If past recovery day, show red (expired again)
       if (now > recoveryDayEnd) {
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       }
     }
     // Within recovery day but not completed, still show red (recovered tasks are still expired)
-    return 'ring-red-500';
+    return 'ring-[#EF4444]';
   }
 
   // PRIORITY 3: Use taskStatus.ringColor if set (for non-completed tasks with explicit ring color)
@@ -284,18 +285,18 @@ export const getRingColor = (
     const calculatedColor = calculateRingColor(undefined, taskStatus, task);
     // If calculated color is red (archived/expired), use it instead of stored ringColor
     if (calculatedColor === 'red') {
-      return 'ring-red-500';
+      return 'ring-[#EF4444]';
     }
   }
 
   if (taskStatus.ringColor) {
     switch (taskStatus.ringColor) {
       case 'green':
-        return 'ring-green-500';
+        return 'ring-[#10B981]';
       case 'yellow':
-        return 'ring-yellow-500';
+        return 'ring-[#FCD34D]';
       case 'red':
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       case 'none':
         return 'ring-border';
     }
@@ -305,11 +306,11 @@ export const getRingColor = (
   const calculatedColor = calculateRingColor(undefined, taskStatus, task);
   switch (calculatedColor) {
     case 'green':
-      return 'ring-green-500';
+      return 'ring-[#10B981]';
     case 'yellow':
-      return 'ring-yellow-500';
+      return 'ring-[#FCD34D]';
     case 'red':
-      return 'ring-red-500';
+      return 'ring-[#EF4444]';
     case 'none':
       return 'ring-border';
   }
@@ -433,9 +434,9 @@ export const getStatusColor = (
     case 'upcoming':
       return 'text-muted-foreground';
     case 'recovered':
-      return 'text-accent';
+      return 'text-[#FCD34D]';
     case 'completed':
-      return 'text-status-completed';
+      return 'text-[#10B981]';
     case 'archived':
       return 'text-muted-foreground';
     default:

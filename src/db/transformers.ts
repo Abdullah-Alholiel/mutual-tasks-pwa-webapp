@@ -19,6 +19,8 @@ import type {
   TaskRecurrence,
 } from '@/types';
 
+import { normalizeLegacyColors } from '@/lib/projectColorMigration';
+
 // ============================================================================
 // Database Row Types (snake_case, string IDs, ISO strings)
 // ============================================================================
@@ -306,7 +308,7 @@ export function toProjectRow(project: Partial<Project>): Partial<ProjectRow> {
   if (project.name !== undefined) row.name = project.name;
   if (project.description !== undefined) row.description = project.description;
   if (project.icon !== undefined) row.icon = project.icon || null;
-  if (project.color !== undefined) row.color = project.color || null;
+  if (project.color !== undefined) row.color = normalizeLegacyColors(project.color) || null;
   if (project.ownerId !== undefined) row.owner_id = toStringId(project.ownerId);
   if (project.isPublic !== undefined) row.is_public = project.isPublic;
   if (project.totalTasks !== undefined) row.total_tasks = project.totalTasks;

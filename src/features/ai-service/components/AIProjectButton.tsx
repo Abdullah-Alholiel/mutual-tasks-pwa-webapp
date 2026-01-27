@@ -49,14 +49,14 @@ export const AIProjectButton = React.forwardRef<HTMLButtonElement, AIProjectButt
                 <Sparkles
                     className={cn(
                         'w-4 h-4 transition-colors',
-                        'text-violet-500 group-hover:text-violet-600',
+                        'text-[#8B5CF6] group-hover:text-[#7C3AED]',
                         showLabel && 'mr-0 sm:mr-2'
                     )}
                 />
 
                 {/* Label */}
                 {showLabel && (
-                    <span className="hidden sm:inline bg-gradient-to-r from-violet-500 to-purple-600 bg-clip-text text-transparent font-medium">
+                    <span className="hidden sm:inline text-[#8B5CF6] font-medium">
                         AI Generate
                     </span>
                 )}
@@ -65,7 +65,7 @@ export const AIProjectButton = React.forwardRef<HTMLButtonElement, AIProjectButt
                 <div
                     className={cn(
                         'absolute inset-0 -translate-x-full group-hover:translate-x-full',
-                        'bg-gradient-to-r from-transparent via-violet-500/10 to-transparent',
+                        'bg-gradient-to-r from-transparent via-[#8B5CF6]/10 to-transparent',
                         'transition-transform duration-700'
                     )}
                 />

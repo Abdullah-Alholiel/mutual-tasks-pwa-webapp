@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Trophy, UserPlus, Search, ArrowLeft, Crown, Medal, UserMinus, MoreHorizontal, Inbox, Check, X, ArrowUpDown } from 'lucide-react';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -169,7 +169,7 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                                 <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
                                     {isLoadingRequests ? (
                                         <div className="flex justify-center py-4">
-                                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                            <Spinner size={24} />
                                         </div>
                                     ) : requests.length === 0 ? (
                                         <div className="text-center py-8 text-muted-foreground">
@@ -244,7 +244,7 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                             <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
                                 {isLoadingRequests ? (
                                     <div className="flex justify-center py-4">
-                                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                        <Spinner size={24} />
                                     </div>
                                 ) : requests.length === 0 ? (
                                     <div className="text-center py-8 text-muted-foreground">
@@ -316,7 +316,7 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                                     )}
                                     {isSearching && !handle && (
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                            <Spinner size={16} />
                                         </div>
                                     )}
                                 </div>

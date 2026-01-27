@@ -46,7 +46,7 @@ export default defineConfig(({ mode }) => {
           name: 'Momentum - Collaborative Tasks',
           short_name: 'Momentum',
           description: 'Collaborative habit and task tracking with friends',
-          theme_color: '#0EA5E9',
+          theme_color: '#1D4ED8',
           background_color: '#F7F9FC',
           display: 'standalone',
           orientation: 'portrait-primary',

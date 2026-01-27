@@ -315,23 +315,23 @@ const NotificationItem = ({
 }) => {
   const getIcon = (type: Notification['type']) => {
     switch (type) {
-      case 'task_created': return <Sparkles className="w-4 h-4 text-blue-500" />;
-      case 'task_completed': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
-      case 'task_recovered': return <RotateCcw className="w-4 h-4 text-amber-500" />;
+      case 'task_created': return <Sparkles className="w-4 h-4 text-[#1D4ED8]" />;
+      case 'task_completed': return <CheckCircle2 className="w-4 h-4 text-[#10B981]" />;
+      case 'task_recovered': return <RotateCcw className="w-4 h-4 text-[#FCD34D]" />;
       case 'project_joined': return <Users className="w-4 h-4 text-primary" />;
-      case 'friend_request': return <UserPlus className="w-4 h-4 text-purple-500" />;
-      case 'friend_accepted': return <Users className="w-4 h-4 text-green-500" />;
+      case 'friend_request': return <UserPlus className="w-4 h-4 text-[#8B5CF6]" />;
+      case 'friend_accepted': return <Users className="w-4 h-4 text-[#10B981]" />;
       default: return <Bell className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
   const getBgColor = (type: Notification['type']) => {
     switch (type) {
-      case 'task_created': return 'hover:bg-blue-500/5';
-      case 'task_completed': return 'hover:bg-emerald-500/5';
-      case 'task_recovered': return 'hover:bg-amber-500/5';
-      case 'friend_request': return 'hover:bg-purple-500/5';
-      case 'friend_accepted': return 'hover:bg-green-500/5';
+      case 'task_created': return 'hover:bg-[#1D4ED8]/5';
+      case 'task_completed': return 'hover:bg-[#10B981]/5';
+      case 'task_recovered': return 'hover:bg-[#FCD34D]/5';
+      case 'friend_request': return 'hover:bg-[#8B5CF6]/5';
+      case 'friend_accepted': return 'hover:bg-[#10B981]/5';
       default: return 'hover:bg-primary/5';
     }
   };

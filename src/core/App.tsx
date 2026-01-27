@@ -20,6 +20,7 @@ import { usePWAUpdate } from "@/hooks/usePWAUpdate";
 import { MainTabsShell } from "../layout/MainTabsShell";
 import { AppLayout } from "../layout/AppLayout";
 import { DataIntegrityGuard } from "@/components/DataIntegrityGuard";
+import { ErrorBoundary, PageErrorBoundary } from "@/components/ui/error-boundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,12 +113,12 @@ const App = () => {
                       </ProtectedRoute>
                     }
                   >
-                    <Route path="/" element={<MainTabsShell />} />
-                    <Route path="/projects" element={<MainTabsShell />} />
-                    <Route path="/friends" element={<MainTabsShell />} />
-                    <Route path="/profile" element={<MainTabsShell />} />
-                    <Route path="/projects/:id" element={<ProjectDetail />} />
-                    <Route path="/friends/:id" element={<FriendProfile />} />
+                    <Route path="/" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                    <Route path="/projects" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                    <Route path="/friends" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                    <Route path="/profile" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                    <Route path="/projects/:id" element={<PageErrorBoundary><ProjectDetail /></PageErrorBoundary>} />
+                    <Route path="/friends/:id" element={<PageErrorBoundary><FriendProfile /></PageErrorBoundary>} />
                   </Route>
 
                   {/* Catch-all route - not protected (404 page) */}
