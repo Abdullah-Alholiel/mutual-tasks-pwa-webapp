@@ -244,7 +244,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   )}
                 </div>
 
-                <h3 className="font-semibold text-lg text-foreground line-clamp-2">
+                <h3 className="font-semibold text-2xl text-foreground line-clamp-2">
                   {task.title}
                 </h3>
 

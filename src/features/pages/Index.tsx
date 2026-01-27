@@ -486,207 +486,209 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-muted-foreground flex items-center gap-2"
+              animate={{ opacity: 1, x: 0 }} feat:update global font to Nunito and increase task card title size
+- Update global font family to Nunito in index.html, tailwind.config.ts, and global CSS
+            - Increase task card title font size to text-2xl for better visibility"
+            transition={{ delay: 0.1 }}
+            className="text-muted-foreground flex items-center gap-2"
             >
-              <Calendar className="w-4 h-4" />
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </motion.p>
-          </div>
+            <Calendar className="w-4 h-4" />
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </motion.p>
+        </div>
 
+        {projectsWhereCanCreateTasks.length > 0 && (
+          <Button
+            onClick={() => setShowTaskForm(true)}
+            className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            New Task
+          </Button>
+        )}
+      </div>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-3 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
+        >
+          <div className="text-2xl font-bold text-primary mb-1">
+            {needsActionTasks.length}
+          </div>
+          <div className="text-sm text-muted-foreground">Active</div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
+        >
+          <div className="text-2xl font-bold text-status-completed mb-1">
+            {completedTasksForToday.length}
+          </div>
+          <div className="text-sm text-muted-foreground">Completed</div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
+        >
+          <div className="text-2xl font-bold text-muted-foreground mb-1">
+            {recoveredTasks.length}
+          </div>
+          <div className="text-sm text-muted-foreground">Recovered</div>
+        </motion.div>
+      </div>
+
+      {/* Needs Your Action */}
+      {needsActionTasks.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-semibold">Needs Your Action</h2>
+          </div>
+          {/* Optimized task container for smooth scrolling */}
+          <div
+            className="space-y-3"
+            style={{
+              transform: 'translateZ(0)',
+              willChange: 'contents',
+            }}
+          >
+            {needsActionTasks.map((task) => (
+              <div
+                key={task.id}
+                style={{
+                  contain: 'layout style',
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: '0 260px',
+                }}
+              >
+                <TaskCard
+                  task={task}
+                  completionLogs={completionLogs}
+                  onComplete={handleComplete}
+                  showRecover={false}
+                  onDelete={handleDeleteTask}
+                  onEdit={getOnEditTask(task)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Done for the Day */}
+      {completedTasksForToday.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-semibold">Done for the Day</h2>
+          </div>
+          {/* Optimized task container for smooth scrolling */}
+          <div
+            className="space-y-3 opacity-60"
+            style={{
+              transform: 'translateZ(0)',
+              willChange: 'contents',
+            }}
+          >
+            {completedTasksForToday.map((task) => (
+              <div
+                key={task.id}
+                style={{
+                  contain: 'layout style',
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: '0 260px',
+                }}
+              >
+                <TaskCard
+                  task={task}
+                  completionLogs={completionLogs}
+                  onDelete={handleDeleteTask}
+                  onEdit={getOnEditTask(task)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Another Chance? */}
+      {recoveredTasks.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="w-5 h-5 text-accent" />
+            <h2 className="text-xl font-semibold">Another Chance?</h2>
+          </div>
+          {/* Optimized task container for smooth scrolling */}
+          <div
+            className="space-y-3"
+            style={{
+              transform: 'translateZ(0)',
+              willChange: 'contents',
+            }}
+          >
+            {recoveredTasks.map((task) => (
+              <div
+                key={task.id}
+                style={{
+                  contain: 'layout style',
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: '0 260px',
+                }}
+              >
+                <TaskCard
+                  task={task}
+                  completionLogs={completionLogs}
+                  onComplete={handleComplete}
+                  showRecover={false}
+                  onDelete={handleDeleteTask}
+                  onEdit={getOnEditTask(task)}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {needsActionTasks.length === 0 && completedTasksForToday.length === 0 && recoveredTasks.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center py-16"
+        >
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+            <Sparkles className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2">All clear for today!</h3>
+          <p className="text-muted-foreground mb-6">
+            Start a new task or check out your projects
+          </p>
           {projectsWhereCanCreateTasks.length > 0 && (
             <Button
               onClick={() => setShowTaskForm(true)}
-              className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
+              className="gradient-primary text-white"
             >
-              <Plus className="w-4 h-4 mr-1.5" />
-              New Task
+              <Plus className="w-4 h-4 mr-2" />
+              Create Task
             </Button>
           )}
-        </div>
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-3 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
-          >
-            <div className="text-2xl font-bold text-primary mb-1">
-              {needsActionTasks.length}
-            </div>
-            <div className="text-sm text-muted-foreground">Active</div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
-          >
-            <div className="text-2xl font-bold text-status-completed mb-1">
-              {completedTasksForToday.length}
-            </div>
-            <div className="text-sm text-muted-foreground">Completed</div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
-          >
-            <div className="text-2xl font-bold text-muted-foreground mb-1">
-              {recoveredTasks.length}
-            </div>
-            <div className="text-sm text-muted-foreground">Recovered</div>
-          </motion.div>
-        </div>
-
-        {/* Needs Your Action */}
-        {needsActionTasks.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-semibold">Needs Your Action</h2>
-            </div>
-            {/* Optimized task container for smooth scrolling */}
-            <div
-              className="space-y-3"
-              style={{
-                transform: 'translateZ(0)',
-                willChange: 'contents',
-              }}
-            >
-              {needsActionTasks.map((task) => (
-                <div
-                  key={task.id}
-                  style={{
-                    contain: 'layout style',
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: '0 260px',
-                  }}
-                >
-                  <TaskCard
-                    task={task}
-                    completionLogs={completionLogs}
-                    onComplete={handleComplete}
-                    showRecover={false}
-                    onDelete={handleDeleteTask}
-                    onEdit={getOnEditTask(task)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Done for the Day */}
-        {completedTasksForToday.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-semibold">Done for the Day</h2>
-            </div>
-            {/* Optimized task container for smooth scrolling */}
-            <div
-              className="space-y-3 opacity-60"
-              style={{
-                transform: 'translateZ(0)',
-                willChange: 'contents',
-              }}
-            >
-              {completedTasksForToday.map((task) => (
-                <div
-                  key={task.id}
-                  style={{
-                    contain: 'layout style',
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: '0 260px',
-                  }}
-                >
-                  <TaskCard
-                    task={task}
-                    completionLogs={completionLogs}
-                    onDelete={handleDeleteTask}
-                    onEdit={getOnEditTask(task)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Another Chance? */}
-        {recoveredTasks.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <RotateCcw className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-semibold">Another Chance?</h2>
-            </div>
-            {/* Optimized task container for smooth scrolling */}
-            <div
-              className="space-y-3"
-              style={{
-                transform: 'translateZ(0)',
-                willChange: 'contents',
-              }}
-            >
-              {recoveredTasks.map((task) => (
-                <div
-                  key={task.id}
-                  style={{
-                    contain: 'layout style',
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: '0 260px',
-                  }}
-                >
-                  <TaskCard
-                    task={task}
-                    completionLogs={completionLogs}
-                    onComplete={handleComplete}
-                    showRecover={false}
-                    onDelete={handleDeleteTask}
-                    onEdit={getOnEditTask(task)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {needsActionTasks.length === 0 && completedTasksForToday.length === 0 && recoveredTasks.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-16"
-          >
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              <Sparkles className="w-10 h-10 text-muted-foreground" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">All clear for today!</h3>
-            <p className="text-muted-foreground mb-6">
-              Start a new task or check out your projects
-            </p>
-            {projectsWhereCanCreateTasks.length > 0 && (
-              <Button
-                onClick={() => setShowTaskForm(true)}
-                className="gradient-primary text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Task
-              </Button>
-            )}
-          </motion.div>
-        )}
-      </div>
+        </motion.div>
+      )}
+    </div >
 
       <TaskForm
         open={showTaskForm}
@@ -706,35 +708,35 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
         allowProjectSelection={true}
       />
 
-      {/* Delete Task Confirmation Dialog */}
-      <Dialog open={taskToDelete !== null} onOpenChange={(open) => !open && setTaskToDelete(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Delete task?</DialogTitle>
-            <DialogDescription className="pt-2 text-base">
-              Are you sure you want to delete this task? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setTaskToDelete(null)}
-              className="rounded-xl"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={confirmDeleteTask}
-              className="rounded-xl px-8"
-            >
-              Delete Task
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+  {/* Delete Task Confirmation Dialog */ }
+  <Dialog open={taskToDelete !== null} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle className="text-xl">Delete task?</DialogTitle>
+        <DialogDescription className="pt-2 text-base">
+          Are you sure you want to delete this task? This action cannot be undone.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setTaskToDelete(null)}
+          className="rounded-xl"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          onClick={confirmDeleteTask}
+          className="rounded-xl px-8"
+        >
+          Delete Task
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
     </>
   );
 };
