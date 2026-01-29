@@ -1,6 +1,6 @@
 import type { Task, User, TaskStatusEntity, CompletionLog } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { normalizeId } from '@/lib/idUtils';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/lib/tasks/taskUtils';
 import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { CompletionStatusIcon } from './CompletionStatusIcon';
 
 interface TaskParticipantAvatarsProps {
   task: Task;
@@ -97,7 +98,7 @@ const TaskParticipantAvatarsComponent = ({
 
   return (
     <div className="flex items-center pt-1">
-      <div className="flex items-center -space-x-1 py-1.5">
+      <div className="flex items-center -space-x-1.5 py-1.5">
         {participantData.map((participant) => {
           const userName = participant.user?.name || '';
           const userAvatar = participant.user?.avatar || '';
@@ -114,27 +115,32 @@ const TaskParticipantAvatarsComponent = ({
               >
                 <Avatar
                   className={cn(
-                    "w-8 h-8 ring-2 ring-background transition-all duration-300",
+                    "w-[34px] h-[34px] lg:w-[37px] lg:h-[37px] ring-2 ring-background transition-all duration-300",
                     participant.ringColorClass
                   )}
                 >
                   <AvatarImage src={userAvatar} alt={userName} />
-                  <AvatarFallback className="text-[10px] font-semibold">
+                  <AvatarFallback className="text-xs font-semibold">
                     {userInitial}
                   </AvatarFallback>
                 </Avatar>
               </motion.div>
 
-              <div className="absolute -bottom-2 -right-0.5">
+              <div className="absolute -bottom-1 -right-0.5">
                 {participant.isCompleted ? (
-                  <div className={cn(
-                    "w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-background",
-                    participant.isLate ? "bg-yellow-500" : "bg-success"
-                  )}>
-                    <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                  <div className="w-4 h-4 lg:w-[17px] lg:h-[17px]">
+                    <CompletionStatusIcon
+                      status={participant.isLate ? 'late' : 'completed'}
+                      size="sm"
+                    />
                   </div>
                 ) : (
-                  <Circle className="w-4 h-4 text-muted-foreground/60 bg-background rounded-full" />
+                  <div className="w-4 h-4 lg:w-[17px] lg:h-[17px]">
+                    <CompletionStatusIcon
+                      status="pending"
+                      size="sm"
+                    />
+                  </div>
                 )}
               </div>
             </div>
@@ -151,12 +157,29 @@ const TaskParticipantAvatarsComponent = ({
               e.stopPropagation();
               onViewAll?.();
             }}
-            className="relative z-10 w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-sm group"
+            className="relative z-10 w-[34px] h-[34px] lg:w-[37px] lg:h-[37px] rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-sm group"
             aria-label={`View ${remainingCount} more participants`}
           >
-            <span className="text-xs font-bold text-muted-foreground group-hover:text-primary transition-colors">
+            <span className="text-sm font-bold text-muted-foreground group-hover:text-primary transition-colors">
               +{remainingCount}
             </span>
+          </motion.button>
+        )}
+
+        {remainingCount === 0 && participantData.length > 0 && (
+          <motion.button
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewAll?.();
+            }}
+            className="relative z-10 w-[34px] h-[34px] lg:w-[37px] lg:h-[37px] rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-sm group"
+            aria-label="View all participants"
+          >
+            <MoreHorizontal className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </motion.button>
         )}
       </div>

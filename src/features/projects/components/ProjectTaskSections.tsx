@@ -56,7 +56,7 @@ export const TaskSection = memo(({
               contain: 'layout style',
               // Optimize off-screen rendering
               contentVisibility: 'auto',
-              containIntrinsicSize: '0 180px',
+              containIntrinsicSize: '0 260px',
             }}
           >
             <TaskCard

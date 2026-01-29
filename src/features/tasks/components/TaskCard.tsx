@@ -4,13 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon, Trash2, Pencil } from 'lucide-react';
+import { CheckCircle2, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon, Trash2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { getDatabaseClient } from '@/db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { TaskParticipantAvatars } from '@/components/tasks/TaskParticipantAvatars';
+import { CompletionStatusIcon } from '@/components/tasks/CompletionStatusIcon';
 import { cn } from '@/lib/utils';
 import { normalizeId, compareIds } from '@/lib/idUtils';
 import {
@@ -191,6 +192,20 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     setShowRatingModal(false);
   };
 
+  // Calculate card height based on task state
+  const getCardHeight = () => {
+    if (uiStatus === 'completed' && myCompletion) {
+      // Completed tasks: 30px shorter on mobile, 20px shorter on desktop
+      return 'h-[220px]';
+    }
+    if (shouldShowRecover || shouldShowComplete) {
+      // Active/Recovered tasks with buttons: 10px taller
+      return 'h-[260px] lg:h-[250px]';
+    }
+    // Default height
+    return 'h-[250px] lg:h-[240px]';
+  };
+
 
   return (
     <>
@@ -202,7 +217,10 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
           contain: 'layout style',
         }}
       >
-        <Card className="p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50 h-[260px] lg:h-[240px] flex flex-col overflow-hidden">
+        <Card className={cn(
+          "p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50 flex flex-col overflow-hidden",
+          getCardHeight()
+        )}>
           <div className="flex flex-col h-full">
             {/* Header */}
             <div className="flex items-start justify-between gap-3 flex-none">
@@ -244,12 +262,12 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   )}
                 </div>
 
-                <h3 className="font-semibold text-2xl text-foreground line-clamp-2">
+                <h3 className="font-semibold text-lg lg:text-xl text-foreground line-clamp-2">
                   {task.title}
                 </h3>
 
                 {task.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
+                  <p className="hidden sm:block text-sm text-muted-foreground line-clamp-1 mt-0.5">
                     {task.description}
                   </p>
                 )}
@@ -396,7 +414,10 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             )}
 
             {/* Actions */}
-            <div className="flex-none pt-2 border-t border-border/50 mt-auto">
+            <div className={cn(
+              "flex-none pt-4 mt-auto",
+              (shouldShowRecover || shouldShowComplete || (uiStatus === 'completed' && myCompletion)) ? 'border-t border-border/50' : ''
+            )}>
               <AnimatePresence mode="wait">
                 {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
                 {shouldShowRecover && (
@@ -409,7 +430,6 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                       onClick={() => onRecover?.(task.id)}
                       variant="outline"
                       className="w-full"
-                      size="sm"
                     >
                       <RotateCcw className="w-4 h-4 mr-2" />
                       Recover Task
@@ -426,7 +446,6 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                     <Button
                       onClick={handleComplete}
                       className="w-full gradient-primary text-white hover:opacity-90"
-                      size="sm"
                     >
                       <CheckCircle2 className="w-4 h-4 mr-2" />
                       Mark as Completed
@@ -547,7 +566,10 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                       )}>
                         {isParticipantCompleted ? (
                           <>
-                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <CompletionStatusIcon
+                              status={isLateCompletion ? 'late' : 'completed'}
+                              size="sm"
+                            />
                             <span>{isLateCompletion ? 'Late' : 'Completed'}</span>
                           </>
                         ) : participantUiStatus === 'archived' ? (
@@ -557,7 +579,10 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                           </>
                         ) : (
                           <>
-                            <Circle className="w-3.5 h-3.5 opacity-60" />
+                            <CompletionStatusIcon
+                              status="pending"
+                              size="sm"
+                            />
                             <span>Pending</span>
                           </>
                         )}
