@@ -426,15 +426,22 @@ const tryConnection = async (connString: string, attempt: number, total: number)
     }
     
     return client;
-  } catch (error: any) {
-    await client.end().catch(() => {});
-    
-    // If this isn't the last attempt, return null to try next
-    if (attempt < total) {
-      if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED' || 
-          error?.code === 'XX000' || error?.message?.includes('Tenant')) {
-        return null; // Try next connection string
+    } catch (error) {
+      await client.end().catch(() => {});
+
+      // If this isn't last attempt, return null to try next
+      if (attempt < total && error instanceof Error) {
+        const errorCode = (error as NodeJS.ErrnoException).code;
+        const errorMessage = error.message;
+        
+        if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED' ||
+            errorCode === 'XX000' || errorMessage?.includes('Tenant')) {
+          return null; // Try next connection string
+        }
       }
+
+      throw error;
+    }
     }
     
     throw error;

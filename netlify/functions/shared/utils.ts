@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const AI_USAGE_LIMITS = {
     project_generation: 3,
@@ -12,7 +12,7 @@ export function getTodayDate(timezone: string = 'UTC'): string {
 }
 
 export async function checkRateLimit(
-    supabaseAdmin: any,
+    supabaseAdmin: SupabaseClient,
     userId: number,
     usageType: AIUsageType,
     timezone: string = 'UTC'
@@ -45,7 +45,7 @@ export async function checkRateLimit(
 }
 
 export async function incrementUsage(
-    supabaseAdmin: any,
+    supabaseAdmin: SupabaseClient,
     userId: number,
     usageType: AIUsageType,
     timezone: string = 'UTC'

@@ -24,3 +24,11 @@ dist-ssr
 *.sw?
 
 .env
+.env.example
+
+
+#Agents
+.agent
+.opencode
+.agents
+

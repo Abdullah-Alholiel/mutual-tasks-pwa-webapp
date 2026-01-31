@@ -143,6 +143,7 @@ export interface TaskStatusEntity {
   status: TaskStatus;
   archivedAt?: Date;
   recoveredAt?: Date;
+  completedAt?: Date;  // Timestamp when user completed this specific task instance
   ringColor?: RingColor;
   // dueDate?: Date; keyword
   // createdAt?: Date; keyword

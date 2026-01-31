@@ -89,6 +89,7 @@ export type TaskStatusRow = {
   status: string;
   archived_at?: string | null;
   recovered_at?: string | null;
+  completed_at?: string | null;  // Timestamp when user completed this specific task
   ring_color?: string | null;
 };
 
@@ -239,6 +240,7 @@ export function transformTaskStatusRow(row: TaskStatusRow): TaskStatusEntity {
     status: row.status as TaskStatusEntity['status'],
     archivedAt: row.archived_at ? new Date(row.archived_at) : undefined,
     recoveredAt: row.recovered_at ? new Date(row.recovered_at) : undefined,
+    completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
     ringColor: (row.ring_color as TaskStatusEntity['ringColor']) || undefined,
   };
 }
@@ -342,6 +344,9 @@ export function toTaskStatusRow(status: Partial<TaskStatusEntity>): Partial<Task
   }
   if (status.recoveredAt !== undefined) {
     row.recovered_at = status.recoveredAt ? status.recoveredAt.toISOString() : null;
+  }
+  if (status.completedAt !== undefined) {
+    row.completed_at = status.completedAt ? status.completedAt.toISOString() : null;
   }
   if (status.ringColor !== undefined) {
     row.ring_color = status.ringColor || null;

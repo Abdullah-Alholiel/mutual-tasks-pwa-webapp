@@ -3,10 +3,15 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
+import visualizer from 'rollup-plugin-visualizer';
+import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const isProduction = mode === 'production';
+  const isAnalyze = mode === 'analyze';
+
   return {
     envPrefix: ["VITE_", "ONESIGNAL_"],
     server: {
@@ -33,9 +38,97 @@ export default defineConfig(({ mode }) => {
         }
       }
     },
+    build: {
+      target: 'esnext',
+      minify: 'terser',
+      sourcemap: isProduction ? 'hidden' : true,
+      chunkSizeWarningLimit: 600,
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            // React Core
+            if (id.includes('react') && id.includes('react-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('react-router-dom')) {
+              return 'router-vendor';
+            }
+
+            // Supabase
+            if (id.includes('@supabase/supabase-js')) {
+              return 'supabase-vendor';
+            }
+
+            // React Query
+            if (id.includes('@tanstack/react-query') || id.includes('@tanstack/query-sync-storage-persister') || id.includes('@tanstack/react-query-persist-client')) {
+              return 'query-vendor';
+            }
+
+            // UI Components (Radix UI)
+            if (id.includes('@radix-ui')) {
+              return 'ui-vendor';
+            }
+
+            // Charts
+            if (id.includes('recharts')) {
+              return 'charts-vendor';
+            }
+
+            // Animations
+            if (id.includes('framer-motion')) {
+              return 'animations-vendor';
+            }
+
+            // Utilities
+            if (id.includes('date-fns')) {
+              return 'utils-vendor';
+            }
+            if (id.includes('zod')) {
+              return 'validation-vendor';
+            }
+            if (id.includes('clsx') || id.includes('tailwind-merge') || id.includes('class-variance-authority')) {
+              return 'tailwind-vendor';
+            }
+          },
+          chunkFileNames: 'assets/[name]-[hash].js',
+          entryFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash].[ext]',
+        },
+      },
+      terserOptions: {
+        compress: {
+          drop_console: isProduction,
+          drop_debugger: isProduction,
+          pure_funcs: isProduction ? ['console.log', 'console.info', 'console.debug'] : [],
+        },
+      },
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        '@tanstack/react-query',
+        '@supabase/supabase-js',
+        'date-fns',
+      ],
+      exclude: ['vite-plugin-pwa'],
+    },
     plugins: [
+      sentryVitePlugin({
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        telemetry: false,
+      }),
       react(),
       mode === "development" && componentTagger(),
+      isAnalyze && (visualizer as any)({
+        open: true,
+        gzipSize: true,
+        brotliSize: true,
+        filename: 'dist/bundle-analysis.html',
+      }),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['icons/icon-48x48.png', 'icons/icon-192x192.png', 'masked-icon.svg'],

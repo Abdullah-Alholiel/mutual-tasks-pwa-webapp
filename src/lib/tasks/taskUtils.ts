@@ -93,15 +93,18 @@ export const normalizeToStartOfDay = (date: Date): Date => {
 /**
  * Calculate ring color value (RingColor type) based on completion log and task status
  * This is the core logic for determining ring color that should be used consistently
- * 
+ *
  * Rules (in priority order):
- * 1. If completed: Green (on-time/early), Yellow (recovered), or None (late)
- * 2. If task is archived: Red for all participants
- * 3. If task has expired (past due date): Red for all participants
- * 4. If individual status is archived: Red
- * 5. If recovered but not completed: Yellow
- * 6. Otherwise: None
- * 
+ * 1. Archived (RED) - Takes absolute precedence over all other checks
+ *    - Tasks automatically archived after due date (not completed)
+ *    - Recovered tasks that haven't been completed yet (archivedAt stays)
+ *    - When recovering: archivedAt STAYS until task is completed
+ * 2. Recovered + Completed (YELLOW) - Recovered task, then completed
+ * 3. Completed On-Time (GREEN) - On/before due date
+ * 4. Completed Late (NONE) - After due date
+ * 5. Expired (RED) - Past due date, not completed
+ * 6. Otherwise (NONE) - Active/Upcoming tasks
+ *
  * @param completionLog - The completion log for this user (if completed)
  * @param taskStatus - The user's task status entity
  * @param task - The task entity (for checking overall task status and due date)
@@ -112,15 +115,56 @@ export const calculateRingColor = (
   taskStatus: TaskStatusEntity | undefined,
   task?: Task
 ): RingColor => {
-  // PRIORITY 1: If completed, determine color based on stored value or recovery/timing
+  // ============================================================================
+  // PRIORITY 1: ARCHIVED TASKS ALWAYS SHOW RED (absolute precedence)
+  // ============================================================================
+  // Archived status takes precedence over all other ring color logic
+  // This includes:
+  // - Tasks that expired automatically (past due, not completed)
+  // - Recovered tasks that haven't been completed yet (archivedAt stays, recoveredAt set)
+  // - Any task with archivedAt timestamp set
+  //
+  // CRITICAL: When recovering an archived task, archivedAt STAYS.
+  // The task remains "archived" with red ring until the user completes it.
+  // At that point, completedAt is set and ring color recalculates based on timing.
+  // ============================================================================
+  if (taskStatus?.archivedAt && taskStatus.archivedAt !== null) {
+    return 'red';
+  }
+
+  // ============================================================================
+  // PRIORITY 2: RECOVERED TASKS SHOW YELLOW (if not archived)
+  // ============================================================================
+  // Recovered tasks show yellow ring until end of recovery day
+  // After recovery day expires, Priority 1 catches them as red (archivedAt set)
+  if (taskStatus?.recoveredAt || taskStatus?.status === 'recovered') {
+    // Check if recovered task has expired again
+    // The "new due date" for recovered tasks is END of day they were recovered
+    if (taskStatus?.recoveredAt) {
+      const now = new Date();
+      const recoveryDayEnd = new Date(taskStatus.recoveredAt);
+      recoveryDayEnd.setHours(23, 59, 59, 999); // End of recovery day
+
+      // If current time is past end of recovery day, Priority 1 will catch as red
+      if (now <= recoveryDayEnd) {
+        return 'yellow';  // Within recovery day
+      }
+    }
+    // Outside recovery day or no timestamp: fallback to red (caught by Priority 1 if archivedAt set)
+    return 'red';
+  }
+
+  // ============================================================================
+  // PRIORITY 3: COMPLETED TASKS - Use stored or calculate timing
+  // ============================================================================
   if (completionLog) {
-    // Yellow: recovered task (always yellow when completed after recovery)
+    // Yellow: recovered task (already checked above, but keep for safety)
     if (taskStatus?.recoveredAt) {
       return 'yellow';
     }
 
-    // BEST PRACTICE: Trust the stored ringColor if it exists
-    // The ringColor was set at completion time with the correct calculation
+    // BEST PRACTICE: Trust stored ringColor if it exists
+    // The ringColor was set at completion time with correct calculation
     // This prevents mismatches when recalculating with current dates
     if (taskStatus?.ringColor) {
       return taskStatus.ringColor;
@@ -131,73 +175,39 @@ export const calculateRingColor = (
     const completionDate = normalizeToStartOfDay(new Date(completionLog.createdAt));
     const taskDueDate = normalizeToStartOfDay(new Date(task?.dueDate || new Date()));
 
+    // On or before due date: GREEN
     if (completionDate.getTime() <= taskDueDate.getTime()) {
       return 'green';
     }
 
-    // Late completion but not recovered
+    // Late completion but not recovered: NONE
     return 'none';
   }
 
   if (!taskStatus) return 'none';
 
-  // PRIORITY 2: Check if task is recovered
-  // Recovered tasks show yellow until end of recovery day, then expire again (red)
-  if (taskStatus.recoveredAt || taskStatus.status === 'recovered') {
-    // Check if the recovered task has expired again
-    // The "new due date" for recovered tasks is the END of the day they were recovered
-    if (taskStatus.recoveredAt) {
-      const now = new Date();
-      const recoveryDayEnd = new Date(taskStatus.recoveredAt);
-      recoveryDayEnd.setHours(23, 59, 59, 999); // End of recovery day
-
-      // If current time is past end of recovery day, task expired again -> red
-      if (now > recoveryDayEnd) {
-        return 'red';
-      }
-    }
-    // Within recovery day or just marked as recovered, show yellow
-    return 'yellow';
-  }
-
-  // PRIORITY 3: Check if task status user status would be archived (past due, not completed)
-  // Note: General task status only includes 'active' and 'upcoming', so we check via taskStatus
-  if (task && taskStatus && taskStatus.archivedAt) {
-    return 'red';
-  }
-
-  // PRIORITY 4: If task has expired (past due date), all participants should have red ring
+  // ============================================================================
+  // PRIORITY 4: EXPIRED TASKS SHOW RED (archivedAt is null but past due)
+  // ============================================================================
+  // Task is expired if current time is past due date
+  // Only show red if task is not completed (no completion log)
   if (task && task.dueDate) {
     const now = new Date();
     const dueDateEnd = new Date(task.dueDate);
     dueDateEnd.setHours(23, 59, 59, 999); // End of due date
 
-    // Task is expired if current time is past the due date
+    // Task is expired if current time is past due date
     if (now > dueDateEnd) {
-      // Only show red if task is not completed (no completion log)
-      return 'red';
+      // Only show red if task is not completed
+      if (!completionLog) {
+        return 'red';
+      }
     }
   }
 
-  // PRIORITY 5: If individual task status is archived, show red
-  if (taskStatus.archivedAt) {
-    return 'red';
-  }
-
-  // PRIORITY 6: Check if individual status has expired (use task dueDate)
-  // Note: effectiveDueDate not in TaskStatusEntity type
-  if (task?.dueDate) {
-    const now = new Date();
-    const dueDateOnly = new Date(task.dueDate);
-    dueDateOnly.setHours(23, 59, 59, 999); // End of due date
-
-    // Task is expired if current time is past the due date
-    if (now > dueDateOnly) {
-      return 'red';
-    }
-  }
-
-  // PRIORITY 7: No highlight: active task
+  // ============================================================================
+  // PRIORITY 5: ACTIVE/UPCOMING TASKS
+  // ============================================================================
   return 'none';
 };
 

@@ -56,7 +56,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
-        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
+        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE, userTimezone);
 
         if (!rateLimit.allowed) {
             return buildRateLimitResponse(headers, rateLimit.limit);

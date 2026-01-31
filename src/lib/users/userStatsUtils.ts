@@ -62,7 +62,7 @@ export const calculateCurrentStreak = (
 
   // Count consecutive days
   let streak = 0;
-  let currentDate = mostRecentDate === todayStr ? new Date() : new Date();
+  const currentDate = mostRecentDate === todayStr ? new Date() : new Date();
   if (mostRecentDate === yesterdayStr) {
     currentDate.setDate(currentDate.getDate() - 1);
   }

@@ -233,3 +233,177 @@ describe('validateTaskStatusConsistency', () => {
         });
     });
 });
+
+describe('archived status scenarios', () => {
+    describe('archived with completion', () => {
+        it('should accept red ring for archived completed task', () => {
+            const taskStatus = {
+                id: 1,
+                taskId: 1,
+                userId: 1,
+                status: 'completed' as const,
+                ringColor: 'red' as const,
+                archivedAt: new Date('2026-01-21')  // Archived after completion
+            } as TaskStatusEntity;
+            const completionLog = {
+                id: 1,
+                taskId: 1,
+                userId: 1,
+                createdAt: new Date('2026-01-20')  // On-time
+            } as CompletionLog;
+            const dueDate = new Date('2026-01-20');
+
+            const result = validateTaskStatusConsistency(taskStatus, completionLog, dueDate);
+
+            expect(result.isValid).toBe(true);  // Red is valid for archived
+            expect(result.issues).toHaveLength(0);
+        });
+
+        it('should calculate red as expected color for archived with completion', () => {
+            const archivedAt = new Date('2026-01-21');
+            const completionDate = new Date('2026-01-20');
+            const dueDate = new Date('2026-01-20');
+
+            const expectedColor = calculateExpectedRingColor(
+                completionDate,
+                dueDate,
+                undefined,  // no recoveredAt
+                archivedAt
+            );
+
+            expect(expectedColor).toBe('red');  // Archived takes precedence
+        });
+    });
+
+    describe('archived without completion', () => {
+        it('should not flag COMPLETION_LOG_WITHOUT_STATUS for archived without log', () => {
+            const taskStatus = {
+                id: 1,
+                taskId: 1,
+                userId: 1,
+                status: 'archived' as const,
+                ringColor: 'red' as const,
+                archivedAt: new Date()
+            } as TaskStatusEntity;
+            const dueDate = new Date();
+
+            const result = validateTaskStatusConsistency(taskStatus, undefined, dueDate);
+
+            expect(result.isValid).toBe(true);
+            expect(result.issues).toHaveLength(0);
+        });
+    });
+});
+
+describe('recovered status scenarios', () => {
+    it('should calculate yellow as expected color for recovered task', () => {
+        const recoveredAt = new Date('2026-01-20');
+        const completionDate = new Date('2026-01-20');
+        const dueDate = new Date('2026-01-20');
+
+        const expectedColor = calculateExpectedRingColor(
+            completionDate,
+            dueDate,
+            recoveredAt,
+            undefined  // no archivedAt
+        );
+
+        expect(expectedColor).toBe('yellow');  // Recovered takes precedence
+    });
+
+    it('should calculate red as expected color for recovered AND archived', () => {
+        const recoveredAt = new Date('2026-01-20');
+        const archivedAt = new Date('2026-01-21');
+        const completionDate = new Date('2026-01-20');
+        const dueDate = new Date('2026-01-20');
+
+        const expectedColor = calculateExpectedRingColor(
+            completionDate,
+            dueDate,
+            recoveredAt,
+            archivedAt  // archivedAt exists
+        );
+
+        expect(expectedColor).toBe('red');  // Archived takes precedence over recovered
+    });
+});
+
+describe('priority hierarchy validation', () => {
+    it('should prioritize archived over recovered', () => {
+        const recoveredAt = new Date('2026-01-20');
+        const archivedAt = new Date('2026-01-21');
+        const completionDate = new Date('2026-01-20');
+        const dueDate = new Date('2026-01-20');
+
+        const expectedColor = calculateExpectedRingColor(
+            completionDate,
+            dueDate,
+            recoveredAt,
+            archivedAt
+        );
+
+        expect(expectedColor).toBe('red');  // Archived wins
+    });
+
+    it('should prioritize archived over on-time completion', () => {
+        const archivedAt = new Date('2026-01-21');
+        const completionDate = new Date('2026-01-18');  // 2 days before due
+        const dueDate = new Date('2026-01-20');
+
+        const expectedColor = calculateExpectedRingColor(
+            completionDate,
+            dueDate,
+            undefined,  // no recoveredAt
+            archivedAt
+        );
+
+        expect(expectedColor).toBe('red');  // Archived wins even if on-time
+    });
+
+    it('should prioritize archived over late completion', () => {
+        const archivedAt = new Date('2026-01-21');
+        const completionDate = new Date('2026-01-22');  // 2 days after due
+        const dueDate = new Date('2026-01-20');
+
+        const expectedColor = calculateExpectedRingColor(
+            completionDate,
+            dueDate,
+            undefined,  // no recoveredAt
+            archivedAt
+        );
+
+        expect(expectedColor).toBe('red');  // Archived wins even if late
+    });
+
+    it('should accept green for on-time without archived', () => {
+        const archivedAt = undefined;
+        const recoveredAt = undefined;
+        const completionDate = new Date('2026-01-18');  // 2 days before due
+        const dueDate = new Date('2026-01-20');
+
+        const expectedColor = calculateExpectedRingColor(
+            completionDate,
+            dueDate,
+            recoveredAt,
+            archivedAt
+        );
+
+        expect(expectedColor).toBe('green');  // On-time without archived = green
+    });
+
+    it('should accept none for late without archived', () => {
+        const archivedAt = undefined;
+        const recoveredAt = undefined;
+        const completionDate = new Date('2026-01-22');  // 2 days after due
+        const dueDate = new Date('2026-01-20');
+
+        const expectedColor = calculateExpectedRingColor(
+            completionDate,
+            dueDate,
+            recoveredAt,
+            archivedAt
+        );
+
+        expect(expectedColor).toBe('none');  // Late without archived = none
+    });
+});

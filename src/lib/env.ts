@@ -13,7 +13,7 @@
  */
 export function getEnvVar(viteKey: string, nextKey: string): string | undefined {
   // Try Vite environment variables first (for Vite projects)
-  // @ts-ignore - import.meta.env is available in Vite
+  // @ts-expect-error - import.meta.env is available in Vite
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     const viteValue = import.meta.env[viteKey];
     if (viteValue && typeof viteValue === 'string') {

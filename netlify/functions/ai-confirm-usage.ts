@@ -4,7 +4,8 @@ import {
     verifyMagicLinkSession,
     incrementUsage,
     getCorsHeaders,
-    AI_USAGE_LIMITS
+    AI_USAGE_LIMITS,
+    type AIUsageType
 } from './shared/utils';
 
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
@@ -19,12 +20,12 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     }
 
     try {
-        let usageType: any;
+        let usageType: AIUsageType | undefined;
 
         if (event.body) {
             try {
                 const body = JSON.parse(event.body);
-                usageType = body.usageType;
+                usageType = body.usageType as AIUsageType;
             } catch {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
             }

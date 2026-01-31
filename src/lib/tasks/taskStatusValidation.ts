@@ -64,33 +64,54 @@ export interface ValidationIssue {
 
 /**
  * Calculate the expected ring color for a COMPLETED task based on completion timing
- * 
+ *
  * NOTE: This is different from `calculateRingColor` in taskUtils.ts:
  * - `calculateRingColor` → Determines what color to DISPLAY for UI (handles all live states)
  * - `calculateExpectedRingColor` → Determines what color SHOULD HAVE BEEN STORED for validation
- * 
- * This function only applies to completed tasks and validates the persisted ringColor.
- * 
- * Rules:
- * - Yellow: recovered task (completed after recovery)
- * - Green: on-time completion (before or on due date, not recovered)
- * - None: late completion (after due date, not recovered)
- * 
+ *
+ * This function only applies to completed tasks and validates persisted ringColor.
+ *
+ * Rules (in priority order):
+ * - Red: archived task (archivedAt exists) - takes precedence over all
+ * - Yellow: recovered task (recoveredAt exists, not archived)
+ * - Green: on-time completion (before or on due date, not recovered, not archived)
+ * - None: late completion (after due date, not recovered, not archived)
+ *
+ * IMPORTANT: A task can have archivedAt set AND be completed.
+ * In this case, archivedAt takes precedence and ring should be red.
+ * The task status remains 'completed' but shows red until recovery or manual update.
+ *
  * @param completionDate - When the task was completed
  * @param dueDate - When the task was due
  * @param recoveredAt - Optional recovery timestamp
+ * @param archivedAt - Optional archived timestamp
  * @returns Expected ring color value for validation
  */
 export const calculateExpectedRingColor = (
     completionDate: Date,
     dueDate: Date,
-    recoveredAt?: Date
+    recoveredAt?: Date,
+    archivedAt?: Date
 ): RingColor => {
+    // Priority 1: Archived tasks should have red ring
+    if (archivedAt && archivedAt !== null) {
+        return 'red';
+    }
+
+    // Priority 2: Recovered tasks get yellow
+    if (recoveredAt) {
+        return 'yellow';
+    }
+
+    // Priority 3: On-time completion
     const normalizedCompletion = normalizeToStartOfDay(new Date(completionDate));
     const normalizedDue = normalizeToStartOfDay(new Date(dueDate));
 
-    if (recoveredAt) return 'yellow';
-    if (normalizedCompletion.getTime() <= normalizedDue.getTime()) return 'green';
+    if (normalizedCompletion.getTime() <= normalizedDue.getTime()) {
+        return 'green';
+    }
+
+    // Priority 4: Late completion
     return 'none';
 };
 
@@ -133,18 +154,26 @@ export const validateTaskStatusConsistency = (
                     details: { status, ringColor }
                 });
             } else {
-                // Only flag truly invalid ring colors for completed tasks
-                // Valid completed ring colors: green (on-time), yellow (recovered), none (late)
-                // Invalid: red (should only be for archived/expired tasks)
-                if (ringColor === 'red') {
+                // Validate that ring color matches completion timing
+                const expectedColor = calculateExpectedRingColor(
+                    completionLog.createdAt,
+                    taskDueDate,
+                    recoveredAt,
+                    taskStatus.archivedAt
+                );
+                
+                if (ringColor !== expectedColor) {
                     issues.push({
                         type: 'RING_COLOR_MISMATCH',
                         taskId,
                         userId,
                         details: {
                             actual: ringColor,
-                            issue: 'Completed tasks should not have red ring color',
-                            validColors: ['green', 'yellow', 'none']
+                            expected: expectedColor,
+                            issue: `Ring color should be '${expectedColor}' based on completion timing`,
+                            completionDate: completionLog.createdAt,
+                            dueDate: taskDueDate,
+                            recoveredAt
                         }
                     });
                 }

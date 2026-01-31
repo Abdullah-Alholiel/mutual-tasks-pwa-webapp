@@ -21,10 +21,12 @@ import { MainTabsShell } from "../layout/MainTabsShell";
 import { AppLayout } from "../layout/AppLayout";
 import { DataIntegrityGuard } from "@/components/DataIntegrityGuard";
 import { GlobalErrorBoundary } from "@/components/ui/GlobalErrorBoundary";
+import { PWAUpdateBanner } from "@/components/PWAUpdateBanner";
 import { useEffect } from "react";
 import { initializeOneSignal } from "@/lib/onesignal/oneSignalService";
 import { PERFORMANCE_CONFIG } from "@/config/appConfig";
 import { logger } from "@/lib/monitoring/logger";
+import { initializeSentry } from "@/lib/sentry";
 
 /**
  * OneSignal Initializer - runs once on app load
@@ -83,7 +85,12 @@ onlineManager.setEventListener((setOnline) => {
 });
 
 const App = () => {
-  usePWAUpdate();
+  // Initialize Sentry on app mount
+  useEffect(() => {
+    initializeSentry();
+  }, []);
+
+  const { needRefresh, forceUpdate } = usePWAUpdate();
 
   return (
     <GlobalErrorBoundary>
@@ -114,6 +121,12 @@ const App = () => {
             <TooltipProvider>
               <Toaster />
               <Sonner />
+              {needRefresh && (
+                <PWAUpdateBanner
+                  onRefresh={forceUpdate}
+                  onDismiss={() => {/* User can ignore - state will update on next check */}}
+                />
+              )}
               <BrowserRouter
                 future={{
                   v7_startTransition: true,
@@ -145,13 +158,13 @@ const App = () => {
 
                   {/* Catch-all route - not protected (404 page) */}
                   <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </DataIntegrityGuard>
-      </AuthProvider>
-    </PersistQueryClientProvider>
-    </ThemeProvider>
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </DataIntegrityGuard>
+        </AuthProvider>
+      </PersistQueryClientProvider>
+      </ThemeProvider>
     </GlobalErrorBoundary>
   );
 };

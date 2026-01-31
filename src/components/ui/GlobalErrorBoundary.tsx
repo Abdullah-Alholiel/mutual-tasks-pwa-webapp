@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { logger } from "@/lib/monitoring/logger";
+import { captureException, setUser } from "@/lib/sentry";
 
 interface Props {
     children: ReactNode;
@@ -30,10 +31,14 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         logger.error("[GlobalErrorBoundary] Uncaught error:", error, errorInfo);
-        // TODO: Send to error tracking service (Sentry, LogRocket, etc.)
-        // if (import.meta.env.PROD) {
-        //   Sentry.captureException(error, { contexts: { react: errorInfo } });
-        // }
+
+        // Send to error tracking service (Sentry) in production
+        if ((import.meta as any).env?.PROD) {
+          captureException(error, {
+            componentStack: errorInfo.componentStack,
+            errorBoundary: true,
+          });
+        }
     }
 
     private handleReload = () => {
@@ -56,7 +61,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                                 An unexpected error occurred. We've optimized the app to prevent data loss,
                                 but we need to reload to get things back on track.
                             </p>
-                            {this.state.error && process.env.NODE_ENV === 'development' && (
+                            {this.state.error && (typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV) && (
                                 <div className="p-3 bg-muted rounded-md text-left overflow-auto max-h-40 text-xs font-mono">
                                     {this.state.error.toString()}
                                 </div>
