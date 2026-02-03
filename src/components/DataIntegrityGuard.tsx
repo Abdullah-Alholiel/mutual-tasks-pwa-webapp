@@ -45,7 +45,7 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
         // 4. Unregister Service Workers
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function (registrations) {
-                for (let registration of registrations) {
+                for (const registration of registrations) {
                     registration.unregister();
                 }
             });

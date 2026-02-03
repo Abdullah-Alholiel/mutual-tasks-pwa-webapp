@@ -163,7 +163,7 @@ serve(async (req) => {
 
         if (emailError) {
           // Try to extract response body for better error details
-          let errorDetails: any = {
+          const errorDetails: any = {
             message: emailError.message,
             context: emailError.context,
           };
@@ -277,7 +277,7 @@ serve(async (req) => {
 
         if (emailError) {
           // Try to extract response body for better error details
-          let errorDetails: any = {
+          const errorDetails: any = {
             message: emailError.message,
             context: emailError.context,
           };

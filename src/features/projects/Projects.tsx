@@ -284,7 +284,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
 
         if (taskData.type === 'habit' && taskData.recurrencePattern) {
           // Handle recurring habit tasks - create the full series
-          let endDate = new Date(today);
+          const endDate = new Date(today);
 
           // For AI-generated projects, default to 30 days duration
           // This ensures daily habits get 30 occurrences, weekly habits get ~4-5 occurrences
@@ -304,7 +304,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
             maxOccurrences = projectDurationDays; // Fallback to daily
           }
 
-          let currentDate = new Date(startDate);
+          const currentDate = new Date(startDate);
           let occurrenceCount = 0;
 
           while (currentDate <= endDate && occurrenceCount < maxOccurrences) {

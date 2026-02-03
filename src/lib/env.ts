@@ -13,14 +13,14 @@
  */
 export function getEnvVar(viteKey: string, nextKey: string): string | undefined {
   // Try Vite environment variables first (for Vite projects)
-  // @ts-expect-error - import.meta.env is available in Vite
+  // ts-expect-error - import.meta.env is available in Vite
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     const viteValue = import.meta.env[viteKey];
     if (viteValue && typeof viteValue === 'string') {
       return viteValue;
     }
   }
-  
+
   // Try Next.js environment variables (for Next.js projects or fallback)
   if (typeof process !== 'undefined' && process.env) {
     const nextValue = process.env[nextKey];
@@ -28,7 +28,7 @@ export function getEnvVar(viteKey: string, nextKey: string): string | undefined 
       return nextValue;
     }
   }
-  
+
   // Fallback: try Vite convention in process.env (for server-side in Vite)
   if (typeof process !== 'undefined' && process.env) {
     const viteFallback = process.env[viteKey];
@@ -36,7 +36,7 @@ export function getEnvVar(viteKey: string, nextKey: string): string | undefined 
       return viteFallback;
     }
   }
-  
+
   return undefined;
 }
 

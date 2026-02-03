@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { deduplicator, withDeduplication } from '../../src/lib/utils/requestDeduplicator';
+import { deduplicator, withDeduplication } from '@/lib/utils/requestDeduplicator';
 
 describe('RequestDeduplicator', () => {
     beforeEach(() => {

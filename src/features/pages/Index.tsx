@@ -323,7 +323,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
         endDate.setDate(endDate.getDate() + 28); // 28 days for habits
 
         const tasksToCreate: CreateTaskWithStatusesInput[] = [];
-        let currentDate = new Date(startDate);
+        const currentDate = new Date(startDate);
 
         while (currentDate <= endDate) {
           tasksToCreate.push({

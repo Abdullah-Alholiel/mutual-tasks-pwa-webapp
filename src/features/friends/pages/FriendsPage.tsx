@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 
 interface FriendsPageProps {
     isInternalSlide?: boolean;
@@ -41,6 +40,11 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
     const { mutate: addFriend, isPending: isAdding } = useAddFriend();
     const { mutate: removeFriend } = useRemoveFriend();
     const { mutate: respondToRequest } = useRespondToRequest();
+
+    // Reserved for future branch merge usage
+    void isActive;
+    void addFriend;
+    void isAdding;
 
     const [handle, setHandle] = useState('');
     const [debouncedHandle, setDebouncedHandle] = useState('');

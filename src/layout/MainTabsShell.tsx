@@ -30,6 +30,7 @@ const PageWrapper = ({ children, scrollKey }: { children: ReactNode; scrollKey: 
     return (
         <div
             ref={scrollRef}
+            data-scroll-container="main"
             className="h-full w-full overflow-y-auto custom-scrollbar touch-scroll"
             style={{
                 // GPU acceleration for smooth scrolling

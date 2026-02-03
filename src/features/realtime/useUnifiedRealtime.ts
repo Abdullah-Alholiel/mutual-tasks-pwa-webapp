@@ -286,6 +286,7 @@ export function useUnifiedRealtime(options: UseUnifiedRealtimeOptions = {}) {
     // Use ref to track status without causing re-renders in useCallback dependencies
     const connectionStatusRef = useRef<ConnectionStatus>('disconnected');
     const reconnectAttempts = useRef(0);
+    const isReconnecting = useRef(false);  // Prevents reconnection storms after timeout
     const healthCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -309,8 +310,10 @@ export function useUnifiedRealtime(options: UseUnifiedRealtimeOptions = {}) {
         if (state === 'joined' || state === 'joining') {
             updateConnectionStatus('connected');
             reconnectAttempts.current = 0;
+            isReconnecting.current = false;  // Clear reconnecting flag after successful connect
         } else {
             logger.warn('[UnifiedRealtime] Unhealthy channel detected, attempting reconnection');
+            isReconnecting.current = true;  // Set reconnecting flag before attempting reconnect
             attemptReconnect();
         }
     }, [updateConnectionStatus]);

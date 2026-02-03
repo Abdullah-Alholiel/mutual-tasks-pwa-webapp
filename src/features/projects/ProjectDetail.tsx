@@ -201,7 +201,7 @@ const ProjectDetail = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="h-full w-full overflow-y-auto custom-scrollbar">
+      <div className="h-full w-full overflow-y-auto custom-scrollbar" data-scroll-container="main">
         <div
           className="px-4 md:px-6 max-w-7xl mx-auto w-full space-y-6 animate-fade-in"
           style={{

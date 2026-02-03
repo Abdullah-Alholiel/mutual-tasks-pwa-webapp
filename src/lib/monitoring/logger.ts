@@ -17,6 +17,7 @@ interface LoggerOptions {
     level?: LogLevel;
     environment?: 'development' | 'production' | 'test';
     enableStackTrace?: boolean;
+    maxHistory?: number;  // Maximum log entries to keep in circular buffer
 }
 
 interface LogEntry {
@@ -29,15 +30,21 @@ interface LogEntry {
 
 class Logger {
     private level: LogLevel;
-    private environment: string;
+    private environment: 'development' | 'production' | 'test';
     private enableStackTrace: boolean;
     private history: LogEntry[] = [];
-    private readonly MAX_HISTORY = 100;
+    private currentIndex: number = 0;  // For circular buffer
+    private readonly MAX_HISTORY: number;
 
     constructor(options: LoggerOptions = {}) {
         this.level = options.level ?? this.getLogLevelFromEnv();
-        this.environment = options.environment ?? (import.meta.env.MODE || 'development');
+        const envMode = (import.meta as any).env?.MODE;
+        const validModes = ['development', 'production', 'test'] as const;
+        this.environment = options.environment ?? (envMode && validModes.includes(envMode) ? envMode : 'development');
         this.enableStackTrace = options.enableStackTrace ?? true;
+        this.currentIndex = 0;  // For circular buffer
+        this.history = [];
+        this.MAX_HISTORY = options.maxHistory ?? 100;
     }
 
     private getLogLevelFromEnv(): LogLevel {

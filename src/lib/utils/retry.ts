@@ -82,11 +82,11 @@ export interface RetryAsyncOptions {
     maxDelay?: number;
 }
 
-export function retryAsync<T extends (...args: any[]) => Promise<any>>(
+export function retryAsync<T extends (...args: Parameters<T>) => Promise<unknown>>(
     fn: T,
     options: RetryAsyncOptions = {}
 ): T {
-    return (async (...args: any[]) => {
+    return (async (...args: Parameters<T>) => {
         return withRetry(() => fn(...args), options);
     }) as T;
 }
