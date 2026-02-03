@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { calculateLevel } from '@/lib/users/userStatsUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
+import { DEFAULT_PROJECT_COLOR } from '@/constants/projectColors';
 
 interface ProfileProps {
   isInternalSlide?: boolean;
@@ -196,9 +197,9 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
                 >
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm"
-                    style={{ backgroundColor: adjustColorOpacity(project.color || '#3b82f6', 0.1) }}
+                    style={{ backgroundColor: adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.1) }}
                   >
-                    <Icon className="w-5 h-5" style={{ color: project.color || '#3b82f6' }} />
+                    <Icon className="w-5 h-5" style={{ color: project.color || DEFAULT_PROJECT_COLOR }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold truncate text-foreground text-sm group-hover:text-primary transition-colors">{project.name}</div>
@@ -219,7 +220,7 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
                         initial={{ width: 0 }}
                         animate={{ width: `${project.progress || 0}%` }}
                         className="h-full rounded-full"
-                        style={{ backgroundColor: project.color || '#3b82f6' }}
+                        style={{ backgroundColor: project.color || DEFAULT_PROJECT_COLOR }}
                       />
                     </div>
                   </div>

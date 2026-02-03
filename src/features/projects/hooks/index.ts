@@ -6,7 +6,7 @@
 export { useProjectDetail } from './useProjectDetail';
 
 // Individual hooks for granular usage
-export { useProjects, useProject, usePublicProjects, useCreateProject, useUpdateProject, useDeleteProject } from './useProjects';
+export { useProjects, useProject, usePublicProjects, useCreateProject, useUpdateProject, useDeleteProject, useUserProjectsWithStats, useJoinProject } from './useProjects';
 export { useProjectTaskData } from './useProjectTaskData';
 export { useProjectTaskCategories } from './useProjectTaskCategories';
 export { useProjectTaskMutations } from './useProjectTaskMutations';

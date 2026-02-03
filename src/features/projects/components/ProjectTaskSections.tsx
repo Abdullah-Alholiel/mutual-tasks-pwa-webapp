@@ -56,7 +56,7 @@ export const TaskSection = memo(({
               contain: 'layout style',
               // Optimize off-screen rendering
               contentVisibility: 'auto',
-              containIntrinsicSize: '0 180px',
+              containIntrinsicSize: '0 260px',
             }}
           >
             <TaskCard
@@ -83,7 +83,7 @@ interface ProjectTaskSectionsProps {
   completedTasks: Task[];
   archivedTasks: Task[];
   completionLogs: CompletionLog[];
-  onRecover: (taskId: string | number) => void;
+  onRecover?: (taskId: string | number) => void;
   onComplete?: (taskId: string | number, difficultyRating?: number) => void;
   onDelete?: (taskId: string | number) => void;
   getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;

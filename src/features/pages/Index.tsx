@@ -2,13 +2,15 @@ import { AppLayout } from '../../layout/AppLayout';
 import { TaskCard } from '../tasks/components/TaskCard';
 import { TaskForm } from '../tasks/components/TaskForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { InlineLoader } from '../../components/ui/loader';
+import { TaskStatCard } from '../../components/TaskStatCard';
 import { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import type { Task, TaskStatusEntity, CompletionLog } from '../../types';
+import type { Task, User, ProjectParticipant } from '../../types';
 import {
   getTodayTasks,
   getNeedsActionTasks,
@@ -22,13 +24,12 @@ import { notifyTaskUpdated } from '../../lib/tasks/taskEmailNotifications';
 import { normalizeToStartOfDay } from '../../lib/tasks/taskUtils';
 import { normalizeId, compareIds } from '../../lib/idUtils';
 import { useAuth } from '../auth/useAuth';
-import { useProjects } from '../projects/hooks/useProjects';
+import { useProjects, useCreateProject } from '../projects/hooks/useProjects';
 import {
   useCreateTaskWithStatuses,
   useCreateMultipleTasksWithStatuses,
   type CreateTaskWithStatusesInput,
   useTaskStatuses,
-  useCompletionLogs,
   useProjectCompletionLogs
 } from '../tasks/hooks/useTasks';
 import { useCreateCompletionLog, useUpdateTaskStatus, useDeleteTask, useUpdateTask } from '../tasks/hooks/useTasks';
@@ -36,6 +37,8 @@ import { useTodayTasks, useUserTasks } from '../tasks/hooks/useTasks';
 import { useIsRestoring, useQueryClient } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 import { TASK_CONFIG } from '@/config/appConfig';
+import { useNavigate } from 'react-router-dom';
+import { ProjectForm } from '../projects/components/ProjectForm';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 interface IndexProps {
@@ -43,10 +46,11 @@ interface IndexProps {
   isActive?: boolean;
 }
 
-const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
+const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
   const { user, isAuthenticated } = useAuth();
   const isRestoring = useIsRestoring();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
   const { data: todayTasksRaw = [], isLoading: tasksLoading } = useTodayTasks();
   const { data: allUserTasks = [], isLoading: allTasksLoading } = useUserTasks(); // For recovered tasks
@@ -56,12 +60,14 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
   const updateTaskStatusMutation = useUpdateTaskStatus();
   const deleteTaskMutation = useDeleteTask();
   const updateTaskMutation = useUpdateTask();
+  const createProjectMutation = useCreateProject();
 
   // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
   // No need to create subscriptions here - they're managed globally
 
   const { data: taskStatuses = [], isLoading: statusesLoading } = useTaskStatuses();
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showProjectForm, setShowProjectForm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
@@ -158,7 +164,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
       // If task status doesn't exist, create it if the user is the creator or in project
       try {
         const db = getDatabaseClient();
-        currentTaskStatus = await db.taskStatus.getByTaskAndUser(taskIdNum, userIdNum);
+        currentTaskStatus = await db.taskStatus.getByTaskAndUser(taskIdNum, userIdNum) ?? undefined;
 
         if (!currentTaskStatus) {
           currentTaskStatus = await db.taskStatus.create({
@@ -444,6 +450,99 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
     }
   };
 
+  const handleCreateProject = async (projectData: {
+    name: string;
+    description: string;
+    participants: string[];
+    color: string;
+    isPublic: boolean;
+    icon: string;
+  }) => {
+    if (!user || !isAuthenticated) {
+      toast.error('You must be logged in to create a project');
+      return;
+    }
+
+    try {
+      // Create project with owner ID
+      const ownerId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      const newProject = await createProjectMutation.mutateAsync({
+        name: projectData.name,
+        description: projectData.description,
+        ownerId,
+        totalTasks: 0,
+        isPublic: projectData.isPublic,
+        color: projectData.color,
+        icon: projectData.icon
+      });
+
+      // Add participants if provided
+      const updatedParticipants: User[] = [];
+      const updatedRoles: ProjectParticipant[] = [];
+
+      // Add owner (current user) to the local state lists
+      if (user) {
+        updatedParticipants.push(user);
+        updatedRoles.push({
+          projectId: newProject.id,
+          userId: ownerId,
+          role: 'owner',
+          addedAt: new Date(),
+          user: user
+        });
+      }
+
+      if (projectData.participants.length > 0) {
+        const db = getDatabaseClient();
+        const projectId = typeof newProject.id === 'string' ? parseInt(newProject.id) : newProject.id;
+
+        // Add participants
+        for (const participantIdStr of projectData.participants) {
+          const participantId = typeof participantIdStr === 'string' ? parseInt(participantIdStr) : participantIdStr;
+
+          // Check if user exists
+          const participantUser = await db.users.getById(participantId);
+          if (!participantUser) {
+            toast.error(`User with ID ${participantIdStr} not found`);
+            continue;
+          }
+
+          // Add as participant
+          await db.projects.addParticipant(projectId, participantId, 'participant');
+
+          // Add to local lists for UI state
+          updatedParticipants.push(participantUser);
+          updatedRoles.push({
+            projectId: newProject.id,
+            userId: participantId,
+            role: 'participant',
+            addedAt: new Date(),
+            user: participantUser
+          });
+        }
+      }
+
+      setShowProjectForm(false);
+
+      // Construct updated project object with participants for immediate UI feedback
+      const projectWithParticipants = {
+        ...newProject,
+        participants: updatedParticipants,
+        participantRoles: updatedRoles
+      };
+
+      // Seed React Query cache so ProjectDetail finds data immediately
+      queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
+      queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
+
+      // Navigate to the new project
+      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      toast.error('Failed to create project');
+    }
+  };
+
   const getOnEditTask = (task: Task) => {
     if (!user) return undefined;
     const project = allProjects.find(p => compareIds(p.id, task.projectId));
@@ -496,9 +595,9 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-3xl font-bold mb-2"
+              className="text-4xl font-bold mb-2"
             >
-              Today's Tasks
+              Today
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, x: -20 }}
@@ -515,61 +614,51 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
             </motion.p>
           </div>
 
-          {projectsWhereCanCreateTasks.length > 0 && (
-            <Button
-              onClick={() => setShowTaskForm(true)}
-              className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]"
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              New Task
-            </Button>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-11 px-5 text-base font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]">
+                <Plus className="w-5 h-5 mr-0 sm:mr-2" />
+                <span className="hidden sm:inline">New</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => setShowTaskForm(true)}>
+                New Task
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowProjectForm(true)}>
+                New Project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Stats Overview */}
         <div className="grid grid-cols-3 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
-          >
-            <div className="text-2xl font-bold text-primary mb-1">
-              {needsActionTasks.length}
-            </div>
-            <div className="text-sm text-muted-foreground">Active</div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
-          >
-            <div className="text-2xl font-bold text-status-completed mb-1">
-              {completedTasksForToday.length}
-            </div>
-            <div className="text-sm text-muted-foreground">Completed</div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm text-center"
-          >
-            <div className="text-2xl font-bold text-muted-foreground mb-1">
-              {recoveredTasks.length}
-            </div>
-            <div className="text-sm text-muted-foreground">Recovered</div>
-          </motion.div>
+          <TaskStatCard
+            count={needsActionTasks.length}
+            label="Active"
+            color="text-primary"
+            delay={0.2}
+          />
+          <TaskStatCard
+            count={completedTasksForToday.length}
+            label="Completed"
+            color="text-status-completed"
+            delay={0.3}
+          />
+          <TaskStatCard
+            count={recoveredTasks.length}
+            label="Recovered"
+            color="text-status-warning"
+            delay={0.4}
+          />
         </div>
 
         {/* Needs Your Action */}
         {needsActionTasks.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-accent" />
+              <Sparkles className="w-5 h-5 text-primary" />
               <h2 className="text-xl font-semibold">Needs Your Action</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
@@ -586,7 +675,45 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 180px',
+                    containIntrinsicSize: '0 260px',
+                  }}
+                >
+                  <TaskCard
+                    task={task}
+                    completionLogs={completionLogs}
+                    onComplete={handleComplete}
+                    showRecover={false}
+                    onDelete={handleDeleteTask}
+                    onEdit={getOnEditTask(task)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Another Chance ? */}
+        {recoveredTasks.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-status-warning" />
+              <h2 className="text-xl font-semibold">Another Chance ?</h2>
+            </div>
+            {/* Optimized task container for smooth scrolling */}
+            <div
+              className="space-y-3"
+              style={{
+                transform: 'translateZ(0)',
+                willChange: 'contents',
+              }}
+            >
+              {recoveredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  style={{
+                    contain: 'layout style',
+                    contentVisibility: 'auto',
+                    containIntrinsicSize: '0 260px',
                   }}
                 >
                   <TaskCard
@@ -607,7 +734,7 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
         {completedTasksForToday.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-accent" />
+              <CheckCircle2 className="w-5 h-5 text-success" />
               <h2 className="text-xl font-semibold">Done for the Day</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
@@ -624,50 +751,12 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 180px',
+                    containIntrinsicSize: '0 220px',
                   }}
                 >
                   <TaskCard
                     task={task}
                     completionLogs={completionLogs}
-                    onDelete={handleDeleteTask}
-                    onEdit={getOnEditTask(task)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Another Chance? */}
-        {recoveredTasks.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <RotateCcw className="w-5 h-5 text-accent" />
-              <h2 className="text-xl font-semibold">Another Chance?</h2>
-            </div>
-            {/* Optimized task container for smooth scrolling */}
-            <div
-              className="space-y-3"
-              style={{
-                transform: 'translateZ(0)',
-                willChange: 'contents',
-              }}
-            >
-              {recoveredTasks.map((task) => (
-                <div
-                  key={task.id}
-                  style={{
-                    contain: 'layout style',
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: '0 180px',
-                  }}
-                >
-                  <TaskCard
-                    task={task}
-                    completionLogs={completionLogs}
-                    onComplete={handleComplete}
-                    showRecover={false}
                     onDelete={handleDeleteTask}
                     onEdit={getOnEditTask(task)}
                   />
@@ -691,18 +780,25 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
             <p className="text-muted-foreground mb-6">
               Start a new task or check out your projects
             </p>
-            {projectsWhereCanCreateTasks.length > 0 && (
-              <Button
-                onClick={() => setShowTaskForm(true)}
-                className="gradient-primary text-white"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Task
-              </Button>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="gradient-primary text-white rounded-full h-11 px-5 text-base">
+                  <Plus className="w-5 h-5 mr-0 sm:mr-2" />
+                  <span className="hidden sm:inline">New</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem onClick={() => setShowTaskForm(true)}>
+                  New Task
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowProjectForm(true)}>
+                  New Project
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </motion.div>
         )}
-      </div>
+      </div >
 
       <TaskForm
         open={showTaskForm}
@@ -720,6 +816,15 @@ const Index = ({ isInternalSlide, isActive = true }: IndexProps) => {
         }}
         projects={projectsWhereCanCreateTasks}
         allowProjectSelection={true}
+      />
+
+      <ProjectForm
+        open={showProjectForm}
+        onOpenChange={(open) => {
+          setShowProjectForm(open);
+        }}
+        onSubmit={handleCreateProject}
+        currentUser={user!}
       />
 
       {/* Delete Task Confirmation Dialog */}

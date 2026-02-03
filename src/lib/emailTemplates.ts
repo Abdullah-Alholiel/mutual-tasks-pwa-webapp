@@ -38,7 +38,7 @@ export const createSigninEmail = (
           <title>Sign in to Momentum</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
             <h1 style="color: white; margin: 0; font-size: 28px;">Momentum</h1>
             <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Collaborative Tasks</p>
           </div>
@@ -52,7 +52,7 @@ export const createSigninEmail = (
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${magicLink}" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                 style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
                 Sign In to Momentum
               </a>
             </div>
@@ -60,7 +60,7 @@ export const createSigninEmail = (
             <p style="color: #999; font-size: 14px; margin-top: 30px;">
               If the button doesn't work, copy and paste this link into your browser:
             </p>
-            <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">
+            <p style="color: #1D4ED8; font-size: 14px; word-break: break-all;">
               ${magicLink}
             </p>
             
@@ -103,7 +103,7 @@ export const createSignupEmail = (
           <title>Welcome to Momentum</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
             <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Momentum! 🎉</h1>
             <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Collaborative Tasks</p>
           </div>
@@ -117,7 +117,7 @@ export const createSignupEmail = (
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${magicLink}" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                 style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
                 Complete Signup
               </a>
             </div>
@@ -125,7 +125,7 @@ export const createSignupEmail = (
             <p style="color: #999; font-size: 14px; margin-top: 30px;">
               If the button doesn't work, copy and paste this link into your browser:
             </p>
-            <p style="color: #0EA5E9; font-size: 14px; word-break: break-all;">
+            <p style="color: #1D4ED8; font-size: 14px; word-break: break-all;">
               ${magicLink}
             </p>
             
@@ -175,7 +175,7 @@ export const createTaskCreatedEmail = (
           <title>New Task Created</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
             <h1 style="color: white; margin: 0; font-size: 28px;">New Task Created! 📝</h1>
             <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">${project.name}</p>
           </div>
@@ -189,7 +189,7 @@ export const createTaskCreatedEmail = (
               <strong>${creator.name}</strong> has created a new task in <strong>${project.name}</strong>:
             </p>
             
-            <div style="background: #f5f5f5; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <div style="background: #f5f5f5; border-left: 4px solid #1D4ED8; padding: 15px; margin: 20px 0; border-radius: 4px;">
               <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 18px;">${task.title}</h3>
               ${task.description ? `<p style="margin: 0; color: #666; font-size: 14px;">${task.description}</p>` : ''}
               <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">
@@ -203,7 +203,7 @@ export const createTaskCreatedEmail = (
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${taskUrl}" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
+                 style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
                 View Task
               </a>
             </div>
@@ -246,7 +246,7 @@ export const createTaskCompletedEmail = (
           <meta charset="utf-8">
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+          <div style="background: #10B981; border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
             <h1 style="color: white; margin: 0;">Task Completed! 🎉</h1>
           </div>
           
@@ -267,7 +267,7 @@ export const createTaskCompletedEmail = (
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${(typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'https://momentum.app'}/" 
-                 style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
+                 style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
                 View Task
               </a>
             </div>

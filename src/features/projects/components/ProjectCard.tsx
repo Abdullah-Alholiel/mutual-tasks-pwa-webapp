@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { getIconByName } from '@/lib/projects/projectIcons';
 
 import { adjustColorOpacity } from '@/lib/colorUtils';
+import { DEFAULT_PROJECT_COLOR } from '@/constants/projectColors';
 
 interface ProjectCardProps {
   project: Project;
@@ -27,19 +28,18 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => navigate(`/projects/${project.id}`)}
-      className="cursor-pointer h-full"
+      className="cursor-pointer h-[240px]"
     >
       <Card className="p-5 hover-lift shadow-sm border-border/50 h-full flex flex-col">
-        <div className="flex flex-col gap-4 h-full">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-3 flex-1">
+        <div className="flex flex-col h-full">
+          <div className="flex items-start justify-between gap-3 flex-none">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-lg text-foreground break-words">
+              <div className="flex items-center gap-2 mb-1.5">
+                <h3 className="font-semibold text-lg text-foreground truncate">
                   {project.name}
                 </h3>
                 {project.isPublic && (
-                  <Badge variant="outline" className="text-[10px] h-5 flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] h-5 flex items-center gap-1 flex-none">
                     <Globe className="w-3 h-3" />
                     Public
                   </Badge>
@@ -51,65 +51,65 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             </div>
 
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon flex-none"
               style={{
-                backgroundColor: adjustColorOpacity(project.color || '#3b82f6', 0.15),
-                boxShadow: `0 8px 15px -4px ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}`,
-                border: `1px solid ${adjustColorOpacity(project.color || '#3b82f6', 0.19)}`,
-                color: project.color || '#3b82f6'
+                backgroundColor: adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.15),
+                boxShadow: `0 8px 15px -4px ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)}`,
+                border: `1px solid ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.19)}`,
+                color: project.color || DEFAULT_PROJECT_COLOR
               }}
             >
               <div
                 className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
-                style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || '#3b82f6', 0.25)}, transparent)` }}
+                style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)}, transparent)` }}
               />
               <Icon className="w-6 h-6 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" />
             </div>
           </div>
 
-          {/* Progress Section */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
-                  Progress
-                </span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-foreground">
-                    {Math.round(progress)}%
+          <div className="flex-1 min-h-0 flex flex-col justify-between py-2">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/50">
+                    Progress
                   </span>
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    completed
-                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xl font-bold text-foreground">
+                      {Math.round(progress)}%
+                    </span>
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      completed
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <Badge
+                    variant="secondary"
+                    className="bg-muted/40 text-muted-foreground font-bold px-2 py-0.5 rounded-md border-none"
+                  >
+                    {project.completedTasks || 0}/{project.totalTasks || 0} tasks
+                  </Badge>
                 </div>
               </div>
 
-              <div className="text-right">
-                <Badge
-                  variant="secondary"
-                  className="bg-muted/40 text-muted-foreground font-bold px-2 py-0.5 rounded-md border-none"
-                >
-                  {project.completedTasks || 0}/{project.totalTasks || 0} tasks
-                </Badge>
+              <div className="relative h-2 w-full bg-muted/30 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="absolute inset-y-0 left-0 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)]"
+                  style={{
+                    backgroundColor: project.color,
+                    boxShadow: `0 0 15px ${project.color}50`
+                  }}
+                />
               </div>
-            </div>
-
-            <div className="relative h-2 w-full bg-muted/30 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
-                className="absolute inset-y-0 left-0 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.1)]"
-                style={{
-                  backgroundColor: project.color,
-                  boxShadow: `0 0 15px ${project.color}50`
-                }}
-              />
             </div>
           </div>
 
-          {/* Participants */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/50">
+          <div className="flex items-center justify-between pt-3 border-t border-border/50 flex-none">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">

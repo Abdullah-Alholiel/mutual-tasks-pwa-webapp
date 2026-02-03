@@ -27,7 +27,7 @@ import { initializeOneSignal } from "@/lib/onesignal/oneSignalService";
 import { PERFORMANCE_CONFIG } from "@/config/appConfig";
 import { logger } from "@/lib/monitoring/logger";
 import { initializeSentry } from "@/lib/sentry";
-
+import { PageErrorBoundary } from "@/components/ui/error-boundary";
 /**
  * OneSignal Initializer - runs once on app load
  * Placed inside AuthProvider to ensure user context is available
@@ -42,6 +42,9 @@ function OneSignalInitializer() {
 
   return null;
 }
+
+
+import { GlobalTaskViewModal } from "./GlobalTaskViewModal";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -132,6 +135,7 @@ const App = () => {
                     v7_relativeSplatPath: true,
                   }}
                 >
+                  <GlobalTaskViewModal />
                   <Routes>
                     {/* Public routes - no authentication required */}
                     <Route path="/auth" element={<Auth />} />
@@ -147,12 +151,12 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     >
-                      <Route path="/" element={<MainTabsShell />} />
-                      <Route path="/projects" element={<MainTabsShell />} />
-                      <Route path="/friends" element={<MainTabsShell />} />
-                      <Route path="/profile" element={<MainTabsShell />} />
-                      <Route path="/projects/:id" element={<ProjectDetail />} />
-                      <Route path="/friends/:id" element={<FriendProfile />} />
+                      <Route path="/" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                      <Route path="/projects" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                      <Route path="/friends" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                      <Route path="/profile" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                      <Route path="/projects/:id" element={<PageErrorBoundary><ProjectDetail /></PageErrorBoundary>} />
+                      <Route path="/friends/:id" element={<PageErrorBoundary><FriendProfile /></PageErrorBoundary>} />
                     </Route>
 
                     {/* Catch-all route - not protected (404 page) */}

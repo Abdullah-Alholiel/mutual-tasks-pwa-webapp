@@ -13,6 +13,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Nunito", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -49,6 +52,11 @@ export default {
           pending: "hsl(var(--status-pending))",
           accepted: "hsl(var(--status-accepted))",
           completed: "hsl(var(--status-completed))",
+          archived: "hsl(var(--status-archived))",
+          warning: "hsl(var(--status-warning))",
+          error: "hsl(var(--status-error))",
+          purple: "hsl(var(--status-purple))",
+          info: "hsl(var(--status-info))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -104,6 +112,8 @@ export default {
         'lg': 'var(--shadow-lg)',
         'primary': 'var(--shadow-primary)',
         'accent': 'var(--shadow-accent)',
+        'success': 'var(--shadow-success)',
+        'destructive': 'var(--shadow-destructive)',
       },
     },
   },

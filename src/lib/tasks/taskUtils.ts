@@ -8,6 +8,7 @@
 
 import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatus, Task } from '@/types';
 import { normalizeId } from '../idUtils';
+import { STATUS_COLORS } from '@/constants/statusColors';
 
 /**
  * Calculate the task status user status based on due date, completion, and recovery
@@ -180,8 +181,8 @@ export const calculateRingColor = (
       return 'green';
     }
 
-    // Late completion but not recovered: NONE
-    return 'none';
+    // Yellow: late completion (tardy) - completed after deadline
+    return 'yellow';
   }
 
   if (!taskStatus) return 'none';
@@ -191,6 +192,31 @@ export const calculateRingColor = (
   // ============================================================================
   // Task is expired if current time is past due date
   // Only show red if task is not completed (no completion log)
+  // PRIORITY 2: Check if task is recovered but NOT completed
+  // Recovered-but-not-completed tasks show RED (expired)
+  if ((taskStatus?.recoveredAt || taskStatus?.status === 'recovered') && !completionLog) {
+    // Check if the recovered task has expired again
+    if (taskStatus.recoveredAt) {
+      const now = new Date();
+      const recoveryDayEnd = new Date(taskStatus.recoveredAt);
+      recoveryDayEnd.setHours(23, 59, 59, 999); // End of recovery day
+
+      // If current time is past end of recovery day, task expired again -> red
+      if (now > recoveryDayEnd) {
+        return 'red';
+      }
+    }
+    // Within recovery day but not completed, still show red (recovered tasks are still expired)
+    return 'red';
+  }
+
+  // PRIORITY 3: Check if task status user status would be archived (past due, not completed)
+  // Note: General task status only includes 'active' and 'upcoming', so we check via taskStatus
+  if (task && taskStatus && taskStatus.archivedAt) {
+    return 'red';
+  }
+
+  // PRIORITY 4: If task has expired (past due date), all participants should have red ring
   if (task && task.dueDate) {
     const now = new Date();
     const dueDateEnd = new Date(task.dueDate);
@@ -219,11 +245,11 @@ export const calculateRingColor = (
  * information about when and how a task was completed.
  * 
  * Rules:
- * - Green: when a user completes a task on time/early (timingStatus: 'on_time' or 'early')
- * - Yellow: when a user completes a recovered task or has recovered but not completed
- * - Red: when a task is expired (past due date) and not completed, OR archived but not completed
- * - No highlight: when a task is completed late but not recovered
- * 
+ * - Green: on-time/early completion
+ * - Yellow: late completion (tardy)
+ * - Red: expired, archived, or recovered-but-not-completed
+ * - No highlight: active task (not completed, not expired)
+ *
  * @param taskStatus - The user's task status entity
  * @param completionLog - The completion log for this user (if completed)
  * @param task - The task entity (for checking overall task status and due date)
@@ -240,11 +266,11 @@ export const getRingColor = (
     const calculatedColor = calculateRingColor(completionLog, taskStatus, task);
     switch (calculatedColor) {
       case 'green':
-        return 'ring-green-500';
+        return 'ring-[#10B981]';
       case 'yellow':
-        return 'ring-yellow-500';
+        return 'ring-[#FCD34D]';
       case 'red':
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       case 'none':
         return 'ring-border';
     }
@@ -256,11 +282,11 @@ export const getRingColor = (
       const calculatedColor = calculateRingColor(undefined, undefined, task);
       switch (calculatedColor) {
         case 'green':
-          return 'ring-green-500';
+          return 'ring-[#10B981]';
         case 'yellow':
-          return 'ring-yellow-500';
+          return 'ring-[#FCD34D]';
         case 'red':
-          return 'ring-red-500';
+          return 'ring-[#EF4444]';
         case 'none':
           return 'ring-border';
       }
@@ -273,19 +299,20 @@ export const getRingColor = (
   if (taskStatus.status === 'completed' && taskStatus.ringColor) {
     switch (taskStatus.ringColor) {
       case 'green':
-        return 'ring-green-500';
+        return 'ring-[#10B981]';
       case 'yellow':
-        return 'ring-yellow-500';
+        return 'ring-[#FCD34D]';
       case 'red':
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       case 'none':
         return 'ring-border';
     }
   }
 
-  // PRIORITY 2.5: Check if task is recovered - show yellow ring immediately
-  // This takes precedence over stored ringColor to ensure instant feedback after recovery
-  if (taskStatus.recoveredAt || taskStatus.status === 'recovered') {
+  // PRIORITY 2.5: Check if task is recovered but NOT completed - show red ring
+  // Recovered-but-not-completed tasks should show red (expired)
+  // Completed tasks are handled in PRIORITY 1 using calculateRingColor
+  if (!completionLog && (taskStatus.recoveredAt || taskStatus.status === 'recovered')) {
     // Check if recovery has expired (past end of recovery day)
     if (taskStatus.recoveredAt) {
       const now = new Date();
@@ -294,11 +321,11 @@ export const getRingColor = (
 
       // If past recovery day, show red (expired again)
       if (now > recoveryDayEnd) {
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       }
     }
-    // Within recovery day, show yellow
-    return 'ring-yellow-500';
+    // Within recovery day but not completed, still show red (recovered tasks are still expired)
+    return 'ring-[#EF4444]';
   }
 
   // PRIORITY 3: Use taskStatus.ringColor if set (for non-completed tasks with explicit ring color)
@@ -308,18 +335,18 @@ export const getRingColor = (
     const calculatedColor = calculateRingColor(undefined, taskStatus, task);
     // If calculated color is red (archived/expired), use it instead of stored ringColor
     if (calculatedColor === 'red') {
-      return 'ring-red-500';
+      return 'ring-[#EF4444]';
     }
   }
 
   if (taskStatus.ringColor) {
     switch (taskStatus.ringColor) {
       case 'green':
-        return 'ring-green-500';
+        return 'ring-[#10B981]';
       case 'yellow':
-        return 'ring-yellow-500';
+        return 'ring-[#FCD34D]';
       case 'red':
-        return 'ring-red-500';
+        return 'ring-[#EF4444]';
       case 'none':
         return 'ring-border';
     }
@@ -329,11 +356,11 @@ export const getRingColor = (
   const calculatedColor = calculateRingColor(undefined, taskStatus, task);
   switch (calculatedColor) {
     case 'green':
-      return 'ring-green-500';
+      return 'ring-[#10B981]';
     case 'yellow':
-      return 'ring-yellow-500';
+      return 'ring-[#FCD34D]';
     case 'red':
-      return 'ring-red-500';
+      return 'ring-[#EF4444]';
     case 'none':
       return 'ring-border';
   }
@@ -457,9 +484,9 @@ export const getStatusColor = (
     case 'upcoming':
       return 'text-muted-foreground';
     case 'recovered':
-      return 'text-accent';
+      return 'text-[#FCD34D]';
     case 'completed':
-      return 'text-status-completed';
+      return 'text-[#10B981]';
     case 'archived':
       return 'text-muted-foreground';
     default:

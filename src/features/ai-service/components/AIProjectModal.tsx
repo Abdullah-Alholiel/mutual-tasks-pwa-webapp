@@ -94,7 +94,7 @@ export const AIProjectModal = ({
             <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <DialogHeader>
                     <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-lg bg-[#8B5CF6] flex items-center justify-center">
                             <Sparkles className="w-4 h-4 text-white" />
                         </div>
                         <DialogTitle>AI Project Generator</DialogTitle>
@@ -190,7 +190,7 @@ export const AIProjectModal = ({
                                     <Button
                                         type="button"
                                         onClick={handleCreate}
-                                        className="flex-1 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
+                                        className="flex-1 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white"
                                     >
                                         <Sparkles className="w-4 h-4 mr-2" />
                                         Create Project

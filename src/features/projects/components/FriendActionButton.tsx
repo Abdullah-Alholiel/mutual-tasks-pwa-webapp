@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/useAuth';
 import { useAddFriend, useFriendRequests, useFriends, useCancelRequest } from '@/features/friends/hooks/useFriends';
 import { cn } from '@/lib/utils';
-import { Clock, Loader2, UserCheck, UserPlus, X } from 'lucide-react';
+import { Clock, UserCheck, UserPlus, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/spinner';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -83,7 +84,7 @@ export const FriendActionButton = ({ user, className }: FriendActionButtonProps)
             }
         >
             {(addFriendMutation.isPending || cancelRequestMutation.isPending) ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Spinner size={16} />
             ) : isFriend ? (
                 <UserCheck className="w-4 h-4" />
             ) : isOutgoingRequest ? (

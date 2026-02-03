@@ -29,10 +29,10 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    /* Primary - Motivating cyan/blue for momentum */
-    --primary: 199 89% 48%;
+    /* Primary - Main app blue */
+    --primary: 217 76% 48%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 199 89% 65%;
+    --primary-glow: 217 76% 65%;
 
     /* Secondary surfaces */
     --secondary: 210 20% 95%;
@@ -42,44 +42,51 @@ All colors MUST be HSL.
     --muted: 210 15% 92%;
     --muted-foreground: 215 15% 45%;
 
-    /* Accent - Warm amber for streaks and achievements */
-    --accent: 32 95% 58%;
+    /* Accent - Yellow for streaks, achievements, pending, recovered */
+    --accent: 45 96% 64%;
     --accent-foreground: 0 0% 100%;
-    --accent-glow: 32 95% 70%;
+    --accent-glow: 45 96% 75%;
 
-    /* Success state */
-    --success: 142 76% 36%;
+    /* Success state - Green for completed tasks */
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
 
-    /* Destructive */
-    --destructive: 0 72% 51%;
+    /* Destructive - Red for errors, destructive actions */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     /* Status colors */
-    --status-pending: 45 93% 47%;
-    --status-accepted: 199 89% 48%;
-    --status-completed: 142 76% 36%;
+    --status-pending: 45 96% 64%;        /* Yellow - pending tasks */
+    --status-accepted: 217 76% 48%;      /* Blue - accepted/manager */
+    --status-completed: 160 84% 39%;     /* Green - completed tasks */
+    --status-archived: 214 19% 48%;      /* Grey - archived items */
+    --status-warning: 45 96% 64%;        /* Yellow - warnings */
+    --status-error: 0 84% 60%;           /* Red - errors */
+    --status-purple: 252 95% 68%;        /* Purple - special status */
+    --status-info: 217 76% 48%;          /* Blue - info */
 
     /* Borders and inputs */
     --border: 210 15% 88%;
     --input: 210 15% 88%;
-    --ring: 199 89% 48%;
+    --ring: 217 76% 48%;
 
     /* Radius */
     --radius: 1rem;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(199 89% 48%), hsl(199 89% 65%));
-    --gradient-accent: linear-gradient(135deg, hsl(32 95% 58%), hsl(32 95% 70%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 50%));
+    --gradient-primary: linear-gradient(135deg, hsl(217 76% 48%), hsl(217 76% 65%));
+    --gradient-accent: linear-gradient(135deg, hsl(45 96% 64%), hsl(45 96% 75%));
+    --gradient-success: linear-gradient(135deg, hsl(160 84% 39%), hsl(160 84% 50%));
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 20% 98%));
 
     /* Shadows */
     --shadow-sm: 0 2px 8px -2px hsl(215 25% 15% / 0.08);
     --shadow-md: 0 4px 16px -4px hsl(215 25% 15% / 0.12);
     --shadow-lg: 0 8px 32px -8px hsl(215 25% 15% / 0.16);
-    --shadow-primary: 0 8px 24px -6px hsl(199 89% 48% / 0.3);
-    --shadow-accent: 0 8px 24px -6px hsl(32 95% 58% / 0.3);
+    --shadow-primary: 0 8px 24px -6px hsl(217 76% 48% / 0.3);
+    --shadow-accent: 0 8px 24px -6px hsl(45 96% 64% / 0.3);
+    --shadow-success: 0 8px 24px -6px hsl(160 84% 39% / 0.3);
+    --shadow-destructive: 0 8px 24px -6px hsl(0 84% 60% / 0.3);
 
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -99,9 +106,9 @@ All colors MUST be HSL.
     --popover-foreground: 210 20% 98%;
 
     /* Primary - Brighter in dark mode */
-    --primary: 199 89% 58%;
+    --primary: 217 76% 58%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 199 89% 70%;
+    --primary-glow: 217 76% 70%;
 
     /* Secondary surfaces */
     --secondary: 215 22% 20%;
@@ -112,44 +119,49 @@ All colors MUST be HSL.
     --muted-foreground: 215 15% 60%;
 
     /* Accent */
-    --accent: 32 95% 62%;
+    --accent: 45 96% 68%;
     --accent-foreground: 0 0% 100%;
-    --accent-glow: 32 95% 75%;
+    --accent-glow: 45 96% 75%;
 
     /* Success state */
-    --success: 142 76% 42%;
+    --success: 160 84% 45%;
     --success-foreground: 0 0% 100%;
 
     /* Destructive */
-    --destructive: 0 72% 58%;
+    --destructive: 0 84% 65%;
     --destructive-foreground: 0 0% 100%;
 
     /* Status colors */
-    --status-pending: 45 93% 55%;
-    --status-accepted: 199 89% 58%;
-    --status-completed: 142 76% 42%;
+    --status-pending: 45 96% 68%;        /* Yellow - pending tasks */
+    --status-accepted: 217 76% 58%;      /* Blue - accepted/manager */
+    --status-completed: 160 84% 45%;     /* Green - completed tasks */
+    --status-archived: 215 20% 65%;      /* Grey - archived items */
+    --status-warning: 45 96% 68%;        /* Yellow - warnings */
+    --status-error: 0 84% 65%;           /* Red - errors */
+    --status-purple: 252 95% 73%;        /* Purple - special status */
+    --status-info: 217 76% 58%;          /* Blue - info */
 
     /* Borders and inputs */
     --border: 215 20% 24%;
     --input: 215 20% 24%;
-    --ring: 199 89% 58%;
+    --ring: 217 76% 58%;
 
     /* Shadows */
     --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
     --shadow-md: 0 4px 16px -4px hsl(0 0% 0% / 0.4);
     --shadow-lg: 0 8px 32px -8px hsl(0 0% 0% / 0.5);
-    --shadow-primary: 0 8px 24px -6px hsl(199 89% 58% / 0.4);
-    --shadow-accent: 0 8px 24px -6px hsl(32 95% 62% / 0.4);
+    --shadow-primary: 0 8px 24px -6px hsl(217 76% 58% / 0.4);
+    --shadow-accent: 0 8px 24px -6px hsl(45 96% 68% / 0.4);
+    --shadow-success: 0 8px 24px -6px hsl(160 84% 45% / 0.4);
+    --shadow-destructive: 0 8px 24px -6px hsl(0 84% 65% / 0.4);
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(199 89% 58%), hsl(199 89% 70%));
-    --gradient-accent: linear-gradient(135deg, hsl(32 95% 62%), hsl(32 95% 75%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 42%), hsl(142 76% 56%));
+    --gradient-primary: linear-gradient(135deg, hsl(217 76% 58%), hsl(217 76% 70%));
+    --gradient-accent: linear-gradient(135deg, hsl(45 96% 68%), hsl(45 96% 75%));
+    --gradient-success: linear-gradient(135deg, hsl(160 84% 45%), hsl(160 84% 56%));
     --gradient-card: linear-gradient(180deg, hsl(215 25% 16%), hsl(215 28% 14%));
   }
-}
 
-@layer base {
   * {
     @apply border-border;
     /* Prevent double-tap zoom while allowing pinch zoom */
@@ -173,26 +185,24 @@ All colors MUST be HSL.
     scroll-behavior: smooth;
     overflow-x: hidden;
     scrollbar-gutter: stable;
-    height: 100%;
+    min-height: 100%;
     /* iOS Safari */
-    height: -webkit-fill-available;
+    min-height: -webkit-fill-available;
     position: relative;
     width: 100%;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: 'Nunito', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
     min-height: 100vh;
-    min-height: -webkit-fill-available;
     /* iOS Safari */
     min-height: 100dvh;
     /* Dynamic viewport height */
     position: relative;
     width: 100%;
-    /* Prevent pull-to-refresh on mobile */
-    overscroll-behavior-y: contain;
   }
 
   /* Prevent horizontal scrolling on mobile */
@@ -201,19 +211,51 @@ All colors MUST be HSL.
     max-width: 100vw;
     width: 100%;
     min-height: 100vh;
-    min-height: -webkit-fill-available;
     min-height: 100dvh;
     position: relative;
   }
 
-  /* Prevent horizontal scroll on all containers */
-  main,
-  section,
-  [role="main"] {
-    max-width: 100%;
-    overflow-x: hidden;
+    /* Prevent horizontal scroll on all containers */
+    main,
+    section,
+    [role="main"] {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
   }
-}
+
+  /* When keyboard is visible (added by JS on iOS) */
+  body.keyboard-visible {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  /* Scrollable area when keyboard is visible */
+  body.keyboard-visible main,
+  body.keyboard-visible [role="main"] {
+    height: 100%;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Dialog adjustments for keyboard */
+  @media (max-width: 768px) {
+    body.keyboard-visible [role="dialog"] [data-radix-scroll-area-viewport] {
+      max-height: 50vh !important;
+      overflow-y: auto !important;
+    }
+  }
+
+  /* Keyboard-focused input styles */
+  .keyboard-focused {
+    color: hsl(217 76% 48%) !important;
+  }
+
+  /* Dialog with keyboard adjustment */
+  .dialog-with-keyboard {
+    transition: top 0.3s ease-out, transform 0.3s ease-out, max-height 0.3s ease-out;
+  }
 
 @layer utilities {
 
@@ -304,6 +346,34 @@ All colors MUST be HSL.
     .scrolling .shadow-md,
     .scrolling .shadow-lg {
       box-shadow: none !important;
+    }
+
+    /* Mobile text input optimizations */
+    input,
+    textarea,
+    [contenteditable="true"] {
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      -webkit-touch-callout: default !important;
+    }
+  
+    /* Prevent font scaling while allowing user zoom */
+    input,
+    textarea {
+      font-size: max(16px, 1rem) !important;
+      line-height: normal !important;
+    }
+  
+    /* Improve cursor visibility */
+    input,
+    textarea {
+      caret-color: hsl(217 76% 48%) !important;
+      caret-width: 2px !important;
+    }
+  
+    /* Selection highlight color */
+    ::selection {
+      background-color: hsl(217 76% 48% / 0.3) !important;
     }
   }
 }
@@ -451,21 +521,21 @@ All colors MUST be HSL.
       animation: toast-slide-out 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
-    /* Ensure toasts are visible and properly styled on mobile */
-    [data-sonner-toast][data-type="success"] {
-      @apply border-l-4 border-l-green-500;
-    }
+     /* Ensure toasts are visible and properly styled on mobile */
+     [data-sonner-toast][data-type="success"] {
+       @apply border-l-4 border-l-[#10B981];
+     }
 
-    [data-sonner-toast][data-type="error"] {
-      @apply border-l-4 border-l-red-500;
-    }
+     [data-sonner-toast][data-type="error"] {
+       @apply border-l-4 border-l-[#EF4444];
+     }
 
-    [data-sonner-toast][data-type="warning"] {
-      @apply border-l-4 border-l-yellow-500;
-    }
+     [data-sonner-toast][data-type="warning"] {
+       @apply border-l-4 border-l-[#FCD34D];
+     }
 
     [data-sonner-toast][data-type="info"] {
-      @apply border-l-4 border-l-blue-500;
+      @apply border-l-4 border-l-[#1D4ED8];
     }
   }
 

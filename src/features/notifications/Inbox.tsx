@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import type { Notification } from '@/types';
-import { Bell, CheckCircle2, Clock, Sparkles, X, Calendar, Users, RotateCcw, UserPlus, Inbox as InboxIcon, ChevronDown, Trash2 } from 'lucide-react';
+import { Bell, CheckCircle2, Sparkles, X, Users, RotateCcw, UserPlus, Inbox as InboxIcon, ChevronDown, Trash2 } from 'lucide-react';
 import { formatDistanceToNow, isToday, isYesterday, isAfter, subDays } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -11,8 +11,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Drawer,
   DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
 import {
@@ -68,11 +66,9 @@ export const Inbox = ({
       whileTap={{ scale: 0.9 }}
       aria-label="Notifications"
     >
-      {/* Bell icon with dynamic key to force re-render on count change */}
       <motion.div
-        key={`bell-${unreadCount}`}
         animate={unreadCount > 0 ? { rotate: [0, -10, 10, -10, 10, 0] } : {}}
-        transition={{ duration: 0.5, delay: unreadCount > 0 ? 0.3 : 0, repeat: unreadCount > 0 ? Infinity : 0, repeatDelay: 5 }}
+        transition={{ duration: 0.5, delay: 1, repeat: unreadCount > 0 ? Infinity : 0, repeatDelay: 5 }}
       >
         <Bell className={cn(
           "w-5 h-5 transition-colors",
@@ -80,11 +76,9 @@ export const Inbox = ({
         )} />
       </motion.div>
 
-      {/* Badge with mode="wait" to prevent animation conflicts and key to force re-mount */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {unreadCount > 0 && (
           <motion.div
-            key={`badge-${unreadCount}`}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             exit={{ scale: 0 }}
@@ -319,25 +313,23 @@ const NotificationItem = ({
 }) => {
   const getIcon = (type: Notification['type']) => {
     switch (type) {
-      case 'task_created': return <Sparkles className="w-4 h-4 text-blue-500" />;
-      case 'task_completed': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
-      case 'task_recovered': return <RotateCcw className="w-4 h-4 text-amber-500" />;
-      case 'task_deleted': return <Trash2 className="w-4 h-4 text-red-500" />;
+      case 'task_created': return <Sparkles className="w-4 h-4 text-[#1D4ED8]" />;
+      case 'task_completed': return <CheckCircle2 className="w-4 h-4 text-[#10B981]" />;
+      case 'task_recovered': return <RotateCcw className="w-4 h-4 text-[#FCD34D]" />;
       case 'project_joined': return <Users className="w-4 h-4 text-primary" />;
-      case 'friend_request': return <UserPlus className="w-4 h-4 text-purple-500" />;
-      case 'friend_accepted': return <Users className="w-4 h-4 text-green-500" />;
+      case 'friend_request': return <UserPlus className="w-4 h-4 text-[#8B5CF6]" />;
+      case 'friend_accepted': return <Users className="w-4 h-4 text-[#10B981]" />;
       default: return <Bell className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
   const getBgColor = (type: Notification['type']) => {
     switch (type) {
-      case 'task_created': return 'hover:bg-blue-500/5';
-      case 'task_completed': return 'hover:bg-emerald-500/5';
-      case 'task_recovered': return 'hover:bg-amber-500/5';
-      case 'task_deleted': return 'hover:bg-red-500/5';
-      case 'friend_request': return 'hover:bg-purple-500/5';
-      case 'friend_accepted': return 'hover:bg-green-500/5';
+      case 'task_created': return 'hover:bg-[#1D4ED8]/5';
+      case 'task_completed': return 'hover:bg-[#10B981]/5';
+      case 'task_recovered': return 'hover:bg-[#FCD34D]/5';
+      case 'friend_request': return 'hover:bg-[#8B5CF6]/5';
+      case 'friend_accepted': return 'hover:bg-[#10B981]/5';
       default: return 'hover:bg-primary/5';
     }
   };
@@ -386,4 +378,3 @@ const NotificationItem = ({
     </motion.div>
   );
 };
-

@@ -68,22 +68,22 @@ export const ProjectStats = ({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-2 md:col-span-2">
-          <div className="text-center group transition-transform hover:scale-105">
-            <div className="text-2xl font-bold text-primary">{activeCount}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Active</div>
+        <div className="grid grid-cols-4 gap-3 md:col-span-2">
+          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
+            <div className="text-2xl md:text-3xl font-bold text-primary mb-1">{activeCount}</div>
+            <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Active</div>
           </div>
-          <div className="text-center group transition-transform hover:scale-105">
-            <div className="text-2xl font-bold text-status-completed">{completedTasksCount}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Completed</div>
+          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
+            <div className="text-2xl md:text-3xl font-bold text-status-completed mb-1">{completedTasksCount}</div>
+            <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Completed</div>
           </div>
-          <div className="text-center group transition-transform hover:scale-105">
-            <div className="text-2xl font-bold text-blue-500">{upcomingCount}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Upcoming</div>
+          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
+            <div className="text-2xl md:text-3xl font-bold text-primary mb-1">{upcomingCount}</div>
+            <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Upcoming</div>
           </div>
-          <div className="text-center group transition-transform hover:scale-105">
-            <div className="text-2xl font-bold text-muted-foreground">{archivedCount}</div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Archived</div>
+          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
+            <div className="text-2xl md:text-3xl font-bold text-muted-foreground mb-1">{archivedCount}</div>
+            <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Archived</div>
           </div>
         </div>
 

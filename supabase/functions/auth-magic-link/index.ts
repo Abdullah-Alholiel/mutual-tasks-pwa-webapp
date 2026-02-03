@@ -379,7 +379,7 @@ serve(async (req) => {
           userId = existingUser.id;
         } else {
           // Create new user
-          const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(magicLink.signup_name)}&background=0EA5E9&color=fff`;
+          const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(magicLink.signup_name)}&background=1D4ED8&color=fff`;
 
           const { data: newUser, error: userError } = await supabaseClient
             .from('users')

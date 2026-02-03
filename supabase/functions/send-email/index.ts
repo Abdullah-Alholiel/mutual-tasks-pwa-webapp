@@ -117,7 +117,7 @@ serve(async (req) => {
                     <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
                       <!-- Header -->
                       <tr>
-                        <td style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); padding: 40px 30px; text-align: center;">
+                        <td style="background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); padding: 40px 30px; text-align: center;">
                           <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Welcome to Momentum! 🎉</h1>
                           <p style="color: rgba(255,255,255,0.95); margin: 12px 0 0 0; font-size: 16px; font-weight: 400;">Collaborative Tasks</p>
                         </td>
@@ -129,7 +129,7 @@ serve(async (req) => {
                           <h2 style="color: #1a1a1a; margin: 0 0 24px 0; font-size: 24px; font-weight: 600; line-height: 1.3;">${greeting}</h2>
                           
                           <!-- PWA Bookmarking Disclaimer (NEW - Most Important) -->
-                          <div style="background: #E0F2FE; border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0 0 28px 0;">
+                          <div style="background: #E0F2FE; border: 2px solid #1D4ED8; border-radius: 10px; padding: 20px; margin: 0 0 28px 0;">
                             <p style="color: #0C4A6E; font-size: 16px; font-weight: 700; margin: 0 0 10px 0;">
                               💡 <span style="margin-left: 4px;">Recommended: Sign In First, Then Bookmark</span>
                             </p>
@@ -139,7 +139,7 @@ serve(async (req) => {
                           </div>
                           
                           <!-- Home Screen App Warning -->
-                          <div style="background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: 10px; padding: 18px; margin: 0 0 28px 0;">
+                          <div style="background: #FCD34D/20; border: 1.5px solid #FCD34D; border-radius: 10px; padding: 18px; margin: 0 0 28px 0;">
                             <p style="color: #92400E; font-size: 15px; font-weight: 700; margin: 0 0 10px 0;">
                               📱 <span style="margin-left: 4px;">Using the Home Screen App?</span>
                             </p>
@@ -155,14 +155,14 @@ serve(async (req) => {
                           <div style="margin: 0 0 32px 0;">
                             <p style="color: #666; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">Your Signup Link</p>
                             <p style="color: #999; font-size: 12px; margin: 0 0 16px 0;">Valid for 15 minutes • Can be used multiple times</p>
-                            <div style="background: linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%); border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0;">
-                              <p style="color: #0EA5E9; font-size: 13px; word-break: break-all; margin: 0 0 14px 0; font-family: 'Courier New', 'Monaco', monospace; background: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #0EA5E9; line-height: 1.5; user-select: all; -webkit-user-select: all;">${safeMagicLink}</p>
+                            <div style="background: #E0F2FE; border: 2px solid #1D4ED8; border-radius: 10px; padding: 20px; margin: 0;">
+                              <p style="color: #1D4ED8; font-size: 13px; word-break: break-all; margin: 0 0 14px 0; font-family: 'Courier New', 'Monaco', monospace; background: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #1D4ED8; line-height: 1.5; user-select: all; -webkit-user-select: all;">${safeMagicLink}</p>
                               <p style="color: #666; font-size: 12px; margin: 0; text-align: center; font-style: italic;">📋 Long-press the link above to copy it</p>
                             </div>
                           </div>
                           
                           <!-- Warning Before Button -->
-                          <div style="background: #FFF7ED; border-left: 4px solid #F59E0B; padding: 16px 20px; margin: 0 0 28px 0; border-radius: 6px;">
+                          <div style="background: #FFF7ED; border-left: 4px solid #FCD34D; padding: 16px 20px; margin: 0 0 28px 0; border-radius: 6px;">
                             <p style="color: #92400E; font-size: 14px; font-weight: 600; margin: 0; text-align: center;">
                               ⚠️ Do NOT press the button below if you want to log in on the bookmarked app!
                             </p>
@@ -170,7 +170,29 @@ serve(async (req) => {
                           
                           <!-- CTA Button -->
                           <div style="text-align: center; margin: 32px 0 0 0;">
-                            <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); transition: all 0.2s ease;">Complete Signup</a>
+                            <a href="${safeMagicLink}" style="display: inline-block; background: #1D4ED8; color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3); transition: all 0.2s ease;">Complete Signup</a>
+                          </div>
+                          
+                          <!-- Magic Link Section -->
+                          <div style="margin: 0 0 32px 0;">
+                            <p style="color: #666; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">Your Signup Link</p>
+                            <p style="color: #999; font-size: 12px; margin: 0 0 16px 0;">Valid for 15 minutes • Can be used multiple times</p>
+                            <div style="background: linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%); border: 2px solid #1D4ED8; border-radius: 10px; padding: 20px; margin: 0;">
+                              <p style="color: #1D4ED8; font-size: 13px; word-break: break-all; margin: 0 0 14px 0; font-family: 'Courier New', 'Monaco', monospace; background: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #1D4ED8; line-height: 1.5; user-select: all; -webkit-user-select: all;">${safeMagicLink}</p>
+                              <p style="color: #666; font-size: 12px; margin: 0; text-align: center; font-style: italic;">📋 Long-press the link above to copy it</p>
+                            </div>
+                          </div>
+                          
+                          <!-- Warning Before Button -->
+                           <div style="background: #FFF7ED; border-left: 4px solid #FCD34D; padding: 16px 20px; margin: 0 0 28px 0; border-radius: 6px;">
+                            <p style="color: #92400E; font-size: 14px; font-weight: 600; margin: 0; text-align: center;">
+                              ⚠️ Do NOT press the button below if you want to log in on the bookmarked app!
+                            </p>
+                          </div>
+                          
+                          <!-- CTA Button -->
+                          <div style="text-align: center; margin: 32px 0 0 0;">
+                            <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); transition: all 0.2s ease;">Complete Signup</a>
                           </div>
                         </td>
                       </tr>
@@ -178,7 +200,7 @@ serve(async (req) => {
                       <!-- Footer -->
                       <tr>
                         <td style="background-color: #f7f9fc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                          <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0;">
+                          <p style="color: #64748B; font-size: 13px; margin: 0 0 8px 0;">
                             <strong style="color: #1a1a1a;">Momentum</strong> - Collaborative Tasks
                           </p>
                           <p style="color: #9ca3af; font-size: 12px; margin: 0;">
@@ -215,7 +237,7 @@ serve(async (req) => {
                     <table role="presentation" style="width: 100%; max-width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.08);">
                       <!-- Header -->
                       <tr>
-                        <td style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); padding: 40px 30px; text-align: center;">
+                        <td style="background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); padding: 40px 30px; text-align: center;">
                           <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Momentum</h1>
                           <p style="color: rgba(255,255,255,0.95); margin: 12px 0 0 0; font-size: 16px; font-weight: 400;">Collaborative Tasks</p>
                         </td>
@@ -227,7 +249,7 @@ serve(async (req) => {
                           <h2 style="color: #1a1a1a; margin: 0 0 24px 0; font-size: 24px; font-weight: 600; line-height: 1.3;">${greeting}</h2>
                           
                           <!-- PWA Bookmarking Disclaimer (NEW - Most Important) -->
-                          <div style="background: #E0F2FE; border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0 0 28px 0;">
+                          <div style="background: #E0F2FE; border: 2px solid #1D4ED8; border-radius: 10px; padding: 20px; margin: 0 0 28px 0;">
                             <p style="color: #0C4A6E; font-size: 16px; font-weight: 700; margin: 0 0 10px 0;">
                               💡 <span style="margin-left: 4px;">Recommended: Sign In First, Then Bookmark</span>
                             </p>
@@ -237,7 +259,7 @@ serve(async (req) => {
                           </div>
                           
                           <!-- Home Screen App Warning -->
-                          <div style="background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: 10px; padding: 18px; margin: 0 0 28px 0;">
+                           <div style="background: #FCD34D/20; border: 1.5px solid #FCD34D; border-radius: 10px; padding: 18px; margin: 0 0 28px 0;">
                             <p style="color: #92400E; font-size: 15px; font-weight: 700; margin: 0 0 10px 0;">
                               📱 <span style="margin-left: 4px;">Using the Home Screen App?</span>
                             </p>
@@ -253,14 +275,14 @@ serve(async (req) => {
                           <div style="margin: 0 0 32px 0;">
                             <p style="color: #666; font-size: 14px; font-weight: 600; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px;">Your Sign-In Link</p>
                             <p style="color: #999; font-size: 12px; margin: 0 0 16px 0;">Valid for 15 minutes • Can be used multiple times</p>
-                            <div style="background: linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%); border: 2px solid #0EA5E9; border-radius: 10px; padding: 20px; margin: 0;">
-                              <p style="color: #0EA5E9; font-size: 13px; word-break: break-all; margin: 0 0 14px 0; font-family: 'Courier New', 'Monaco', monospace; background: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #0EA5E9; line-height: 1.5; user-select: all; -webkit-user-select: all;">${safeMagicLink}</p>
+                            <div style="background: linear-gradient(135deg, #E0F2FE 0%, #DBEAFE 100%); border: 2px solid #1D4ED8; border-radius: 10px; padding: 20px; margin: 0;">
+                              <p style="color: #1D4ED8; font-size: 13px; word-break: break-all; margin: 0 0 14px 0; font-family: 'Courier New', 'Monaco', monospace; background: #ffffff; padding: 14px; border-radius: 6px; border: 1px solid #1D4ED8; line-height: 1.5; user-select: all; -webkit-user-select: all;">${safeMagicLink}</p>
                               <p style="color: #666; font-size: 12px; margin: 0; text-align: center; font-style: italic;">📋 Long-press the link above to copy it</p>
                             </div>
                           </div>
                           
                           <!-- Warning Before Button -->
-                          <div style="background: #FFF7ED; border-left: 4px solid #F59E0B; padding: 16px 20px; margin: 0 0 28px 0; border-radius: 6px;">
+                           <div style="background: #FFF7ED; border-left: 4px solid #FCD34D; padding: 16px 20px; margin: 0 0 28px 0; border-radius: 6px;">
                             <p style="color: #92400E; font-size: 14px; font-weight: 600; margin: 0; text-align: center;">
                               ⚠️ Do NOT press the button below if you want to log in on the bookmarked app!
                             </p>
@@ -268,7 +290,7 @@ serve(async (req) => {
                           
                           <!-- CTA Button -->
                           <div style="text-align: center; margin: 32px 0 0 0;">
-                            <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); transition: all 0.2s ease;">Sign In to Momentum</a>
+                            <a href="${safeMagicLink}" style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: #ffffff; text-decoration: none; padding: 16px 40px; border-radius: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.3px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); transition: all 0.2s ease;">Sign In to Momentum</a>
                           </div>
                         </td>
                       </tr>
@@ -276,7 +298,7 @@ serve(async (req) => {
                       <!-- Footer -->
                       <tr>
                         <td style="background-color: #f7f9fc; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                          <p style="color: #6b7280; font-size: 13px; margin: 0 0 8px 0;">
+                          <p style="color: #64748B; font-size: 13px; margin: 0 0 8px 0;">
                             <strong style="color: #1a1a1a;">Momentum</strong> - Collaborative Tasks
                           </p>
                           <p style="color: #9ca3af; font-size: 12px; margin: 0;">
@@ -319,21 +341,21 @@ serve(async (req) => {
           <html>
             <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
             <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+              <div style="background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
                 <h1 style="color: white; margin: 0; font-size: 28px;">New Task Created! 📝</h1>
                 <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">${project.name}</p>
               </div>
               <div style="background: #fff; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                 <p style="font-size: 16px; color: #666;">Hi <strong>${safeRecipientName}</strong>,</p>
                 <p style="font-size: 16px; color: #666;"><strong>${safeCreatorName}</strong> has created a new task in <strong>${safeProjectName}</strong>:</p>
-                <div style="background: #f5f5f5; border-left: 4px solid #0EA5E9; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <div style="background: #f5f5f5; border-left: 4px solid #1D4ED8; padding: 15px; margin: 20px 0; border-radius: 4px;">
                   <h3 style="margin: 0 0 10px 0; color: #1a1a1a; font-size: 18px;">${safeTaskTitle}</h3>
                   ${safeTaskDescription ? `<p style="margin: 0; color: #666; font-size: 14px;">${safeTaskDescription}</p>` : ''}
                   <p style="margin: 10px 0 0 0; color: #999; font-size: 12px;">Due: ${new Date(task.dueDate || task.due_date || Date.now()).toLocaleDateString()}</p>
                 </div>
                 <p style="font-size: 16px; color: #666;">You're a participant in this project, so this task has been assigned to you. Click below to view and get started!</p>
                 <div style="text-align: center; margin: 30px 0;">
-                  <a href="${taskUrl}" style="display: inline-block; background: linear-gradient(135deg, #0EA5E9 0%, #3B82F6 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Task</a>
+                  <a href="${taskUrl}" style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Task</a>
                 </div>
               </div>
             </body>

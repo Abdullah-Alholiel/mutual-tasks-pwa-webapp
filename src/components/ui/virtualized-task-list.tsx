@@ -26,7 +26,7 @@ export const VirtualizedTaskList = memo(({
     onRecover,
     onComplete,
     showRecover = true,
-    estimatedItemHeight = 180,
+    estimatedItemHeight = 260,
     className = '',
 }: VirtualizedTaskListProps) => {
     const parentRef = useRef<HTMLDivElement>(null);
@@ -136,7 +136,7 @@ export const OptimizedTaskList = memo(({
                         contain: 'layout style',
                         // Use content-visibility for off-screen optimization
                         contentVisibility: 'auto',
-                        containIntrinsicSize: '0 180px',
+                        containIntrinsicSize: '0 260px',
                     }}
                 >
                     <TaskCard

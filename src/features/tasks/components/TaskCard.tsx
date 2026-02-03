@@ -4,16 +4,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { CheckCircle2, Circle, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon, Trash2, Pencil } from 'lucide-react';
+import { CheckCircle2, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon, Trash2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { useUser, useBatchUsers } from '@/features/users/hooks/useUsers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
+import { TaskParticipantAvatars } from '@/components/tasks/TaskParticipantAvatars';
+import { CompletionStatusIcon } from '@/components/tasks/CompletionStatusIcon';
 import { cn } from '@/lib/utils';
 import { normalizeId, compareIds } from '@/lib/idUtils';
 import {
   getRingColor,
+  calculateRingColor,
   canCompleteTask,
   canRecoverTask,
   getStatusBadgeVariant,
@@ -23,12 +26,13 @@ import {
 } from '../../../lib/tasks/taskUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProjects';
 import { useTaskStatuses } from '@/features/tasks/hooks/useTasks';
 import { deduplicator } from '@/lib/utils/requestDeduplicator';
 import { validateAndLogIssues } from '@/lib/tasks/taskStatusValidation';
+import { useTaskViewModal } from '../hooks/useTaskViewModal';
 
 interface TaskCardProps {
   task: Task;
@@ -49,6 +53,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const queryClient = useQueryClient();
+  const { openTaskView } = useTaskViewModal();
 
   const creatorId = normalizeId(task.creatorId);
   const projectId = normalizeId(task.projectId);
@@ -251,6 +256,30 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     });
   };
 
+  // Calculate card height based on task state
+  const getCardHeight = () => {
+    if (uiStatus === 'completed' && myCompletion) {
+      // Completed tasks: 30px shorter on mobile, 20px shorter on desktop
+      return 'h-[220px]';
+    }
+    if (shouldShowRecover || shouldShowComplete) {
+      // Active/Recovered tasks with buttons: 10px taller
+      return 'h-[260px] lg:h-[250px]';
+    }
+    // Default height
+    return 'h-[250px] lg:h-[240px]';
+  };
+
+  // Handle card click to open task detail modal
+  const handleCardClick = useCallback(() => {
+    openTaskView(task, {
+      onEdit: canModify && onEdit ? onEdit : undefined,
+      onDelete: canModify && onDelete ? (id) => onDelete(id) : undefined,
+      canModify,
+      completionLogs,
+    });
+  }, [task, canModify, onEdit, onDelete, completionLogs, openTaskView]);
+
 
   return (
     <>
@@ -262,16 +291,22 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
           contain: 'layout style',
         }}
       >
-        <Card className="p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50">
-          <div className="flex flex-col gap-4">
+        <Card
+          className={cn(
+            "p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50 flex flex-col overflow-hidden cursor-pointer",
+            getCardHeight()
+          )}
+          onClick={handleCardClick}
+        >
+          <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between gap-3 flex-none">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   {project && (
                     <Badge
                       variant="outline"
-                      className="text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80 text-left h-auto min-h-[1.5rem]"
+                      className="text-xs font-bold px-3 py-0.5 rounded-full flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80 text-left h-auto min-h-[1.5rem]"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/projects/${project.id}`);
@@ -290,7 +325,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                     </Badge>
                   )}
                   {task.type === 'habit' && task.recurrencePattern && (
-                    <Badge variant="outline" className="text-xs font-bold flex items-center gap-1 shrink-0 bg-background/50 border-border/50 px-2.5 py-1 rounded-full">
+                    <Badge variant="outline" className="text-xs font-bold flex items-center gap-1 shrink-0 bg-background/50 border-border/50 px-2.5 py-0.5 rounded-full">
                       <Repeat className="w-3 h-3" />
                       {task.recurrencePattern.toLowerCase() === 'daily'
                         ? 'Daily'
@@ -304,12 +339,12 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                   )}
                 </div>
 
-                <h3 className="font-semibold text-lg text-foreground">
+                <h3 className="font-semibold text-lg lg:text-xl text-foreground line-clamp-2">
                   {task.title}
                 </h3>
 
                 {task.description && (
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="hidden sm:block text-sm text-muted-foreground line-clamp-1 mt-0.5">
                     {task.description}
                   </p>
                 )}
@@ -364,107 +399,13 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
 
             {/* Participants & Completion Status */}
             {showMemberInfo && (
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center min-w-0">
-                  {/* Show unique participants - use mergedTaskStatuses for freshest realtime data */}
-                  {mergedTaskStatuses.length > 0 && (() => {
-                    const uniqueParticipantsMap = new Map<string | number, { userId: string | number; status: TaskStatusEntity }>();
-
-                    // Add all participants from merged statuses (freshest data)
-                    mergedTaskStatuses.forEach(ts => {
-                      const tsUserId = ts.userId;
-                      if (!uniqueParticipantsMap.has(tsUserId)) {
-                        uniqueParticipantsMap.set(tsUserId, { userId: tsUserId, status: ts });
-                      }
-                    });
-
-                    const currentUserIdNum = currentUser ? normalizeId(currentUser.id) : null;
-
-                    const allParticipants = Array.from(uniqueParticipantsMap.values()).sort((a, b) => {
-                      if (currentUserIdNum === null) return 0;
-                      const bId = normalizeId(b.userId);
-                      const aId = normalizeId(a.userId);
-
-                      // Always put current user first
-                      if (aId === currentUserIdNum) return -1;
-                      if (bId === currentUserIdNum) return 1;
-                      return 0;
-                    });
-
-                    const maxVisible = 2;
-                    const visibleParticipants = allParticipants.slice(0, maxVisible);
-                    const remainingCount = allParticipants.length - maxVisible;
-
-                    return (
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {/* Added py-1 to prevent ring clipping */}
-                        <div className="flex items-center gap-2 py-1 overflow-visible">
-                          {visibleParticipants.map((participant, index) => {
-                            const participantCompletion = completionLogs.find(log => {
-                              const logTaskId = normalizeId(log.taskId);
-                              const logUserId = normalizeId(log.userId);
-                              const taskIdNum = normalizeId(task.id);
-                              const partUserId = normalizeId(participant.userId);
-                              return logTaskId === taskIdNum && logUserId === partUserId;
-                            });
-
-                            const participantUiStatus = calculateTaskStatusUserStatus(
-                              participant.status,
-                              participantCompletion,
-                              task
-                            );
-                            const isParticipantCompleted =
-                              participantCompletion !== undefined || participantUiStatus === 'completed';
-
-                            const ringColorClass = getRingColor(participant.status, participantCompletion, task);
-
-                            const participantUserId = normalizeId(participant.userId);
-                            const user = participantUsers.get(participantUserId) ||
-                              participant.status.user ||
-                              (currentUser && normalizeId(currentUser.id) === participantUserId ? currentUser : null);
-
-                            const userName = user?.name || '';
-                            const userAvatar = user?.avatar || '';
-                            const userInitial = userName ? userName.charAt(0).toUpperCase() : '?';
-
-                            return (
-                              <div key={String(participant.userId)} className="flex items-center gap-1.5 shrink-0">
-                                {index > 0 && <div className="h-5 w-[1px] bg-border/40 mx-0.5" />}
-                                <Avatar className={cn("w-8 h-8 sm:w-9 sm:h-9 ring-2 ring-offset-2 ring-offset-background shrink-0 transition-all duration-300 hover:scale-110", ringColorClass)}>
-                                  <AvatarImage src={userAvatar} alt={userName} />
-                                  <AvatarFallback className={!user ? 'text-[10px]' : 'text-[10px]'}>
-                                    {userInitial}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="shrink-0">
-                                  {isParticipantCompleted ? (
-                                    <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
-                                  ) : (
-                                    <Circle className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground/60" />
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {remainingCount > 0 && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowParticipantsModal(true);
-                            }}
-                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full p-0 flex items-center justify-center text-[11px] sm:text-xs font-bold border-2 border-border/40 bg-muted/50 hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all duration-300 shrink-0 shadow-sm"
-                          >
-                            +{remainingCount}
-                          </Button>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
+              <div className="flex items-center justify-between gap-2 flex-none pt-2">
+                <TaskParticipantAvatars
+                  task={task}
+                  completionLogs={completionLogs}
+                  participantUsers={participantUsers}
+                  onViewAll={() => setShowParticipantsModal(true)}
+                />
 
                 {(() => {
                   // For recovered tasks, show original due date with yellow "Recovered" badge
@@ -550,59 +491,60 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             )}
 
             {/* Actions */}
-            <AnimatePresence mode="wait">
-              {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
-              {shouldShowRecover && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="pt-2 border-t border-border/50"
-                >
-                  <Button
-                    onClick={() => onRecover?.(task.id)}
-                    variant="outline"
-                    className="w-full"
-                    size="sm"
+            <div className={cn(
+              "flex-none pt-4 mt-auto",
+              (shouldShowRecover || shouldShowComplete || (uiStatus === 'completed' && myCompletion)) ? 'border-t border-border/50' : ''
+            )}>
+              <AnimatePresence mode="wait">
+                {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
+                {shouldShowRecover && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
                   >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Recover Task
-                  </Button>
-                </motion.div>
-              )}
+                    <Button
+                      onClick={() => onRecover?.(task.id)}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Recover Task
+                    </Button>
+                  </motion.div>
+                )}
 
-              {shouldShowComplete && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="pt-2 border-t border-border/50"
-                >
-                  <Button
-                    onClick={handleComplete}
-                    className="w-full gradient-primary text-white hover:opacity-90"
-                    size="sm"
+                {shouldShowComplete && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
                   >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Mark as Completed
-                  </Button>
-                </motion.div>
-              )}
+                    <Button
+                      onClick={handleComplete}
+                      className="w-full gradient-primary text-white hover:opacity-90"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Mark as Completed
+                    </Button>
+                  </motion.div>
+                )}
 
-              {uiStatus === 'completed' && myCompletion && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-2 pt-2 border-t border-border/50"
-                >
-                  <Sparkles className="w-4 h-4 text-accent" />
-                  <span className="text-sm text-muted-foreground">
-                    Difficulty: {myCompletion.difficultyRating ? `${myCompletion.difficultyRating}/5` : 'N/A'}
-                    {myCompletion.penaltyApplied && ' (Half XP - Recovered)'}
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                {uiStatus === 'completed' && myCompletion && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4 text-accent" />
+                    <span className="text-sm text-muted-foreground">
+                      Difficulty: {myCompletion.difficultyRating ? `${myCompletion.difficultyRating}/5` : 'N/A'}
+                      {myCompletion.penaltyApplied && ' (Half XP - Recovered)'}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </Card>
       </div>
@@ -655,6 +597,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                 const isParticipantCompleted =
                   participantCompletion !== undefined || participantUiStatus === 'completed';
                 const ringColorClass = getRingColor(statusEntry, participantCompletion, task);
+                const ringColor = calculateRingColor(participantCompletion, statusEntry, task);
+                const isLateCompletion = isParticipantCompleted && ringColor === 'yellow';
 
                 return (
                   <div
@@ -690,16 +634,21 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                     <div className="flex flex-col items-end gap-1.5 min-w-[100px]">
                       <div className={cn(
                         "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all duration-300 shadow-sm",
-                        isParticipantCompleted
-                          ? "bg-success/15 text-success border border-success/30 shadow-success/10"
-                          : participantUiStatus === 'archived'
-                            ? "bg-destructive/15 text-destructive border border-destructive/30 shadow-destructive/10"
-                            : "bg-muted/50 text-muted-foreground border border-border/60"
+                        isLateCompletion
+                          ? "bg-yellow-500/15 text-yellow-500 border border-yellow-500/30 shadow-yellow-500/10"
+                          : isParticipantCompleted
+                            ? "bg-success/15 text-success border border-success/30 shadow-success/10"
+                            : participantUiStatus === 'archived'
+                              ? "bg-destructive/15 text-destructive border border-destructive/30 shadow-destructive/10"
+                              : "bg-muted/50 text-muted-foreground border border-border/60"
                       )}>
                         {isParticipantCompleted ? (
                           <>
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Completed</span>
+                            <CompletionStatusIcon
+                              status={isLateCompletion ? 'late' : 'completed'}
+                              size="sm"
+                            />
+                            <span>{isLateCompletion ? 'Late' : 'Completed'}</span>
                           </>
                         ) : participantUiStatus === 'archived' ? (
                           <>
@@ -708,7 +657,10 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
                           </>
                         ) : (
                           <>
-                            <Circle className="w-3.5 h-3.5 opacity-60" />
+                            <CompletionStatusIcon
+                              status="pending"
+                              size="sm"
+                            />
                             <span>Pending</span>
                           </>
                         )}
