@@ -14,7 +14,7 @@ export const useKeyboardVisible = () => {
     const windowHeight = window.innerHeight;
     const currentHeight = viewport.height;
     const offsetTop = viewport.offsetTop || 0;
-    
+
     let newKeyboardHeight = 0;
     let keyboardVisible = false;
 
@@ -26,11 +26,11 @@ export const useKeyboardVisible = () => {
       keyboardVisible = true;
     }
 
-    if (keyboardVisible !== isKeyboardVisible || 
-        Math.abs(newKeyboardHeight - keyboardHeight) > 10) {
+    if (keyboardVisible !== isKeyboardVisible ||
+      Math.abs(newKeyboardHeight - keyboardHeight) > 10) {
       setIsKeyboardVisible(keyboardVisible);
       setKeyboardHeight(newKeyboardHeight);
-      
+
       if (keyboardVisible) {
         document.body.classList.add('keyboard-visible');
         document.body.style.setProperty('--keyboard-height', `${newKeyboardHeight}px`);
@@ -39,7 +39,7 @@ export const useKeyboardVisible = () => {
         document.body.style.removeProperty('--keyboard-height');
       }
     }
-    
+
     previousHeightRef.current = currentHeight;
   };
 

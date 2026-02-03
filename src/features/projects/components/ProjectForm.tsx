@@ -364,7 +364,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
 
           {/* Participants */}
           <div className="space-y-2">
-            <Label>Add Friends</Label>
+            <Label>Add Participants</Label>
             <p className="text-xs text-muted-foreground">
               Optional: Add friends to collaborate (you can always add them later)
             </p>

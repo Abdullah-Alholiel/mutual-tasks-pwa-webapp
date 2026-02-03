@@ -25,9 +25,10 @@ import {
 } from '../../../lib/tasks/taskUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProjects';
+import { useTaskViewModal } from '../hooks/useTaskViewModal';
 
 interface TaskCardProps {
   task: Task;
@@ -48,6 +49,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
   const queryClient = useQueryClient();
+  const { openTaskView } = useTaskViewModal();
 
   const creatorId = normalizeId(task.creatorId);
   const projectId = normalizeId(task.projectId);
@@ -206,6 +208,16 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     return 'h-[250px] lg:h-[240px]';
   };
 
+  // Handle card click to open task detail modal
+  const handleCardClick = useCallback(() => {
+    openTaskView(task, {
+      onEdit: canModify && onEdit ? onEdit : undefined,
+      onDelete: canModify && onDelete ? (id) => onDelete(id) : undefined,
+      canModify,
+      completionLogs,
+    });
+  }, [task, canModify, onEdit, onDelete, completionLogs, openTaskView]);
+
 
   return (
     <>
@@ -217,10 +229,13 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
           contain: 'layout style',
         }}
       >
-        <Card className={cn(
-          "p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50 flex flex-col overflow-hidden",
-          getCardHeight()
-        )}>
+        <Card
+          className={cn(
+            "p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50 flex flex-col overflow-hidden cursor-pointer",
+            getCardHeight()
+          )}
+          onClick={handleCardClick}
+        >
           <div className="flex flex-col h-full">
             {/* Header */}
             <div className="flex items-start justify-between gap-3 flex-none">
