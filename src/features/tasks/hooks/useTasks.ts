@@ -14,7 +14,7 @@ import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
 import { getTodayTasks, getProjectTasks, getUserTasks } from '../../../lib/tasks/taskFilterUtils';
 import { PERFORMANCE_CONFIG } from '@/config/appConfig';
-import { TASK_KEYS, PROJECT_KEYS, USER_KEYS, COMPLETION_LOG_KEYS } from '@/lib/queryKeys';
+import { TASK_KEYS, PROJECT_KEYS, USER_KEYS, COMPLETION_LOG_KEYS, TASK_STATUS_KEYS } from '@/lib/queryKeys';
 // Import atomic operations at top level to avoid dynamic require issues
 import { createTaskAtomic, type AtomicTaskInput } from '@/lib/tasks/atomicTaskOperations';
 import { perf } from '@/lib/monitoring/performance';
@@ -424,7 +424,7 @@ export const useTaskStatuses = () => {
   const { user, isAuthenticated } = useAuth();
 
   return useQuery({
-    queryKey: ['taskStatuses', user?.id],
+    queryKey: TASK_STATUS_KEYS.byUser(user?.id ?? 0),
     queryFn: async () => {
       if (!user || !isAuthenticated) return [];
 

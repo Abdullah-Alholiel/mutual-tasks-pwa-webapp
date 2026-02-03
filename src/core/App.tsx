@@ -47,8 +47,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       networkMode: 'offlineFirst', // Try cache first, retry on reconnect
-      // CRITICAL: Short staleTime for instant realtime updates
-      staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME,
+      staleTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_STALE_TIME, // 0 seconds - INSTANT REFRESH on realtime
       gcTime: PERFORMANCE_CONFIG.CACHING.TASK_DATA_GC_TIME,
       refetchOnWindowFocus: true, // Refetch when user returns to tab
       refetchOnMount: true, // Refetch when component mounts
@@ -113,57 +112,57 @@ const App = () => {
             },
           }}
         >
-        {/* AuthProvider must be inside QueryClientProvider for useQueryClient access */}
-        <AuthProvider>
-          {/* Initialize OneSignal push notifications */}
-          <OneSignalInitializer />
-          <DataIntegrityGuard>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              {needRefresh && (
-                <PWAUpdateBanner
-                  onRefresh={forceUpdate}
-                  onDismiss={() => {/* User can ignore - state will update on next check */}}
-                />
-              )}
-              <BrowserRouter
-                future={{
-                  v7_startTransition: true,
-                  v7_relativeSplatPath: true,
-                }}
-              >
-                <Routes>
-                  {/* Public routes - no authentication required */}
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/auth/verify" element={<Auth />} />
+          {/* AuthProvider must be inside QueryClientProvider for useQueryClient access */}
+          <AuthProvider>
+            {/* Initialize OneSignal push notifications */}
+            <OneSignalInitializer />
+            <DataIntegrityGuard>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                {needRefresh && (
+                  <PWAUpdateBanner
+                    onRefresh={forceUpdate}
+                    onDismiss={() => {/* User can ignore - state will update on next check */ }}
+                  />
+                )}
+                <BrowserRouter
+                  future={{
+                    v7_startTransition: true,
+                    v7_relativeSplatPath: true,
+                  }}
+                >
+                  <Routes>
+                    {/* Public routes - no authentication required */}
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="/auth/verify" element={<Auth />} />
 
-                  {/* Test routes - accessible in development */}
-                  <Route path="/test/toasts" element={<ToastTest />} />
+                    {/* Test routes - accessible in development */}
+                    <Route path="/test/toasts" element={<ToastTest />} />
 
-                  <Route
-                    element={
-                      <ProtectedRoute>
-                        <AppLayout />
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route path="/" element={<MainTabsShell />} />
-                    <Route path="/projects" element={<MainTabsShell />} />
-                    <Route path="/friends" element={<MainTabsShell />} />
-                    <Route path="/profile" element={<MainTabsShell />} />
-                    <Route path="/projects/:id" element={<ProjectDetail />} />
-                    <Route path="/friends/:id" element={<FriendProfile />} />
-                  </Route>
+                    <Route
+                      element={
+                        <ProtectedRoute>
+                          <AppLayout />
+                        </ProtectedRoute>
+                      }
+                    >
+                      <Route path="/" element={<MainTabsShell />} />
+                      <Route path="/projects" element={<MainTabsShell />} />
+                      <Route path="/friends" element={<MainTabsShell />} />
+                      <Route path="/profile" element={<MainTabsShell />} />
+                      <Route path="/projects/:id" element={<ProjectDetail />} />
+                      <Route path="/friends/:id" element={<FriendProfile />} />
+                    </Route>
 
-                  {/* Catch-all route - not protected (404 page) */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </DataIntegrityGuard>
-        </AuthProvider>
-      </PersistQueryClientProvider>
+                    {/* Catch-all route - not protected (404 page) */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </DataIntegrityGuard>
+          </AuthProvider>
+        </PersistQueryClientProvider>
       </ThemeProvider>
     </GlobalErrorBoundary>
   );

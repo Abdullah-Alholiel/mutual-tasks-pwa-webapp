@@ -44,6 +44,35 @@ export const TASK_KEYS = {
 } as const;
 
 // ============================================================================
+// Task Status Query Keys
+// ============================================================================
+// Keys for task status queries - used for realtime synchronization
+// ============================================================================
+export const TASK_STATUS_KEYS = {
+  // Base key for all task status queries
+  all: ['taskStatuses'] as const,
+
+  // Task statuses for a specific user
+  byUser: (userId: number) => [...TASK_STATUS_KEYS.all, userId] as const,
+} as const;
+
+// ============================================================================
+// Completion Log Query Keys
+// ============================================================================
+// Keys for completion log queries
+// ============================================================================
+export const COMPLETION_LOG_KEYS = {
+  // Base key for all completion log queries
+  all: ['completionLogs'] as const,
+
+  // Completion logs for a specific user
+  byUser: (userId: number) => [...COMPLETION_LOG_KEYS.all, userId] as const,
+
+  // Completion logs for specific tasks
+  byTasks: (taskIds: number[]) => [...COMPLETION_LOG_KEYS.all, 'tasks', taskIds] as const,
+} as const;
+
+// ============================================================================
 // Project Query Keys
 // ============================================================================
 // Keys for all project-related queries

@@ -26,6 +26,7 @@ import { adjustColorOpacity } from '@/lib/colorUtils';
 import { useState, useEffect, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProjects';
+import { useTaskStatuses } from '@/features/tasks/hooks/useTasks';
 import { deduplicator } from '@/lib/utils/requestDeduplicator';
 import { validateAndLogIssues } from '@/lib/tasks/taskStatusValidation';
 
@@ -84,15 +85,72 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     return map;
   }, [participantUsersData, currentUser]);
 
-  // Get task statuses for current user
+  // ============================================================================
+  // DIRECT SUBSCRIPTION FOR REALTIME UPDATES
+  // Subscribe directly to React Query's task status cache to ensure this
+  // component re-renders when realtime updates change status data,
+  // regardless of whether the parent component re-renders.
+  // ============================================================================
+  const { data: allTaskStatuses = [] } = useTaskStatuses();
+
+  // Get fresh task status for current user from the React Query cache
+  // This takes precedence over task.taskStatus props for freshest data
   const myTaskStatus = useMemo(() => {
-    if (!currentUser || !task.taskStatus) return undefined;
+    if (!currentUser) return undefined;
     const userId = normalizeId(currentUser.id);
+    const taskId = normalizeId(task.id);
+
+    // First check the directly subscribed cache (freshest data)
+    const fromCache = allTaskStatuses.find(ts => {
+      const tsUserId = normalizeId(ts.userId);
+      const tsTaskId = normalizeId(ts.taskId);
+      return tsTaskId === taskId && tsUserId === userId;
+    });
+
+    // If found in cache, use it (freshest)
+    if (fromCache) return fromCache;
+
+    // Fall back to task.taskStatus props (may be stale)
+    if (!task.taskStatus) return undefined;
     return task.taskStatus.find(ts => {
       const tsUserId = normalizeId(ts.userId);
       return tsUserId === userId;
     });
-  }, [task.taskStatus, currentUser]);
+  }, [allTaskStatuses, task.taskStatus, task.id, currentUser]);
+
+  // DEBUG: Log when myTaskStatus changes to track realtime data flow
+  useEffect(() => {
+    console.log('[TaskCard] 📍 Task', task.id, 'myTaskStatus updated:', {
+      status: myTaskStatus?.status,
+      ringColor: myTaskStatus?.ringColor,
+      recoveredAt: myTaskStatus?.recoveredAt,
+      completedAt: myTaskStatus?.completedAt,
+      cacheSize: allTaskStatuses.length,
+    });
+  }, [task.id, myTaskStatus?.status, myTaskStatus?.ringColor, myTaskStatus?.recoveredAt, myTaskStatus?.completedAt, allTaskStatuses.length]);
+
+  // Build merged taskStatus array for participant display
+  // Prefer cache data over props data for freshness
+  const mergedTaskStatuses = useMemo(() => {
+    if (!task.taskStatus && allTaskStatuses.length === 0) return [];
+
+    const taskId = normalizeId(task.id);
+    const statusMap = new Map<number, TaskStatusEntity>();
+
+    // First add props statuses
+    task.taskStatus?.forEach(ts => {
+      statusMap.set(normalizeId(ts.userId), ts);
+    });
+
+    // Then overlay cache statuses (fresher data takes precedence)
+    allTaskStatuses.forEach(ts => {
+      if (normalizeId(ts.taskId) === taskId) {
+        statusMap.set(normalizeId(ts.userId), ts);
+      }
+    });
+
+    return Array.from(statusMap.values());
+  }, [task.taskStatus, task.id, allTaskStatuses]);
 
   const isCreator = useMemo(() => {
     if (!currentUser) return false;
@@ -308,12 +366,12 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             {showMemberInfo && (
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center min-w-0">
-                  {/* Show unique participants */}
-                  {task.taskStatus && task.taskStatus.length > 0 && (() => {
+                  {/* Show unique participants - use mergedTaskStatuses for freshest realtime data */}
+                  {mergedTaskStatuses.length > 0 && (() => {
                     const uniqueParticipantsMap = new Map<string | number, { userId: string | number; status: TaskStatusEntity }>();
 
-                    // Add all participants
-                    task.taskStatus.forEach(ts => {
+                    // Add all participants from merged statuses (freshest data)
+                    mergedTaskStatuses.forEach(ts => {
                       const tsUserId = ts.userId;
                       if (!uniqueParticipantsMap.has(tsUserId)) {
                         uniqueParticipantsMap.set(tsUserId, { userId: tsUserId, status: ts });
@@ -569,7 +627,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
               <div className="text-left">
                 <DialogTitle className="text-xl font-bold tracking-tight">Task Participants</DialogTitle>
                 <DialogDescription className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
-                  {task.taskStatus?.length || 0} Members contributing
+                  {mergedTaskStatuses.length || 0} Members contributing
                 </DialogDescription>
               </div>
             </div>
@@ -577,7 +635,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
 
           <div className="flex-1 overflow-y-auto px-2 py-4 relative z-10 custom-scrollbar">
             <div className="space-y-2 px-4">
-              {task.taskStatus && task.taskStatus.map((statusEntry) => {
+              {/* Use mergedTaskStatuses for freshest realtime data */}
+              {mergedTaskStatuses.map((statusEntry) => {
                 const participantUserId = normalizeId(statusEntry.userId);
                 const user = participantUsers.get(participantUserId) || statusEntry.user;
 
@@ -712,8 +771,21 @@ export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
   if (prevProps.onDelete !== nextProps.onDelete) return false;
   if (prevProps.showRecover !== nextProps.showRecover) return false;
 
-  // 4. Task status array changed
-  if (prevProps.task.taskStatus?.length !== nextProps.task.taskStatus?.length) return false;
+  // 4. Task status array changed - check both length AND content for status changes
+  const prevStatuses = prevProps.task.taskStatus ?? [];
+  const nextStatuses = nextProps.task.taskStatus ?? [];
+  if (prevStatuses.length !== nextStatuses.length) return false;
+
+  // Deep compare status content for ring color changes
+  for (let i = 0; i < prevStatuses.length; i++) {
+    const prev = prevStatuses[i];
+    const next = nextStatuses.find(s => s.userId === prev.userId);
+    if (!next) return false;
+    if (prev.status !== next.status) return false;
+    if (prev.ringColor !== next.ringColor) return false;
+    if (prev.recoveredAt !== next.recoveredAt) return false;
+    if (prev.completedAt !== next.completedAt) return false;
+  }
 
   // 5. Member info visibility changed
   if (prevProps.showMemberInfo !== nextProps.showMemberInfo) return false;

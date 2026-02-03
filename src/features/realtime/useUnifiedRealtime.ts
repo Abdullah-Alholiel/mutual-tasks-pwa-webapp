@@ -26,7 +26,7 @@ import { getSharedSupabaseClient } from '@/lib/supabaseClient';
 import type { RealtimePostgresChangesPayload, RealtimeChannel } from '@supabase/supabase-js';
 import { transformNotificationRow, type NotificationRow } from '@/db/transformers';
 import type { Notification } from '@/types';
-import { NOTIFICATION_KEYS, TASK_KEYS, PROJECT_KEYS } from '@/lib/queryKeys';
+import { NOTIFICATION_KEYS, TASK_KEYS, PROJECT_KEYS, TASK_STATUS_KEYS, COMPLETION_LOG_KEYS } from '@/lib/queryKeys';
 import { browserNotificationService } from '@/lib/notifications/browserNotificationService';
 import { logger } from '@/lib/monitoring/logger';
 import { withRetry } from '@/lib/utils/retry';
@@ -134,8 +134,30 @@ function handleStatusChange(
     queryClient: ReturnType<typeof useQueryClient>,
     payload: Payload
 ) {
+    // DEBUG: Log the actual event received from Supabase
+    console.log('[UnifiedRealtime] 🔄 TASK_STATUSES event:', payload.eventType, payload.new, payload.old);
     logger.debug('[UnifiedRealtime] Status change:', payload.eventType);
+
+    // Invalidate all task-related queries for consistency
+    console.log('[UnifiedRealtime] 📤 Invalidating TASK_KEYS.all, TASK_STATUS_KEYS.all, COMPLETION_LOG_KEYS.all');
     queryClient.invalidateQueries({ queryKey: TASK_KEYS.all });
+    queryClient.invalidateQueries({ queryKey: TASK_STATUS_KEYS.all });
+    queryClient.invalidateQueries({ queryKey: COMPLETION_LOG_KEYS.all });
+
+    // Force immediate refetch of active queries for instant UI update
+    console.log('[UnifiedRealtime] 🔃 Forcing refetch of active queries...');
+    queryClient.refetchQueries({
+        queryKey: TASK_KEYS.all,
+        type: 'active'
+    }).then(() => {
+        console.log('[UnifiedRealtime] ✅ TASK_KEYS refetch complete');
+    });
+    queryClient.refetchQueries({
+        queryKey: TASK_STATUS_KEYS.all,
+        type: 'active'
+    }).then(() => {
+        console.log('[UnifiedRealtime] ✅ TASK_STATUS_KEYS refetch complete');
+    });
 }
 
 function handleLogChange(
