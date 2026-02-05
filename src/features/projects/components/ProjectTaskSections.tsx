@@ -21,6 +21,31 @@ interface TaskSectionProps {
  * Optimized TaskSection component with CSS containment for scroll performance.
  * Uses content-visibility to optimize rendering of off-screen items.
  */
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 300,
+      damping: 24
+    }
+  }
+};
+
 export const TaskSection = memo(({
   title,
   icon,
@@ -42,17 +67,21 @@ export const TaskSection = memo(({
         {icon}
         <h3 className={`text-lg font-semibold ${titleClassName}`}>{title}</h3>
       </div>
-      {/* Optimized task container with GPU acceleration */}
-      <div
+      {/* Optimized task container with staggered animation */}
+      <motion.div
         className="space-y-3"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
         style={{
           // Enable GPU acceleration for smooth scrolling
           transform: 'translateZ(0)',
         }}
       >
         {tasks.map(task => (
-          <div
+          <motion.div
             key={task.id}
+            variants={itemVariants}
             style={{
               // CSS containment for better paint performance
               contain: 'layout style',
@@ -70,9 +99,9 @@ export const TaskSection = memo(({
               onEdit={getOnEditTask ? getOnEditTask(task) : undefined}
               showMemberInfo={showMemberInfo}
             />
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 });

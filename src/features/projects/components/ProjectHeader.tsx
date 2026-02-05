@@ -72,9 +72,9 @@ export const ProjectHeader = ({
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 mt-1"
-            style={{ backgroundColor: adjustColorOpacity(project.color, 0.15) }}
+            style={{ backgroundColor: adjustColorOpacity(project.color || 'var(--primary)', 0.15) }}
           >
-            <Icon className="w-7 h-7" style={{ color: project.color }} />
+            <Icon className="w-7 h-7" style={{ color: project.color || 'var(--primary)' }} />
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold break-words leading-tight py-1">{project.name}</h1>
@@ -120,19 +120,21 @@ export const ProjectHeader = ({
         </div>
       </div>
 
-      <div className="flex items-start gap-3 flex-1 min-w-0 sm:hidden">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-1"
-          style={{ backgroundColor: adjustColorOpacity(project.color, 0.15) }}
-        >
-          <Icon className="w-6 h-6" style={{ color: project.color }} />
+      <div className="flex flex-col gap-1 sm:hidden">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: adjustColorOpacity(project.color || 'var(--primary)', 0.15) }}
+          >
+            <Icon className="w-8 h-8" style={{ color: project.color || 'var(--primary)' }} />
+          </div>
+          <h1 className="text-2xl font-bold break-words flex-1 min-w-0">{project.name}</h1>
         </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold break-words">{project.name}</h1>
-          <p className="text-sm text-muted-foreground break-words">{project.description}</p>
-        </div>
+        {project.description && (
+          <p className="text-sm text-muted-foreground break-words mt-1">{project.description}</p>
+        )}
       </div>
-    </div>
+    </div >
   );
 };
 

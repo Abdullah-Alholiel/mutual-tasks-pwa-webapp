@@ -232,8 +232,8 @@ export const TaskForm = ({
             {initialTask
               ? 'Update task details'
               : (project
-                ? `Create a task in ${project.name}`
-                : 'Create a new collaborative task')
+                ? `Add a task to ${project.name}`
+                : 'Add a collaborative task')
             }
           </DialogDescription>
         </DialogHeader>
@@ -646,7 +646,7 @@ export const TaskForm = ({
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
               <p className="text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">Note:</span> This task will be automatically assigned
-                to all project members. 💪
+                to all project members.
                 <br />
                 <br />
                 <b> Daily/Weekly recurring tasks will repeat for 30 days.</b>

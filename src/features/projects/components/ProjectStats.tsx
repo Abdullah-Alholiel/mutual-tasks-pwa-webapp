@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, MoreHorizontal } from 'lucide-react';
 import type { Project, ProjectParticipant } from '@/types';
 
 interface ProjectStatsProps {
@@ -100,7 +100,8 @@ export const ProjectStats = ({
                 {(() => {
                   // Use participants from props first, fallback to project.participants
                   // Create a combined unique list to avoid duplicates
-                  const participantMap = new Map<string | number, typeof participants[0] | { user: typeof project.participants[0] }>();
+                  type ParticipantType = (typeof participants)[number] | { user: NonNullable<typeof project.participants>[number] };
+                  const participantMap = new Map<string | number, ParticipantType>();
 
                   // Add participants from props
                   participants.forEach(p => {
@@ -138,13 +139,23 @@ export const ProjectStats = ({
                     ...participants.map(p => typeof p.userId === 'string' ? parseInt(p.userId) : p.userId),
                     ...(project.participants?.map(u => typeof u.id === 'string' ? parseInt(u.id) : u.id) || [])
                   ]).size;
-                  return totalUnique > 4 && (
-                    <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center shadow-sm relative z-10">
-                      <span className="text-[10px] font-bold text-muted-foreground">
-                        +{totalUnique - 4}
-                      </span>
-                    </div>
-                  );
+
+                  if (totalUnique > 4) {
+                    return (
+                      <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center shadow-sm relative z-10 cursor-pointer hover:bg-primary/10 transition-colors" onClick={onViewMembers}>
+                        <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary transition-colors">
+                          +{totalUnique - 4}
+                        </span>
+                      </div>
+                    );
+                  } else if (totalUnique > 0) {
+                    return (
+                      <div className="w-8 h-8 rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center shadow-sm relative z-10 cursor-pointer hover:bg-primary/10 transition-colors" onClick={onViewMembers}>
+                        <MoreHorizontal className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </div>
+                    );
+                  }
+                  return null;
                 })()}
               </div>
               {canManage && (

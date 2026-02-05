@@ -6,9 +6,8 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { motion } from 'framer-motion';
 import { Calendar, CheckCircle2, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { InlineLoader } from '../../components/ui/loader';
 import { TaskStatCard } from '../../components/TaskStatCard';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import type { Task, User, ProjectParticipant } from '../../types';
 import {
@@ -39,7 +38,31 @@ import { getDatabaseClient } from '@/db';
 import { TASK_CONFIG } from '@/config/appConfig';
 import { useNavigate } from 'react-router-dom';
 import { ProjectForm } from '../projects/components/ProjectForm';
+import { EmptyState } from '@/components/ui/empty-state';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 300,
+      damping: 24
+    }
+  }
+};
 
 interface IndexProps {
   isInternalSlide?: boolean;
@@ -263,10 +286,10 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
       queryClient.invalidateQueries({ queryKey: ['taskStatuses', userIdNum] });
       queryClient.invalidateQueries({ queryKey: ['completionLogs', 'tasks'] });
 
-      toast.success('Great job! 💪', {
+      toast.success('Great job!', {
         description: penaltyApplied
-          ? 'Waiting for your partner to complete... (Half XP - Recovered)'
-          : 'Waiting for your partner to complete...'
+          ? 'Waiting for your partners to complete... (Half XP - Recovered)'
+          : 'Waiting for your partners to complete...'
       });
     } catch (error) {
       toast.error('Failed to complete task');
@@ -662,16 +685,20 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
               <h2 className="text-xl font-bold">Needs Your Action</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
-            <div
+            <motion.div
               className="space-y-3"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
               style={{
                 transform: 'translateZ(0)',
                 willChange: 'contents',
               }}
             >
               {needsActionTasks.map((task) => (
-                <div
+                <motion.div
                   key={task.id}
+                  variants={itemVariants}
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
@@ -686,9 +713,9 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
                     onDelete={handleDeleteTask}
                     onEdit={getOnEditTask(task)}
                   />
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         )}
 
@@ -700,16 +727,20 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
               <h2 className="text-xl font-bold">Another Chance ?</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
-            <div
+            <motion.div
               className="space-y-3"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
               style={{
                 transform: 'translateZ(0)',
                 willChange: 'contents',
               }}
             >
               {recoveredTasks.map((task) => (
-                <div
+                <motion.div
                   key={task.id}
+                  variants={itemVariants}
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
@@ -724,9 +755,9 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
                     onDelete={handleDeleteTask}
                     onEdit={getOnEditTask(task)}
                   />
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         )}
 
@@ -738,16 +769,20 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
               <h2 className="text-xl font-bold">Done for the Day</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
-            <div
+            <motion.div
               className="space-y-3 opacity-60"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
               style={{
                 transform: 'translateZ(0)',
                 willChange: 'contents',
               }}
             >
               {completedTasksForToday.map((task) => (
-                <div
+                <motion.div
                   key={task.id}
+                  variants={itemVariants}
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
@@ -760,43 +795,23 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
                     onDelete={handleDeleteTask}
                     onEdit={getOnEditTask(task)}
                   />
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         )}
 
         {/* Empty state */}
         {needsActionTasks.length === 0 && completedTasksForToday.length === 0 && recoveredTasks.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-16"
-          >
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-              <Sparkles className="w-10 h-10 text-muted-foreground" />
-            </div>
-            <h3 className="text-xl font-bold mb-2">All clear for today!</h3>
-            <p className="text-muted-foreground mb-6">
-              Start a new task or check out your projects
-            </p>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold">
-                  <Plus className="w-4 h-4 mr-0 sm:mr-1.5" />
-                  <span className="hidden sm:inline">New</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem onClick={() => setShowTaskForm(true)}>
-                  New Task
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowProjectForm(true)}>
-                  New Project
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </motion.div>
+          <EmptyState
+            title="All clear for today!"
+            description="Ready to conquer the day? Start a new task or check out your projects."
+            action={{
+              label: "New",
+              onClick: () => setShowTaskForm(true),
+              icon: <Plus className="w-4 h-4" />
+            }}
+          />
         )}
       </div >
 

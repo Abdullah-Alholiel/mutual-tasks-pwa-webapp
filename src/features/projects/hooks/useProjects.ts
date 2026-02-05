@@ -9,7 +9,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 import { useAuth } from '../../auth/useAuth';
-import type { Project, NotificationType } from '@/types';
+import type { Project } from '@/types';
 import { handleError } from '@/lib/errorUtils';
 import { toast } from 'sonner';
 import { normalizeId } from '@/lib/idUtils';
@@ -112,8 +112,8 @@ export const useCreateProject = () => {
     onSuccess: (newProject) => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project created! 🎉', {
-        description: 'Start adding tasks to get going!'
+      toast.success('Project created!', {
+        description: 'Start adding tasks to get moving.'
       });
       return newProject;
     },
@@ -139,7 +139,7 @@ export const useUpdateProject = () => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project', normalizeId(updatedProject.id)] });
-      toast.success('Project updated! ✅');
+      toast.success('Project updated.');
     },
     onError: (error) => {
       handleError(error, 'useUpdateProject');
@@ -153,7 +153,6 @@ export const useUpdateProject = () => {
  */
 export const useUserProjectsWithStats = () => {
   const { user, isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ['projects', 'with-stats', user?.id],
@@ -224,7 +223,7 @@ export const useDeleteProject = () => {
     onSuccess: () => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project deleted! 🗑️');
+      toast.success('Project deleted.');
     },
     onError: (error) => {
       handleError(error, 'useDeleteProject');
@@ -324,7 +323,7 @@ export const useJoinProject = () => {
         queryClient.invalidateQueries({ queryKey: ['taskStatuses'] }),
         queryClient.invalidateQueries({ queryKey: ['tasks', 'today'] }),
       ]);
-      toast.success('Joined project! 🎉', {
+      toast.success('Joined project!', {
         description: 'You have been added to all active tasks.'
       });
     },

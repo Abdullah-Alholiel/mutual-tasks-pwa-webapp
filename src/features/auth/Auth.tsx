@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { Sparkles, Mail, ArrowRight, AtSign, CheckCircle2, ExternalLink, Copy, Check } from 'lucide-react';
+import { Sparkles, Mail, ArrowRight, AtSign, CheckCircle2, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { validateHandleFormat } from '@/lib/userUtils';
@@ -15,6 +15,195 @@ import { PageLoader } from '@/components/ui/loader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link2 } from 'lucide-react';
 import { useAuth } from '@/features/auth/useAuth';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+
+const FloatingBlobs = () => (
+  <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <motion.div
+      animate={{
+        x: [0, 100, 0],
+        y: [0, -50, 0],
+        scale: [1, 1.2, 1],
+        rotate: [0, 10, 0]
+      }}
+      transition={{
+        duration: 25,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+      className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-primary/20 blur-[130px] rounded-full"
+    />
+    <motion.div
+      animate={{
+        x: [0, -80, 0],
+        y: [0, 100, 0],
+        scale: [1, 1.1, 1],
+        rotate: [0, -15, 0]
+      }}
+      transition={{
+        duration: 30,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+      className="absolute top-[10%] -right-[15%] w-[50%] h-[50%] bg-accent/15 blur-[130px] rounded-full"
+    />
+    <motion.div
+      animate={{
+        x: [0, 50, 0],
+        y: [0, 80, 0],
+        scale: [1, 1.3, 1],
+        rotate: [0, 5, 0]
+      }}
+      transition={{
+        duration: 22,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+      className="absolute -bottom-[20%] left-[5%] w-[65%] h-[65%] bg-primary/10 blur-[130px] rounded-full"
+    />
+  </div>
+);
+
+const AuthHeader = () => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.9, y: -30 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    transition={{
+      type: "spring",
+      stiffness: 100,
+      damping: 20
+    }}
+    className="text-center mb-6 relative z-10"
+  >
+    <motion.div
+      whileHover={{ scale: 1.05, rotate: 2 }}
+      className="inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-[1.5rem] mb-4 overflow-hidden shadow-2xl shadow-primary/20 border-2 border-primary/10 bg-white/50 dark:bg-black/20 p-2 backdrop-blur-sm"
+    >
+      <img
+        src="/icons/icon-192x192.png"
+        alt="Momentum"
+        className="w-full h-full object-cover rounded-[1rem]"
+      />
+    </motion.div>
+    <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2 gradient-text">
+      Momentum
+    </h1>
+    <p className="text-base md:text-lg text-muted-foreground font-medium max-w-[280px] mx-auto leading-tight">
+      Accomplish more, together.
+    </p>
+  </motion.div>
+);
+
+const SuccessScreen = ({
+  handleContinueInBrowser,
+  handleCopyLink,
+  linkCopied,
+  isIOS,
+  isAndroid,
+  isMobile
+}: any) => (
+  <div className="min-h-screen min-h-[100dvh] flex flex-col items-center justify-center p-4 md:p-6 py-6 md:py-10 relative">
+    <FloatingBlobs />
+    <div className="w-full max-w-md relative z-10">
+      <AuthHeader />
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <Card className="p-6 md:p-8 shadow-2xl border-border/50 glass-strong rounded-[2rem]">
+          <div className="text-center space-y-6">
+            <div className="flex justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", damping: 12, stiffness: 200, delay: 0.3 }}
+                className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center"
+              >
+                <CheckCircle2 className="w-8 h-8 text-success" />
+              </motion.div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold mb-2 tracking-tight">You're in!</h2>
+              <p className="text-muted-foreground text-sm">
+                Your account is ready. Choose how you'd like to continue.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <Button
+                onClick={handleContinueInBrowser}
+                className="w-full gradient-primary text-white hover:opacity-95 shadow-lg shadow-primary/25 rounded-xl h-12 text-base font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Continue to Dashboard
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+
+              {(isIOS || isAndroid) && (
+                <div className="space-y-4 pt-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border/50" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background/20 backdrop-blur-md px-4 text-muted-foreground font-semibold">
+                        Home Screen PWA
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/30 border border-border/40 backdrop-blur-md rounded-2xl p-5 text-left space-y-4">
+                    <p className="text-sm font-medium text-muted-foreground text-center">
+                      To sign in to your installed app:
+                    </p>
+                    <div className="flex justify-center">
+                      <Button
+                        onClick={handleCopyLink}
+                        variant="secondary"
+                        className="w-full rounded-xl h-11"
+                      >
+                        {linkCopied ? (
+                          <>
+                            <Check className="w-4 h-4 mr-2" />
+                            Link Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy Sign-In Link
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!isMobile && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <Button
+                    onClick={handleCopyLink}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:bg-muted/50 rounded-lg"
+                  >
+                    {linkCopied ? (
+                      <><Check className="w-3 h-3 mr-1" /> Copied</>
+                    ) : (
+                      <><Copy className="w-3 h-3 mr-1" /> Copy Link</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+    </div>
+  </div>
+);
 
 const Auth = () => {
   const [loginEmail, setLoginEmail] = useState('');
@@ -37,7 +226,6 @@ const Auth = () => {
 
   // Redirect authenticated users to home (but not during magic link verification)
   useEffect(() => {
-    // Don't redirect if we're in the middle of magic link verification flow
     if (!authLoading && isAuthenticated && !isVerifying && !verificationComplete && !searchParams.get('token')) {
       navigate('/', { replace: true });
     }
@@ -46,32 +234,21 @@ const Auth = () => {
   // Handle magic link verification
   useEffect(() => {
     const token = searchParams.get('token');
-
     if (token) {
       const verify = async () => {
         setIsVerifying(true);
         try {
           const result = await verifyMagicLink(token);
-
           if (result.success) {
-            // Get token - prefer result value, fallback to localStorage
             const sessionToken = result.sessionToken || localStorage.getItem('momentum_session_token');
             const expiresAt = result.expiresAt || localStorage.getItem('momentum_session_expiry');
-
             if (sessionToken) {
-              // Always show handoff screen - user can choose how to continue
-              // This ensures consistent experience on mobile browsers
               setHandoffToken(sessionToken);
               setHandoffExpiresAt(expiresAt);
-
-              // Refresh auth state to fetch user data immediately
-              // This ensures when they click "Continue", they are already authenticated
               await refresh();
-
               setVerificationComplete(true);
               setIsVerifying(false);
             } else {
-              // No token found - show error
               toast.error('Session token not found. Please try signing in again.');
               setIsVerifying(false);
               navigate('/auth');
@@ -88,62 +265,31 @@ const Auth = () => {
           navigate('/auth');
         }
       };
-
       verify();
     }
   }, [searchParams, navigate, refresh]);
 
-  // Get app URL for handoff link
-  const getAppUrl = (): string => {
-    // In production, use the production URL
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return window.location.origin;
-    }
-    // For localhost, detect the production URL or use current origin
-    return window.location.origin;
-  };
-
-  // Detect iOS
+  const getAppUrl = (): string => window.location.origin;
   const isIOS = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-  // Detect Android
   const isAndroid = typeof window !== 'undefined' && /Android/.test(navigator.userAgent);
 
-  // Get handoff URL
   const getHandoffUrl = (): string => {
     if (!handoffToken) return '';
     const appUrl = getAppUrl();
     let handoffUrl = `${appUrl}/?handoff_token=${encodeURIComponent(handoffToken)}`;
-    if (handoffExpiresAt) {
-      handoffUrl += `&expires_at=${encodeURIComponent(handoffExpiresAt)}`;
-    }
+    if (handoffExpiresAt) handoffUrl += `&expires_at=${encodeURIComponent(handoffExpiresAt)}`;
     return handoffUrl;
   };
 
-  // Handle "Continue to App" button click
-  const handleContinueToApp = () => {
-    const handoffUrl = getHandoffUrl();
-    if (handoffUrl) {
-      // On mobile, this will try to open the PWA if installed
-      window.location.href = handoffUrl;
-    } else {
-      navigate('/');
-    }
-  };
+  const handleContinueInBrowser = () => navigate('/');
 
-  // Handle "Continue in Browser" button
-  const handleContinueInBrowser = () => {
-    navigate('/');
-  };
-
-  // Copy handoff link to clipboard
   const handleCopyLink = async () => {
     const handoffUrl = getHandoffUrl();
     if (handoffUrl && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(handoffUrl);
         setLinkCopied(true);
-        toast.success('Link copied to clipboard!');
+        toast.success('Link copied! Paste it in the Momentum app.');
         setTimeout(() => setLinkCopied(false), 2000);
       } catch (err) {
         console.error('Failed to copy:', err);
@@ -152,264 +298,95 @@ const Auth = () => {
     }
   };
 
-  // Handle pasted sign-in link (for PWA users)
-  // Supports both magic link tokens (?token=xxx) and handoff tokens (?handoff_token=xxx)
   const handlePasteLink = async () => {
     if (!pastedLink.trim()) {
       toast.error('Please paste a sign-in link');
       return;
     }
-
     setIsPasteLinkLoading(true);
-
     try {
       const trimmedLink = pastedLink.trim();
-
-      // Parse the URL - handle both relative and absolute URLs
       let url: URL;
       try {
-        // Try parsing as absolute URL first
         url = new URL(trimmedLink);
       } catch {
-        // If it's a relative URL or path, try to construct full URL
-        if (trimmedLink.startsWith('/')) {
-          url = new URL(trimmedLink, window.location.origin);
-        } else if (trimmedLink.includes('?')) {
-          // Try to parse as relative URL with query params
-          url = new URL(trimmedLink, window.location.origin);
-        } else if (trimmedLink.includes('token=')) {
-          // Just query params, construct full URL
-          url = new URL(`/auth/verify?${trimmedLink.split('?')[1]}`, window.location.origin);
-        } else {
-          throw new Error('Invalid URL format - please paste the complete link');
-        }
+        if (trimmedLink.startsWith('/')) url = new URL(trimmedLink, window.location.origin);
+        else if (trimmedLink.includes('?')) url = new URL(trimmedLink, window.location.origin);
+        else if (trimmedLink.includes('token=')) url = new URL(`/auth/verify?${trimmedLink.split('?')[1]}`, window.location.origin);
+        else throw new Error('Invalid URL format');
       }
 
-      console.log('Parsed URL:', url.href);
-      console.log('Search params:', Object.fromEntries(url.searchParams.entries()));
-
-      // Check for handoff_token first (from handoff flow)
-      const handoffToken = url.searchParams.get('handoff_token');
+      const hToken = url.searchParams.get('handoff_token');
       const expiresAt = url.searchParams.get('expires_at');
-
-      if (handoffToken) {
-        // This is a handoff token - use it directly
+      if (hToken) {
         const expiry = expiresAt || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
-        setSessionToken(handoffToken, expiry);
-        // Refresh auth state to fetch user data
+        setSessionToken(hToken, expiry);
         await refresh();
         toast.success('Successfully signed in!');
         navigate('/');
         return;
       }
 
-      // Check for magic link token (?token=xxx)
-      const magicLinkToken = url.searchParams.get('token');
-
-      if (magicLinkToken) {
-        console.log('Found magic link token, verifying...');
-        // This is a magic link - verify it and create session
-        const result = await verifyMagicLink(magicLinkToken);
-
+      const mToken = url.searchParams.get('token');
+      if (mToken) {
+        const result = await verifyMagicLink(mToken);
         if (result.success && result.sessionToken) {
-          // Refresh auth state to fetch user data
           await refresh();
           toast.success('Successfully signed in!');
           navigate('/');
         } else {
-          console.error('Magic link verification failed:', result.error);
-          toast.error(result.error || 'Invalid or expired magic link. Please request a new one.');
+          toast.error(result.error || 'Invalid or expired link.');
         }
         return;
       }
-
-      // No valid token found - provide helpful error
-      console.error('No token found in URL. Search params:', url.searchParams.toString());
-      toast.error('Invalid sign-in link. The link must contain a "token" parameter. Please copy the complete link from your email (it should include "?token=").');
+      toast.error('Invalid sign-in link.');
     } catch (err) {
-      console.error('Failed to process link:', err);
-      const errorMessage = err instanceof Error ? err.message : String(err);
-
-      if (errorMessage.includes('Invalid URL') || err instanceof TypeError) {
-        toast.error('Invalid link format. Please paste the complete URL from your email, starting with "https://"');
-      } else {
-        toast.error(`Failed to process link: ${errorMessage}. Please make sure you copied the complete link from your email.`);
-      }
+      toast.error('Failed to process link.');
     } finally {
       setIsPasteLinkLoading(false);
     }
   };
 
-  // Show loading while checking authentication (but not during magic link verification)
   if (authLoading && !isVerifying && !searchParams.get('token')) {
-    return <PageLoader text="Checking authentication..." />;
+    return <PageLoader text="Resuming context..." />;
   }
 
-  // Show full page loader during magic link verification
   if (isVerifying) {
     return <PageLoader text="Verifying magic link..." />;
   }
 
-  // Show "Continue to App" success screen
   if (verificationComplete) {
     return (
-      <div className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto">
-        <div className="flex flex-col items-center justify-center p-4 md:p-6 py-8 md:py-12">
-          <div className="w-full max-w-md">
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center mb-8"
-            >
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 overflow-hidden">
-                <img
-                  src="/icons/icon-192x192.png"
-                  alt="Momentum"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <h1 className="text-3xl font-bold mb-2">Momentum</h1>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="p-6 md:p-8 shadow-lg border-border/50">
-                <div className="text-center space-y-6">
-                  <div className="flex justify-center">
-                    <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                      <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">You're signed in!</h2>
-                    <p className="text-muted-foreground text-sm md:text-base">
-                      Your account is ready. Choose how you'd like to continue.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {/* Primary: Continue in current context */}
-                    <Button
-                      onClick={handleContinueInBrowser}
-                      className="w-full gradient-primary text-white hover:opacity-90"
-                      size="lg"
-                    >
-                      Continue
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-
-                    {/* For PWA users on mobile */}
-                    {(isIOS || isAndroid) && (
-                      <>
-                        <div className="relative">
-                          <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t" />
-                          </div>
-                          <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground">
-                              Have the app installed?
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="bg-muted/50 rounded-lg p-4 text-left space-y-3">
-                          <p className="text-sm text-muted-foreground">
-                            To sign in to the home screen app:
-                          </p>
-                          <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal list-inside">
-                            <li>Copy the sign-in link below</li>
-                            <li>Open Momentum from your home screen</li>
-                            <li>Tap "Sign In with Link" and paste</li>
-                          </ol>
-
-                          <Button
-                            onClick={handleCopyLink}
-                            variant="secondary"
-                            className="w-full"
-                            size="sm"
-                          >
-                            {linkCopied ? (
-                              <>
-                                <Check className="w-4 h-4 mr-2" />
-                                Link Copied!
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-4 h-4 mr-2" />
-                                Copy Sign-In Link
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Desktop: Show copy link option */}
-                    {!isMobile && (
-                      <div className="flex items-center justify-center gap-2 pt-2">
-                        <Button
-                          onClick={handleCopyLink}
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-muted-foreground"
-                        >
-                          {linkCopied ? (
-                            <>
-                              <Check className="w-3 h-3 mr-1" />
-                              Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3 mr-1" />
-                              Copy Sign-In Link
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          </div>
-        </div>
-      </div>
+      <SuccessScreen
+        handleContinueInBrowser={handleContinueInBrowser}
+        handleCopyLink={handleCopyLink}
+        linkCopied={linkCopied}
+        isIOS={isIOS}
+        isAndroid={isAndroid}
+        isMobile={isMobile}
+      />
     );
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!loginEmail.trim()) {
-      toast.error('Please enter your email address');
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
+    if (!loginEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
       toast.error('Please enter a valid email address');
       return;
     }
-
     setIsLoading(true);
-
     try {
       const result = await requestLogin(loginEmail.trim());
-
       if (result.success) {
         toast.success('Magic link sent! ✨', {
-          description: `Check your email at ${loginEmail} for the sign-in link. Please also check your spam/junk folder if you don't see it.`,
-          duration: 8000, // Show longer so user can read
+          description: `Check your email at ${loginEmail}. If you don't see it, peek in your spam folder!`,
+          duration: 8000,
         });
-        setLoginEmail(''); // Clear form
+        setLoginEmail('');
       } else {
         toast.error(result.error || 'Failed to send magic link');
       }
     } catch (error) {
-      console.error('Login error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -418,18 +395,14 @@ const Auth = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!signupEmail.trim() || !signupName.trim() || !signupHandle.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
-
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(signupEmail)) {
       toast.error('Please enter a valid email address');
       return;
     }
-
-    // Validate handle format
     const handleValidation = validateHandleFormat(signupHandle);
     if (!handleValidation.isValid) {
       toast.error(handleValidation.error || 'Invalid handle format');
@@ -437,16 +410,13 @@ const Auth = () => {
     }
 
     setIsLoading(true);
-
     try {
       const result = await requestSignup(signupEmail.trim(), signupName.trim(), signupHandle.trim());
-
       if (result.success) {
         toast.success('Magic link sent! ✨', {
-          description: `Check your email at ${signupEmail} to complete your registration. Please also check your spam/junk folder if you don't see it.`,
-          duration: 8000, // Show longer so user can read
+          description: `Check your email at ${signupEmail} to join. Peek in your spam folder if it's missing!`,
+          duration: 8000,
         });
-        // Clear form
         setSignupEmail('');
         setSignupName('');
         setSignupHandle('');
@@ -454,7 +424,6 @@ const Auth = () => {
         toast.error(result.error || 'Failed to send magic link');
       }
     } catch (error) {
-      console.error('Signup error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -462,64 +431,55 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-background overflow-y-auto">
-      <div className="flex flex-col items-center justify-center p-4 md:p-6 py-8 md:py-12">
-        <div className="w-full max-w-md">
-          {/* Logo/Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
-          >
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 overflow-hidden">
-              <img
-                src="/icons/icon-192x192.png"
-                alt="Momentum"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <h1 className="text-3xl font-bold mb-2">Momentum</h1>
-            <p className="text-muted-foreground">Collaborative Tasks</p>
-          </motion.div>
+    <div className="min-h-screen min-h-[100dvh] bg-background overflow-x-hidden relative selection:bg-primary/20">
+      <FloatingBlobs />
 
-          {/* Auth Card */}
+      {/* Theme Toggle */}
+      <div className="fixed top-6 right-6 z-50">
+        <ThemeToggle size="compact" />
+      </div>
+
+      <div className="relative z-10 flex flex-col items-center justify-center p-4 md:p-6 py-6 md:py-12">
+        <div className="w-full max-w-[400px]">
+          <AuthHeader />
+
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            transition={{ delay: 0.15, type: "spring", stiffness: 100, damping: 20 }}
           >
-            <Card className="p-6 md:p-8 shadow-lg border-border/50">
+            <Card className="p-6 md:p-8 shadow-2xl border-border/40 glass-strong rounded-[2rem]">
               <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="login" className="text-sm md:text-base">
+                <TabsList className="grid w-full grid-cols-2 mb-6 h-12 bg-muted/30 p-1 rounded-xl border border-border/20">
+                  <TabsTrigger value="login" className="text-sm font-bold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
                     Sign In
                   </TabsTrigger>
-                  <TabsTrigger value="signup" className="text-sm md:text-base">
+                  <TabsTrigger value="signup" className="text-sm font-bold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
                     Sign Up
                   </TabsTrigger>
                 </TabsList>
 
                 {/* Login Tab */}
-                <TabsContent value="login" className="space-y-6 mt-0">
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">Welcome back</h2>
-                    <p className="text-muted-foreground text-sm md:text-base">
-                      Enter your email to receive a magic link
+                <TabsContent value="login" className="space-y-6 mt-0 focus-visible:outline-none">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black tracking-tight">Welcome back</h2>
+                    <p className="text-sm text-muted-foreground font-medium">
+                      Pick up where you left off.
                     </p>
                   </div>
 
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="login-email">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Label htmlFor="login-email" className="font-bold text-xs ml-1">Email Address</Label>
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
                           id="login-email"
                           type="email"
-                          placeholder="you@example.com"
+                          placeholder="you@email.com"
                           value={loginEmail}
                           onChange={(e) => setLoginEmail(e.target.value)}
-                          className="pl-10 text-base"
+                          className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                           disabled={isLoading}
                           required
                         />
@@ -528,14 +488,13 @@ const Auth = () => {
 
                     <Button
                       type="submit"
-                      className="w-full gradient-primary text-white hover:opacity-90"
+                      className="w-full gradient-primary text-white hover:opacity-95 shadow-lg shadow-primary/25 rounded-xl h-12 text-base font-bold transition-all hover:scale-[1.01] active:scale-[0.99]"
                       disabled={isLoading}
-                      size="lg"
                     >
                       {isLoading ? (
                         <>
                           <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                          Sending magic link...
+                          Sending...
                         </>
                       ) : (
                         <>
@@ -546,30 +505,29 @@ const Auth = () => {
                     </Button>
                   </form>
 
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
+                  <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 text-xs font-medium text-muted-foreground space-y-2 backdrop-blur-sm">
                     <p className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                      <Sparkles className="w-4 h-4 text-primary shrink-0" />
                       <span>
-                        We'll send you a secure link to sign in. No password needed!
+                        No passwords, no friction. We'll email you a secure link to jump right in.
                       </span>
                     </p>
-                    <p className="flex items-start gap-2 text-amber-600 dark:text-amber-500">
-                      <Mail className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span className="font-medium">
-                        Important: Please check your spam/junk folder if you don't see the email in your inbox!
+                    <p className="flex items-start gap-2 text-amber-600/90 dark:text-amber-500/90">
+                      <Mail className="w-4 h-4 shrink-0" />
+                      <span>
+                        Don't see it? Peek in your spam folder—sometimes magic links get lost.
                       </span>
                     </p>
                   </div>
 
-                  {/* Sign In with Link option (for PWA users) */}
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <div className="relative">
                       <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
+                        <span className="w-full border-t border-border/50" />
                       </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
-                          Or
+                      <div className="relative flex justify-center text-[10px] uppercase">
+                        <span className="bg-transparent px-3 text-muted-foreground font-bold">
+                          Alternative
                         </span>
                       </div>
                     </div>
@@ -578,44 +536,35 @@ const Auth = () => {
                       <Button
                         type="button"
                         variant="ghost"
-                        className="w-full mt-4 text-muted-foreground"
+                        className="w-full mt-4 text-muted-foreground font-semibold h-10 text-xs rounded-lg hover:bg-muted/50 transition-colors"
                         onClick={() => setShowPasteLink(true)}
                       >
-                        <Link2 className="w-4 h-4 mr-2" />
+                        <Link2 className="w-3 h-3 mr-2" />
                         Sign In with Link
                       </Button>
                     ) : (
                       <div className="mt-4 space-y-3">
-                        <p className="text-xs text-muted-foreground text-center">
-                          Paste the sign-in link from your email (the full URL)
-                        </p>
                         <Input
                           type="url"
-                          placeholder="https://mutualtask-pwa.netlify.app/auth/verify?token=..."
+                          placeholder="Paste the full link from your email here..."
                           value={pastedLink}
                           onChange={(e) => setPastedLink(e.target.value)}
-                          className="text-sm font-mono"
+                          className="h-10 text-xs font-mono rounded-lg border-border bg-white/30 dark:bg-black/10"
                           disabled={isPasteLinkLoading}
                         />
-                        <p className="text-xs text-muted-foreground text-center">
-                          Paste the complete link including "https://" and "?token="
-                        </p>
                         <div className="flex gap-2">
                           <Button
                             type="button"
                             variant="outline"
-                            className="flex-1"
-                            onClick={() => {
-                              setShowPasteLink(false);
-                              setPastedLink('');
-                            }}
+                            className="flex-1 h-10 text-xs rounded-lg"
+                            onClick={() => { setShowPasteLink(false); setPastedLink(''); }}
                             disabled={isPasteLinkLoading}
                           >
                             Cancel
                           </Button>
                           <Button
                             type="button"
-                            className="flex-1 gradient-primary text-white"
+                            className="flex-1 gradient-primary text-white h-10 text-xs rounded-lg font-bold"
                             onClick={handlePasteLink}
                             disabled={isPasteLinkLoading || !pastedLink.trim()}
                           >
@@ -628,40 +577,40 @@ const Auth = () => {
                 </TabsContent>
 
                 {/* Signup Tab */}
-                <TabsContent value="signup" className="space-y-6 mt-0">
-                  <div>
-                    <h2 className="text-2xl font-bold mb-2">Create account</h2>
-                    <p className="text-muted-foreground text-sm md:text-base">
-                      Get started with Momentum in seconds
+                <TabsContent value="signup" className="space-y-6 mt-0 focus-visible:outline-none">
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-black tracking-tight">Join Momentum</h2>
+                    <p className="text-sm text-muted-foreground font-medium">
+                      Start collaborating today.
                     </p>
                   </div>
 
                   <form onSubmit={handleSignup} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="signup-name">Full Name</Label>
+                      <Label htmlFor="signup-name" className="font-bold text-xs ml-1">Full Name</Label>
                       <Input
                         id="signup-name"
                         type="text"
-                        placeholder="John Doe"
+                        placeholder="Your Name"
                         value={signupName}
                         onChange={(e) => setSignupName(e.target.value)}
-                        className="text-base"
+                        className="h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20 focus:ring-primary/20 transition-all shadow-sm"
                         disabled={isLoading}
                         required
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email Address</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Label htmlFor="signup-email" className="font-bold text-xs ml-1">Email Address</Label>
+                      <div className="relative group">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
                           id="signup-email"
                           type="email"
-                          placeholder="you@example.com"
+                          placeholder="you@email.com"
                           value={signupEmail}
                           onChange={(e) => setSignupEmail(e.target.value)}
-                          className="pl-10 text-base"
+                          className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20"
                           disabled={isLoading}
                           required
                         />
@@ -669,45 +618,38 @@ const Auth = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="signup-handle">Handle</Label>
-                      <div className="relative">
-                        <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                      <Label htmlFor="signup-handle" className="font-bold text-xs ml-1">Handle</Label>
+                      <div className="relative group">
+                        <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
                           id="signup-handle"
                           type="text"
-                          placeholder="@yourhandle"
+                          placeholder="username"
                           value={signupHandle}
                           onChange={(e) => {
-                            let value = e.target.value;
-                            // Auto-add @ if user types without it
-                            if (value && !value.startsWith('@')) {
-                              value = `@${value}`;
-                            }
-                            setSignupHandle(value);
+                            let val = e.target.value;
+                            if (val && !val.startsWith('@')) val = `@${val}`;
+                            setSignupHandle(val);
                           }}
-                          className="pl-10 text-base"
+                          className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20"
                           disabled={isLoading}
                           required
-                          pattern="^@[a-zA-Z0-9_]+$"
-                          minLength={3}
-                          maxLength={30}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Your unique identifier. Letters, numbers, and underscores only.
+                      <p className="text-[10px] text-muted-foreground font-medium ml-1">
+                        Unique handle for identification.
                       </p>
                     </div>
 
                     <Button
                       type="submit"
-                      className="w-full gradient-primary text-white hover:opacity-90"
+                      className="w-full gradient-primary text-white hover:opacity-95 shadow-lg shadow-primary/25 rounded-xl h-12 text-base font-bold transition-all hover:scale-[1.01] active:scale-[0.99]"
                       disabled={isLoading}
-                      size="lg"
                     >
                       {isLoading ? (
                         <>
                           <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                          Creating account...
+                          Creating...
                         </>
                       ) : (
                         <>
@@ -718,17 +660,11 @@ const Auth = () => {
                     </Button>
                   </form>
 
-                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-sm text-muted-foreground space-y-2">
+                  <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 text-xs font-medium text-muted-foreground space-y-2 backdrop-blur-sm">
                     <p className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 mt-0.5 text-primary shrink-0" />
+                      <Sparkles className="w-4 h-4 text-primary shrink-0" />
                       <span>
-                        We'll send you a magic link to verify your email and complete registration.
-                      </span>
-                    </p>
-                    <p className="flex items-start gap-2 text-amber-600 dark:text-amber-500">
-                      <Mail className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span className="font-medium">
-                        Important: Please check your spam/junk folder if you don't see the email in your inbox!
+                        We'll send you a link to verify your email and complete your setup.
                       </span>
                     </p>
                   </div>
@@ -736,14 +672,13 @@ const Auth = () => {
               </Tabs>
             </Card>
 
-            {/* Footer */}
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-center text-sm text-muted-foreground mt-6"
+              transition={{ delay: 0.4 }}
+              className="text-center text-xs text-muted-foreground/70 mt-8 font-medium px-4"
             >
-              By continuing, you agree to our Terms of Service and Privacy Policy
+              By continuing, you agree to our <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Terms of Service</span> and <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Privacy Policy</span>
             </motion.p>
           </motion.div>
         </div>

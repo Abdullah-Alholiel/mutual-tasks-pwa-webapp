@@ -1,61 +1,75 @@
-import { TaskCard } from '../tasks/components/TaskCard';
+import { useState, FormEvent } from 'react';
+import { useAuth } from '@/features/auth/useAuth';
+import { useProjectDetail } from './hooks/useProjectDetail';
+import type { Project, Task, User } from '@/types';
+import { PROJECT_ICONS, getIconsByCategory, ICON_CATEGORIES } from '@/lib/projects/projectIcons';
+import {
+  Plus,
+  Trash2,
+  Clock,
+  CheckCircle2,
+  Settings,
+  UserPlus,
+  Pencil,
+  LogOut,
+  Repeat,
+  Sparkles,
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input as InputComponent } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import { RecurrentTaskSeries } from '../tasks/components/RecurrentTaskSeries';
 import { TaskForm } from '../tasks/components/TaskForm';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AnimatedTabs, AnimatedTabsContent, AnimatedTabsList, AnimatedTabsTrigger } from '@/components/ui/animated-tabs';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  CheckCircle2,
-  Clock,
-  Plus,
-  Repeat,
-  Sparkles,
-  ChevronDown,
-  Trash2,
-  UserPlus,
-  LogOut,
-  Settings,
-  Pencil
-} from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
-import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
-import { ProjectStats } from '@/features/projects/components/ProjectStats';
-import { ProjectTaskSections } from '@/features/projects/components/ProjectTaskSections';
-import { FriendActionButton } from '@/features/projects/components/FriendActionButton';
 import { FriendSelector } from '@/features/projects/components/FriendSelector';
 import { useFriends } from '@/features/friends/hooks/useFriends';
-import { useProjectDetail } from './hooks/useProjectDetail';
 import { useJoinProject } from './hooks/useProjects';
-import type { HabitSeries } from './hooks/types';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { InlineLoader, Loader, PageLoader } from '@/components/ui/loader';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Input as InputComponent } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getAvailableRoles } from '@/lib/projects/projectUtils';
-import { useState, FormEvent } from 'react';
-import { useAuth } from '@/features/auth/useAuth';
-import { PROJECT_ICONS, ICON_CATEGORIES, getIconsByCategory } from '@/lib/projects/projectIcons';
-import { cn } from '@/lib/utils';
-import { normalizeId } from '@/lib/idUtils';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { MobileHeader } from '@/components/layout/MobileHeader';
-import ResourceNotFound from '@/components/ui/ResourceNotFound';
-
-import { AIGenerateButton } from '@/components/ui/ai-generate-button';
+import { FriendActionButton } from '@/features/projects/components/FriendActionButton';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
-import type { Project, Task, User } from '@/types';
+import { ProjectTaskSections } from './components/ProjectTaskSections';
+import { TaskCard } from '../tasks/components/TaskCard';
+import { AIGenerateButton } from '@/components/ui/ai-generate-button';
+import { Loader, PageLoader } from '@/components/ui/loader';
+import { normalizeId } from '@/lib/idUtils';
+import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
+import { ProjectStats } from '@/features/projects/components/ProjectStats';
+import ResourceNotFound from '@/components/ui/ResourceNotFound';
+import { MobileHeader } from '@/components/layout/MobileHeader';
+import { getAvailableRoles } from '@/lib/projects/projectUtils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import type { HabitSeries } from './hooks/types';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const ProjectDetail = () => {
   const { user: currentUser } = useAuth();
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring" as const,
+        stiffness: 300,
+        damping: 24
+      }
+    }
+  };
   const isMobile = useIsMobile();
   const {
     project,
@@ -290,39 +304,45 @@ const ProjectDetail = () => {
           />
 
           {/* Tasks Tabs */}
-          <Tabs defaultValue="all" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
-              <TabsTrigger value="all" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
-              <TabsTrigger value="completed" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
-              <TabsTrigger value="upcoming" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">
+          <AnimatedTabs defaultValue="all" className="space-y-4">
+            <AnimatedTabsList className="grid w-full grid-cols-4 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
+              <AnimatedTabsTrigger value="all" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">All</AnimatedTabsTrigger>
+              <AnimatedTabsTrigger value="completed" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">Completed</AnimatedTabsTrigger>
+              <AnimatedTabsTrigger value="upcoming" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">
                 <span className="hidden sm:inline">Upcoming</span>
                 <span className="sm:hidden">Upcoming</span>
-              </TabsTrigger>
-              <TabsTrigger value="archived" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">Archived</TabsTrigger>
-            </TabsList>
+              </AnimatedTabsTrigger>
+              <AnimatedTabsTrigger value="archived" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">Archived</AnimatedTabsTrigger>
+            </AnimatedTabsList>
 
-            <TabsContent value="all" className="space-y-6">
+            <AnimatedTabsContent value="all" className="space-y-6">
               {/* Recurrent Task Series in "All" Tab */}
               {habitTasks.length > 0 && (
-                <div className="space-y-3">
+                <motion.div
+                  className="space-y-3"
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
                   <div className="flex items-center gap-2 mb-2">
                     <Repeat className="w-4 h-4 text-primary" />
                     <h3 className="text-sm font-semibold text-muted-foreground">Recurrent Tasks</h3>
                   </div>
                   {habitTasks.map((series, idx) => (
-                    <RecurrentTaskSeries
-                      key={`${series.title}-${idx}`}
-                      series={series}
-                      completionLogs={completionLogs}
-                      onDeleteSeries={canManage ? setSeriesToDelete : undefined}
-                      onRecoverTask={isParticipant ? handleRecoverWrapper : undefined}
-                      onCompleteTask={isParticipant ? handleCompleteWrapper : undefined}
-                      onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
-                      canManage={canManage}
-                      showMemberInfo={isParticipant}
-                    />
+                    <motion.div key={`${series.title}-${idx}`} variants={itemVariants}>
+                      <RecurrentTaskSeries
+                        series={series}
+                        completionLogs={completionLogs}
+                        onDeleteSeries={canManage ? setSeriesToDelete : undefined}
+                        onRecoverTask={isParticipant ? handleRecoverWrapper : undefined}
+                        onCompleteTask={isParticipant ? handleCompleteWrapper : undefined}
+                        onDeleteTask={canManage ? handleDeleteTaskWrapper : undefined}
+                        canManage={canManage}
+                        showMemberInfo={isParticipant}
+                      />
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
 
               {hasAnyAllTabContent ? (
@@ -340,7 +360,17 @@ const ProjectDetail = () => {
                 />
               ) : (
                 projectTasks.length === 0 ? (
-                  <EmptyState canManage={canManage} onCreateTask={() => setShowTaskForm(true)} />
+                  <EmptyState
+                    title="No tasks yet"
+                    description={canManage
+                      ? "Get started by creating your first task for this project."
+                      : "There are no tasks in this project yet."}
+                    action={canManage ? {
+                      label: "Create Task",
+                      onClick: () => setShowTaskForm(true),
+                      icon: <Plus className="w-4 h-4" />
+                    } : undefined}
+                  />
                 ) : (
                   /* Fallback for when no categorized tasks match but project has tasks (e.g. only habits, handled above) */
                   habitTasks.length === 0 && (
@@ -367,11 +397,11 @@ const ProjectDetail = () => {
                   )
                 )
               )}
-            </TabsContent>
+            </AnimatedTabsContent>
 
 
 
-            <TabsContent value="completed">
+            <AnimatedTabsContent value="completed">
               <div className="space-y-6">
                 {/* Recurrent Task Series Section (Completed only) */}
                 {completedHabitSeries.length > 0 && (
@@ -427,9 +457,9 @@ const ProjectDetail = () => {
                   )}
                 </div>
               </div>
-            </TabsContent>
+            </AnimatedTabsContent>
 
-            <TabsContent value="upcoming">
+            <AnimatedTabsContent value="upcoming">
               <div className="space-y-6">
                 {/* Recurrent Task Series Section (Upcoming/Active only) */}
                 {upcomingHabitSeries.length > 0 && (
@@ -487,9 +517,9 @@ const ProjectDetail = () => {
                   )}
                 </div>
               </div>
-            </TabsContent>
+            </AnimatedTabsContent>
 
-            <TabsContent value="archived">
+            <AnimatedTabsContent value="archived">
               <div className="space-y-6">
                 {/* Recurrent Task Series Section (Archived only) */}
                 {archivedHabitSeries.length > 0 && (
@@ -547,8 +577,8 @@ const ProjectDetail = () => {
                   )}
                 </div>
               </div>
-            </TabsContent>
-          </Tabs>
+            </AnimatedTabsContent>
+          </AnimatedTabs>
         </div>
       </div>
 
@@ -1014,27 +1044,6 @@ const ProjectDetail = () => {
   );
 };
 
-const EmptyState = ({ canManage, onCreateTask }: { canManage: boolean; onCreateTask: () => void }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    className="text-center py-16"
-  >
-    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-      <Sparkles className="w-10 h-10 text-muted-foreground" />
-    </div>
-    <h3 className="text-xl font-semibold mb-2">No tasks yet</h3>
-    <p className="text-muted-foreground mb-6">
-      {canManage ? 'Create your first task to start building momentum together' : 'Join this project to see and create tasks'}
-    </p>
-    {canManage && (
-      <Button onClick={onCreateTask} className="gradient-primary text-white">
-        <Plus className="w-4 h-4 mr-2" />
-        Create First Task
-      </Button>
-    )}
-  </motion.div>
-);
 
 const EditProjectForm = ({
   project,
@@ -1061,7 +1070,7 @@ const EditProjectForm = ({
   const [iconCategory, setIconCategory] = useState('All');
 
   // AI Generation Hook
-  const { aiState, generateDescription, setAiState } = useAIGeneration('project');
+  const { aiState, generateDescription } = useAIGeneration('project');
 
   // Get filtered icons based on selected category
   const filteredIcons = getIconsByCategory(iconCategory);

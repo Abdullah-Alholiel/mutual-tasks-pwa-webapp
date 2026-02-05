@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import type { Project, User } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { User } from '@/types';
 import { motion } from 'framer-motion';
 import { FolderKanban, Sparkles, Globe, Lock, AtSign, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,7 +18,6 @@ import { useAIGeneration } from '@/hooks/useAIGeneration';
 import { useFriends } from '@/features/friends/hooks/useFriends';
 import { FriendSelector } from './FriendSelector';
 import { PROJECT_COLORS, DEFAULT_PROJECT_COLOR, type ProjectColor } from '@/constants/projectColors';
-
 import { PROJECT_ICONS, ICON_CATEGORIES, getIconsByCategory } from '@/lib/projects/projectIcons';
 
 interface ProjectFormProps {
@@ -134,7 +134,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
       if (!selectedParticipants.includes(userIdStr)) {
         setSelectedParticipants(prev => [...prev, userIdStr]);
         toast.success('Friend added!', {
-          description: `${user.name} (${user.handle}) has been added`
+          description: `${user.name} (${user.handle}) added`
         });
       } else {
         toast.info('Friend already added', {
@@ -219,7 +219,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
             <DialogTitle>Create New Project</DialogTitle>
           </div>
           <DialogDescription>
-            Start a new collaborative project with your friends
+            Start a project and collaborate with friends
           </DialogDescription>
         </DialogHeader>
 

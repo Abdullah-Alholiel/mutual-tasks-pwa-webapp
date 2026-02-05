@@ -1,32 +1,30 @@
-import type { Task, User, TaskStatus, TaskStatusEntity, CompletionLog, RingColor } from '@/types';
+import type { Task, User, TaskStatus, TaskStatusEntity, CompletionLog } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { CheckCircle2, Clock, Repeat, Sparkles, RotateCcw, MoreHorizontal, User as UserIcon, Trash2, Pencil } from 'lucide-react';
+import { CheckCircle2, Clock, Repeat, RotateCcw, User as UserIcon, Trash2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { useUser, useBatchUsers } from '@/features/users/hooks/useUsers';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { TaskParticipantAvatars } from '@/components/tasks/TaskParticipantAvatars';
 import { CompletionStatusIcon } from '@/components/tasks/CompletionStatusIcon';
 import { cn } from '@/lib/utils';
 import { normalizeId, compareIds } from '@/lib/idUtils';
+import confetti from 'canvas-confetti';
 import {
   getRingColor,
   calculateRingColor,
   canCompleteTask,
-  canRecoverTask,
   getStatusBadgeVariant,
   getStatusColor,
-  calculateTaskStatusUserStatus,
-  normalizeToStartOfDay
+  calculateTaskStatusUserStatus
 } from '../../../lib/tasks/taskUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
-import { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProject } from '@/features/projects/hooks/useProjects';
 import { useTaskStatuses } from '@/features/tasks/hooks/useTasks';
@@ -47,19 +45,19 @@ interface TaskCardProps {
   showMemberInfo?: boolean; // If false, hide participant details for non-members
 }
 
-const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onComplete, onRecover, onDelete, onEdit, showRecover = true, showMemberInfo = true }: TaskCardProps) => {
+const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, onDelete, onEdit, showRecover = true, showMemberInfo = true }: TaskCardProps) => {
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showParticipantsModal, setShowParticipantsModal] = useState(false);
-  const queryClient = useQueryClient();
+  const [isJustCompleted, setIsJustCompleted] = useState(false);
   const { openTaskView } = useTaskViewModal();
 
   const creatorId = normalizeId(task.creatorId);
   const projectId = normalizeId(task.projectId);
 
   // Use centralized useUser hook for creator data with proper caching
-  const { data: creator } = useUser(creatorId);
+  useUser(creatorId);
 
   // Use shared useProject hook for consistency
   const { data: project } = useProject(projectId);
@@ -217,7 +215,6 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
 
   // Use modular utilities for task actions
   const canComplete = canCompleteTask(myTaskStatus, myCompletion, task);
-  const canRecover = canRecoverTask(myTaskStatus, myCompletion, task);
 
   // Check if task is recovered - check both uiStatus AND myTaskStatus.recoveredAt for immediate feedback
   // This handles the case where local state is updated but calculateTaskStatusUserStatus hasn't run yet
@@ -250,7 +247,18 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
     // Deduplicate to prevent rapid double-clicks from creating duplicate completions
     deduplicator.deduplicate(`complete-${task.id}`, async () => {
       if (onComplete) {
+        // Trigger confetti for immediate delight
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'], // Theme colors
+          disableForReducedMotion: true
+        });
+
         await onComplete(task.id, rating);
+        setIsJustCompleted(true);
+        setTimeout(() => setIsJustCompleted(false), 2000);
       }
       setShowRatingModal(false);
     });
@@ -258,8 +266,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
 
   // Calculate card height based on task state
   const getCardHeight = () => {
-    if (uiStatus === 'completed' && myCompletion) {
-      // Completed tasks: 50px shorter than standard on both mobile and desktop
+    if ((uiStatus === 'completed' && myCompletion) || uiStatus === 'upcoming') {
+      // Completed & Upcoming tasks: 50px shorter than standard on both mobile and desktop
       // Mobile: 250 - 50 = 200px
       // Desktop: 260 - 50 = 210px
       return 'h-[200px] lg:h-[210px]';
@@ -297,259 +305,285 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
           contain: 'layout style',
         }}
       >
-        <Card
-          className={cn(
-            "p-5 hover-lift shadow-md hover:shadow-lg transition-shadow duration-200 border-border/50 flex flex-col overflow-hidden cursor-pointer",
-            getCardHeight()
-          )}
-          onClick={handleCardClick}
+        <motion.div
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
         >
-          <div className="flex flex-col h-full">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3 flex-none">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                  {project && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs font-bold px-3 py-0.5 rounded-full flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80 text-left h-auto min-h-[1.5rem]"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/projects/${project.id}`);
-                      }}
-                      style={project.color ? {
-                        backgroundColor: adjustColorOpacity(project.color, 0.15),
-                        borderColor: adjustColorOpacity(project.color, 0.3),
-                        color: project.color
-                      } : undefined}
-                    >
-                      {project.icon && (() => {
-                        const Icon = getIconByName(project.icon);
-                        return <Icon className="w-3 h-3" />;
-                      })()}
-                      <span>{project.name}</span>
-                    </Badge>
-                  )}
-                  {task.type === 'habit' && task.recurrencePattern && (
-                    <Badge variant="outline" className="text-xs font-bold flex items-center gap-1 shrink-0 bg-background/50 border-border/50 px-2.5 py-0.5 rounded-full">
-                      <Repeat className="w-3 h-3" />
-                      {task.recurrencePattern.toLowerCase() === 'daily'
-                        ? 'Daily'
-                        : task.recurrencePattern.toLowerCase() === 'weekly'
-                          ? 'Weekly'
-                          : task.recurrencePattern.charAt(0).toUpperCase() + task.recurrencePattern.slice(1).toLowerCase()}
-                      {task.showRecurrenceIndex && task.recurrenceIndex && (
-                        <span> • {task.recurrenceIndex}{task.recurrenceTotal ? `/${task.recurrenceTotal}` : ''}</span>
-                      )}
-                    </Badge>
-                  )}
-                </div>
+          <Card
+            className={cn(
+              "p-5 hover-lift shadow-sm hover:shadow-md transition-all duration-300 border-border/60 flex flex-col overflow-hidden cursor-pointer relative group bg-card/50 hover:bg-card/80 backdrop-blur-sm",
+              getCardHeight(),
+              isJustCompleted && "ring-2 ring-primary/50"
+            )}
+            onClick={handleCardClick}
+          >
+            {/* Shine Effect - Hover */}
+            <motion.div
+              className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-primary/5 to-transparent z-0 pointer-events-none"
+              initial={{ x: '-100%' }}
+              whileHover={{ x: '100%' }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
+            />
 
-                <h3 className="font-semibold text-lg lg:text-xl text-foreground line-clamp-2">
-                  {task.title}
-                </h3>
-
-                {task.description && (
-                  <p className="hidden sm:block text-sm text-muted-foreground line-clamp-1 mt-0.5">
-                    {task.description}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <Badge
-                  variant={getStatusBadgeVariant(uiStatus)}
-                  className={`${getStatusColor(uiStatus)} capitalize shrink-0 font-bold ${uiStatus === 'completed'
-                    ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold'
-                    : ''
-                    }`}
-                  style={uiStatus === 'completed' ? {
-                    borderColor: 'hsl(var(--status-completed) / 0.4)',
-                    backgroundColor: 'hsl(var(--status-completed) / 0.15)',
-                    color: 'hsl(var(--status-completed))'
-                  } : undefined}
-                >
-                  {uiStatus}
-                </Badge>
-                <div className="flex items-center gap-1">
-                  {onEdit && canModify && isModifiableStatus && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(task);
-                      }}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-                  {onDelete && canModify && isModifiableStatus && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(task.id);
-                      }}
-                      title="Delete Task"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Participants & Completion Status */}
-            {showMemberInfo && (
-              <div className="flex items-center justify-between gap-2 flex-none pt-2">
-                <TaskParticipantAvatars
-                  task={task}
-                  completionLogs={completionLogs}
-                  participantUsers={participantUsers}
-                  onViewAll={() => setShowParticipantsModal(true)}
+            {/* Completion Shine Effect */}
+            <AnimatePresence>
+              {isJustCompleted && (
+                <motion.div
+                  initial={{ x: '-100%', opacity: 0 }}
+                  animate={{ x: '100%', opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1, ease: "easeInOut" }}
+                  className="absolute inset-y-0 w-full bg-gradient-to-r from-transparent via-primary/30 to-transparent z-10 pointer-events-none"
                 />
+              )}
+            </AnimatePresence>
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-3 flex-none">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    {project && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-bold px-3 py-0.5 rounded-full flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80 text-left h-auto min-h-[1.5rem]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/projects/${project.id}`);
+                        }}
+                        style={project.color ? {
+                          backgroundColor: adjustColorOpacity(project.color, 0.15),
+                          borderColor: adjustColorOpacity(project.color, 0.3),
+                          color: project.color
+                        } : undefined}
+                      >
+                        {project.icon && (() => {
+                          const Icon = getIconByName(project.icon);
+                          return <Icon className="w-3 h-3" />;
+                        })()}
+                        <span>{project.name}</span>
+                      </Badge>
+                    )}
+                    {task.type === 'habit' && task.recurrencePattern && (
+                      <Badge variant="outline" className="text-xs font-bold flex items-center gap-1 shrink-0 bg-background/50 border-border/50 px-2.5 py-0.5 rounded-full">
+                        <Repeat className="w-3 h-3" />
+                        {task.recurrencePattern.toLowerCase() === 'daily'
+                          ? 'Daily'
+                          : task.recurrencePattern.toLowerCase() === 'weekly'
+                            ? 'Weekly'
+                            : task.recurrencePattern.charAt(0).toUpperCase() + task.recurrencePattern.slice(1).toLowerCase()}
+                        {task.showRecurrenceIndex && task.recurrenceIndex && (
+                          <span> • {task.recurrenceIndex}{task.recurrenceTotal ? `/${task.recurrenceTotal}` : ''}</span>
+                        )}
+                      </Badge>
+                    )}
+                  </div>
 
-                {(() => {
-                  // For recovered tasks, show original due date with yellow "Recovered" badge
-                  // Only show for the current user who recovered the task
-                  if (isRecovered && myTaskStatus?.recoveredAt && task.dueDate) {
-                    const originalDueDate = new Date(task.dueDate);
-                    const recoveredDate = new Date(myTaskStatus.recoveredAt);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const recoveredDateOnly = new Date(recoveredDate);
-                    recoveredDateOnly.setHours(0, 0, 0, 0);
-                    const isRecoveredToday = recoveredDateOnly.getTime() === today.getTime();
+                  <h3 className="font-semibold text-lg lg:text-xl text-foreground line-clamp-2">
+                    {task.title}
+                  </h3>
 
-                    // Format the original due date
-                    const originalDateLabel = originalDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  {task.description && (
+                    <p className="hidden sm:block text-sm text-muted-foreground line-clamp-1 mt-0.5">
+                      {task.description}
+                    </p>
+                  )}
+                </div>
 
-                    // Show original due date with "Recovered" indicator in yellow
-                    const recoveredLabel = isRecoveredToday ? 'Recovered Today' : `Recovered ${recoveredDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                <div className="flex flex-col items-end gap-2">
+                  <Badge
+                    variant={getStatusBadgeVariant(uiStatus)}
+                    className={`${getStatusColor(uiStatus)} capitalize shrink-0 font-bold ${uiStatus === 'completed'
+                      ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold'
+                      : ''
+                      }`}
+                    style={uiStatus === 'completed' ? {
+                      borderColor: 'hsl(var(--status-completed) / 0.4)',
+                      backgroundColor: 'hsl(var(--status-completed) / 0.15)',
+                      color: 'hsl(var(--status-completed))'
+                    } : undefined}
+                  >
+                    {uiStatus}
+                  </Badge>
+                  <div className="flex items-center gap-1">
+                    {onEdit && canModify && isModifiableStatus && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEdit(task);
+                        }}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    {onDelete && canModify && isModifiableStatus && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(task.id);
+                        }}
+                        title="Delete Task"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-                    return (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground line-through">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{originalDateLabel}</span>
+              {/* Participants & Completion Status */}
+              {showMemberInfo && (
+                <div className="flex items-center justify-between gap-2 flex-none pt-2">
+                  <TaskParticipantAvatars
+                    task={task}
+                    completionLogs={completionLogs}
+                    participantUsers={participantUsers}
+                    onViewAll={() => setShowParticipantsModal(true)}
+                  />
+
+                  {(() => {
+                    // For recovered tasks, show original due date with yellow "Recovered" badge
+                    // Only show for the current user who recovered the task
+                    if (isRecovered && myTaskStatus?.recoveredAt && task.dueDate) {
+                      const originalDueDate = new Date(task.dueDate);
+                      const recoveredDate = new Date(myTaskStatus.recoveredAt);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const recoveredDateOnly = new Date(recoveredDate);
+                      recoveredDateOnly.setHours(0, 0, 0, 0);
+                      const isRecoveredToday = recoveredDateOnly.getTime() === today.getTime();
+
+                      // Format the original due date
+                      const originalDateLabel = originalDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                      // Show original due date with "Recovered" indicator in yellow
+                      const recoveredLabel = isRecoveredToday ? 'Recovered Today' : `Recovered ${recoveredDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+                      return (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground line-through">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{originalDateLabel}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-yellow-500 font-medium">
+                            <RotateCcw className="w-3 h-3" />
+                            <span>{recoveredLabel}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-yellow-500 font-medium">
-                          <RotateCcw className="w-3 h-3" />
-                          <span>{recoveredLabel}</span>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Default: show task due date
-                  if (task.dueDate) {
-                    const dueDate = new Date(task.dueDate);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dueDateOnly = new Date(dueDate);
-                    dueDateOnly.setHours(0, 0, 0, 0);
-                    const isToday = dueDateOnly.getTime() === today.getTime();
-                    const isTomorrow = dueDateOnly.getTime() === today.getTime() + 86400000;
-
-                    let dateLabel = '';
-                    if (isToday) {
-                      dateLabel = 'Today';
-                    } else if (isTomorrow) {
-                      dateLabel = 'Tomorrow';
-                    } else {
-                      dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      );
                     }
 
-                    return (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{dateLabel}</span>
-                      </div>
-                    );
-                  }
+                    // Default: show task due date
+                    if (task.dueDate) {
+                      const dueDate = new Date(task.dueDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const dueDateOnly = new Date(dueDate);
+                      dueDateOnly.setHours(0, 0, 0, 0);
+                      const isToday = dueDateOnly.getTime() === today.getTime();
+                      const isTomorrow = dueDateOnly.getTime() === today.getTime() + 86400000;
 
-                  return null;
-                })()}
-              </div>
-            )}
+                      let dateLabel = '';
+                      if (isToday) {
+                        dateLabel = 'Today';
+                      } else if (isTomorrow) {
+                        dateLabel = 'Tomorrow';
+                      } else {
+                        dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      }
 
-            {/* Default fallback for date when showMemberInfo is false */}
-            {!showMemberInfo && task.dueDate && (
-              <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                <Clock className="w-3.5 h-3.5" />
-                <span>
-                  {(() => {
-                    const dueDate = new Date(task.dueDate);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dueDateOnly = new Date(dueDate);
-                    dueDateOnly.setHours(0, 0, 0, 0);
-                    if (dueDateOnly.getTime() === today.getTime()) return 'Today';
-                    if (dueDateOnly.getTime() === today.getTime() + 86400000) return 'Tomorrow';
-                    return dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      return (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{dateLabel}</span>
+                        </div>
+                      );
+                    }
+
+                    return null;
                   })()}
-                </span>
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Actions */}
-            {(shouldShowRecover || shouldShowComplete) && (
-              <div className={cn(
-                "flex-none pt-4 mt-auto",
-                'border-t border-border/50'
-              )}>
-                <AnimatePresence mode="wait">
-                  {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
-                  {shouldShowRecover && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRecover?.(task.id);
-                        }}
-                        variant="outline"
-                        className="w-full"
+              {/* Default fallback for date when showMemberInfo is false */}
+              {!showMemberInfo && task.dueDate && (
+                <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    {(() => {
+                      const dueDate = new Date(task.dueDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const dueDateOnly = new Date(dueDate);
+                      dueDateOnly.setHours(0, 0, 0, 0);
+                      if (dueDateOnly.getTime() === today.getTime()) return 'Today';
+                      if (dueDateOnly.getTime() === today.getTime() + 86400000) return 'Tomorrow';
+                      return dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    })()}
+                  </span>
+                </div>
+              )}
+
+              {/* Actions */}
+              {(shouldShowRecover || shouldShowComplete) && (
+                <div className={cn(
+                  "flex-none pt-4 mt-auto",
+                  'border-t border-border/50'
+                )}>
+                  <AnimatePresence mode="wait">
+                    {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
+                    {shouldShowRecover && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
                       >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Recover Task
-                      </Button>
-                    </motion.div>
-                  )}
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRecover?.(task.id);
+                          }}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Recover Task
+                        </Button>
+                      </motion.div>
+                    )}
 
-                  {shouldShowComplete && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleComplete();
-                        }}
-                        className="w-full gradient-primary text-white hover:opacity-90"
+                    {shouldShowComplete && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
                       >
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Mark as Completed
-                      </Button>
-                    </motion.div>
-                  )}
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleComplete();
+                          }}
+                          className="w-full gradient-primary text-white hover:opacity-90"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Mark as Completed
+                        </Button>
+                      </motion.div>
+                    )}
 
 
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
+                  </AnimatePresence>
+                </div>
+              )}
+            </div>
+          </Card>
+        </motion.div>
+      </div >
 
       <DifficultyRatingModal
         open={showRatingModal}
@@ -706,7 +740,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
  * Memoized TaskCard component for optimal scroll performance.
  * Uses custom comparison to prevent re-renders when props haven't meaningfully changed.
  */
-export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
+export const TaskCard = memo(TaskCardComponent, (prevProps: TaskCardProps, nextProps: TaskCardProps) => {
   // Custom comparison for performance - only re-render when these change:
   // 1. Task ID or key data changed
   if (prevProps.task.id !== nextProps.task.id) return false;
@@ -733,7 +767,7 @@ export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
   // Deep compare status content for ring color changes
   for (let i = 0; i < prevStatuses.length; i++) {
     const prev = prevStatuses[i];
-    const next = nextStatuses.find(s => s.userId === prev.userId);
+    const next = nextStatuses.find((s: TaskStatusEntity) => s.userId === prev.userId);
     if (!next) return false;
     if (prev.status !== next.status) return false;
     if (prev.ringColor !== next.ringColor) return false;

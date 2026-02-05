@@ -18,13 +18,14 @@ import {
   useUpdateTask,
   type CreateTaskWithStatusesInput
 } from '../../tasks/hooks/useTasks';
-import type { TaskCreationData, ProjectWithParticipants, ProjectTaskState } from './types';
+import type { TaskCreationData, ProjectWithParticipants, ProjectTaskState, HabitSeries } from './types';
 import { notifyTaskRecovered } from '@/lib/tasks/taskEmailNotifications';
 import { validateTaskCreation } from '@/lib/tasks/taskValidation';
 import { ValidationError } from '@/lib/errors';
 import { deleteTaskAtomic } from '@/lib/tasks/atomicTaskOperations';
 import { TASK_CONFIG, PERFORMANCE_CONFIG } from '@/config/appConfig';
 import { generateOccurrenceDates, getMaxOccurrences, type CustomRecurrence } from '@/lib/tasks/recurringTaskUtils';
+import { normalizeId, compareIds } from '@/lib/idUtils';
 
 interface UseProjectTaskMutationsParams {
   user: User | null;
@@ -54,7 +55,7 @@ export const useProjectTaskMutations = ({
    * Get task status for a specific user
    */
   const getTaskStatusForUser = useCallback((taskId: number, userId: number): TaskStatusEntity | undefined => {
-    return taskStatuses.find(ts => ts.taskId === taskId && ts.userId === userId);
+    return taskStatuses.find(ts => compareIds(ts.taskId, taskId) && compareIds(ts.userId, userId));
   }, [taskStatuses]);
 
   /**
@@ -63,9 +64,9 @@ export const useProjectTaskMutations = ({
   const handleRecover = useCallback(async (taskId: number) => {
     if (!user) return;
 
-    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+    const userId = normalizeId(user.id);
     const projectId = projectWithParticipants?.id;
-    const result = recoverTask(String(taskId), String(userId), tasks, taskStatuses);
+    const result = recoverTask(taskId, userId, tasks, taskStatuses);
 
     if (!result || !result.success) {
       handleError('Task not found or cannot be recovered', 'handleRecover');
@@ -93,17 +94,13 @@ export const useProjectTaskMutations = ({
             if (t.id === taskId) {
               // Update the task and its embedded taskStatus array
               const updatedTaskStatuses = (t.taskStatus || []).map(ts => {
-                const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-                if (tsUserId === userId) {
+                if (compareIds(ts.userId, userId)) {
                   return result.updatedTaskStatus!;
                 }
                 return ts;
               });
               // If the user's task status wasn't in the array, add it
-              const hasUserStatus = updatedTaskStatuses.some(ts => {
-                const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-                return tsUserId === userId;
-              });
+              const hasUserStatus = updatedTaskStatuses.some(ts => compareIds(ts.userId, userId));
               if (!hasUserStatus && result.updatedTaskStatus) {
                 updatedTaskStatuses.push(result.updatedTaskStatus);
               }
@@ -120,18 +117,14 @@ export const useProjectTaskMutations = ({
       // Update local task status state immediately for instant UI feedback
       if (result.updatedTaskStatus) {
         setLocalTaskStatuses(prev => {
-          const existingIndex = prev.findIndex(ts => {
-            const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-            const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-            return tsTaskId === taskId && tsUserId === userId;
-          });
+          const existingIndex = prev.findIndex(ts => compareIds(ts.taskId, taskId) && compareIds(ts.userId, userId));
 
           if (existingIndex >= 0) {
             return prev.map((ts, index) =>
               index === existingIndex ? result.updatedTaskStatus! : ts
             );
           } else {
-            return [...prev, result.updatedTaskStatus];
+            return [...prev, result.updatedTaskStatus!];
           }
         });
       }
@@ -149,8 +142,8 @@ export const useProjectTaskMutations = ({
       // Specifically invalidate the user's task status to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ['taskStatuses', userId] });
 
-      toast.success('Task recovered! 💪', {
-        description: 'Complete it to earn half XP'
+      toast.success('Task recovered!', {
+        description: 'Complete it to earn XP'
       });
 
       // Send recovery notification to other participants
@@ -180,8 +173,8 @@ export const useProjectTaskMutations = ({
       return;
     }
 
-    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-    let myTaskStatus = getTaskStatusForUser(taskId, userId);
+    const userId = normalizeId(user.id);
+    let myTaskStatus: TaskStatusEntity | undefined | null = getTaskStatusForUser(taskId, userId);
 
     const db = getDatabaseClient();
 
@@ -346,10 +339,8 @@ export const useProjectTaskMutations = ({
 
       // 5. Update local task statuses
       setLocalTaskStatuses(prev => {
-        const updated = prev.map(ts => {
-          const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-          const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-          if (tsTaskId === taskId && tsUserId === userId) {
+        return prev.map(ts => {
+          if (compareIds(ts.taskId, taskId) && compareIds(ts.userId, userId)) {
             return {
               ...ts,
               status: 'completed' as TaskStatus,
@@ -358,56 +349,61 @@ export const useProjectTaskMutations = ({
           }
           return ts;
         });
-
-        const allStatuses = updated.filter(ts => {
-          const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-          return tsTaskId === taskId;
-        });
-        const allCompleted = allStatuses.every(ts => {
-          const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-          return tsUserId === userId || ts.status === 'completed';
-        });
-
-        // Update local tasks with updated embedded taskStatus
-        setLocalTasks(prevTasks =>
-          prevTasks.map(t => {
-            if (t.id === taskId) {
-              // Update the embedded taskStatus array
-              const updatedTaskStatuses = (t.taskStatus || []).map(ts => {
-                const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-                if (tsUserId === userId) {
-                  return {
-                    ...ts,
-                    status: 'completed' as TaskStatus,
-                    ringColor: completionRingColor,
-                  };
-                }
-                return ts;
-              });
-              return {
-                ...t,
-                updatedAt: now,
-                taskStatus: updatedTaskStatuses,
-              };
-            }
-            return t;
-          })
-        );
-
-        if (allCompleted) {
-          toast.success('Amazing work! 🎉', {
-            description: 'Task completed by everyone!'
-          });
-        } else {
-          toast.success('Great job! 💪', {
-            description: penaltyApplied
-              ? 'Waiting for your partner to complete... (Half XP - Recovered)'
-              : 'Waiting for your partner to complete...'
-          });
-        }
-
-        return updated;
       });
+
+      // 6. Update local tasks with updated embedded taskStatus
+      setLocalTasks(prevTasks =>
+        prevTasks.map(t => {
+          if (t.id === taskId) {
+            const updatedTaskStatuses = (t.taskStatus || []).map(ts => {
+              if (compareIds(ts.userId, userId)) {
+                return {
+                  ...ts,
+                  status: 'completed' as TaskStatus,
+                  ringColor: completionRingColor,
+                };
+              }
+              return ts;
+            });
+            return {
+              ...t,
+              updatedAt: now,
+              taskStatus: updatedTaskStatuses,
+            };
+          }
+          return t;
+        })
+      );
+
+      // 7. Handle side effects (toasts and notifications)
+      const updatedStatuses = taskStatuses.map(ts => {
+        if (compareIds(ts.taskId, taskId) && compareIds(ts.userId, userId)) {
+          return {
+            ...ts,
+            status: 'completed' as TaskStatus,
+            ringColor: completionRingColor,
+          };
+        }
+        return ts;
+      });
+
+      const allStatuses = updatedStatuses.filter(ts => compareIds(ts.taskId, taskId));
+
+      const allCompleted = allStatuses.every(ts => {
+        return compareIds(ts.userId, userId) || ts.status === 'completed';
+      });
+
+      if (allCompleted) {
+        toast.success('Amazing work! 🚀', {
+          description: 'Task completed by everyone!'
+        });
+      } else {
+        toast.success('Task done! ✅', {
+          description: penaltyApplied
+            ? 'Waiting for your partners to complete... (Late/Recovered)'
+            : 'Waiting for your partners to complete...'
+        });
+      }
 
       // Send completion notification to other participants
       if (projectId) {
@@ -421,7 +417,7 @@ export const useProjectTaskMutations = ({
         description: 'Please try again'
       });
     }
-  }, [user, tasks, getTaskStatusForUser, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, queryClient, projectWithParticipants]);
+  }, [user, tasks, taskStatuses, getTaskStatusForUser, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, queryClient, projectWithParticipants]);
 
   /**
    * Create a new task (one-off or habit)
@@ -429,7 +425,7 @@ export const useProjectTaskMutations = ({
   const handleCreateTask = useCallback(async (taskData: TaskCreationData) => {
     if (!projectWithParticipants || !user) return;
 
-    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+    const userId = normalizeId(user.id);
     const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
 
     // Get all participant user IDs (creator + all active project members)
@@ -522,8 +518,8 @@ export const useProjectTaskMutations = ({
         // Create all habit tasks in the database
         const results = await createMultipleTasksMutation.mutateAsync(tasksToCreate);
 
-        toast.success(`${results.length} habit tasks created! 🚀`, {
-          description: 'Persuade your friends to complete these tasks with you'
+        toast.success(`${results.length} habit tasks created!`, {
+          description: 'Collaborate with your friends to complete these tasks'
         });
 
         // Send email notification for the first task
@@ -550,8 +546,8 @@ export const useProjectTaskMutations = ({
           dueDate: defaultDueDate,
         });
 
-        toast.success('Task created! 🚀', {
-          description: 'Persuade your friends to complete this task with you'
+        toast.success('Task created!', {
+          description: 'Collaborate with your friends to complete this task'
         });
 
         // Send email notification
@@ -585,14 +581,8 @@ export const useProjectTaskMutations = ({
       await db.tasks.delete(taskId);
 
       setLocalTasks(prev => prev.filter(t => t.id !== taskId));
-      setLocalTaskStatuses(prev => prev.filter(ts => {
-        const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-        return tsTaskId !== taskId;
-      }));
-      setLocalCompletionLogs(prev => prev.filter(cl => {
-        const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
-        return clTaskId !== taskId;
-      }));
+      setLocalTaskStatuses(prev => prev.filter(ts => !compareIds(ts.taskId, taskId)));
+      setLocalCompletionLogs(prev => prev.filter(cl => !compareIds(cl.taskId, taskId)));
 
       // Invalidate React Query cache for data freshness
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -602,13 +592,13 @@ export const useProjectTaskMutations = ({
         queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       }
 
-      toast.success('Task deleted', {
+      toast.success('Task deleted.', {
         description: 'The task has been removed from the project'
       });
 
       // Send deletion notification to participants
       if (projectId && user) {
-        const deleterId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        const deleterId = normalizeId(user.id);
         try {
           await notifyTaskDeleted(projectId, deleterId, taskTitle);
           console.log('[TaskDelete] ✅ Notifications sent successfully');
@@ -627,7 +617,7 @@ export const useProjectTaskMutations = ({
   /**
    * Delete a habit task series
    */
-  const handleDeleteTaskSeries = useCallback(async (series: any) => {
+  const handleDeleteTaskSeries = useCallback(async (series: HabitSeries) => {
     try {
       const db = getDatabaseClient();
       const taskIds = series.tasks.map((t: Task) => t.id);
@@ -640,14 +630,8 @@ export const useProjectTaskMutations = ({
       // Update local state by filtering out all tasks in the series
       const taskIdSet = new Set(taskIds);
       setLocalTasks(prev => prev.filter(t => !taskIdSet.has(t.id)));
-      setLocalTaskStatuses(prev => prev.filter(ts => {
-        const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-        return !taskIdSet.has(tsTaskId);
-      }));
-      setLocalCompletionLogs(prev => prev.filter(cl => {
-        const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
-        return !taskIdSet.has(clTaskId);
-      }));
+      setLocalTaskStatuses(prev => prev.filter(ts => !taskIdSet.has(normalizeId(ts.taskId))));
+      setLocalCompletionLogs(prev => prev.filter(cl => !taskIdSet.has(normalizeId(cl.taskId))));
 
       // Invalidate React Query cache
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -657,13 +641,13 @@ export const useProjectTaskMutations = ({
         queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       }
 
-      toast.success('Series deleted', {
+      toast.success('Series deleted.', {
         description: `All occurrences of "${seriesTitle}" have been removed.`
       });
 
       // Send deletion notification for the series
       if (projectId && user) {
-        const deleterId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        const deleterId = normalizeId(user.id);
         try {
           await notifyTaskDeleted(projectId, deleterId, `${seriesTitle} (series)`);
           console.log('[TaskDelete] ✅ Series notifications sent successfully');
@@ -695,10 +679,11 @@ export const useProjectTaskMutations = ({
       }
 
       // Check if converting from one_off to habit
-      const isConvertingToHabit = existingTask.type === 'one_off' && taskData.type === 'habit' && taskData.recurrencePattern;
+      const recurrencePattern = taskData.recurrencePattern;
+      const isConvertingToHabit = existingTask.type === 'one_off' && taskData.type === 'habit' && !!recurrencePattern;
 
-      if (isConvertingToHabit && projectWithParticipants && user) {
-        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+      if (isConvertingToHabit && recurrencePattern && projectWithParticipants && user) {
+        const userId = normalizeId(user.id);
         const participantUserIds = getParticipatingUserIds(projectWithParticipants, userId);
 
         // Update the original task to be a habit
@@ -708,7 +693,7 @@ export const useProjectTaskMutations = ({
             title: taskData.title,
             description: taskData.description,
             type: taskData.type,
-            recurrencePattern: taskData.recurrencePattern,
+            recurrencePattern: recurrencePattern,
             dueDate: taskData.dueDate,
             showRecurrenceIndex: taskData.showRecurrenceIndex,
             recurrenceIndex: existingTask.recurrenceIndex && existingTask.recurrenceIndex > 0
@@ -736,7 +721,7 @@ export const useProjectTaskMutations = ({
 
         // Get max occurrences from config
         const maxOccurrences = getMaxOccurrences(
-          taskData.recurrencePattern,
+          recurrencePattern,
           taskData.customRecurrence?.occurrenceCount
         );
 
@@ -751,7 +736,7 @@ export const useProjectTaskMutations = ({
         // Use utility to generate all occurrence dates
         const occurrenceDates = generateOccurrenceDates(
           startDate,
-          taskData.recurrencePattern,
+          recurrencePattern,
           1, // Default interval
           maxOccurrences,
           endDate,
@@ -761,21 +746,21 @@ export const useProjectTaskMutations = ({
         // Build array of tasks to create (skip first occurrence - already updated)
         const tasksToCreate: CreateTaskWithStatusesInput[] = occurrenceDates
           .slice(1) // Skip first occurrence
-          .map((dueDate, index) => ({
+          .map((dDate, index) => ({
             task: {
-              projectId: taskData.projectId,
+              projectId: Number(taskData.projectId),
               creatorId: userId,
               type: taskData.type,
-              recurrencePattern: taskData.recurrencePattern,
+              recurrencePattern: recurrencePattern,
               title: taskData.title,
               description: taskData.description,
-              dueDate: normalizeToStartOfDay(dueDate),
+              dueDate: normalizeToStartOfDay(dDate),
               recurrenceIndex: index + 2, // Start from 2 since first occurrence is already updated
               recurrenceTotal: taskData.customRecurrence?.endType === 'count' ? maxOccurrences : undefined,
               showRecurrenceIndex: taskData.showRecurrenceIndex,
             },
             participantUserIds,
-            dueDate: normalizeToStartOfDay(dueDate),
+            dueDate: normalizeToStartOfDay(dDate),
           }));
 
         // Create additional recurring tasks with rollback on failure
@@ -812,7 +797,7 @@ export const useProjectTaskMutations = ({
         // Update local state with the modified task
         setLocalTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
 
-        toast.success('Task converted to recurring! 🔄', {
+        toast.success('Task converted to recurring!', {
           description: `${tasksToCreate.length} additional occurrences created`
         });
 
@@ -841,7 +826,7 @@ export const useProjectTaskMutations = ({
 
       // Send update notification
       if (user) {
-        notifyTaskUpdated(taskId, taskData.projectId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch(err => {
+        notifyTaskUpdated(taskId, taskData.projectId, normalizeId(user.id)).catch(err => {
           console.error('Failed to send task update notification:', err);
         });
       }

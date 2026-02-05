@@ -1,12 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
-import { AppLayout } from '@/layout/AppLayout';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { motion } from 'framer-motion';
 import { Plus, FolderKanban, Globe, Users, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { InlineLoader, PageLoader } from '@/components/ui/loader';
+import { PageLoader } from '@/components/ui/loader';
 import type { Project } from '@/types';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/features/auth/useAuth';
-import { useProjects, usePublicProjects, useCreateProject, useUserProjectsWithStats, useJoinProject } from './hooks/useProjects';
+import { usePublicProjects, useCreateProject, useUserProjectsWithStats, useJoinProject } from './hooks/useProjects';
 import { useProjectsTabState } from './hooks/useProjectsTabState';
 import { getUserProjects } from '@/lib/projects/projectUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
@@ -23,7 +22,8 @@ import { DEFAULT_PROJECT_COLOR } from '@/constants/projectColors';
 import { useIsRestoring } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 import { AIProjectButton, AIProjectModal, type AIGeneratedProject } from '@/features/ai-service';
-import { useCreateTaskWithStatuses, useCreateMultipleTasksWithStatuses, type CreateTaskWithStatusesInput } from '@/features/tasks/hooks/useTasks';
+import { useCreateMultipleTasksWithStatuses, type CreateTaskWithStatusesInput } from '@/features/tasks/hooks/useTasks';
+import { EmptyState } from '@/components/ui/empty-state';
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 interface ProjectsProps {
@@ -47,7 +47,6 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
   const [showAIModal, setShowAIModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { activeTab, setActiveTab } = useProjectsTabState();
-  const createTaskWithStatuses = useCreateTaskWithStatuses();
   const createMultipleTasksWithStatuses = useCreateMultipleTasksWithStatuses();
 
   // We no longer block the whole page on loading
@@ -231,7 +230,7 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
       // Navigate to the new project
-      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
+      navigate(`/ projects / ${newProject.id} `, { state: { project: projectWithParticipants } });
     } catch (error) {
       console.error('Failed to create project:', error);
       toast.error('Failed to create project');
@@ -384,8 +383,8 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
-      toast.success(`Created \"${generatedProject.name}\" with ${totalTaskCount} tasks! 🎉`);
-      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
+      toast.success(`Created "${generatedProject.name}" with ${totalTaskCount} tasks!`);
+      navigate(`/ projects / ${newProject.id} `, { state: { project: projectWithParticipants } });
 
     } catch (error) {
       console.error('Failed to create AI project:', error);
@@ -402,7 +401,7 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
     try {
       await joinProjectMutation.mutateAsync(project.id);
       // Navigate to project detail
-      navigate(`/projects/${project.id}`);
+      navigate(`/ projects / ${project.id} `);
     } catch (error) {
       setJoiningProject(null);
     }
@@ -490,26 +489,16 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
                 ))}
               </div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-16"
-              >
-                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
-                  <FolderKanban className="w-10 h-10 text-muted-foreground" />
-                </div>
-                <h3 className="text-xl font-bold mb-2">No projects yet</h3>
-                <p className="text-muted-foreground mb-6">
-                  Create your first project and invite friends to collaborate
-                </p>
-                <Button
-                  onClick={() => setShowProjectForm(true)}
-                  className="gradient-primary text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create First Project
-                </Button>
-              </motion.div>
+              <EmptyState
+                title="No projects yet"
+                description="Start a project and collaborate with friends!"
+                icon={FolderKanban}
+                action={{
+                  label: "Create First Project",
+                  onClick: () => setShowProjectForm(true),
+                  icon: <Plus className="w-4 h-4" />
+                }}
+              />
             )}
           </TabsContent>
 
@@ -555,28 +544,21 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
                 ))}
               </div>
             ) : searchQuery.trim() ? (
-              <div className="text-center py-16">
-                <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-bold mb-2">No matches found</h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your keywords to find what you're looking for
-                </p>
-                <Button
-                  variant="ghost"
-                  className="mt-4 text-primary"
-                  onClick={() => setSearchQuery('')}
-                >
-                  Clear Search
-                </Button>
-              </div>
+              <EmptyState
+                title="No matches found"
+                description="Try adjusting your keywords to find what you're looking for"
+                icon={Search}
+                action={{
+                  label: "Clear Search",
+                  onClick: () => setSearchQuery(''),
+                }}
+              />
             ) : (
-              <div className="text-center py-16">
-                <Globe className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-bold mb-2">No public projects available</h3>
-                <p className="text-muted-foreground">
-                  Check back later or create your own public project!
-                </p>
-              </div>
+              <EmptyState
+                title="No public projects available"
+                description="Check back later or create your own public project!"
+                icon={Globe}
+              />
             )}
           </TabsContent>
         </Tabs>
@@ -617,7 +599,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      onClick={() => navigate(`/projects/${project.id}`, { state: { fromTab: 'public' } })}
+      onClick={() => navigate(`/ projects / ${project.id} `, { state: { fromTab: 'public' } })}
       className="cursor-pointer h-[240px]"
     >
       <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 h-full flex flex-col">
@@ -642,14 +624,14 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
               className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon flex-none"
               style={{
                 backgroundColor: adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.15),
-                boxShadow: `0 8px 15px -4px ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)}`,
-                border: `1px solid ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.19)}`,
+                boxShadow: `0 8px 15px - 4px ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)} `,
+                border: `1px solid ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.19)} `,
                 color: project.color || DEFAULT_PROJECT_COLOR
               }}
             >
               <div
                 className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
-                style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)}, transparent)` }}
+                style={{ background: `linear - gradient(135deg, ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)}, transparent)` }}
               />
               <Icon className="w-6 h-6 relative z-10" />
             </div>
