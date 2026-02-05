@@ -14,19 +14,20 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/features/auth/useAuth';
 import { useCurrentUser, useCurrentUserStats } from '../auth/useCurrentUser';
 import { useProjects, useUserProjectsWithStats } from '@/features/projects/hooks/useProjects';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { calculateLevel } from '@/lib/users/userStatsUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
 import { DEFAULT_PROJECT_COLOR } from '@/constants/projectColors';
+import { LogoutConfirmationDialog } from '@/components/LogoutConfirmationDialog';
 
 interface ProfileProps {
   isInternalSlide?: boolean;
   isActive?: boolean;
 }
 
-const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
+const Profile = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = true }: ProfileProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { user: authUser, logout } = useAuth();
@@ -34,6 +35,10 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
   const { data: currentUser } = useCurrentUser();
   const { data: userStats, isLoading: statsLoading } = useCurrentUserStats();
   const { data: userProjects = [], isLoading: projectsLoading } = useUserProjectsWithStats();
+
+  // Logout confirmation dialog state
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Force refresh stats when profile page loads (only once)
   useEffect(() => {
@@ -56,14 +61,27 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
   // Calculate user level using realistic leveling formula
   const userLevel = useMemo(() => calculateLevel(overallTotalScore), [overallTotalScore]);
 
-  const handleLogout = async () => {
+  /**
+   * Shows the logout confirmation dialog
+   */
+  const handleLogout = () => {
+    setShowLogoutDialog(true);
+  };
+
+  /**
+   * Performs the actual logout action after user confirms
+   */
+  const performLogout = async () => {
     try {
+      setIsLoggingOut(true);
       await logout();
       toast.success('Logged out successfully', {
         description: 'See you soon!'
       });
     } catch (error) {
-      toast.error('Failed to logout');
+      toast.error('Failed to log out');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -122,8 +140,8 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
 
             <div className="flex-1 space-y-3">
               <div>
-                <h1 className="text-2xl font-bold text-foreground">{currentUser.name}</h1>
-                <p className="text-muted-foreground text-sm font-medium">{currentUser.handle}</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground">{currentUser.name}</h1>
+                <p className="text-muted-foreground text-sm md:text-base font-medium">{currentUser.handle}</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -156,8 +174,8 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
                   <stat.icon className={`w-6 h-6 ${stat.color}`} />
                 </div>
                 <div className="text-center sm:text-left">
-                  <div className="text-2xl font-normal tracking-tight">{stat.value}</div>
-                  <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">{stat.label}</div>
+                  <div className="text-2xl font-bold tracking-tight">{stat.value}</div>
+                  <div className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground/80">{stat.label}</div>
                 </div>
               </div>
             </Card>
@@ -183,7 +201,7 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
         <Card className="p-4 md:p-6">
           <div className="flex items-center gap-2 mb-6">
             <Target className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-bold">Active Projects</h3>
+            <h3 className="text-lg md:text-xl font-bold">Active Projects</h3>
           </div>
           <div className="space-y-3">
             {sortedProjects.map((project) => {
@@ -242,14 +260,22 @@ const Profile = ({ isInternalSlide, isActive = true }: ProfileProps) => {
           <Button
             onClick={handleLogout}
             variant="destructive"
-            className="w-full"
+            className="w-full text-base font-bold"
             size="lg"
           >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
+            <LogOut className="w-5 h-5 mr-2" />
+            Log out
           </Button>
         </motion.div>
       )}
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmationDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        onConfirm={performLogout}
+        isLoading={isLoggingOut}
+      />
     </div>
   );
 };

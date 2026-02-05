@@ -45,6 +45,7 @@ function OneSignalInitializer() {
 
 
 import { GlobalTaskViewModal } from "./GlobalTaskViewModal";
+import { TaskViewModalProvider } from "@/features/tasks";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -135,33 +136,35 @@ const App = () => {
                     v7_relativeSplatPath: true,
                   }}
                 >
-                  <GlobalTaskViewModal />
-                  <Routes>
-                    {/* Public routes - no authentication required */}
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/auth/verify" element={<Auth />} />
+                  <TaskViewModalProvider>
+                    <GlobalTaskViewModal />
+                    <Routes>
+                      {/* Public routes - no authentication required */}
+                      <Route path="/auth" element={<Auth />} />
+                      <Route path="/auth/verify" element={<Auth />} />
 
-                    {/* Test routes - accessible in development */}
-                    <Route path="/test/toasts" element={<ToastTest />} />
+                      {/* Test routes - accessible in development */}
+                      <Route path="/test/toasts" element={<ToastTest />} />
 
-                    <Route
-                      element={
-                        <ProtectedRoute>
-                          <AppLayout />
-                        </ProtectedRoute>
-                      }
-                    >
-                      <Route path="/" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
-                      <Route path="/projects" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
-                      <Route path="/friends" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
-                      <Route path="/profile" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
-                      <Route path="/projects/:id" element={<PageErrorBoundary><ProjectDetail /></PageErrorBoundary>} />
-                      <Route path="/friends/:id" element={<PageErrorBoundary><FriendProfile /></PageErrorBoundary>} />
-                    </Route>
+                      <Route
+                        element={
+                          <ProtectedRoute>
+                            <AppLayout />
+                          </ProtectedRoute>
+                        }
+                      >
+                        <Route path="/" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                        <Route path="/projects" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                        <Route path="/friends" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                        <Route path="/profile" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
+                        <Route path="/projects/:id" element={<PageErrorBoundary><ProjectDetail /></PageErrorBoundary>} />
+                        <Route path="/friends/:id" element={<PageErrorBoundary><FriendProfile /></PageErrorBoundary>} />
+                      </Route>
 
-                    {/* Catch-all route - not protected (404 page) */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
+                      {/* Catch-all route - not protected (404 page) */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </TaskViewModalProvider>
                 </BrowserRouter>
               </TooltipProvider>
             </DataIntegrityGuard>

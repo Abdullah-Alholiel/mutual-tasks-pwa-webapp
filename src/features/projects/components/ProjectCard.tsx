@@ -1,7 +1,7 @@
 import type { Project } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
+
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { Users, TrendingUp, Globe } from 'lucide-react';
@@ -30,28 +30,18 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
       onClick={() => navigate(`/projects/${project.id}`)}
       className="cursor-pointer h-[240px]"
     >
-      <Card className="p-5 hover-lift shadow-sm border-border/50 h-full flex flex-col">
-        <div className="flex flex-col h-full">
-          <div className="flex items-start justify-between gap-3 flex-none">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1.5">
-                <h3 className="font-semibold text-lg text-foreground truncate">
-                  {project.name}
-                </h3>
-                {project.isPublic && (
-                  <Badge variant="outline" className="text-[10px] h-5 flex items-center gap-1 flex-none">
-                    <Globe className="w-3 h-3" />
-                    Public
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {project.description}
-              </p>
-            </div>
+      <Card className="p-5 hover-lift shadow-sm border-border/50 h-full flex flex-col relative">
+        {project.isPublic && (
+          <Badge variant="outline" className="text-[10px] h-5 flex items-center gap-1 flex-none absolute top-4 right-4 z-10 bg-background/80 backdrop-blur-sm">
+            <Globe className="w-3 h-3" />
+            Public
+          </Badge>
+        )}
 
+        <div className="flex flex-col h-full">
+          <div className="flex items-start gap-4 flex-none">
             <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon flex-none"
+              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden group/icon flex-none"
               style={{
                 backgroundColor: adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.15),
                 boxShadow: `0 8px 15px -4px ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)}`,
@@ -63,11 +53,22 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
                 className="absolute inset-0 opacity-20 bg-gradient-to-br from-white to-transparent"
                 style={{ background: `linear-gradient(135deg, ${adjustColorOpacity(project.color || DEFAULT_PROJECT_COLOR, 0.25)}, transparent)` }}
               />
-              <Icon className="w-6 h-6 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" />
+              <Icon className="w-7 h-7 relative z-10 transition-transform duration-300 group-hover/icon:scale-110" />
+            </div>
+
+            <div className="flex-1 min-w-0 pt-1">
+              <div className="flex items-center gap-2 mb-1.5 pr-12">
+                <h3 className="font-semibold text-lg text-foreground truncate">
+                  {project.name}
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {project.description}
+              </p>
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col justify-between py-2">
+          <div className="flex-1 min-h-0 flex flex-col justify-end py-2 mt-auto">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-0.5">

@@ -5,18 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import type { Project, User, Task, TaskType, RecurrencePattern } from '@/types';
+import type { Project, Task, TaskType, RecurrencePattern } from '@/types';
 import { motion } from 'framer-motion';
-import { CalendarIcon, Repeat, Sparkles, Users, FolderKanban, Plus, Wand2, Pencil } from 'lucide-react';
+import { CalendarIcon, Repeat, Sparkles, Plus, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
-import { toast } from 'sonner';
 import { useCurrentUser } from '@/features/auth/useCurrentUser';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
@@ -225,15 +223,17 @@ export const TaskForm = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto custom-scrollbar">
-        <DialogHeader>
+        <DialogHeader className="text-left">
           <div className="flex items-center gap-2 mb-2">
             {initialTask ? <Pencil className="w-5 h-5 text-primary" /> : <Sparkles className="w-5 h-5 text-primary" />}
             <DialogTitle>{initialTask ? 'Edit Task' : 'Create New Task'}</DialogTitle>
           </div>
           <DialogDescription>
-            {project
-              ? `Create a task in ${project.name}`
-              : 'Create a new collaborative task'
+            {initialTask
+              ? 'Update task details'
+              : (project
+                ? `Create a task in ${project.name}`
+                : 'Create a new collaborative task')
             }
           </DialogDescription>
         </DialogHeader>
@@ -399,254 +399,260 @@ export const TaskForm = ({
             </Popover>
           </div>
 
-          {/* Recurring Task Toggle */}
-          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Repeat className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <Label htmlFor="recurring" className="cursor-pointer">
-                  Recurring Task
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Repeat this task automatically
-                </p>
-              </div>
-            </div>
-            <Switch
-              id="recurring"
-              checked={isRecurring}
-              onCheckedChange={setIsRecurring}
-            />
-          </div>
-
-          {/* Recurrence Pattern */}
-          {isRecurring && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="space-y-4"
-            >
-              <Label htmlFor="pattern">Recurrence Pattern</Label>
-              <Select value={recurrencePattern} onValueChange={(v) => setRecurrencePattern(v as RecurrencePattern)}>
-                <SelectTrigger id="pattern">
-                  <SelectValue placeholder="Select pattern" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Daily">
-                    <div className="flex items-center gap-2">
-                      <span>📅</span>
-                      <span>Daily</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="weekly">
-                    <div className="flex items-center gap-2">
-                      <span>📆</span>
-                      <span>Weekly</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="custom">
-                    <div className="flex items-center gap-2">
-                      <span>⚙️</span>
-                      <span>Custom</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Show Occurrence Number Toggle */}
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50">
-                <div className="space-y-0.5">
-                  <Label htmlFor="show-numbering" className="text-sm font-medium cursor-pointer">
-                    Show Recurrence Number
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Display number (e.g., "Daily  1")
-                  </p>
+          {/* Recurring Task Toggle - Only show during creation */}
+          {!initialTask && (
+            <>
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Repeat className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <Label htmlFor="recurring" className="cursor-pointer">
+                      Recurring Task
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Repeat this task automatically
+                    </p>
+                  </div>
                 </div>
                 <Switch
-                  id="show-numbering"
-                  checked={showRecurrenceIndex}
-                  onCheckedChange={setShowRecurrenceIndex}
+                  id="recurring"
+                  checked={isRecurring}
+                  onCheckedChange={setIsRecurring}
                 />
               </div>
 
-              {/* Custom Recurrence Configuration */}
-              {recurrencePattern === 'custom' && (
+              {/* Recurrence Pattern */}
+              {isRecurring && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4 p-4 bg-muted/50 rounded-xl border border-border"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-4"
                 >
-                  <div className="space-y-2">
-                    <Label>Repeat Every</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={customRecurrence.interval}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomRecurrence(prev => ({
-                            ...prev,
-                            interval: val === '' ? '' : parseInt(val)
-                          }));
-                        }}
-                        onBlur={() => {
-                          setCustomRecurrence(prev => ({
-                            ...prev,
-                            interval: Math.max(1, Number(prev.interval) || 1)
-                          }));
-                        }}
-                        className="w-20"
-                      />
-                      <Select
-                        value={customRecurrence.frequency}
-                        onValueChange={(v) => setCustomRecurrence(prev => ({
-                          ...prev,
-                          frequency: v as 'days' | 'weeks' | 'months'
-                        }))}
-                      >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="days">Day(s)</SelectItem>
-                          <SelectItem value="weeks">Week(s)</SelectItem>
-                          <SelectItem value="months">Month(s)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <Label htmlFor="pattern">Recurrence Pattern</Label>
+                  <Select value={recurrencePattern} onValueChange={(v) => setRecurrencePattern(v as RecurrencePattern)}>
+                    <SelectTrigger id="pattern">
+                      <SelectValue placeholder="Select pattern" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Daily">
+                        <div className="flex items-center gap-2">
+                          <span>📅</span>
+                          <span>Daily</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="weekly">
+                        <div className="flex items-center gap-2">
+                          <span>📆</span>
+                          <span>Weekly</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="custom">
+                        <div className="flex items-center gap-2">
+                          <span>⚙️</span>
+                          <span>Custom</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Show Occurrence Number Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/50">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="show-numbering" className="text-sm font-medium cursor-pointer">
+                        Show Recurrence Number
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Display number (e.g., "Daily  1")
+                      </p>
                     </div>
+                    <Switch
+                      id="show-numbering"
+                      checked={showRecurrenceIndex}
+                      onCheckedChange={setShowRecurrenceIndex}
+                    />
                   </div>
 
-                  {/* Days of Week (for weekly) */}
-                  {customRecurrence.frequency === 'weeks' && (
-                    <div className="space-y-2">
-                      <Label>Repeat On</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
-                          <button
-                            key={day}
-                            type="button"
-                            onClick={() => {
+                  {/* Custom Recurrence Configuration */}
+                  {recurrencePattern === 'custom' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-4 p-4 bg-muted/50 rounded-xl border border-border"
+                    >
+                      <div className="space-y-2">
+                        <Label>Repeat Every</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={customRecurrence.interval}
+                            onChange={(e) => {
+                              const val = e.target.value;
                               setCustomRecurrence(prev => ({
                                 ...prev,
-                                daysOfWeek: prev.daysOfWeek.includes(index)
-                                  ? prev.daysOfWeek.filter(d => d !== index)
-                                  : [...prev.daysOfWeek, index]
+                                interval: val === '' ? '' : parseInt(val)
                               }));
                             }}
+                            onBlur={() => {
+                              setCustomRecurrence(prev => ({
+                                ...prev,
+                                interval: Math.max(1, Number(prev.interval) || 1)
+                              }));
+                            }}
+                            className="w-20"
+                          />
+                          <Select
+                            value={customRecurrence.frequency}
+                            onValueChange={(v) => setCustomRecurrence(prev => ({
+                              ...prev,
+                              frequency: v as 'days' | 'weeks' | 'months'
+                            }))}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="days">Day(s)</SelectItem>
+                              <SelectItem value="weeks">Week(s)</SelectItem>
+                              <SelectItem value="months">Month(s)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Days of Week (for weekly) */}
+                      {customRecurrence.frequency === 'weeks' && (
+                        <div className="space-y-2">
+                          <Label>Repeat On</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => {
+                                  setCustomRecurrence(prev => ({
+                                    ...prev,
+                                    daysOfWeek: prev.daysOfWeek.includes(index)
+                                      ? prev.daysOfWeek.filter(d => d !== index)
+                                      : [...prev.daysOfWeek, index]
+                                  }));
+                                }}
+                                className={cn(
+                                  "px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                                  customRecurrence.daysOfWeek.includes(index)
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-background border border-border hover:bg-muted"
+                                )}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* End Condition */}
+                      <div className="space-y-2">
+                        <Label>Ends</Label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setCustomRecurrence(prev => ({ ...prev, endType: 'date' }))}
                             className={cn(
-                              "px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                              customRecurrence.daysOfWeek.includes(index)
+                              "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                              customRecurrence.endType === 'date'
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-background border border-border hover:bg-muted"
                             )}
                           >
-                            {day}
+                            On Date
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* End Condition */}
-                  <div className="space-y-2">
-                    <Label>Ends</Label>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCustomRecurrence(prev => ({ ...prev, endType: 'date' }))}
-                        className={cn(
-                          "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                          customRecurrence.endType === 'date'
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background border border-border hover:bg-muted"
-                        )}
-                      >
-                        On Date
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCustomRecurrence(prev => ({ ...prev, endType: 'count' }))}
-                        className={cn(
-                          "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                          customRecurrence.endType === 'count'
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-background border border-border hover:bg-muted"
-                        )}
-                      >
-                        After Occurrences
-                      </button>
-                    </div>
-
-                    {customRecurrence.endType === 'date' && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
+                          <button
+                            type="button"
+                            onClick={() => setCustomRecurrence(prev => ({ ...prev, endType: 'count' }))}
                             className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !customRecurrence.endDate && "text-muted-foreground"
+                              "flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                              customRecurrence.endType === 'count'
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-background border border-border hover:bg-muted"
                             )}
                           >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {customRecurrence.endDate ? format(customRecurrence.endDate, "PPP") : "Select end date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={customRecurrence.endDate}
-                            onSelect={(date) => setCustomRecurrence(prev => ({ ...prev, endDate: date }))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    )}
+                            After Occurrences
+                          </button>
+                        </div>
 
-                    {customRecurrence.endType === 'count' && (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="1"
-                          value={customRecurrence.occurrenceCount}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setCustomRecurrence(prev => ({
-                              ...prev,
-                              occurrenceCount: val === '' ? '' : parseInt(val)
-                            }));
-                          }}
-                          onBlur={() => {
-                            setCustomRecurrence(prev => ({
-                              ...prev,
-                              occurrenceCount: Math.max(1, Number(prev.occurrenceCount) || 1)
-                            }));
-                          }}
-                          className="flex-1"
-                        />
-                        <span className="text-sm text-muted-foreground">occurrences</span>
+                        {customRecurrence.endType === 'date' && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !customRecurrence.endDate && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {customRecurrence.endDate ? format(customRecurrence.endDate, "PPP") : "Select end date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={customRecurrence.endDate}
+                                onSelect={(date) => setCustomRecurrence(prev => ({ ...prev, endDate: date }))}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        )}
+
+                        {customRecurrence.endType === 'count' && (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={customRecurrence.occurrenceCount}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setCustomRecurrence(prev => ({
+                                  ...prev,
+                                  occurrenceCount: val === '' ? '' : parseInt(val)
+                                }));
+                              }}
+                              onBlur={() => {
+                                setCustomRecurrence(prev => ({
+                                  ...prev,
+                                  occurrenceCount: Math.max(1, Number(prev.occurrenceCount) || 1)
+                                }));
+                              }}
+                              className="flex-1"
+                            />
+                            <span className="text-sm text-muted-foreground">occurrences</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
-            </motion.div>
+            </>
           )}
 
-          {/* Info Badge */}
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Note:</span> This task will be automatically assigned
-              to all project members. 💪
-              <br />
-              <br />
-              <b> Daily/Weekly recurring tasks will repeat for 30 days.</b>
-            </p>
-          </div>
+          {/* Info Badge - Only show when creating a new task AND project is present */}
+          {!initialTask && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Note:</span> This task will be automatically assigned
+                to all project members. 💪
+                <br />
+                <br />
+                <b> Daily/Weekly recurring tasks will repeat for 30 days.</b>
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">

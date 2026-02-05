@@ -198,8 +198,8 @@ const FriendProfile = () => {
                             <div className="flex-1 space-y-3">
                                 <div className="flex items-start justify-between gap-2">
                                     <div>
-                                        <h1 className="text-2xl font-bold text-foreground">{friend.name}</h1>
-                                        <p className="text-muted-foreground text-sm font-medium">{friend.handle}</p>
+                                        <h1 className="text-2xl md:text-3xl font-bold text-foreground">{friend.name}</h1>
+                                        <p className="text-muted-foreground text-sm md:text-base font-medium">{friend.handle}</p>
                                     </div>
                                     {!isCurrentUser && (
                                         <>
@@ -309,8 +309,8 @@ const FriendProfile = () => {
                                         <stat.icon className={`w-6 h-6 ${stat.color}`} />
                                     </div>
                                     <div className="text-center sm:text-left">
-                                        <div className="text-2xl font-normal tracking-tight">{stat.value}</div>
-                                        <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/80">{stat.label}</div>
+                                        <div className="text-2xl font-bold tracking-tight">{stat.value}</div>
+                                        <div className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground/80">{stat.label}</div>
                                     </div>
                                 </div>
                             </Card>
@@ -327,7 +327,7 @@ const FriendProfile = () => {
                     <Card className="p-4 md:p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Users className="w-5 h-5 text-primary" />
-                            <h3 className="text-lg font-bold">Common Projects</h3>
+                            <h3 className="text-lg md:text-xl font-bold">Common Projects</h3>
                         </div>
 
                         {loadingProjects ? (

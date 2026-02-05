@@ -259,15 +259,21 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
   // Calculate card height based on task state
   const getCardHeight = () => {
     if (uiStatus === 'completed' && myCompletion) {
-      // Completed tasks: 30px shorter on mobile, 20px shorter on desktop
-      return 'h-[220px]';
+      // Completed tasks: 50px shorter than standard on both mobile and desktop
+      // Mobile: 250 - 50 = 200px
+      // Desktop: 260 - 50 = 210px
+      return 'h-[200px] lg:h-[210px]';
     }
     if (shouldShowRecover || shouldShowComplete) {
-      // Active/Recovered tasks with buttons: 10px taller
-      return 'h-[260px] lg:h-[250px]';
+      // Active/Recovered tasks with buttons: 10px taller than standard
+      // Mobile: 250 + 10 = 260px
+      // Desktop: 260 + 10 = 270px
+      return 'h-[260px] lg:h-[270px]';
     }
     // Default height
-    return 'h-[250px] lg:h-[240px]';
+    // Mobile: 250px
+    // Desktop: 260px
+    return 'h-[250px] lg:h-[260px]';
   };
 
   // Handle card click to open task detail modal
@@ -491,60 +497,56 @@ const TaskCardComponent = ({ task, completionLogs = [], onAccept, onDecline, onC
             )}
 
             {/* Actions */}
-            <div className={cn(
-              "flex-none pt-4 mt-auto",
-              (shouldShowRecover || shouldShowComplete || (uiStatus === 'completed' && myCompletion)) ? 'border-t border-border/50' : ''
-            )}>
-              <AnimatePresence mode="wait">
-                {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
-                {shouldShowRecover && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                  >
-                    <Button
-                      onClick={() => onRecover?.(task.id)}
-                      variant="outline"
-                      className="w-full"
+            {(shouldShowRecover || shouldShowComplete) && (
+              <div className={cn(
+                "flex-none pt-4 mt-auto",
+                'border-t border-border/50'
+              )}>
+                <AnimatePresence mode="wait">
+                  {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
+                  {shouldShowRecover && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
                     >
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Recover Task
-                    </Button>
-                  </motion.div>
-                )}
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRecover?.(task.id);
+                        }}
+                        variant="outline"
+                        className="w-full"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Recover Task
+                      </Button>
+                    </motion.div>
+                  )}
 
-                {shouldShowComplete && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                  >
-                    <Button
-                      onClick={handleComplete}
-                      className="w-full gradient-primary text-white hover:opacity-90"
+                  {shouldShowComplete && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
                     >
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Mark as Completed
-                    </Button>
-                  </motion.div>
-                )}
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleComplete();
+                        }}
+                        className="w-full gradient-primary text-white hover:opacity-90"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Mark as Completed
+                      </Button>
+                    </motion.div>
+                  )}
 
-                {uiStatus === 'completed' && myCompletion && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2"
-                  >
-                    <Sparkles className="w-4 h-4 text-accent" />
-                    <span className="text-sm text-muted-foreground">
-                      Difficulty: {myCompletion.difficultyRating ? `${myCompletion.difficultyRating}/5` : 'N/A'}
-                      {myCompletion.penaltyApplied && ' (Half XP - Recovered)'}
-                    </span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         </Card>
       </div>

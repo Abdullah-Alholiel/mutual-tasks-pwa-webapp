@@ -97,7 +97,7 @@ const TaskParticipantAvatarsComponent = ({
   }
 
   return (
-    <div className="flex items-center pt-1">
+    <div className="flex items-center">
       <div className="flex items-center -space-x-1.5 py-1.5">
         {participantData.map((participant) => {
           const userName = participant.user?.name || '';

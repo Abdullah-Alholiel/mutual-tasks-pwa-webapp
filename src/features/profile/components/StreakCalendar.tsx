@@ -37,7 +37,7 @@ export const StreakCalendar = () => {
     return groupCompletionsByDate(completionLogs, currentUser.timezone || 'UTC');
   }, [completionLogs, currentUser]);
 
-  // Generate last 7 weeks of days with real completion data
+  // Generate last 4 weeks of days with real completion data
   const days = useMemo(() => {
     if (!currentUser) return [];
 
@@ -48,11 +48,11 @@ export const StreakCalendar = () => {
     // Get the start of the week (Sunday) in the user's timezone
     const startOfWeek = new Date(today);
     const dayOfWeek = startOfWeek.getDay(); // 0 = Sunday
-    startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek - (7 * 6)); // Go back 6 weeks
+    startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek - (7 * 3)); // Go back 3 weeks (4 weeks total)
 
-    // Generate 49 days (7 weeks)
+    // Generate 28 days (4 weeks)
     const todayStr = getDateStringInTimezone(today, timezone);
-    for (let i = 0; i < 49; i++) {
+    for (let i = 0; i < 28; i++) {
       const date = new Date(startOfWeek);
       date.setDate(date.getDate() + i);
 
@@ -105,14 +105,14 @@ export const StreakCalendar = () => {
   }
 
   return (
-    <Card className="p-4 sm:p-6 overflow-hidden md:max-w-2xl md:mx-auto">
+    <Card className="p-3 sm:p-5 overflow-hidden md:max-w-xl md:mx-auto">
       <div className="flex flex-col items-center">
         {/* Content Container - responsive width */}
         <div className="w-full">
           {/* Header - responsive layout */}
-          <div className="mb-4 sm:mb-6">
-            <h3 className="text-base sm:text-lg font-semibold">Activity & Streaks</h3>
-            <p className="text-[10px] sm:text-sm text-muted-foreground">Your completion heatmap</p>
+          <div className="mb-3 sm:mb-4">
+            <h3 className="text-lg md:text-xl font-bold">Activity & Streaks</h3>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">Your completion heatmap</p>
           </div>
 
           {/* Calendar Grid Container - ensures horizontal fit */}

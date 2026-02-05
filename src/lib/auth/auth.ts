@@ -33,7 +33,7 @@ function getSupabaseUrlLazy(): string {
       'Supabase URL not configured. Please set VITE_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL in your .env file and restart the dev server.'
     );
   }
-  
+
   // Ensure URL doesn't have trailing slash
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
@@ -85,7 +85,7 @@ async function verifySessionToken(token: string): Promise<User | null> {
   try {
     const db = getDatabaseClient();
     const userId = await db.sessions.getUserIdFromToken(token);
-    
+
     if (!userId) {
       // Token is invalid or expired - not a transient error
       return null;
@@ -99,20 +99,20 @@ async function verifySessionToken(token: string): Promise<User | null> {
       // Log it but don't fail the verification
       console.warn('Failed to update last accessed time (non-critical):', error);
     }
-    
+
     // Get user details
     const user = await db.users.getById(userId);
-    
+
     if (!user) {
       // User not found - token might be invalid, but could also be transient
       // Return null but don't throw - let caller decide
       return null;
     }
-    
+
     return user;
   } catch (error) {
     // Check if it's a network/database connection error (transient)
-    const isNetworkError = 
+    const isNetworkError =
       error instanceof TypeError && error.message.includes('fetch') ||
       error instanceof Error && (
         error.message.includes('network') ||
@@ -121,7 +121,7 @@ async function verifySessionToken(token: string): Promise<User | null> {
         error.message.includes('ECONNREFUSED') ||
         error.message.includes('Failed to fetch')
       );
-    
+
     if (isNetworkError) {
       // This is a transient error - don't clear the token
       throw new SessionVerificationError(
@@ -130,15 +130,15 @@ async function verifySessionToken(token: string): Promise<User | null> {
         error
       );
     }
-    
+
     // For other errors, check if it's a database configuration issue
-    const isConfigError = 
+    const isConfigError =
       error instanceof Error && (
         error.message.includes('Supabase configuration') ||
         error.message.includes('not configured') ||
         error.message.includes('environment')
       );
-    
+
     if (isConfigError) {
       // Configuration error - likely transient during dev server restart
       throw new SessionVerificationError(
@@ -147,7 +147,7 @@ async function verifySessionToken(token: string): Promise<User | null> {
         error
       );
     }
-    
+
     // Unknown error - assume transient to be safe
     throw new SessionVerificationError(
       'Unknown error during session verification',
@@ -176,7 +176,7 @@ export async function getCurrentUser(
 
   try {
     const user = await verifySessionToken(token);
-    
+
     // Return the user if found, null otherwise
     // NOTE: We do NOT clear the token here even if user is null.
     // The token could be temporarily unverifiable due to network issues.
@@ -210,7 +210,7 @@ export async function getCurrentUser(
         return null;
       }
     }
-    
+
     // Unknown error - be conservative and preserve token
     console.error('Unexpected error during session verification:', error);
     return null;
@@ -244,7 +244,7 @@ export async function refreshSession(): Promise<boolean> {
   try {
     const db = getDatabaseClient();
     const session = await db.sessions.findByToken(token);
-    
+
     if (!session) {
       clearSessionToken();
       return false;
@@ -254,7 +254,7 @@ export async function refreshSession(): Promise<boolean> {
     const newExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
     await db.sessions.extendExpiry(token, newExpiresAt);
     setSessionToken(token, newExpiresAt.toISOString());
-    
+
     return true;
   } catch (error) {
     console.error('Failed to refresh session:', error);
@@ -273,7 +273,7 @@ export async function logout(): Promise<void> {
   }
 
   const token = getSessionToken();
-  
+
   if (token) {
     try {
       const db = getDatabaseClient();
@@ -282,7 +282,7 @@ export async function logout(): Promise<void> {
       console.error('Failed to delete session:', error);
     }
   }
-  
+
   clearSessionToken();
 }
 
@@ -294,7 +294,7 @@ export async function requestLogin(email: string): Promise<{ success: boolean; m
   try {
     const supabaseUrl = getSupabaseUrlLazy();
     const supabaseAnonKey = getSupabaseAnonKeyLazy();
-    
+
     const response = await fetch(`${supabaseUrl}/functions/v1/auth-magic-link`, {
       method: 'POST',
       headers: {
@@ -322,11 +322,11 @@ export async function requestLogin(email: string): Promise<{ success: boolean; m
       const text = await response.text();
       return { success: false, error: text || 'Failed to send magic link' };
     }
-    
+
     if (!response.ok) {
       return { success: false, error: data.error || 'Failed to send magic link' };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Failed to request login:', error);
@@ -350,7 +350,7 @@ export async function requestSignup(
   try {
     const supabaseUrl = getSupabaseUrlLazy();
     const supabaseAnonKey = getSupabaseAnonKeyLazy();
-    
+
     const response = await fetch(`${supabaseUrl}/functions/v1/auth-magic-link`, {
       method: 'POST',
       headers: {
@@ -380,11 +380,11 @@ export async function requestSignup(
       const text = await response.text();
       return { success: false, error: text || 'Failed to send magic link' };
     }
-    
+
     if (!response.ok) {
       return { success: false, error: data.error || 'Failed to send magic link' };
     }
-    
+
     return data;
   } catch (error) {
     console.error('Failed to request signup:', error);
@@ -400,9 +400,9 @@ export async function requestSignup(
  * Verify magic link token and create session
  * Client-side only - stores session token in cookies and localStorage
  */
-export async function verifyMagicLink(token: string): Promise<{ 
-  success: boolean; 
-  error?: string; 
+export async function verifyMagicLink(token: string): Promise<{
+  success: boolean;
+  error?: string;
   sessionToken?: string;
   expiresAt?: string;
 }> {
@@ -413,7 +413,7 @@ export async function verifyMagicLink(token: string): Promise<{
   try {
     const supabaseUrl = getSupabaseUrlLazy();
     const supabaseAnonKey = getSupabaseAnonKeyLazy();
-    
+
     const response = await fetch(`${supabaseUrl}/functions/v1/auth-magic-link`, {
       method: 'POST',
       headers: {
@@ -441,7 +441,7 @@ export async function verifyMagicLink(token: string): Promise<{
       const text = await response.text();
       return { success: false, error: text || 'Verification failed' };
     }
-    
+
     if (!response.ok) {
       return { success: false, error: data.error || 'Verification failed' };
     }
@@ -450,9 +450,9 @@ export async function verifyMagicLink(token: string): Promise<{
     if (data.sessionToken && data.expiresAt) {
       setSessionToken(data.sessionToken, data.expiresAt);
     }
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       sessionToken: data.sessionToken,
       expiresAt: data.expiresAt
     };

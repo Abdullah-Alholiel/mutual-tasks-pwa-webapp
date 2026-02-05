@@ -14,6 +14,7 @@ interface TaskSectionProps {
   getOnEditTask?: (task: Task) => ((task: Task) => void) | undefined;
   className?: string;
   showMemberInfo?: boolean;
+  titleClassName?: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export const TaskSection = memo(({
   getOnEditTask,
   className = '',
   showMemberInfo,
+  titleClassName = '',
 }: TaskSectionProps) => {
   if (tasks.length === 0) return null;
 
@@ -38,7 +40,7 @@ export const TaskSection = memo(({
     <div className={`space-y-3 ${className}`}>
       <div className="flex items-center gap-2">
         {icon}
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <h3 className={`text-lg font-semibold ${titleClassName}`}>{title}</h3>
       </div>
       {/* Optimized task container with GPU acceleration */}
       <div
@@ -110,7 +112,7 @@ export const ProjectTaskSections = memo(({
       {activeTasks.length > 0 && (
         <TaskSection
           title="Active"
-          icon={<Sparkles className="w-5 h-5 text-accent" />}
+          icon={<Sparkles className="w-6 h-6 text-accent" />}
           tasks={activeTasks}
           completionLogs={completionLogs}
           onRecover={onRecover}
@@ -124,20 +126,21 @@ export const ProjectTaskSections = memo(({
       {upcomingTasks.length > 0 && (
         <TaskSection
           title="Upcoming"
-          icon={<Clock className="w-5 h-5 text-muted-foreground" />}
+          icon={<Clock className="w-6 h-6 text-[#8b5cf6]" />}
           tasks={upcomingTasks}
           completionLogs={completionLogs}
           onComplete={onComplete}
           onDelete={onDelete}
           getOnEditTask={getOnEditTask}
           showMemberInfo={showMemberInfo}
+          titleClassName="text-[#8b5cf6]"
         />
       )}
 
       {completedTasks.length > 0 && (
         <TaskSection
           title="Completed"
-          icon={<CheckCircle2 className="w-5 h-5 text-status-completed" />}
+          icon={<CheckCircle2 className="w-6 h-6 text-status-completed" />}
           tasks={completedTasks}
           completionLogs={completionLogs}
           onDelete={onDelete}
@@ -150,7 +153,7 @@ export const ProjectTaskSections = memo(({
       {archivedTasks.length > 0 && (
         <TaskSection
           title="Archived"
-          icon={<Clock className="w-5 h-5 text-muted-foreground" />}
+          icon={<Clock className="w-6 h-6 text-destructive" />}
           tasks={archivedTasks}
           completionLogs={completionLogs}
           onRecover={onRecover}
@@ -158,6 +161,7 @@ export const ProjectTaskSections = memo(({
           onDelete={onDelete}
           getOnEditTask={getOnEditTask}
           showMemberInfo={showMemberInfo}
+          titleClassName="text-destructive"
         />
       )}
     </>

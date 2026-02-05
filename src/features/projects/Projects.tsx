@@ -31,7 +31,7 @@ interface ProjectsProps {
   isActive?: boolean;
 }
 
-const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
+const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = true }: ProjectsProps) => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const isRestoring = useIsRestoring();
@@ -441,7 +441,10 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <AIProjectButton onClick={() => setShowAIModal(true)} />
+            <AIProjectButton
+              onClick={() => setShowAIModal(true)}
+              className="rounded-full h-10"
+            />
             <Button
               onClick={() => setShowProjectForm(true)}
               className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-3.5 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px] shrink-0"
@@ -495,7 +498,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
                 <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
                   <FolderKanban className="w-10 h-10 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">No projects yet</h3>
+                <h3 className="text-xl font-bold mb-2">No projects yet</h3>
                 <p className="text-muted-foreground mb-6">
                   Create your first project and invite friends to collaborate
                 </p>
@@ -554,7 +557,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
             ) : searchQuery.trim() ? (
               <div className="text-center py-16">
                 <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-semibold mb-2">No matches found</h3>
+                <h3 className="text-xl font-bold mb-2">No matches found</h3>
                 <p className="text-muted-foreground">
                   Try adjusting your keywords to find what you're looking for
                 </p>
@@ -569,7 +572,7 @@ const Projects = ({ isInternalSlide, isActive = true }: ProjectsProps) => {
             ) : (
               <div className="text-center py-16">
                 <Globe className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-xl font-semibold mb-2">No public projects available</h3>
+                <h3 className="text-xl font-bold mb-2">No public projects available</h3>
                 <p className="text-muted-foreground">
                   Check back later or create your own public project!
                 </p>

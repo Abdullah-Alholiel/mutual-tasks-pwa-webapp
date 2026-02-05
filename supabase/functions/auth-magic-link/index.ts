@@ -48,14 +48,14 @@ function getAppUrl(): string {
 
   // Priority 3: Auto-detect from Supabase URL (fallback for local development)
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  
+
   // If Supabase URL is a production URL (contains .supabase.co and not localhost)
-  const isProduction = supabaseUrl.includes('.supabase.co') && 
-                      !supabaseUrl.includes('localhost') &&
-                      !supabaseUrl.includes('127.0.0.1');
+  const isProduction = supabaseUrl.includes('.supabase.co') &&
+    !supabaseUrl.includes('localhost') &&
+    !supabaseUrl.includes('127.0.0.1');
 
   // Return production URL if in production, otherwise development URL
-  return isProduction 
+  return isProduction
     ? 'https://mutualtask-pwa.netlify.app'
     : 'http://localhost:8080';
 }
@@ -63,16 +63,16 @@ function getAppUrl(): string {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
+    return new Response(null, {
       status: 204,
-      headers: corsHeaders 
+      headers: corsHeaders
     });
   }
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    
+
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Missing Supabase configuration');
       return new Response(
@@ -167,7 +167,7 @@ serve(async (req) => {
             message: emailError.message,
             context: emailError.context,
           };
-          
+
           // If context contains a Response, try to read its body
           if (emailError.context?.response) {
             try {
@@ -181,7 +181,7 @@ serve(async (req) => {
               // Ignore if we can't read the response
             }
           }
-          
+
           console.error('Failed to send email:', errorDetails);
           // Log the error but don't fail the request - magic link is still valid
         } else {
@@ -281,7 +281,7 @@ serve(async (req) => {
             message: emailError.message,
             context: emailError.context,
           };
-          
+
           // If context contains a Response, try to read its body
           if (emailError.context?.response) {
             try {
@@ -295,7 +295,7 @@ serve(async (req) => {
               // Ignore if we can't read the response
             }
           }
-          
+
           console.error('Failed to send email:', errorDetails);
           // Log the error but don't fail the request - magic link is still valid
         } else {

@@ -1,8 +1,7 @@
 import { Card } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Users, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import type { Project, ProjectParticipant } from '@/types';
 
 interface ProjectStatsProps {
@@ -69,21 +68,21 @@ export const ProjectStats = ({
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-3 md:col-span-2">
-          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
-            <div className="text-2xl md:text-3xl font-bold text-primary mb-1">{activeCount}</div>
+          <div className="text-center group transition-transform hover:scale-105 p-3 md:p-4 flex flex-col items-center justify-center">
+            <div className="text-2xl font-bold text-primary mb-1">{activeCount}</div>
             <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Active</div>
           </div>
-          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
-            <div className="text-2xl md:text-3xl font-bold text-status-completed mb-1">{completedTasksCount}</div>
+          <div className="text-center group transition-transform hover:scale-105 p-3 md:p-4 flex flex-col items-center justify-center">
+            <div className="text-2xl font-bold text-status-completed mb-1">{completedTasksCount}</div>
             <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Completed</div>
           </div>
-          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
-            <div className="text-2xl md:text-3xl font-bold text-primary mb-1">{upcomingCount}</div>
-            <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Upcoming</div>
+          <div className="text-center group transition-transform hover:scale-105 p-3 md:p-4 flex flex-col items-center justify-center">
+            <div className="text-2xl font-bold text-[#8b5cf6] mb-1">{upcomingCount}</div>
+            <div className="text-xs md:text-xs uppercase tracking-wider text-[#8b5cf6] font-semibold">Upcoming</div>
           </div>
-          <div className="text-center group transition-transform hover:scale-105 bg-card border border-border/50 rounded-xl p-3 md:p-4 shadow-sm flex flex-col items-center justify-center">
-            <div className="text-2xl md:text-3xl font-bold text-muted-foreground mb-1">{archivedCount}</div>
-            <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold">Archived</div>
+          <div className="text-center group transition-transform hover:scale-105 p-3 md:p-4 flex flex-col items-center justify-center">
+            <div className="text-2xl font-bold text-destructive mb-1">{archivedCount}</div>
+            <div className="text-xs md:text-xs uppercase tracking-wider text-destructive font-semibold">Archived</div>
           </div>
         </div>
 
@@ -91,8 +90,7 @@ export const ProjectStats = ({
         <div className="md:col-span-1">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground font-medium">Team</span>
+              <span className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/40">Team</span>
             </div>
             <div className="flex items-center justify-between">
               <div
@@ -154,10 +152,10 @@ export const ProjectStats = ({
                   variant="ghost"
                   size="icon"
                   onClick={onAddMember}
-                  className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+                  className="h-12 w-12 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
                   title="Add Member"
                 >
-                  <UserPlus className="w-4 h-4" />
+                  <UserPlus className="w-8 h-8" />
                 </Button>
               )}
             </div>

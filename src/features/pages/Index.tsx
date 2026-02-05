@@ -595,7 +595,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-4xl font-bold mb-2"
+              className="text-3xl font-bold"
             >
               Today
             </motion.h1>
@@ -603,7 +603,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-muted-foreground flex items-center gap-2"
+              className="text-sm text-muted-foreground flex items-center gap-2"
             >
               <Calendar className="w-4 h-4" />
               {new Date().toLocaleDateString('en-US', {
@@ -616,8 +616,8 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-11 px-5 text-base font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]">
-                <Plus className="w-5 h-5 mr-0 sm:mr-2" />
+              <Button className="gradient-primary text-white hover:shadow-md hover:shadow-primary/20 rounded-full h-10 px-4 text-sm font-semibold transition-all duration-300 hover:translate-y-[-1px] active:translate-y-[0px]">
+                <Plus className="w-4 h-4 mr-0 sm:mr-1.5" />
                 <span className="hidden sm:inline">New</span>
               </Button>
             </DropdownMenuTrigger>
@@ -659,7 +659,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold">Needs Your Action</h2>
+              <h2 className="text-xl font-bold">Needs Your Action</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
             <div
@@ -697,7 +697,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <RotateCcw className="w-5 h-5 text-status-warning" />
-              <h2 className="text-xl font-semibold">Another Chance ?</h2>
+              <h2 className="text-xl font-bold">Another Chance ?</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
             <div
@@ -735,7 +735,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-success" />
-              <h2 className="text-xl font-semibold">Done for the Day</h2>
+              <h2 className="text-xl font-bold">Done for the Day</h2>
             </div>
             {/* Optimized task container for smooth scrolling */}
             <div
@@ -776,14 +776,14 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Sparkles className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">All clear for today!</h3>
+            <h3 className="text-xl font-bold mb-2">All clear for today!</h3>
             <p className="text-muted-foreground mb-6">
               Start a new task or check out your projects
             </p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="gradient-primary text-white rounded-full h-11 px-5 text-base">
-                  <Plus className="w-5 h-5 mr-0 sm:mr-2" />
+                <Button className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold">
+                  <Plus className="w-4 h-4 mr-0 sm:mr-1.5" />
                   <span className="hidden sm:inline">New</span>
                 </Button>
               </DropdownMenuTrigger>

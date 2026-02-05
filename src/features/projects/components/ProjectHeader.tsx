@@ -40,14 +40,6 @@ export const ProjectHeader = ({
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onEdit}
-            className="shrink-0 h-10 w-10 rounded-full"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
           {canManage && (
             <Button
               onClick={onCreateTask}
@@ -56,33 +48,41 @@ export const ProjectHeader = ({
               <Plus className="w-4 h-4" />
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onEdit}
+            className="shrink-0 h-10 w-10 rounded-full"
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
-      <div className="hidden sm:flex items-center gap-3 w-full">
+      <div className="hidden sm:flex items-start gap-3 w-full">
         <Button
           variant="ghost"
           size="icon"
           onClick={onBack}
-          className="shrink-0 w-10 h-10"
+          className="shrink-0 w-10 h-10 mt-1"
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
 
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 mt-1"
             style={{ backgroundColor: adjustColorOpacity(project.color, 0.15) }}
           >
             <Icon className="w-7 h-7" style={{ color: project.color }} />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold break-words">{project.name}</h1>
+            <h1 className="text-2xl font-bold break-words leading-tight py-1">{project.name}</h1>
             <p className="text-base text-muted-foreground break-words">{project.description}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 mt-1">
           {!isParticipant && project.isPublic ? (
             <Button
               onClick={onJoin}
@@ -98,14 +98,6 @@ export const ProjectHeader = ({
             </Button>
           ) : (
             <>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onEdit}
-                className="shrink-0 h-10 w-10 rounded-full"
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
               {canManage && (
                 <Button
                   onClick={onCreateTask}
@@ -115,6 +107,14 @@ export const ProjectHeader = ({
                   <span>New</span>
                 </Button>
               )}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onEdit}
+                className="shrink-0 h-10 w-10 rounded-full"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
             </>
           )}
         </div>

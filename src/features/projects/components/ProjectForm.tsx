@@ -213,7 +213,7 @@ export const ProjectForm = ({ open, onOpenChange, onSubmit, currentUser, availab
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <DialogHeader>
+        <DialogHeader className="text-left">
           <div className="flex items-center gap-2 mb-2">
             <FolderKanban className="w-5 h-5 text-primary" />
             <DialogTitle>Create New Project</DialogTitle>

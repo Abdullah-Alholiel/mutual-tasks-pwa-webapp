@@ -370,7 +370,7 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leaderboard</h2>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs font-medium text-accent hover:text-accent hover:bg-accent/10 px-2">
+                                        <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 px-2">
                                             {sortBy === 'score' ? <Trophy className="w-3.5 h-3.5" /> : <ArrowUpDown className="w-3.5 h-3.5" />}
                                             <span>Ranked by {sortBy === 'score' ? 'Score' : 'Name'}</span>
                                         </Button>
@@ -395,7 +395,7 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                                     <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
                                         <UserPlus className="w-6 h-6 text-muted-foreground" />
                                     </div>
-                                    <h3 className="text-lg font-semibold mb-1">No friends yet</h3>
+                                    <h3 className="text-lg font-bold mb-1">No friends yet</h3>
                                     <p className="text-muted-foreground text-sm max-w-[200px] mx-auto">
                                         Add friends by their username to see them on the leaderboard!
                                     </p>

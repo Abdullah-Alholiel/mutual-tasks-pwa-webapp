@@ -14,7 +14,8 @@ import {
   Trash2,
   UserPlus,
   LogOut,
-  Settings
+  Settings,
+  Pencil
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
@@ -240,8 +241,8 @@ const ProjectDetail = () => {
             <div className="bg-card border border-border/50 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 min-w-[300px]">
               <Loader containerHeight="h-auto" size={50} />
               <div className="text-center">
-                <h3 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Creating Tasks...</h3>
-                <p className="text-sm text-muted-foreground mt-1">This may take a few moments for habit series</p>
+                <h3 className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Creating Tasks</h3>
+                <p className="text-sm text-muted-foreground mt-1">This may take a few moments...</p>
               </div>
             </div>
           </motion.div>
@@ -291,13 +292,13 @@ const ProjectDetail = () => {
           {/* Tasks Tabs */}
           <Tabs defaultValue="all" className="space-y-4">
             <TabsList className="grid w-full grid-cols-4 h-auto p-0.5 gap-0.5 md:gap-1 md:p-1">
-              <TabsTrigger value="all" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
-              <TabsTrigger value="completed" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
-              <TabsTrigger value="upcoming" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">
+              <TabsTrigger value="all" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">All</TabsTrigger>
+              <TabsTrigger value="completed" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">Completed</TabsTrigger>
+              <TabsTrigger value="upcoming" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">
                 <span className="hidden sm:inline">Upcoming</span>
                 <span className="sm:hidden">Upcoming</span>
               </TabsTrigger>
-              <TabsTrigger value="archived" className="text-[10px] sm:text-xs md:text-sm px-1 py-1.5 md:px-3 md:py-1.5">Archived</TabsTrigger>
+              <TabsTrigger value="archived" className="text-sm sm:text-base md:text-lg px-1 py-1.5 md:px-3 md:py-1.5">Archived</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-6">
@@ -661,8 +662,11 @@ const ProjectDetail = () => {
       {/* Edit Project Dialog */}
       <Dialog open={showEditProjectForm} onOpenChange={setShowEditProjectForm}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{canManage ? 'Edit Project' : 'Project Settings'}</DialogTitle>
+          <DialogHeader className="text-left">
+            <div className="flex items-center gap-2 mb-2">
+              <Pencil className="w-5 h-5 text-primary" />
+              <DialogTitle>{canManage ? 'Edit Project' : 'Project Settings'}</DialogTitle>
+            </div>
             <DialogDescription>
               {canManage
                 ? 'Update project name and description'

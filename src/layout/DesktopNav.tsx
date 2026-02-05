@@ -12,11 +12,12 @@ import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Inbox } from '@/features/notifications/Inbox';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { handleError } from '@/lib/errorUtils';
 import { useAuth } from '@/features/auth/useAuth';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { useSmartScroll } from '@/hooks/useSmartScroll';
+import { LogoutConfirmationDialog } from '@/components/LogoutConfirmationDialog';
 
 
 const navItems = [
@@ -46,8 +47,23 @@ export const DesktopNav = () => {
     enabled: !!user,
   });
 
-  const handleLogout = async () => {
+  // Logout confirmation dialog state
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  /**
+   * Shows the logout confirmation dialog
+   */
+  const handleLogout = () => {
+    setShowLogoutDialog(true);
+  };
+
+  /**
+   * Performs the actual logout action after user confirms
+   */
+  const performLogout = async () => {
     try {
+      setIsLoggingOut(true);
       await logout();
       toast.success('Logged out successfully', {
         description: 'See you soon!'
@@ -55,6 +71,8 @@ export const DesktopNav = () => {
     } catch (error) {
       handleError(error, 'logout');
       toast.error('Failed to logout. Please try again.');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -147,6 +165,14 @@ export const DesktopNav = () => {
           </div>
         </div>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmationDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        onConfirm={performLogout}
+        isLoading={isLoggingOut}
+      />
     </motion.nav>
   );
 };
