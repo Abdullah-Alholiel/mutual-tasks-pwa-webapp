@@ -1,4 +1,4 @@
-import { AppLayout } from '../../layout/AppLayout';
+// import { AppLayout } from '../../layout/AppLayout';
 import { TaskCard } from '../tasks/components/TaskCard';
 import { TaskForm } from '../tasks/components/TaskForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -76,7 +76,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
   const navigate = useNavigate();
   const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
   const { data: todayTasksRaw = [], isLoading: tasksLoading } = useTodayTasks();
-  const { data: allUserTasks = [], isLoading: allTasksLoading } = useUserTasks(); // For recovered tasks
+  const { data: allUserTasks = [], isLoading: _allTasksLoading } = useUserTasks(); // For recovered tasks
   const createTaskMutation = useCreateTaskWithStatuses();
   const createMultipleTasksMutation = useCreateMultipleTasksWithStatuses();
   const createCompletionLogMutation = useCreateCompletionLog();

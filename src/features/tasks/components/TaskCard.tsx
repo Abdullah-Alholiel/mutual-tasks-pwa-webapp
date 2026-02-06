@@ -13,7 +13,7 @@ import { TaskParticipantAvatars } from '@/components/tasks/TaskParticipantAvatar
 import { CompletionStatusIcon } from '@/components/tasks/CompletionStatusIcon';
 import { cn } from '@/lib/utils';
 import { normalizeId, compareIds } from '@/lib/idUtils';
-import confetti from 'canvas-confetti';
+import { triggerRewardConfetti } from '@/lib/utils/confetti';
 import {
   getRingColor,
   calculateRingColor,
@@ -247,14 +247,8 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
     // Deduplicate to prevent rapid double-clicks from creating duplicate completions
     deduplicator.deduplicate(`complete-${task.id}`, async () => {
       if (onComplete) {
-        // Trigger confetti for immediate delight
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'], // Theme colors
-          disableForReducedMotion: true
-        });
+        // Trigger high-quality multi-burst confetti for immediate delight
+        triggerRewardConfetti();
 
         await onComplete(task.id, rating);
         setIsJustCompleted(true);
