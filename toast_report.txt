@@ -1,0 +1,123 @@
+Found 122 toast instances.
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/layout/DesktopNav.tsx:68 - 'Logged out successfully', { description: 'See you soon!' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/layout/DesktopNav.tsx:73 - 'Failed to logout. Please try again.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/ai-service/hooks/useAIProjectGeneration.ts:71 - AI_ERROR_MESSAGES.NOT_LOGGED_IN.title, { description: AI_ERROR_MESSAGES.NOT_LOGGED_IN.description, }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/ai-service/hooks/useAIProjectGeneration.ts:79 - 'Please enter a project description'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/ai-service/hooks/useAIProjectGeneration.ts:84 - 'Please provide a more detailed description', { description: 'Describe your project idea in at least...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/ai-service/hooks/useAIProjectGeneration.ts:103 - 'Project generated!', { description: `Created "${result.project.name}" with ${result.project.tasks.l...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/ai-service/hooks/useAIProjectGeneration.ts:118 - errorMsg.title, { description: errorMsg.description, }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/ai-service/hooks/useAIProjectGeneration.ts:141 - 'Session expired'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/ai-service/hooks/useAIProjectGeneration.ts:170 - 'Failed to record usage', { description: 'Please try again', }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/tasks/components/TaskForm.tsx:171 - 'Task requires at least 2 participants', { // description: 'Add more members to the project first' /...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/tasks/hooks/useTasks.ts:159 - toastTitle, { description: 'Your friend has been notified.' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/tasks/hooks/useTasks.ts:361 - 'Task deleted! 🗑️'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:246 - 'Session token not found. Please try signing in again.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:251 - result.error || 'Magic link verification failed. Please try again.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:257 - 'Magic link verification failed. Please try again.'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:286 - 'Link copied! Paste it in the Momentum app.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:290 - 'Failed to copy link'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:297 - 'Please paste a sign-in link'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:319 - 'Successfully signed in!'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:329 - 'Successfully signed in!'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:332 - result.error || 'Invalid or expired link.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:336 - 'Invalid sign-in link.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:338 - 'Failed to process link.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:371 - `Please enter your ${loginMethod}`
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:383 - 'User not found', { description: "We couldn't find an account with that username." }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:393 - 'Please enter a valid email address'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:401 - 'Magic link sent! ✨', { description: `Check your email${loginMethod === 'username' ? ` (${emailToSen...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:407 - result.error || 'Failed to send magic link'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:411 - 'An error occurred. Please try again.'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:420 - 'Please fill in all fields'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:424 - 'Please enter a valid email address'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:429 - handleValidation.error || 'Invalid handle format'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:437 - 'Magic link sent! ✨', { description: `Check your email at ${signupEmail} to join. Peek in your spam ...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:445 - result.error || 'Failed to send magic link'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/Auth.tsx:448 - 'An error occurred. Please try again.'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/auth/AuthContext.tsx:178 - 'Successfully signed in!'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/Projects.tsx:148 - 'You must be logged in to create a project'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/Projects.tsx:154 - 'Private project requires at least one participant', { // description: 'Add at least one friend to c...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/Projects.tsx:200 - `User with ID ${participantIdStr} not found`
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/Projects.tsx:237 - 'Failed to create project'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/Projects.tsx:250 - 'You must be logged in to create a project'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/Projects.tsx:387 - `Created "${generatedProject.name}" with ${totalTaskCount} tasks!`
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/Projects.tsx:392 - 'Failed to create project', { description: 'Please try again or create manually.', }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/components/ProjectForm.tsx:96 - 'Please enter a handle'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/components/ProjectForm.tsx:103 - handleValidation.error || 'Invalid handle format'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/components/ProjectForm.tsx:111 - 'User not found', { description: 'No user with this handle exists in the system' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/components/ProjectForm.tsx:118 - 'Cannot add yourself', { description: 'You are already the project owner' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/components/ProjectForm.tsx:136 - 'Friend added!', { description: `${user.name} (${user.handle}) added` }
+[INFO] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/components/ProjectForm.tsx:140 - 'Friend already added', { description: `${user.name} is already in the list` }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectSettings.ts:112 - 'Cannot leave project', { description: 'Project owner cannot leave the project' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectSettings.ts:158 - 'Project deleted', { description: 'The project and all its data have been permanently removed' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:145 - 'Task recovered!', { description: 'Complete it to earn XP' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:157 - 'Failed to recover task', { description: 'Please try again' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:172 - 'Task not found'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:201 - 'Task status not found', { description: 'Failed to create task status. Please try again.' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:397 - 'Amazing work! 🚀', { description: 'Task completed by everyone!' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:401 - 'Task done! ✅', { description: penaltyApplied ? 'Waiting for your partners to complete... (Late/Reco...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:416 - 'Failed to complete task', { description: 'Please try again' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:438 - 'Cannot create task', { description: validation.error }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:450 - 'Validation Error', { description: validationError.message }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:521 - `${results.length} habit tasks created!`, { description: 'Collaborate with your friends to complete ...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:549 - 'Task created!', { description: 'Collaborate with your friends to complete this task' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:562 - 'Failed to create task', { description: 'Please try again' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:614 - isHabit ? 'Series deleted.' : 'Task deleted.', { description: isHabit ? `All occurrences of "${taskT...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:628 - 'Failed to notify participants', { description: 'Task was deleted but participants may not be notifi...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:670 - 'Series deleted.', { description: `All occurrences of "${seriesTitle}" have been removed.` }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:682 - 'Failed to notify participants', { description: 'Series was deleted but participants may not be noti...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:689 - 'Failed to delete series'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:702 - 'Task not found'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:825 - 'Task converted to recurring!', { description: `${tasksToCreate.length} additional occurrences creat...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:849 - 'Task updated! ✨'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectTaskMutations.ts:862 - 'Failed to update task'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:94 - 'Permission denied', { description: 'Only project owners and managers can add members' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:101 - 'Please enter a handle'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:107 - handleValidation.error || 'Invalid handle format'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:115 - 'User not found', { description: 'No user with this handle exists in the system' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:128 - 'User already in project', { description: 'This user is already a member of this project' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:236 - 'Member added! 🎉', { description: `${userToAdd.name} (${userToAdd.handle}) has been added to the pro...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:264 - 'Permission denied', { description: 'Only project owners and managers can add members' }
+[INFO] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:279 - 'No new members to add', { description: 'All selected users are already in this project' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:395 - `${addedParticipants.length} member${addedParticipants.length > 1 ? 's' : ''} added! 🎉`, { descripti...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:449 - 'Participant removed', { description: 'The member has been removed from the project and all related ...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjectMembers.ts:500 - 'Role updated', { description: `User role changed to ${newRole}` }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjects.ts:116 - 'Project created!', { description: 'Start adding tasks to get moving.' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjects.ts:174 - 'Project updated.'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjects.ts:258 - 'Project deleted.'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjects.ts:358 - 'Joined project!', { description: 'You have been added to all active tasks.' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/projects/hooks/useProjects.ts:415 - 'Left project', { description: 'You have been removed from this project and all related tasks' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/profile/Profile.tsx:78 - 'Logged out successfully', { description: 'See you soon!' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/profile/Profile.tsx:82 - 'Failed to log out'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:47 - data.message
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:51 - data.message
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:56 - 'Failed to add friend. Please try again.'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:72 - 'Friend removed'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:77 - 'Failed to remove friend'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:93 - 'Friend request canceled'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:100 - 'Failed to cancel friend request'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:136 - 'Response sent successfully'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/friends/hooks/useFriends.ts:140 - error instanceof Error ? error.message : 'Failed to respond to friend request'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:174 - 'Task not found'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:205 - 'Task status not found', { description: 'Failed to create task status record. Please try again.' }
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:289 - 'Great job!', { description: penaltyApplied ? 'Waiting for your partners to complete... (Half XP - R...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:295 - 'Failed to complete task'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:341 - 'Project not found'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:384 - `${tasksToCreate.length} habit tasks created! 🚀`, { description: 'Statuses created for all participa...
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:403 - 'Task created! 🚀', { description: 'Statuses created for all participants' }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:410 - 'Failed to create task'
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:469 - 'Task updated! ✨'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:472 - 'Failed to update task'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:485 - 'You must be logged in to create a project'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:529 - `User with ID ${participantIdStr} not found`
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/features/pages/Index.tsx:565 - 'Failed to create project'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/components/DataIntegrityGuard.tsx:198 - 'Data Synchronization Error', { description: `Found ${phantomCount} tasks that don't exist in the da...
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/hooks/useAIGeneration.ts:33 - AI_ERROR_MESSAGES.NOT_LOGGED_IN.title, { description: AI_ERROR_MESSAGES.NOT_LOGGED_IN.description, }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/hooks/useAIGeneration.ts:40 - `Please enter a ${type} title first`
+[SUCCESS] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/hooks/useAIGeneration.ts:51 - 'Description generated successfully!'
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/hooks/useAIGeneration.ts:62 - errorMsg.title, { description: errorMsg.description, }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/hooks/useAIGeneration.ts:80 - 'Session expired', { description: 'Please login again', }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/hooks/useAIGeneration.ts:108 - 'Failed to record usage', { description: 'Please try again', }
+[DEFAULT] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/hooks/use-toast.ts:137 - { ...props }: Toast
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/lib/errorUtils.ts:47 - 'Error', { description: errorMessage, }
+[ERROR] /Users/nada/Desktop/Momentum Workspace/mutual-tasks-pwa-webapp/src/lib/tasks/taskValidation.ts:21 - error.message

@@ -1,14 +1,11 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Friend, User, Project, ProjectParticipant, UserStats } from '@/types';
-import { transformUserRow, transformUserStatsRow, toStringId, type UserRow, type UserStatsRow, toProjectRow, transformProjectRow, type ProjectRow } from '@/db/transformers';
-import type { NotificationsRepository } from '@/features/notifications/api/notifications';
+import type { Friend, User, Project, UserStats } from '@/types';
+import { transformUserRow, transformUserStatsRow, toStringId, type UserRow, type UserStatsRow, transformProjectRow, type ProjectRow } from '@/db/transformers';
+import { notificationService } from '@/lib/notifications/notificationService';
 
 export class FriendsRepository {
-    private notifications: NotificationsRepository;
-
-    constructor(private supabase: SupabaseClient, notificationsRepo: NotificationsRepository) {
-        this.notifications = notificationsRepo;
+    constructor(private supabase: SupabaseClient) {
     }
 
     /**
@@ -186,23 +183,8 @@ export class FriendsRepository {
         }
 
         // 4. Create Notification for the recipient using NotificationsRepository
-        // Fetch sender details for the message
-        const { data: sender } = await this.supabase
-            .from('users')
-            .select('name')
-            .eq('id', toStringId(userId))
-            .single();
-
-        const senderName = sender?.name || 'Someone';
-
         try {
-            await this.notifications.create({
-                userId: friendId,
-                type: 'friend_request',
-                message: `${senderName} sent you a friend request`,
-                isRead: false,
-                emailSent: false
-            });
+            await notificationService.notifyFriendRequest(userId, friendId);
         } catch (notifError) {
             console.error('Error sending notification:', notifError);
             return { success: true, message: 'Request sent, but notification failed' };
@@ -262,7 +244,7 @@ export class FriendsRepository {
 
         if (action === 'accept') {
             // Update status to accepted
-            const { error, data } = await this.supabase
+            const { error, data: request } = await this.supabase
                 .from('friends')
                 .update({ status: 'accepted' })
                 .eq('id', toStringId(requestId))
@@ -273,25 +255,10 @@ export class FriendsRepository {
             if (error) throw error;
 
             // Notify the requester
-            const requesterId = Number(data.user_id);
-
-            // Fetch my name
-            const { data: me } = await this.supabase
-                .from('users')
-                .select('name')
-                .eq('id', toStringId(userId))
-                .single();
-
-            const myName = me?.name || 'A friend';
+            const requesterId = Number(request.user_id);
 
             try {
-                await this.notifications.create({
-                    userId: requesterId,
-                    type: 'friend_accepted',
-                    message: `${myName} accepted your friend request`,
-                    isRead: false,
-                    emailSent: false
-                });
+                await notificationService.notifyFriendAccepted(requesterId, userId);
             } catch (notifError) {
                 console.error('Failed to notify sender of acceptance:', notifError);
                 throw new Error('Friend accepted, but failed to send notification');

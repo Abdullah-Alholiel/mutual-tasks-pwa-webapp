@@ -5,7 +5,7 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { Task, TaskStatusEntity, CompletionLog, DifficultyRating, TaskStatus, User, RingColor } from '@/types';
+import type { Task, TaskStatusEntity, DifficultyRating, TaskStatus, User, RingColor } from '@/types';
 import { normalizeToStartOfDay } from '@/lib/tasks/taskUtils';
 import { validateProjectForTaskCreation, getParticipatingUserIds } from '@/lib/tasks/taskCreationUtils';
 import { handleError } from '@/lib/errorUtils';
@@ -22,8 +22,8 @@ import type { TaskCreationData, ProjectWithParticipants, ProjectTaskState, Habit
 import { notifyTaskRecovered } from '@/lib/tasks/taskEmailNotifications';
 import { validateTaskCreation } from '@/lib/tasks/taskValidation';
 import { ValidationError } from '@/lib/errors';
-import { deleteTaskAtomic } from '@/lib/tasks/atomicTaskOperations';
-import { TASK_CONFIG, PERFORMANCE_CONFIG } from '@/config/appConfig';
+import { deleteTaskAtomic, deleteTaskSeriesAtomic } from '@/lib/tasks/atomicTaskOperations';
+import { TASK_CONFIG } from '@/config/appConfig';
 import { generateOccurrenceDates, getMaxOccurrences, type CustomRecurrence } from '@/lib/tasks/recurringTaskUtils';
 import { normalizeId, compareIds } from '@/lib/idUtils';
 
@@ -142,8 +142,8 @@ export const useProjectTaskMutations = ({
       // Specifically invalidate the user's task status to ensure UI updates
       await queryClient.invalidateQueries({ queryKey: ['taskStatuses', userId] });
 
-      toast.success('Task recovered!', {
-        description: 'Complete it to earn XP'
+      toast.success('Back on the list! 🔙', {
+        description: 'Complete it to earn XP.'
       });
 
       // Send recovery notification to other participants
@@ -154,8 +154,8 @@ export const useProjectTaskMutations = ({
       }
     } catch (error) {
       handleError(error, 'handleRecover');
-      toast.error('Failed to recover task', {
-        description: 'Please try again'
+      toast.error("We couldn't recover the task.", {
+        description: 'Try again in a moment.'
       });
     }
   }, [user, tasks, taskStatuses, setLocalTasks, setLocalTaskStatuses, projectWithParticipants, queryClient]);
@@ -395,13 +395,11 @@ export const useProjectTaskMutations = ({
 
       if (allCompleted) {
         toast.success('Amazing work! 🚀', {
-          description: 'Task completed by everyone!'
+          description: 'Everyone completed the task!'
         });
       } else {
         toast.success('Task done! ✅', {
-          description: penaltyApplied
-            ? 'Waiting for your partners to complete... (Late/Recovered)'
-            : 'Waiting for your partners to complete...'
+          description: "Wait for your partners to finish too."
         });
       }
 
@@ -413,8 +411,8 @@ export const useProjectTaskMutations = ({
       }
     } catch (error) {
       handleError(error, 'handleComplete');
-      toast.error('Failed to complete task', {
-        description: 'Please try again'
+      toast.error("We couldn't complete the task.", {
+        description: 'Please try again.'
       });
     }
   }, [user, tasks, taskStatuses, getTaskStatusForUser, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, queryClient, projectWithParticipants]);
@@ -518,8 +516,8 @@ export const useProjectTaskMutations = ({
         // Create all habit tasks in the database
         const results = await createMultipleTasksMutation.mutateAsync(tasksToCreate);
 
-        toast.success(`${results.length} habit tasks created!`, {
-          description: 'Collaborate with your friends to complete these tasks'
+        toast.success('Habit tasks created! 📅', {
+          description: 'Time to team up and get moving.'
         });
 
         // Send email notification for the first task
@@ -546,8 +544,8 @@ export const useProjectTaskMutations = ({
           dueDate: defaultDueDate,
         });
 
-        toast.success('Task created!', {
-          description: 'Collaborate with your friends to complete this task'
+        toast.success('Task created! ✨', {
+          description: "Team up with your friends to finish it."
         });
 
         // Send email notification
@@ -559,8 +557,8 @@ export const useProjectTaskMutations = ({
       onTaskFormClose();
     } catch (error) {
       handleError(error, 'handleCreateTask');
-      toast.error('Failed to create task', {
-        description: 'Please try again'
+      toast.error("We couldn't create the task.", {
+        description: 'Please try again.'
       });
     }
   }, [user, projectWithParticipants, createTaskMutation, createMultipleTasksMutation, onTaskFormClose]);
@@ -576,11 +574,30 @@ export const useProjectTaskMutations = ({
       const task = tasks.find(t => t.id === taskId);
       const taskTitle = task?.title || 'Unknown Task';
       const projectId = task?.projectId || projectWithParticipants?.id;
+      const isHabit = task?.type === 'habit';
 
-      // Delete the task
-      await db.tasks.delete(taskId);
+      if (isHabit) {
+        // For habit tasks, use the atomic series delete
+        console.log('[TaskDelete] Deleting habit series for task:', taskId);
+        await deleteTaskSeriesAtomic(taskId);
+      } else {
+        // For regular tasks, allow standard deletion
+        await db.tasks.delete(taskId);
+      }
 
-      setLocalTasks(prev => prev.filter(t => t.id !== taskId));
+      if (isHabit && task) {
+        setLocalTasks(prev => prev.filter(t => {
+          if (t.id === taskId) return false;
+          // Also remove other tasks in the series
+          const isSameSeries = t.projectId === task.projectId &&
+            t.title === task.title &&
+            t.type === 'habit';
+          return !isSameSeries;
+        }));
+      } else {
+        setLocalTasks(prev => prev.filter(t => t.id !== taskId));
+      }
+
       setLocalTaskStatuses(prev => prev.filter(ts => !compareIds(ts.taskId, taskId)));
       setLocalCompletionLogs(prev => prev.filter(cl => !compareIds(cl.taskId, taskId)));
 
@@ -592,20 +609,22 @@ export const useProjectTaskMutations = ({
         queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       }
 
-      toast.success('Task deleted.', {
-        description: 'The task has been removed from the project'
+      toast.success(isHabit ? 'Series removed.' : 'Task removed.', {
+        description: isHabit
+          ? `All occurrences of "${taskTitle}" are gone.`
+          : 'The task has been removed from the project.'
       });
 
       // Send deletion notification to participants
       if (projectId && user) {
         const deleterId = normalizeId(user.id);
         try {
-          await notifyTaskDeleted(projectId, deleterId, taskTitle);
+          await notifyTaskDeleted(projectId, deleterId, isHabit ? `${taskTitle} (series)` : taskTitle);
           console.log('[TaskDelete] ✅ Notifications sent successfully');
         } catch (err) {
           console.error('[TaskDelete] ❌ Notification failed:', err);
-          toast.error('Failed to notify participants', {
-            description: 'Task was deleted but participants may not be notified'
+          toast.error("Notification didn't send.", {
+            description: 'The task was deleted, but your team might not know yet.'
           });
         }
       }
@@ -615,17 +634,22 @@ export const useProjectTaskMutations = ({
   }, [user, tasks, setLocalTasks, setLocalTaskStatuses, setLocalCompletionLogs, projectWithParticipants, queryClient]);
 
   /**
-   * Delete a habit task series
-   */
+  * Delete a habit task series
+  */
   const handleDeleteTaskSeries = useCallback(async (series: HabitSeries) => {
     try {
-      const db = getDatabaseClient();
       const taskIds = series.tasks.map((t: Task) => t.id);
       const seriesTitle = series.title;
       const projectId = projectWithParticipants?.id;
 
-      // Delete all tasks in the series
-      await Promise.all(taskIds.map((id: number) => db.tasks.delete(id)));
+      // Use the new atomic series delete function
+      // We pick the first task ID as a representative to find the series
+      if (taskIds.length > 0) {
+        await deleteTaskSeriesAtomic(taskIds[0]);
+      } else {
+        console.warn('Attempted to delete empty series');
+        return;
+      }
 
       // Update local state by filtering out all tasks in the series
       const taskIdSet = new Set(taskIds);
@@ -641,8 +665,8 @@ export const useProjectTaskMutations = ({
         queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       }
 
-      toast.success('Series deleted.', {
-        description: `All occurrences of "${seriesTitle}" have been removed.`
+      toast.success('Series removed.', {
+        description: `All occurrences of "${seriesTitle}" are gone.`
       });
 
       // Send deletion notification for the series
@@ -670,7 +694,6 @@ export const useProjectTaskMutations = ({
    */
   const handleUpdateTask = useCallback(async (taskId: number, taskData: TaskCreationData) => {
     try {
-      const db = getDatabaseClient();
       const existingTask = tasks.find(t => t.id === taskId);
 
       if (!existingTask) {

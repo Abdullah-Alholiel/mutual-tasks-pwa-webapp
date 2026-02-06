@@ -17,8 +17,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       if (typeof window !== "undefined") {
         const mobile = window.innerWidth < 768;
         setIsMobile(mobile);
-        // Always show on top for mobile, bottom for desktop
-        setPosition(mobile ? "top-center" : "bottom-center");
+        // Always show on bottom for mobile, top-right for desktop
+        setPosition(mobile ? "bottom-center" : "top-right");
       }
     };
 
@@ -38,10 +38,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // Ensure toasts appear above everything
       style={{
         zIndex: 9999,
-        // Add safe area padding on mobile for iOS notch
+        // Add safe area padding on mobile for iOS home indicator
         ...(isMobile && {
-          top: 'env(safe-area-inset-top, 0px)',
-          paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))',
+          bottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))',
         }),
       }}
       // No gap - toasts overlap completely on top of each other
@@ -61,17 +61,17 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:rounded-xl",
-          description: "group-[.toast]:text-muted-foreground",
+            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:rounded-xl font-medium",
+          description: "group-[.toast]:text-muted-foreground font-normal",
           actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground group-[.toast]:rounded-lg",
           cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground group-[.toast]:rounded-lg",
           closeButton: "group-[.toast]:bg-background group-[.toast]:border-border",
         },
         // Ensure consistent styling
         style: {
-          borderRadius: '12px',
+          borderRadius: '14px',
           padding: '16px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          boxShadow: '0 8px 16px -4px rgba(0, 0, 0, 0.1)',
         },
       }}
       {...props}

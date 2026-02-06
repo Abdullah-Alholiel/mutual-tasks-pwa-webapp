@@ -175,7 +175,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         : window.location.pathname;
       window.history.replaceState({}, '', newUrl);
 
-      toast.success('Successfully signed in!');
+      toast.success("You're in! Welcome back. 👋");
 
       // Verify the new session
       verifySession();

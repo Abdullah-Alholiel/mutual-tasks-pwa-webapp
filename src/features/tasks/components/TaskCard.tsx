@@ -267,21 +267,21 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
   // Calculate card height based on task state
   const getCardHeight = () => {
     if ((uiStatus === 'completed' && myCompletion) || uiStatus === 'upcoming') {
-      // Completed & Upcoming tasks: 50px shorter than standard on both mobile and desktop
-      // Mobile: 250 - 50 = 200px
-      // Desktop: 260 - 50 = 210px
-      return 'h-[200px] lg:h-[210px]';
+      // Completed & Upcoming tasks: 50px shorter than standard
+      // Standard: 240px (Mobile & Desktop)
+      // Height: 240 - 50 = 190px
+      return 'h-[190px] lg:h-[190px]';
     }
     if (shouldShowRecover || shouldShowComplete) {
       // Active/Recovered tasks with buttons: 10px taller than standard
-      // Mobile: 250 + 10 = 260px
-      // Desktop: 260 + 10 = 270px
-      return 'h-[260px] lg:h-[270px]';
+      // Standard: 240px
+      // Height: 240 + 10 = 250px
+      return 'h-[250px] lg:h-[250px]';
     }
-    // Default height
-    // Mobile: 250px
-    // Desktop: 260px
-    return 'h-[250px] lg:h-[260px]';
+    // Default height (Standard)
+    // Mobile: 240px
+    // Desktop: 240px
+    return 'h-[240px] lg:h-[240px]';
   };
 
   // Handle card click to open task detail modal
@@ -405,7 +405,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
                     {uiStatus}
                   </Badge>
                   <div className="flex items-center gap-1">
-                    {onEdit && canModify && isModifiableStatus && (
+                    {onEdit && canModify && isModifiableStatus && task.type !== 'habit' && (
                       <Button
                         variant="ghost"
                         size="icon"

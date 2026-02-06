@@ -108,7 +108,7 @@ const ResourceNotFound = ({
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 justify-center">
             {onAction && (
               <Button
                 onClick={onAction}

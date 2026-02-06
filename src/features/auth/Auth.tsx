@@ -16,6 +16,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Link2 } from 'lucide-react';
 import { useAuth } from '@/features/auth/useAuth';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { AuthLogo } from './AuthLogo';
+import { getDatabaseClient } from '@/db';
 
 const FloatingBlobs = () => (
   <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -75,16 +77,7 @@ const AuthHeader = () => (
     }}
     className="text-center mb-6 relative z-10"
   >
-    <motion.div
-      whileHover={{ scale: 1.05, rotate: 2 }}
-      className="inline-flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-[1.5rem] mb-4 overflow-hidden shadow-2xl shadow-primary/20 border-2 border-primary/10 bg-white/50 dark:bg-black/20 p-2 backdrop-blur-sm"
-    >
-      <img
-        src="/icons/icon-192x192.png"
-        alt="Momentum"
-        className="w-full h-full object-cover rounded-[1rem]"
-      />
-    </motion.div>
+    <AuthLogo />
     <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2 gradient-text">
       Momentum
     </h1>
@@ -206,7 +199,8 @@ const SuccessScreen = ({
 );
 
 const Auth = () => {
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginMethod, setLoginMethod] = useState<'username' | 'email'>('username');
+  const [loginInput, setLoginInput] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupName, setSignupName] = useState('');
   const [signupHandle, setSignupHandle] = useState('');
@@ -249,18 +243,18 @@ const Auth = () => {
               setVerificationComplete(true);
               setIsVerifying(false);
             } else {
-              toast.error('Session token not found. Please try signing in again.');
+              toast.error("We couldn't find your session. Please try signing in again.");
               setIsVerifying(false);
               navigate('/auth');
             }
           } else {
-            toast.error(result.error || 'Magic link verification failed. Please try again.');
+            toast.error(result.error || "Verification didn't work. Let's try one more time.");
             setIsVerifying(false);
             navigate('/auth');
           }
         } catch (error) {
           console.error('Verification error:', error);
-          toast.error('Magic link verification failed. Please try again.');
+          toast.error("Something went wrong with the link. Please try again.");
           setIsVerifying(false);
           navigate('/auth');
         }
@@ -289,18 +283,18 @@ const Auth = () => {
       try {
         await navigator.clipboard.writeText(handoffUrl);
         setLinkCopied(true);
-        toast.success('Link copied! Paste it in the Momentum app.');
+        toast.success('Link copied! Paste it in the app to continue. 📋');
         setTimeout(() => setLinkCopied(false), 2000);
       } catch (err) {
         console.error('Failed to copy:', err);
-        toast.error('Failed to copy link');
+        toast.error("We couldn't copy the link. Try again?");
       }
     }
   };
 
   const handlePasteLink = async () => {
     if (!pastedLink.trim()) {
-      toast.error('Please paste a sign-in link');
+      toast.error('Paste your sign-in link here first.');
       return;
     }
     setIsPasteLinkLoading(true);
@@ -322,7 +316,7 @@ const Auth = () => {
         const expiry = expiresAt || new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
         setSessionToken(hToken, expiry);
         await refresh();
-        toast.success('Successfully signed in!');
+        toast.success("You're in! Welcome back. 👋");
         navigate('/');
         return;
       }
@@ -332,10 +326,10 @@ const Auth = () => {
         const result = await verifyMagicLink(mToken);
         if (result.success && result.sessionToken) {
           await refresh();
-          toast.success('Successfully signed in!');
+          toast.success("You're in! Let's get started. 🚀");
           navigate('/');
         } else {
-          toast.error(result.error || 'Invalid or expired link.');
+          toast.error(result.error || "That link doesn't seem to work.");
         }
         return;
       }
@@ -370,23 +364,50 @@ const Auth = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginEmail)) {
-      toast.error('Please enter a valid email address');
+
+    let emailToSend = loginInput.trim();
+
+    if (!emailToSend) {
+      toast.error(`Please enter your ${loginMethod}`);
       return;
     }
+
     setIsLoading(true);
     try {
-      const result = await requestLogin(loginEmail.trim());
+      if (loginMethod === 'username') {
+        // Just try to find the user
+        const db = getDatabaseClient();
+        const user = await db.users.getByHandle(loginInput);
+
+        if (!user) {
+          toast.error('User not found', {
+            description: "We couldn't find an account with that username."
+          });
+          setIsLoading(false);
+          return;
+        }
+        emailToSend = user.email;
+      } else {
+        // Email validation
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailToSend)) {
+          toast.error('Please enter a valid email address');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      const result = await requestLogin(emailToSend);
       if (result.success) {
-        toast.success('Magic link sent! ✨', {
-          description: `Check your email at ${loginEmail}. If you don't see it, peek in your spam folder!`,
+        toast.success("Magic link sent! Check your inbox. 💌", {
+          description: `We've sent it to ${loginMethod === 'username' ? emailToSend : emailToSend}.`,
           duration: 8000,
         });
-        setLoginEmail('');
+        setLoginInput('');
       } else {
-        toast.error(result.error || 'Failed to send magic link');
+        toast.error(result.error || "We couldn't send the magic link. Let's try again.");
       }
     } catch (error) {
+      console.error('Login error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -413,15 +434,15 @@ const Auth = () => {
     try {
       const result = await requestSignup(signupEmail.trim(), signupName.trim(), signupHandle.trim());
       if (result.success) {
-        toast.success('Magic link sent! ✨', {
-          description: `Check your email at ${signupEmail} to join. Peek in your spam folder if it's missing!`,
+        toast.success("Welcome aboard! Check your email to join. 🌊", {
+          description: `We've sent a magic link to ${signupEmail}. If you don't see it, try the spam folder.`,
           duration: 8000,
         });
         setSignupEmail('');
         setSignupName('');
         setSignupHandle('');
       } else {
-        toast.error(result.error || 'Failed to send magic link');
+        toast.error(result.error || "We couldn't send the magic link. Try again?");
       }
     } catch (error) {
       toast.error('An error occurred. Please try again.');
@@ -470,15 +491,33 @@ const Auth = () => {
 
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="login-email" className="font-bold text-xs ml-1">Email Address</Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="login-input" className="font-bold text-xs ml-1">
+                          {loginMethod === 'username' ? 'Username' : 'Email Address'}
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginMethod(prev => prev === 'username' ? 'email' : 'username');
+                            setLoginInput('');
+                          }}
+                          className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-wider"
+                        >
+                          Use {loginMethod === 'username' ? 'Email' : 'Username'} instead
+                        </button>
+                      </div>
                       <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        {loginMethod === 'username' ? (
+                          <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        ) : (
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        )}
                         <Input
-                          id="login-email"
-                          type="email"
-                          placeholder="you@email.com"
-                          value={loginEmail}
-                          onChange={(e) => setLoginEmail(e.target.value)}
+                          id="login-input"
+                          type={loginMethod === 'username' ? 'text' : 'email'}
+                          placeholder={loginMethod === 'username' ? 'username' : 'you@email.com'}
+                          value={loginInput}
+                          onChange={(e) => setLoginInput(e.target.value)}
                           className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
                           disabled={isLoading}
                           required
@@ -688,4 +727,3 @@ const Auth = () => {
 };
 
 export default Auth;
-

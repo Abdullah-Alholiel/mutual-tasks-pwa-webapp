@@ -1,332 +1,405 @@
-// ============================================================================
-// Notification Service
-// ============================================================================
-// Handles creating notifications, sending email notifications via Supabase,
-// and triggering push notifications via OneSignal
-// ============================================================================
-
-import type { Notification, Task, Project, User } from '@/types';
 import { getDatabaseClient } from '@/db';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
+import type { NotificationType, Task, Project, User } from '@/types';
 import { sendPushNotification } from '@/lib/onesignal/pushNotificationApi';
+import { getNotificationMessage } from './notificationMessages';
 
 /**
- * Get Supabase URL lazily (called inside functions, not at module load)
- * This ensures environment variables are available in Vite
+ * Configuration for which channels to notify on for each notification type
  */
-function getSupabaseUrlLazy(): string {
-  const url = getSupabaseUrl();
-  if (!url) {
-    console.warn('Supabase URL not configured. Email notifications disabled.');
-    throw new Error(
-      'Supabase URL not configured. Please set VITE_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL in your .env file.'
-    );
-  }
-  // Ensure URL doesn't have trailing slash
-  return url.endsWith('/') ? url.slice(0, -1) : url;
-}
+const NOTIFICATION_CHANNELS: Record<NotificationType, { inApp: boolean; push: boolean; email: boolean }> = {
+  task_created: { inApp: true, push: true, email: false },
+  task_completed: { inApp: true, push: true, email: false },
+  task_recovered: { inApp: true, push: true, email: false },
+  task_deleted: { inApp: true, push: true, email: false },
+  task_updated: { inApp: true, push: true, email: false },
+  task_overdue: { inApp: true, push: true, email: false },
+  project_joined: { inApp: true, push: true, email: false },
+  project_updated: { inApp: true, push: true, email: false },
+  project_created: { inApp: true, push: true, email: true },
+  project_deleted: { inApp: true, push: true, email: true },
+  role_changed: { inApp: true, push: true, email: false },
+  friend_request: { inApp: true, push: true, email: false },
+  friend_accepted: { inApp: true, push: true, email: false },
+  streak_reminder: { inApp: true, push: true, email: false },
+};
 
 /**
- * Get Supabase Anon Key lazily (called inside functions, not at module load)
- * This ensures environment variables are available in Vite
+ * Base function to send a notification across multiple channels
  */
-function getSupabaseAnonKeyLazy(): string {
-  const key = getSupabaseAnonKey();
-  if (!key) {
-    console.warn('Supabase Anon Key not configured. Email notifications disabled.');
-    throw new Error(
-      'Supabase Anon Key not configured. Please set VITE_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env file.'
-    );
-  }
-  return key;
-}
+async function sendNotification({
+  userId,
+  type,
+  data,
+  taskId,
+  projectId,
+  metadata = {},
+}: {
+  userId: number;
+  type: NotificationType;
+  data: { userName?: string; taskTitle?: string; projectName?: string; role?: string; streakCount?: number; count?: number };
+  taskId?: number;
+  projectId?: number;
+  metadata?: any;
+}) {
+  const channels = NOTIFICATION_CHANNELS[type];
+  const message = getNotificationMessage(type, data);
+  const db = getDatabaseClient();
 
-/**
- * Notification Service
- * Handles creating notifications and sending email notifications via Supabase Edge Functions
- */
-export class NotificationService {
-  constructor() { }
-
-  /**
-   * Send task initiated notification and email
-   * Note: Task creation emails are handled separately via notifyTaskCreated in taskEmailNotifications.ts
-   * This method creates in-app notifications and triggers push notifications
-   */
-  async notifyTaskCreated(
-    task: Task,
-    project: Project,
-    creator: User,
-    recipient: User
-  ): Promise<Notification | null> {
+  // 1. In-App Notification
+  if (channels.inApp) {
     try {
-      const db = getDatabaseClient();
-      const message = `${creator.name} created "${task.title}" in ${project.name}`;
-      const notification = await db.notifications.create({
-        userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'project_joined', // Fallback as 'task_created' not in DB enum yet
+      await db.notifications.create({
+        userId,
+        type: type === 'project_created' || type === 'project_deleted' ? 'project_joined' : type, // Fallback if DB enum is strict
         message,
-        taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
-        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
+        taskId,
+        projectId,
         isRead: false,
         emailSent: false,
       });
-
-      // Send push notification (fire and forget)
-      sendPushNotification({
-        externalUserId: recipient.id,
-        title: 'New Task',
-        message,
-        url: `/projects/${project.id}`,
-        data: { taskId: task.id, projectId: project.id },
-      }).catch(err => console.warn('Push notification failed:', err));
-
-      return notification;
-    } catch (error) {
-      console.error('Failed to create task created notification:', error);
-      return null;
+    } catch (err) {
+      console.error(`[Notification] Failed to create in-app notification for user ${userId}:`, err);
     }
   }
 
-  /**
-   * Send task accepted notification and push
-   */
-  async notifyTaskAccepted(
-    task: Task,
-    project: Project,
-    accepter: User,
-    recipient: User
-  ): Promise<Notification | null> {
-    try {
-      const db = getDatabaseClient();
-      const message = `${accepter.name} accepted "${task.title}" in ${project.name}`;
-      const notification = await db.notifications.create({
-        userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'project_joined',
-        message,
-        taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
-        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
-        isRead: false,
-        emailSent: false,
-      });
-
-      sendPushNotification({
-        externalUserId: recipient.id,
-        title: 'Task Accepted',
-        message,
-        url: `/projects/${project.id}`,
-      }).catch(err => console.warn('Push notification failed:', err));
-
-      return notification;
-    } catch (error) {
-      console.error('Failed to create task accepted notification:', error);
-      return null;
-    }
+  // 2. Push Notification
+  if (channels.push) {
+    sendPushNotification({
+      externalUserId: userId,
+      title: 'Momentum',
+      message,
+      url: projectId ? `/projects/${projectId}` : undefined,
+      data: { taskId, projectId, ...metadata },
+    }).catch(err => console.warn(`[Notification] Push failed for user ${userId}:`, err));
   }
 
-  /**
-   * Send task declined notification and push
-   */
-  async notifyTaskDeclined(
-    task: Task,
-    project: Project,
-    decliner: User,
-    recipient: User
-  ): Promise<Notification | null> {
+  // 3. Email Notification
+  if (channels.email) {
     try {
-      const db = getDatabaseClient();
-      const message = `${decliner.name} declined "${task.title}" in ${project.name}`;
-      const notification = await db.notifications.create({
-        userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'project_joined',
-        message,
-        taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
-        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
-        isRead: false,
-        emailSent: false,
-      });
+      const supabaseUrl = getSupabaseUrl()?.endsWith('/') ? getSupabaseUrl()?.slice(0, -1) : getSupabaseUrl();
+      const supabaseAnonKey = getSupabaseAnonKey();
 
-      sendPushNotification({
-        externalUserId: recipient.id,
-        title: 'Task Declined',
-        message,
-        url: `/projects/${project.id}`,
-      }).catch(err => console.warn('Push notification failed:', err));
-
-      return notification;
-    } catch (error) {
-      console.error('Failed to create task declined notification:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Send task time proposed notification and push
-   */
-  async notifyTaskTimeProposed(
-    task: Task,
-    project: Project,
-    proposer: User,
-    recipient: User,
-    _proposedDate: Date
-  ): Promise<Notification | null> {
-    try {
-      const db = getDatabaseClient();
-      const message = `${proposer.name} proposed a new time for "${task.title}" in ${project.name}`;
-      const notification = await db.notifications.create({
-        userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'project_joined',
-        message,
-        taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
-        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
-        isRead: false,
-        emailSent: false,
-      });
-
-      sendPushNotification({
-        externalUserId: recipient.id,
-        title: 'Time Proposed',
-        message,
-        url: `/projects/${project.id}`,
-      }).catch(err => console.warn('Push notification failed:', err));
-
-      return notification;
-    } catch (error) {
-      console.error('Failed to create task time proposed notification:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Send task completed notification and email via Supabase Edge Function
-   */
-  async notifyTaskCompleted(
-    task: Task,
-    project: Project,
-    completer: User,
-    recipient: User
-  ): Promise<Notification | null> {
-    try {
-      const db = getDatabaseClient();
-
-      // Create notification in database
-      const message = `${completer.name} completed "${task.title}" in ${project.name}`;
-      const notification = await db.notifications.create({
-        userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'project_joined',
-        message,
-        taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
-        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
-        isRead: false,
-        emailSent: false,
-      });
-
-      // Send push notification (fire and forget)
-      sendPushNotification({
-        externalUserId: recipient.id,
-        title: 'Task Completed! 🎉',
-        message,
-        url: `/projects/${project.id}`,
-      }).catch(err => console.warn('Push notification failed:', err));
-
-      // Send email via Supabase Edge Function
-      // Get Supabase configuration lazily (when function is called, not at module load)
-      try {
-        const supabaseUrl = getSupabaseUrlLazy();
-        const supabaseAnonKey = getSupabaseAnonKeyLazy();
-
-        const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-            'apikey': supabaseAnonKey,
-          },
-          body: JSON.stringify({
-            type: 'task-completed',
-            to: recipient.email,
-            task: {
-              id: task.id,
-              title: task.title,
-              description: task.description,
-              dueDate: task.dueDate,
+      if (supabaseUrl && supabaseAnonKey) {
+        // Fetch recipient email
+        const recipient = await db.users.getById(userId);
+        if (recipient?.email) {
+          fetch(`${supabaseUrl}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseAnonKey}`,
+              'apikey': supabaseAnonKey,
             },
-            project: {
-              id: project.id,
-              name: project.name,
-            },
-            completer: {
-              id: completer.id,
-              name: completer.name,
-              email: completer.email,
-            },
-            recipient: {
-              id: recipient.id,
-              name: recipient.name,
-              email: recipient.email,
-            },
-          }),
-        });
-
-        if (response.ok && notification.id) {
-          await db.notifications.markEmailSent(typeof notification.id === 'string' ? parseInt(notification.id) : notification.id);
-          // Update notification object
-          notification.emailSent = true;
-        } else {
-          const errorText = await response.text();
-          console.error(`Failed to send task completed email to ${recipient.email}:`, response.status, errorText);
-        }
-      } catch (emailError) {
-        // Only log warning if it's a configuration error (which we've already logged)
-        if (emailError instanceof Error && emailError.message.includes('not configured')) {
-          // Configuration error already logged in lazy getters
-        } else {
-          console.error('Failed to send task completed email:', emailError);
+            body: JSON.stringify({
+              type: type.replace('_', '-'),
+              to: recipient.email,
+              message,
+              data: { ...data, taskId, projectId },
+            }),
+          }).catch(err => console.error(`[Notification] Email failed for user ${userId}:`, err));
         }
       }
-
-      return notification;
-    } catch (error) {
-      console.error('Failed to create task completed notification:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Send project joined notification and push
-   */
-  async notifyProjectJoined(
-    project: Project,
-    joiner: User,
-    recipient: User
-  ): Promise<Notification | null> {
-    try {
-      const db = getDatabaseClient();
-      const message = `${joiner.name} joined "${project.name}"`;
-      const notification = await db.notifications.create({
-        userId: typeof recipient.id === 'string' ? parseInt(recipient.id) : recipient.id,
-        type: 'project_joined',
-        message,
-        projectId: typeof project.id === 'string' ? parseInt(project.id) : project.id,
-        isRead: false,
-        emailSent: false,
-      });
-
-      sendPushNotification({
-        externalUserId: recipient.id,
-        title: 'New Member',
-        message,
-        url: `/projects/${project.id}`,
-      }).catch(err => console.warn('Push notification failed:', err));
-
-      return notification;
-    } catch (error) {
-      console.error('Failed to create project joined notification:', error);
-      return null;
+    } catch (err) {
+      console.error(`[Notification] Error initiating email for user ${userId}:`, err);
     }
   }
 }
 
-// Export singleton instance
-export const notificationService = new NotificationService();
+/**
+ * Unified Notification Service
+ */
+export const notificationService = {
+  // Task Events
+  async notifyTaskCreated(taskId: number, projectId: number, creatorId: number) {
+    const db = getDatabaseClient();
+    const [task, project, creator] = await Promise.all([
+      db.tasks.getById(taskId),
+      db.projects.getById(projectId),
+      db.users.getById(creatorId),
+    ]);
 
+    if (!task || !project || !creator || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== creatorId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'task_created',
+        data: { userName: creator.name, taskTitle: task.title, projectName: project.name },
+        taskId,
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyTaskCompleted(taskId: number, projectId: number, completerId: number) {
+    const db = getDatabaseClient();
+    const [task, project, completer] = await Promise.all([
+      db.tasks.getById(taskId),
+      db.projects.getById(projectId),
+      db.users.getById(completerId),
+    ]);
+
+    if (!task || !project || !completer || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== completerId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'task_completed',
+        data: { userName: completer.name, taskTitle: task.title, projectName: project.name },
+        taskId,
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyTaskRecovered(taskId: number, projectId: number, recovererId: number) {
+    const db = getDatabaseClient();
+    const [task, project, recoverer] = await Promise.all([
+      db.tasks.getById(taskId),
+      db.projects.getById(projectId),
+      db.users.getById(recovererId),
+    ]);
+
+    if (!task || !project || !recoverer || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== recovererId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'task_recovered',
+        data: { userName: recoverer.name, taskTitle: task.title, projectName: project.name },
+        taskId,
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyTaskDeleted(projectId: number, deleterId: number, taskTitle: string) {
+    const db = getDatabaseClient();
+    const [project, deleter] = await Promise.all([
+      db.projects.getById(projectId),
+      db.users.getById(deleterId),
+    ]);
+
+    if (!project || !deleter || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== deleterId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'task_deleted',
+        data: { userName: deleter.name, taskTitle, projectName: project.name },
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyTaskUpdated(taskId: number, projectId: number, updaterId: number) {
+    const db = getDatabaseClient();
+    const [task, project, updater] = await Promise.all([
+      db.tasks.getById(taskId),
+      db.projects.getById(projectId),
+      db.users.getById(updaterId),
+    ]);
+
+    if (!task || !project || !updater || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== updaterId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'task_updated',
+        data: { userName: updater.name, taskTitle: task.title, projectName: project.name },
+        taskId,
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyTaskOverdue(taskId: number, userId: number) {
+    const db = getDatabaseClient();
+    const task = await db.tasks.getById(taskId);
+    if (!task) return;
+
+    await sendNotification({
+      userId,
+      type: 'task_overdue',
+      data: { taskTitle: task.title },
+      taskId,
+      projectId: task.projectId,
+    });
+  },
+
+  // Project Events
+  async notifyProjectCreated(projectId: number, ownerId: number) {
+    const db = getDatabaseClient();
+    const [project, owner] = await Promise.all([
+      db.projects.getById(projectId),
+      db.users.getById(ownerId),
+    ]);
+
+    if (!project || !owner || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== ownerId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'project_created',
+        data: { userName: owner.name, projectName: project.name },
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyProjectDeleted(ownerId: number, projectName: string, participantIds: number[]) {
+    const db = getDatabaseClient();
+    const owner = await db.users.getById(ownerId);
+    if (!owner) return;
+
+    const promises = participantIds
+      .filter(id => id !== ownerId)
+      .map(userId =>
+        sendNotification({
+          userId,
+          type: 'project_deleted',
+          data: { userName: owner.name, projectName },
+        })
+      );
+    await Promise.all(promises);
+  },
+
+  async notifyProjectUpdated(projectId: number, updaterId: number) {
+    const db = getDatabaseClient();
+    const [project, updater] = await Promise.all([
+      db.projects.getById(projectId),
+      db.users.getById(updaterId),
+    ]);
+
+    if (!project || !updater || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== updaterId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'project_updated',
+        data: { userName: updater.name, projectName: project.name },
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyProjectJoined(projectId: number, joinerId: number, count?: number) {
+    const db = getDatabaseClient();
+    const [project, joiner] = await Promise.all([
+      db.projects.getById(projectId),
+      db.users.getById(joinerId),
+    ]);
+
+    if (!project || !joiner || !project.participantRoles) return;
+
+    const participants = project.participantRoles
+      .filter(pp => pp.userId !== joinerId && !pp.removedAt)
+      .map(pp => pp.userId);
+
+    // Also notify the joiner themselves
+    await sendNotification({
+      userId: joinerId,
+      type: 'project_joined',
+      data: { userName: 'You', projectName: project.name },
+      projectId,
+    });
+
+    const promises = participants.map(userId =>
+      sendNotification({
+        userId,
+        type: 'project_joined',
+        data: { userName: joiner.name, projectName: project.name, count },
+        projectId,
+      })
+    );
+    await Promise.all(promises);
+  },
+
+  async notifyRoleChanged(projectId: number, updaterId: number, targetUserId: number, role: string) {
+    const db = getDatabaseClient();
+    const [project, updater, targetUser] = await Promise.all([
+      db.projects.getById(projectId),
+      db.users.getById(updaterId),
+      db.users.getById(targetUserId),
+    ]);
+
+    if (!project || !updater || !targetUser) return;
+
+    await sendNotification({
+      userId: targetUserId,
+      type: 'role_changed',
+      data: { userName: 'You', role, projectName: project.name },
+      projectId,
+    });
+  },
+
+  // Friend Events
+  async notifyFriendRequest(senderId: number, receiverId: number) {
+    const db = getDatabaseClient();
+    const sender = await db.users.getById(senderId);
+    if (!sender) return;
+
+    await sendNotification({
+      userId: receiverId,
+      type: 'friend_request',
+      data: { userName: sender.name },
+    });
+  },
+
+  async notifyFriendAccepted(senderId: number, receiverId: number) {
+    const db = getDatabaseClient();
+    const receiver = await db.users.getById(receiverId);
+    if (!receiver) return;
+
+    await sendNotification({
+      userId: senderId,
+      type: 'friend_accepted',
+      data: { userName: receiver.name },
+    });
+  },
+
+  // Streak Events
+  async notifyStreakReminder(userId: number, streakCount: number) {
+    await sendNotification({
+      userId,
+      type: 'streak_reminder',
+      data: { streakCount },
+    });
+  },
+};

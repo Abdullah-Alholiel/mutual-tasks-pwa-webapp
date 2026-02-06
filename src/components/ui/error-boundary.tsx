@@ -7,6 +7,7 @@
 
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import { ArrowLeft, Home } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -129,14 +130,17 @@ export function PageErrorBoundary({ children, title }: PageErrorBoundaryProps) {
             We encountered an error while loading this page. This might be a
             temporary issue. Please try again or return to the home page.
           </p>
-          <div className="flex gap-4">
-            <Button onClick={() => window.location.reload()} variant="default">
-              Refresh Page
+          <div className="flex gap-4 justify-center">
+            <Button onClick={() => window.history.back()} variant="outline" className="gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Go Back
             </Button>
             <Button
               onClick={() => (window.location.href = '/')}
-              variant="outline"
+              variant="default"
+              className="gap-2"
             >
+              <Home className="w-4 h-4" />
               Go Home
             </Button>
           </div>

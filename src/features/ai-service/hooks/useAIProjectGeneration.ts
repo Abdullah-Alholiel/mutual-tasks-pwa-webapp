@@ -76,18 +76,18 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
 
         // Validate input
         if (!description.trim()) {
-            toast.error('Please enter a project description');
+            toast.error('Tell us what you want to build first.');
             return null;
         }
 
         if (description.trim().length < 10) {
-            toast.error('Please provide a more detailed description', {
-                description: 'Describe your project idea in at least a few words.',
+            toast.error('Tell us a bit more.', {
+                description: 'We need at least a few words to design your project.',
             });
             return null;
         }
 
-         setRemainingToday(3);
+        setRemainingToday(3);
 
         setAiState('loading');
         setGeneratedProject(null);
@@ -100,8 +100,8 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
                 setAiState('success');
                 setGeneratedProject(result.project);
 
-                toast.success('Project generated!', {
-                    description: `Created "${result.project.name}" with ${result.project.tasks.length} tasks`,
+                toast.success('Project generated! ✨', {
+                    description: `We've designed "${result.project.name}" with ${result.project.tasks.length} tasks.`,
                 });
 
                 return result.project;
@@ -128,50 +128,52 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
         }
     }, [user?.id]);
 
-     /**
-      * Confirm that the generated project will be used
-      * This is when we actually increment the usage count
-      */
-     const confirmProjectCreation = useCallback(async (): Promise<void> => {
-         if (!user?.id || !generatedProject) return;
+    /**
+     * Confirm that the generated project will be used
+     * This is when we actually increment the usage count
+     */
+    const confirmProjectCreation = useCallback(async (): Promise<void> => {
+        if (!user?.id || !generatedProject) return;
 
-         try {
-             const sessionToken = getSessionToken();
-             if (!sessionToken) {
-                 toast.error('Session expired');
-                 return;
-             }
+        try {
+            const sessionToken = getSessionToken();
+            if (!sessionToken) {
+                toast.error('Your session expired.', {
+                    description: 'Please sign in again to continue.'
+                });
+                return;
+            }
 
-             const response = await fetch('/.netlify/functions/ai-confirm-usage', {
-                 method: 'POST',
-                 headers: {
-                     'Content-Type': 'application/json',
-                     'authorization': `Bearer ${sessionToken}`,
-                     'x-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
-                 },
-                 body: JSON.stringify({
-                     usageType: 'project_generation',
-                     userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                 }),
-             });
+            const response = await fetch('/.netlify/functions/ai-confirm-usage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'authorization': `Bearer ${sessionToken}`,
+                    'x-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+                },
+                body: JSON.stringify({
+                    usageType: 'project_generation',
+                    userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                }),
+            });
 
-             if (!response.ok) {
-                 throw new Error('Failed to record usage');
-             }
+            if (!response.ok) {
+                throw new Error('Failed to record usage');
+            }
 
-             aiLogger.info('Project generation usage incremented');
+            aiLogger.info('Project generation usage incremented');
 
-             // Update remaining count
-             if (remainingToday !== null && remainingToday > 0) {
-                 setRemainingToday(remainingToday - 1);
-             }
-         } catch (error) {
-             aiLogger.warn('Failed to increment usage count', error);
-             toast.error('Failed to record usage', {
-                 description: 'Please try again',
-             });
-         }
-     }, [user?.id, generatedProject, remainingToday]);
+            // Update remaining count
+            if (remainingToday !== null && remainingToday > 0) {
+                setRemainingToday(remainingToday - 1);
+            }
+        } catch (error) {
+            aiLogger.warn('Failed to increment usage count', error);
+            toast.error('Failed to record usage', {
+                description: 'Please try again',
+            });
+        }
+    }, [user?.id, generatedProject, remainingToday]);
 
     /**
      * Reset the hook state

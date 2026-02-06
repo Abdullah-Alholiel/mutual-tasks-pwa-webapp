@@ -31,13 +31,13 @@ export type NotificationType =
   | 'task_deleted'
   | 'task_overdue'
   | 'role_changed'
-  | 'participant_removed'
   | 'project_joined'
-  | 'project_left'
   | 'streak_reminder'
   | 'friend_request'
   | 'friend_accepted'
   | 'project_updated'
+  | 'project_created'
+  | 'project_deleted'
   | 'task_updated';
 
 export const NOTIFICATION_TYPES: NotificationType[] = [
@@ -47,13 +47,13 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   'task_deleted',
   'task_overdue',
   'role_changed',
-  'participant_removed',
   'project_joined',
-  'project_left',
   'streak_reminder',
   'friend_request',
   'friend_accepted',
   'project_updated',
+  'project_created',
+  'project_deleted',
   'task_updated'
 ];
 

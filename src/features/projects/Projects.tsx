@@ -230,7 +230,8 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
       // Navigate to the new project
-      navigate(`/ projects / ${newProject.id} `, { state: { project: projectWithParticipants } });
+      // Navigate to the new project
+      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
     } catch (error) {
       console.error('Failed to create project:', error);
       toast.error('Failed to create project');
@@ -384,7 +385,7 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
       toast.success(`Created "${generatedProject.name}" with ${totalTaskCount} tasks!`);
-      navigate(`/ projects / ${newProject.id} `, { state: { project: projectWithParticipants } });
+      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
 
     } catch (error) {
       console.error('Failed to create AI project:', error);
@@ -401,7 +402,7 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
     try {
       await joinProjectMutation.mutateAsync(project.id);
       // Navigate to project detail
-      navigate(`/ projects / ${project.id} `);
+      navigate(`/projects/${project.id}`);
     } catch (error) {
       setJoiningProject(null);
     }
@@ -599,7 +600,7 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      onClick={() => navigate(`/ projects / ${project.id} `, { state: { fromTab: 'public' } })}
+      onClick={() => navigate(`/projects/${project.id}`, { state: { fromTab: 'public' } })}
       className="cursor-pointer h-[240px]"
     >
       <div className="bg-card border border-border/50 rounded-2xl p-5 hover-lift shadow-md hover:shadow-lg transition-all duration-200 h-full flex flex-col">

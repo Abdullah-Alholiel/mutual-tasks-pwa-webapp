@@ -155,9 +155,8 @@ export const useCreateTask = () => {
       // Invalidate and refetch tasks
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['project', newTask.projectId] });
-      const toastTitle = 'Task created! 🚀';
-      toast.success(toastTitle, {
-        description: 'Your friend has been notified.'
+      toast.success("Task created! ✨", {
+        description: "Team up to finish it!"
       });
       return newTask;
     },

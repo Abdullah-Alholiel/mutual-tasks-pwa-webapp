@@ -56,14 +56,22 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 100%;
 
     /* Status colors */
-    --status-pending: 45 96% 64%;        /* Yellow - pending tasks */
-    --status-accepted: 217 76% 48%;      /* Blue - accepted/manager */
-    --status-completed: 160 84% 39%;     /* Green - completed tasks */
-    --status-archived: 214 19% 48%;      /* Grey - archived items */
-    --status-warning: 45 96% 64%;        /* Yellow - warnings */
-    --status-error: 0 84% 60%;           /* Red - errors */
-    --status-purple: 252 95% 68%;        /* Purple - special status */
-    --status-info: 217 76% 48%;          /* Blue - info */
+    --status-pending: 45 96% 64%;
+    /* Yellow - pending tasks */
+    --status-accepted: 217 76% 48%;
+    /* Blue - accepted/manager */
+    --status-completed: 160 84% 39%;
+    /* Green - completed tasks */
+    --status-archived: 214 19% 48%;
+    /* Grey - archived items */
+    --status-warning: 45 96% 64%;
+    /* Yellow - warnings */
+    --status-error: 0 84% 60%;
+    /* Red - errors */
+    --status-purple: 252 95% 68%;
+    /* Purple - special status */
+    --status-info: 217 76% 48%;
+    /* Blue - info */
 
     /* Borders and inputs */
     --border: 210 15% 88%;
@@ -132,14 +140,22 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 100%;
 
     /* Status colors */
-    --status-pending: 45 96% 68%;        /* Yellow - pending tasks */
-    --status-accepted: 217 76% 58%;      /* Blue - accepted/manager */
-    --status-completed: 160 84% 45%;     /* Green - completed tasks */
-    --status-archived: 215 20% 65%;      /* Grey - archived items */
-    --status-warning: 45 96% 68%;        /* Yellow - warnings */
-    --status-error: 0 84% 65%;           /* Red - errors */
-    --status-purple: 252 95% 73%;        /* Purple - special status */
-    --status-info: 217 76% 58%;          /* Blue - info */
+    --status-pending: 45 96% 68%;
+    /* Yellow - pending tasks */
+    --status-accepted: 217 76% 58%;
+    /* Blue - accepted/manager */
+    --status-completed: 160 84% 45%;
+    /* Green - completed tasks */
+    --status-archived: 215 20% 65%;
+    /* Grey - archived items */
+    --status-warning: 45 96% 68%;
+    /* Yellow - warnings */
+    --status-error: 0 84% 65%;
+    /* Red - errors */
+    --status-purple: 252 95% 73%;
+    /* Purple - special status */
+    --status-info: 217 76% 58%;
+    /* Blue - info */
 
     /* Borders and inputs */
     --border: 215 20% 24%;
@@ -190,11 +206,12 @@ All colors MUST be HSL.
     min-height: -webkit-fill-available;
     position: relative;
     width: 100%;
+    @apply bg-background;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Satoshi', sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     overflow-x: hidden;
     min-height: 100vh;
@@ -215,47 +232,47 @@ All colors MUST be HSL.
     position: relative;
   }
 
-    /* Prevent horizontal scroll on all containers */
-    main,
-    section,
-    [role="main"] {
-      max-width: 100%;
-      overflow-x: hidden;
-    }
+  /* Prevent horizontal scroll on all containers */
+  main,
+  section,
+  [role="main"] {
+    max-width: 100%;
+    overflow-x: hidden;
   }
+}
 
-  /* When keyboard is visible (added by JS on iOS) */
-  body.keyboard-visible {
-    height: 100vh !important;
-    height: 100dvh !important;
-    overflow: hidden !important;
-  }
+/* When keyboard is visible (added by JS on iOS) */
+body.keyboard-visible {
+  height: 100vh !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
+}
 
-  /* Scrollable area when keyboard is visible */
-  body.keyboard-visible main,
-  body.keyboard-visible [role="main"] {
-    height: 100%;
+/* Scrollable area when keyboard is visible */
+body.keyboard-visible main,
+body.keyboard-visible [role="main"] {
+  height: 100%;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Dialog adjustments for keyboard */
+@media (max-width: 768px) {
+  body.keyboard-visible [role="dialog"] [data-radix-scroll-area-viewport] {
+    max-height: 50vh !important;
     overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
   }
+}
 
-  /* Dialog adjustments for keyboard */
-  @media (max-width: 768px) {
-    body.keyboard-visible [role="dialog"] [data-radix-scroll-area-viewport] {
-      max-height: 50vh !important;
-      overflow-y: auto !important;
-    }
-  }
+/* Keyboard-focused input styles */
+.keyboard-focused {
+  color: hsl(217 76% 48%) !important;
+}
 
-  /* Keyboard-focused input styles */
-  .keyboard-focused {
-    color: hsl(217 76% 48%) !important;
-  }
-
-  /* Dialog with keyboard adjustment */
-  .dialog-with-keyboard {
-    transition: top 0.3s ease-out, transform 0.3s ease-out, max-height 0.3s ease-out;
-  }
+/* Dialog with keyboard adjustment */
+.dialog-with-keyboard {
+  transition: top 0.3s ease-out, transform 0.3s ease-out, max-height 0.3s ease-out;
+}
 
 @layer utilities {
 
@@ -356,21 +373,21 @@ All colors MUST be HSL.
       user-select: text !important;
       -webkit-touch-callout: default !important;
     }
-  
+
     /* Prevent font scaling while allowing user zoom */
     input,
     textarea {
       font-size: max(16px, 1rem) !important;
       line-height: normal !important;
     }
-  
+
     /* Improve cursor visibility */
     input,
     textarea {
       caret-color: hsl(217 76% 48%) !important;
       caret-width: 2px !important;
     }
-  
+
     /* Selection highlight color */
     ::selection {
       background-color: hsl(217 76% 48% / 0.3) !important;
@@ -421,76 +438,90 @@ All colors MUST be HSL.
 
   [data-sonner-toast] {
     @apply shadow-lg;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
     /* Ensure toasts overlap completely - same position for all */
     position: absolute !important;
     margin: 0 !important;
+    font-family: 'Satoshi', sans-serif !important;
   }
 
   /* Close button styling - proportional size for all devices */
   [data-sonner-toast] button[data-close-button] {
-    width: 18px !important;
-    height: 18px !important;
-    min-width: 18px !important;
-    min-height: 18px !important;
-    padding: 2px !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    padding: 3px !important;
     margin: 0 !important;
     flex-shrink: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border-radius: 4px !important;
+    border-radius: 6px !important;
     opacity: 0.7 !important;
-    transition: opacity 0.2s ease !important;
+    transition: all 0.2s ease !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
   }
 
   /* Hover state for close button */
   [data-sonner-toast] button[data-close-button]:hover {
     opacity: 1 !important;
+    background: hsl(var(--muted) / 0.5) !important;
+    border-color: hsl(var(--border)) !important;
   }
 
-  /* Close button icon sizing - smaller and proportional */
+  /* Close button icon sizing */
   [data-sonner-toast] button[data-close-button] svg {
-    width: 12px !important;
-    height: 12px !important;
+    width: 14px !important;
+    height: 14px !important;
     flex-shrink: 0 !important;
   }
 
   /* Override Sonner's translateY transforms that create vertical spacing */
   /* Force all toasts to be in the exact same position - they overlap completely */
-  [data-sonner-toaster][data-position="top-center"] [data-sonner-toast] {
+  [data-sonner-toaster][data-position="top-right"] [data-sonner-toast] {
     top: 0 !important;
-    left: 50% !important;
-    right: auto !important;
-    /* Only translateX for centering, remove any translateY that creates spacing */
-    transform: translateX(-50%) !important;
+    right: 0 !important;
+    left: auto !important;
+    transform: none !important;
+    animation: toast-slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast] {
     bottom: 0 !important;
-    right: 0 !important;
-    left: auto !important;
-    /* Remove all transforms - toasts should be at exact same position */
-    transform: none !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    animation: toast-slide-in-bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Exit animations */
+  [data-sonner-toaster][data-position="top-right"] [data-sonner-toast][data-removed="true"] {
+    animation: toast-slide-out-right 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast][data-removed="true"] {
+    animation: toast-slide-out-bottom 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   /* Override any inline styles Sonner applies for vertical stacking */
   [data-sonner-toast][style*="translateY"] {
-    transform: translateX(-50%) !important;
-  }
-
-  [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast][style*="translateY"] {
     transform: none !important;
   }
 
-  /* Toast positioning - top on mobile to avoid navigation bar */
+  [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast][style*="translateY"] {
+    transform: translateX(-50%) !important;
+  }
+
+  /* Mobile toast positioning - Bottom Center */
   @media (max-width: 767px) {
     [data-sonner-toaster] {
-      top: 0 !important;
-      bottom: auto !important;
+      bottom: 1.5rem !important;
+      top: auto !important;
       left: 0 !important;
       right: 0 !important;
-      padding-top: 0 !important;
+      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
       padding-left: env(safe-area-inset-left, 0.5rem) !important;
       padding-right: env(safe-area-inset-right, 0.5rem) !important;
       width: 100% !important;
@@ -498,109 +529,60 @@ All colors MUST be HSL.
     }
 
     [data-sonner-toast] {
-      /* Position below safe area to ensure close button is fully visible */
-      top: calc(1rem + env(safe-area-inset-top, 0px)) !important;
-      left: 50% !important;
-      right: auto !important;
-      margin: 0 !important;
-      width: calc(100% - 1rem) !important;
-      max-width: calc(100% - 1rem) !important;
-      /* Center horizontally only - remove any translateY that Sonner adds */
-      transform: translateX(-50%) !important;
-      /* Smooth animations */
-      animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      position: relative !important;
+      margin: 0 auto !important;
+      width: calc(100% - 1.5rem) !important;
+      max-width: 400px !important;
+      left: 0 !important;
+      right: 0 !important;
+      transform: none !important;
     }
 
-    /* Override any inline transforms Sonner applies */
-    [data-sonner-toast][style*="translateY"] {
-      transform: translateX(-50%) !important;
-    }
-
-    /* Exit animation */
-    [data-sonner-toast][data-removed="true"] {
-      animation: toast-slide-out 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-     /* Ensure toasts are visible and properly styled on mobile */
-     [data-sonner-toast][data-type="success"] {
-       @apply border-l-4 border-l-[#10B981];
-     }
-
-     [data-sonner-toast][data-type="error"] {
-       @apply border-l-4 border-l-[#EF4444];
-     }
-
-     [data-sonner-toast][data-type="warning"] {
-       @apply border-l-4 border-l-[#FCD34D];
-     }
-
-    [data-sonner-toast][data-type="info"] {
-      @apply border-l-4 border-l-[#1D4ED8];
+    [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast] {
+      transform: none !important;
     }
   }
 
-  /* Desktop toast positioning */
+  /* Desktop toast positioning - Top Right */
   @media (min-width: 768px) {
     [data-sonner-toaster] {
-      bottom: 1.5rem !important;
+      top: 1.5rem !important;
       right: 1.5rem !important;
-      top: auto !important;
+      bottom: auto !important;
       left: auto !important;
     }
 
     [data-sonner-toast] {
-      /* All toasts in exact same position - they overlap completely */
-      bottom: 0 !important;
-      right: 0 !important;
-      left: auto !important;
-      top: auto !important;
-      margin: 0 !important;
-      max-width: 420px !important;
-      width: 420px !important;
-      /* Remove any transforms - all toasts should be at same position */
-      transform: none !important;
-      /* Smooth animations for desktop */
-      animation: toast-slide-in-bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    /* Exit animation for desktop */
-    [data-sonner-toast][data-removed="true"] {
-      animation: toast-slide-out-bottom 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-
-    /* Override any inline transforms Sonner applies for vertical spacing */
-    [data-sonner-toast][style*="translateY"] {
-      transform: none !important;
+      max-width: 380px !important;
+      width: 380px !important;
     }
   }
 
-  /* Smooth slide-in animation from top (mobile) */
-  @keyframes toast-slide-in {
+  /* Animations */
+  @keyframes toast-slide-in-right {
     from {
       opacity: 0;
-      transform: translateX(-50%) translateY(-20px);
+      transform: translateX(20px);
     }
 
     to {
       opacity: 1;
-      transform: translateX(-50%) translateY(0);
+      transform: translateX(0);
     }
   }
 
-  /* Smooth slide-out animation (mobile) */
-  @keyframes toast-slide-out {
+  @keyframes toast-slide-out-right {
     from {
       opacity: 1;
-      transform: translateX(-50%) translateY(0);
+      transform: translateX(0);
     }
 
     to {
       opacity: 0;
-      transform: translateX(-50%) translateY(-20px);
+      transform: translateX(20px);
     }
   }
 
-  /* Smooth slide-in animation from bottom (desktop) */
   @keyframes toast-slide-in-bottom {
     from {
       opacity: 0;
@@ -613,7 +595,6 @@ All colors MUST be HSL.
     }
   }
 
-  /* Smooth slide-out animation (desktop) */
   @keyframes toast-slide-out-bottom {
     from {
       opacity: 1;
@@ -625,6 +606,7 @@ All colors MUST be HSL.
       transform: translateY(20px);
     }
   }
+
 }
 
 @keyframes fade-in {

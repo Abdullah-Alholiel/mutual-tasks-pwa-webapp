@@ -2,9 +2,9 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Home } from "lucide-react";
 import { logger } from "@/lib/monitoring/logger";
-import { captureException, setUser } from "@/lib/sentry";
+import { captureException } from "@/lib/sentry";
 
 interface Props {
     children: ReactNode;
@@ -34,16 +34,12 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
         // Send to error tracking service (Sentry) in production
         if ((import.meta as any).env?.PROD) {
-          captureException(error, {
-            componentStack: errorInfo.componentStack,
-            errorBoundary: true,
-          });
+            captureException(error, {
+                componentStack: errorInfo.componentStack,
+                errorBoundary: true,
+            });
         }
     }
-
-    private handleReload = () => {
-        window.location.reload();
-    };
 
     public render() {
         if (this.state.hasError) {
@@ -67,10 +63,14 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                                 </div>
                             )}
                         </CardContent>
-                        <CardFooter className="justify-center pt-2">
-                            <Button onClick={this.handleReload} className="w-full sm:w-auto gap-2">
-                                <RefreshCw className="w-4 h-4" />
-                                Reload Application
+                        <CardFooter className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                            <Button variant="outline" onClick={() => window.history.back()} className="w-full sm:w-auto gap-2">
+                                <ArrowLeft className="w-4 h-4" />
+                                Go Back
+                            </Button>
+                            <Button onClick={() => window.location.href = '/'} className="w-full sm:w-auto gap-2">
+                                <Home className="w-4 h-4" />
+                                Go Home
                             </Button>
                         </CardFooter>
                     </Card>

@@ -12,6 +12,12 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'theme';
 
+// Color constants matching index.css
+const THEME_COLORS = {
+    light: '#F8FAFC', // matches --background: 210 20% 98%
+    dark: '#161b27',  // matches --background: 215 28% 12%
+};
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [theme, setThemeState] = useState<Theme>(() => {
         // Check localStorage first
@@ -26,6 +32,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return 'light';
     });
 
+    const updateMetaThemeColor = (currentTheme: Theme) => {
+        const color = currentTheme === 'dark' ? THEME_COLORS.dark : THEME_COLORS.light;
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+            metaThemeColor.setAttribute('content', color);
+        } else {
+            const meta = document.createElement('meta');
+            meta.name = 'theme-color';
+            meta.content = color;
+            document.head.appendChild(meta);
+        }
+    };
+
     useEffect(() => {
         const root = document.documentElement;
 
@@ -34,6 +53,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else {
             root.classList.remove('dark');
         }
+
+        // Update meta theme-color whenever theme changes change
+        updateMetaThemeColor(theme);
 
         // Persist to localStorage
         localStorage.setItem(THEME_STORAGE_KEY, theme);
@@ -44,11 +66,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
         const handleChange = (e: MediaQueryListEvent) => {
-            // Only auto-switch if user hasn't manually set a preference
-            const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-            if (!savedTheme) {
-                setThemeState(e.matches ? 'dark' : 'light');
-            }
+            // ALWAYS sync with system change if it happens while the app is open
+            // This ensures smooth transitions when control center toggles are used
+            const newTheme = e.matches ? 'dark' : 'light';
+            setThemeState(newTheme);
         };
 
         mediaQuery.addEventListener('change', handleChange);

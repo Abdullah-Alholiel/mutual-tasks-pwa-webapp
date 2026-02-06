@@ -11,7 +11,6 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
     DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ import {
     X,
     Pencil,
     Trash2,
-    Clock,
     Calendar,
     Repeat,
     Users,
@@ -286,7 +284,7 @@ export const TaskViewModal = ({
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-1 shrink-0">
-                            {canModify && onEdit && (
+                            {canModify && onEdit && task.type !== 'habit' && (
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -347,15 +345,19 @@ export const TaskViewModal = ({
                                     className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                                 >
                                     <Trash2 className="w-4 h-4 mr-2" />
-                                    Delete Task
+                                    {task.type === 'habit' ? 'Delete Series' : 'Delete Task'}
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                                    <AlertDialogTitle>
+                                        {task.type === 'habit' ? 'Delete Recurring Series?' : 'Delete Task?'}
+                                    </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Are you sure you want to delete "{task.title}"? This action cannot
-                                        be undone and will remove the task for all participants.
+                                        {task.type === 'habit'
+                                            ? `Are you sure you want to delete "${task.title}"? This will delete ALL instances of this recurring task series.`
+                                            : `Are you sure you want to delete "${task.title}"? This action cannot be undone and will remove the task for all participants.`
+                                        }
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -364,7 +366,7 @@ export const TaskViewModal = ({
                                         onClick={handleDelete}
                                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
-                                        Delete
+                                        {task.type === 'habit' ? 'Delete Series' : 'Delete'}
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>

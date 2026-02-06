@@ -44,11 +44,13 @@ export function useAddFriend() {
         },
         onSuccess: (data) => {
             if (data.success) {
-                toast.success(data.message);
+                toast.success("Request sent! ✉️", {
+                    description: "We've sent your friend request."
+                });
                 queryClient.invalidateQueries({ queryKey: ['friends', userId] });
                 queryClient.invalidateQueries({ queryKey: ['friendRequests', userId] });
             } else {
-                toast.error(data.message);
+                toast.error(data.message || "We couldn't send the request.");
             }
         },
         onError: (error) => {
@@ -69,7 +71,7 @@ export function useRemoveFriend() {
             return db.friends.removeFriend(userId, friendId);
         },
         onSuccess: () => {
-            toast.success('Friend removed');
+            toast.success('Friend removed.');
             queryClient.invalidateQueries({ queryKey: ['friends', userId] });
         },
         onError: (error) => {
@@ -90,7 +92,7 @@ export function useCancelRequest() {
             return db.friends.cancelRequest(userId, friendId);
         },
         onSuccess: () => {
-            toast.success('Friend request canceled');
+            toast.success('Request canceled.');
             queryClient.invalidateQueries({ queryKey: ['friendRequests', userId] });
             // Also invalidate friends queries just in case
             queryClient.invalidateQueries({ queryKey: ['friends', userId] });
@@ -133,7 +135,7 @@ export function useRespondToRequest() {
             // Invalidate requests AND friends list (since accepting adds a friend)
             queryClient.invalidateQueries({ queryKey: ['friendRequests', userId] });
             queryClient.invalidateQueries({ queryKey: ['friends', userId] });
-            toast.success('Response sent successfully');
+            toast.success('Response sent.');
         },
         onError: (error) => {
             console.error('Failed to respond to request:', error);

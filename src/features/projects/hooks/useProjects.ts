@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { normalizeId } from '@/lib/idUtils';
 import { PERFORMANCE_CONFIG } from '@/config/appConfig';
 import { perf } from '@/lib/monitoring/performance';
+import { notificationService } from '@/lib/notifications/notificationService';
 
 /**
  * Hook to fetch all projects for the current user
@@ -112,9 +113,17 @@ export const useCreateProject = () => {
     onSuccess: (newProject) => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project created!', {
-        description: 'Start adding tasks to get moving.'
+      toast.success('Project ready! 🏢', {
+        description: "You're all set to start adding tasks."
       });
+
+      // Send notifications using unified service (handles Push, In-app, and Email)
+      if (user) {
+        notificationService.notifyProjectCreated(newProject.id, user.id).catch(err =>
+          console.error('Failed to send project creation notifications:', err)
+        );
+      }
+
       return newProject;
     },
     onError: (error) => {
@@ -128,6 +137,7 @@ export const useCreateProject = () => {
  */
 export const useUpdateProject = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string | number; data: Partial<Project> }) => {
@@ -139,7 +149,14 @@ export const useUpdateProject = () => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project', normalizeId(updatedProject.id)] });
-      toast.success('Project updated.');
+      toast.success('Project updated. 📝');
+
+      // Send update notification
+      if (user) {
+        notificationService.notifyProjectUpdated(updatedProject.id, user.id).catch(err =>
+          console.error('Failed to send project update notifications:', err)
+        );
+      }
     },
     onError: (error) => {
       handleError(error, 'useUpdateProject');
@@ -213,17 +230,31 @@ export const useUserProjectsWithStats = () => {
  */
 export const useDeleteProject = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (id: string | number) => {
       const db = getDatabaseClient();
       const projectId = typeof id === 'string' ? parseInt(id) : id;
+
+      // Fetch project and participants BEFORE deletion to notify them
+      const project = await db.projects.getById(projectId);
+      const participantIds = project?.participantRoles?.map(p => p.userId) || [];
+      const projectName = project?.name || 'Unknown Project';
+
       await db.projects.delete(projectId);
+
+      // Send deletion notifications (handles Push, In-app, and Email)
+      if (user) {
+        notificationService.notifyProjectDeleted(user.id, projectName, participantIds).catch(err =>
+          console.error('Failed to send project deletion notifications:', err)
+        );
+      }
     },
     onSuccess: () => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project deleted.');
+      toast.success('Project has been removed. 👋');
     },
     onError: (error) => {
       handleError(error, 'useDeleteProject');
@@ -283,32 +314,10 @@ export const useJoinProject = () => {
         );
       }
 
-      // 3. Get project and existing participants to create notifications
-      const project = await db.projects.getById(pId);
-      if (!project) {
-        throw new Error('Project not found');
-      }
-
-      // Get existing participants (excluding the user joining)
-      const existingParticipants = project.participantRoles
-        ?.filter(pp => {
-          const ppUserId = typeof pp.userId === 'string' ? parseInt(pp.userId) : pp.userId;
-          return ppUserId !== userId && !pp.removedAt;
-        })
-        .map(pp => pp.userId) || [];
-
-      // Create notifications for existing participants
-      if (existingParticipants.length > 0) {
-        const notificationsToCreate = existingParticipants.map(participantId => ({
-          userId: typeof participantId === 'string' ? parseInt(participantId) : participantId,
-          type: 'project_joined' as const,
-          message: `${user.name} joined "${project.name}"`,
-          projectId: pId,
-          isRead: false,
-          emailSent: false,
-        }));
-        await db.notifications.createMany(notificationsToCreate);
-      }
+      // Send notifications using unified service
+      notificationService.notifyProjectJoined(pId, userId).catch(err =>
+        console.error('Failed to send project join notifications:', err)
+      );
 
       return { projectId: pId, userId };
     },
@@ -323,8 +332,8 @@ export const useJoinProject = () => {
         queryClient.invalidateQueries({ queryKey: ['taskStatuses'] }),
         queryClient.invalidateQueries({ queryKey: ['tasks', 'today'] }),
       ]);
-      toast.success('Joined project!', {
-        description: 'You have been added to all active tasks.'
+      toast.success("You're in! 🤝", {
+        description: "We've added you to all active tasks."
       });
     },
     onError: (error) => {
@@ -380,8 +389,8 @@ export const useLeaveProject = () => {
         queryClient.invalidateQueries({ queryKey: ['tasks', 'project', projectId] }),
       ]);
 
-      toast.success('Left project', {
-        description: 'You have been removed from this project and all related tasks'
+      toast.success('Left project.', {
+        description: "You've been removed from all related tasks."
       });
     },
     onError: (error) => {

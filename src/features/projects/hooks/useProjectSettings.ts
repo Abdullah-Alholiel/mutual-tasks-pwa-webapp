@@ -11,7 +11,7 @@ import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ParticipantWithUser, ProjectPermissions } from './types';
 import { useLeaveProject, useUpdateProject } from './useProjects';
-import { notifyProjectUpdated } from '@/lib/tasks/taskEmailNotifications';
+import { notifyProjectUpdated, notifyProjectDeleted } from '@/lib/tasks/taskEmailNotifications';
 
 interface UseProjectSettingsParams {
   projectId: string | undefined;
@@ -24,7 +24,6 @@ interface UseProjectSettingsParams {
  * Hook for project settings operations (edit, leave, delete)
  */
 export const useProjectSettings = ({
-  projectId,
   currentProject,
   user,
   participants,
@@ -110,8 +109,8 @@ export const useProjectSettings = ({
     const ownerId = typeof currentProject.ownerId === 'string' ? parseInt(currentProject.ownerId) : currentProject.ownerId;
 
     if (ownerId === userId) {
-      toast.error('Cannot leave project', {
-        description: 'Project owner cannot leave the project'
+      toast.error("You can't leave this project yet.", {
+        description: 'As the owner, you must transfer ownership first.'
       });
       setShowLeaveProjectDialog(false);
       return;
@@ -137,12 +136,27 @@ export const useProjectSettings = ({
     try {
       const db = getDatabaseClient();
       const pId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
+
+      // Notify participants about project deletion
+      if (user && participants.length > 0) {
+        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+        const participantIds = participants.map(p => typeof p.userId === 'string' ? parseInt(p.userId) : p.userId);
+
+        // Include owner in notification list if they are not the one deleting (though owner usually deletes)
+        // Ensure unique IDs
+        const uniqueIds = [...new Set(participantIds)];
+
+        notifyProjectDeleted(pId, userId, currentProject.name, uniqueIds).catch(err => {
+          console.error('Failed to send project deletion emails:', err);
+        });
+      }
+
       await db.projects.delete(pId);
 
       queryClient.invalidateQueries({ queryKey: ['projects'] });
 
-      toast.success('Project deleted', {
-        description: 'The project and all its data have been permanently removed'
+      toast.success('Project removed.', {
+        description: 'The project and all associated tasks are gone.'
       });
 
       setShowDeleteProjectDialog(false);

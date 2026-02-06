@@ -6,7 +6,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
-import type { Task, TaskStatusEntity } from '@/types';
+import type { Task } from '@/types';
 import { transformTaskRow, type TaskRow } from '@/db/transformers';
 import { notifyTaskCreated } from '@/lib/tasks/taskEmailNotifications';
 
@@ -189,6 +189,95 @@ export async function deleteTaskAtomic(taskId: number): Promise<boolean> {
 
     console.log('[AtomicTask] ✅ Task deleted (with statuses, logs, and notifications):', taskId);
     return true;
+}
+
+/**
+ * Delete a recurring task series
+ * Deletes all tasks in the same series (same title, description, recurrence pattern)
+ */
+export async function deleteTaskSeriesAtomic(taskId: number): Promise<number> {
+    const supabase = getSupabaseClient();
+
+    console.log('[AtomicTask] Deleting task series for task:', taskId);
+
+    // 1. Fetch the target task to identify series attributes
+    const { data: targetTask, error: fetchError } = await supabase
+        .from('tasks')
+        .select('project_id, title, description, type, creator_id, recurrence_pattern')
+        .eq('id', taskId)
+        .single();
+
+    if (fetchError || !targetTask) {
+        console.error('[AtomicTask] Failed to fetch target task for series deletion:', fetchError);
+        throw new Error(`Failed to fetch task: ${fetchError?.message || 'Task not found'}`);
+    }
+
+    if (targetTask.type !== 'habit') {
+        console.warn('[AtomicTask] Task is not a habit, deleting single task only.');
+        const success = await deleteTaskAtomic(taskId);
+        return success ? 1 : 0;
+    }
+
+    // 2. Fetch all notification IDs for the ENTIRE series
+    // We match tasks with same project, title, description (null safe), and type
+    let query = supabase.from('tasks')
+        .select('id')
+        .eq('project_id', targetTask.project_id)
+        .eq('title', targetTask.title)
+        .eq('type', 'habit');
+
+    // Handle nullable description
+    if (targetTask.description) {
+        query = query.eq('description', targetTask.description);
+    } else {
+        query = query.is('description', null);
+    }
+
+    const { data: seriesTasks, error: seriesError } = await query;
+
+    if (seriesError || !seriesTasks || seriesTasks.length === 0) {
+        console.error('[AtomicTask] Failed to find series tasks:', seriesError);
+        return 0;
+    }
+
+    const taskIds = seriesTasks.map(t => t.id);
+    console.log(`[AtomicTask] Found ${taskIds.length} tasks in series to delete.`);
+
+    // 3. Delete related resources for ALL tasks in series
+    // Notifications
+    const { data: notificationData } = await supabase
+        .from('notifications')
+        .select('id')
+        .in('task_id', taskIds);
+
+    const notificationIds = notificationData?.map(n => n.id) || [];
+
+    if (notificationIds.length > 0) {
+        await supabase.from('notifications').delete().in('id', notificationIds);
+    }
+
+    // Task Statuses
+    await supabase.from('task_statuses').delete().in('task_id', taskIds);
+
+    // Completion Logs
+    await supabase.from('completion_logs').delete().in('task_id', taskIds);
+
+    // Task Recurrence
+    await supabase.from('task_recurrence').delete().in('task_id', taskIds);
+
+    // 4. Delete the tasks themselves
+    const { error: deleteError, count } = await supabase
+        .from('tasks')
+        .delete({ count: 'exact' })
+        .in('id', taskIds);
+
+    if (deleteError) {
+        console.error('[AtomicTask] Series delete failed:', deleteError);
+        throw new Error(`Failed to delete series: ${deleteError.message}`);
+    }
+
+    console.log(`[AtomicTask] ✅ Successfully deleted series (${count} tasks).`);
+    return count || 0;
 }
 
 /**

@@ -91,8 +91,8 @@ export const useProjectMembers = ({
     });
 
     if (!isOwner && !isManager) {
-      toast.error('Permission denied', {
-        description: 'Only project owners and managers can add members'
+      toast.error("You don't have permission for this.", {
+        description: 'Only moderators and owners can add members.'
       });
       return;
     }
@@ -112,8 +112,8 @@ export const useProjectMembers = ({
       const userToAdd = await findUserByIdentifier(memberIdentifier);
 
       if (!userToAdd) {
-        toast.error('User not found', {
-          description: 'No user with this handle exists in the system'
+        toast.error("Hm, we couldn't find that user.", {
+          description: "Double-check the handle and try again."
         });
         return;
       }
@@ -125,8 +125,8 @@ export const useProjectMembers = ({
         const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
         return pUserId === userIdToAdd;
       })) {
-        toast.error('User already in project', {
-          description: 'This user is already a member of this project'
+        toast.error("They're already here.", {
+          description: "This user is already a member of the project."
         });
         return;
       }
@@ -198,43 +198,15 @@ export const useProjectMembers = ({
         queryClient.refetchQueries({ queryKey: ['tasks', 'today', userIdToAdd] }),
       ]);
 
-      // Send notification to the newly added member
+      // Send notifications using unified notification service
       try {
-        // Create notification for the new member that they've been added
-        await db.notifications.create({
-          userId: userIdToAdd,
-          type: 'project_joined',
-          message: `You've been added to "${currentProject.name}" by ${user.name}`,
-          projectId: pId,
-          isRead: false,
-          emailSent: false,
-        });
-
-        // Notify existing project members (except the adder) about the new member
-        const existingParticipants = participants.filter(p => {
-          const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
-          const currentUserId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-          return pUserId !== currentUserId && pUserId !== userIdToAdd;
-        });
-
-        if (existingParticipants.length > 0) {
-          const notificationsToCreate = existingParticipants.map(p => ({
-            userId: typeof p.userId === 'string' ? parseInt(p.userId) : p.userId,
-            type: 'project_joined' as const,
-            message: `${userToAdd.name} joined "${currentProject.name}"`,
-            projectId: pId,
-            isRead: false,
-            emailSent: false,
-          }));
-          await db.notifications.createMany(notificationsToCreate);
-        }
+        await notificationService.notifyProjectJoined(pId, userIdToAdd);
       } catch (notifError) {
-        // Don't fail the member addition if notification fails
         console.error('Failed to send notifications:', notifError);
       }
 
       toast.success('Member added! 🎉', {
-        description: `${userToAdd.name} (${userToAdd.handle}) has been added to the project`
+        description: `${userToAdd.name} is now part of the project.`
       });
 
       setMemberIdentifier('');
@@ -276,8 +248,8 @@ export const useProjectMembers = ({
       const userIdsToAdd = userIds.filter(id => !existingParticipantUserIds.includes(id));
 
       if (userIdsToAdd.length === 0) {
-        toast.info('No new members to add', {
-          description: 'All selected users are already in this project'
+        toast.info("No new members to add.", {
+          description: 'Everyone selected is already in the project.'
         });
         return;
       }
@@ -344,36 +316,10 @@ export const useProjectMembers = ({
         })
       );
 
-      // Send notifications to all newly added members
+      // Send notifications to all newly added members and existing members
       try {
-        const notificationsForNewMembers = userIdsToAdd.map(userIdToAdd => ({
-          userId: userIdToAdd,
-          type: 'project_joined' as const,
-          message: `You've been added to "${currentProject.name}" by ${user.name}`,
-          projectId: pId,
-          isRead: false,
-          emailSent: false,
-        }));
-        await db.notifications.createMany(notificationsForNewMembers);
-
-        // Notify existing project members (except the adder) about new members
-        const existingParticipants = participants.filter(p => {
-          const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
-          const currentUserId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-          return pUserId !== currentUserId && !userIdsToAdd.includes(pUserId);
-        });
-
-        if (existingParticipants.length > 0 && usersToAdd.length > 0) {
-          const memberNames = usersToAdd.map(u => u?.name || 'Unknown').join(', ');
-          const notificationsToCreate = existingParticipants.map(p => ({
-            userId: typeof p.userId === 'string' ? parseInt(p.userId) : p.userId,
-            type: 'project_joined' as const,
-            message: `${usersToAdd.length} ${usersToAdd.length === 1 ? 'member' : 'members'} joined "${currentProject.name}"`,
-            projectId: pId,
-            isRead: false,
-            emailSent: false,
-          }));
-          await db.notifications.createMany(notificationsToCreate);
+        for (const userIdToAdd of userIdsToAdd) {
+          await notificationService.notifyProjectJoined(pId, userIdToAdd, userIdsToAdd.length);
         }
       } catch (notifError) {
         console.error('Failed to send notifications:', notifError);
@@ -392,10 +338,10 @@ export const useProjectMembers = ({
         ...userIdsToAdd.map(userIdToAdd => queryClient.refetchQueries({ queryKey: ['tasks', 'today', userIdToAdd] })),
       ]);
 
-      toast.success(`${addedParticipants.length} member${addedParticipants.length > 1 ? 's' : ''} added! 🎉`, {
+      toast.success('Members added! 🎉', {
         description: addedParticipants.length === 1
-          ? `${usersToAdd[0]?.name} has been added to the project`
-          : `${addedParticipants.length} members have been added to the project`
+          ? "The new member is now part of the project."
+          : "Everyone has been added to the project."
       });
     } catch (error) {
       handleError(error, 'handleAddMembers');
@@ -446,8 +392,8 @@ export const useProjectMembers = ({
         queryClient.refetchQueries({ queryKey: ['tasks', 'project', pId] }),
       ]);
 
-      toast.success('Participant removed', {
-        description: 'The member has been removed from the project and all related tasks'
+      toast.success('Member removed.', {
+        description: "They've been removed from the project and related tasks."
       });
     } catch (error) {
       handleError(error, 'handleRemoveParticipant');
@@ -478,14 +424,8 @@ export const useProjectMembers = ({
 
       // Create notification for the user whose role was updated
       try {
-        await db.notifications.create({
-          userId: userIdToUpdate,
-          type: 'project_joined', // Fallback to 'project_joined' as 'role_changed' is not in DB enum yet
-          message: `Your role in "${currentProject.name}" has been updated to ${newRole}`,
-          projectId: pId,
-          isRead: false,
-          emailSent: false,
-        });
+        const updaterId = typeof user?.id === 'string' ? parseInt(user.id) : (user?.id ?? 0);
+        await notificationService.notifyRoleChanged(pId, updaterId, userIdToUpdate, newRole);
       } catch (notifError) {
         console.error('Failed to send role update notification:', notifError);
       }
@@ -497,8 +437,8 @@ export const useProjectMembers = ({
         queryClient.refetchQueries({ queryKey: ['project', pId] }),
       ]);
 
-      toast.success('Role updated', {
-        description: `User role changed to ${newRole}`
+      toast.success('Role updated. 🛡️', {
+        description: "The member's permissions have been changed."
       });
     } catch (error) {
       handleError(error, 'handleUpdateRole');
