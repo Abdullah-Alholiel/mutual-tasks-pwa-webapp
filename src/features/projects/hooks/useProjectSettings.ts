@@ -87,7 +87,7 @@ export const useProjectSettings = ({
 
       // Invalidation is handled by the mutation
       if (user) {
-        notifyProjectUpdated(pId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch(err => {
+        notifyProjectUpdated(pId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch((err: any) => {
           console.error('Failed to send project update notification:', err);
         });
       }
@@ -96,7 +96,7 @@ export const useProjectSettings = ({
     } catch (error) {
       // Error handled by mutation
     }
-  }, [currentProject, mutation]);
+  }, [currentProject, mutation, user]);
 
   /**
    * Leave the project
@@ -144,9 +144,9 @@ export const useProjectSettings = ({
 
         // Include owner in notification list if they are not the one deleting (though owner usually deletes)
         // Ensure unique IDs
-        const uniqueIds = [...new Set(participantIds)];
+        const uniqueIds = Array.from(new Set(participantIds));
 
-        notifyProjectDeleted(pId, userId, currentProject.name, uniqueIds).catch(err => {
+        notifyProjectDeleted(userId, currentProject.name, uniqueIds).catch((err: any) => {
           console.error('Failed to send project deletion emails:', err);
         });
       }
@@ -165,7 +165,7 @@ export const useProjectSettings = ({
     } catch (error) {
       handleError(error, 'handleDeleteProject');
     }
-  }, [currentProject, queryClient, navigate]);
+  }, [currentProject, queryClient, navigate, user, participants]);
 
   return {
     // Permissions
