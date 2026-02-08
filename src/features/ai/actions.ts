@@ -7,6 +7,7 @@ interface GenerateDescriptionResult {
     success: boolean;
     description?: string;
     error?: string;
+    remaining?: number;
 }
 
 export async function generateAIDescription(
@@ -14,8 +15,6 @@ export async function generateAIDescription(
     title: string
 ): Promise<GenerateDescriptionResult> {
     // Call the Netlify Serverless Function
-    // In Prod: Direct call to function
-    // In Dev: Vite Proxies this path to n8n (simulating the function)
     const functionUrl = '/.netlify/functions/ai-generated-description';
 
     try {
@@ -69,6 +68,11 @@ export async function generateAIDescription(
             throw new Error(`Service error: ${response.status}`);
         }
 
+        // Extract remaining count from headers
+        const remainingHeader = response.headers.get('X-RateLimit-Remaining');
+        const remaining = remainingHeader ? parseInt(remainingHeader, 10) : undefined;
+        console.log('[AI Description] Remaining limit:', remaining);
+
         const responseText = await response.text();
         let aiDesc = '';
 
@@ -92,13 +96,13 @@ export async function generateAIDescription(
         } catch (e) {
             // Fallback to plain text if JSON parsing fails
             if (responseText && !responseText.toLowerCase().includes('error')) {
-                aiDesc = responseText;
+                aiDesc = responseText; // Valid fallback for plain text response
             }
         }
 
         if (aiDesc) {
             console.log('[AI Description] Success, description length:', aiDesc.length);
-            return { success: true, description: aiDesc };
+            return { success: true, description: aiDesc, remaining };
         } else {
             console.warn('[AI Description] No description in response');
             return { success: false, error: 'No description generated' };

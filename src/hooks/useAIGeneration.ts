@@ -48,7 +48,17 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
 
             if (result.success && result.description) {
                 setAiState('success');
-                toast.success('Description generated successfully!');
+
+                // Show remaining count if available
+                const remainingMsg = result.remaining !== undefined
+                    ? `${result.remaining} remaining today`
+                    : '';
+
+                toast.success('Description generated!', {
+                    description: remainingMsg,
+                    duration: 3000,
+                });
+
                 return result.description;
             } else {
                 // Handle timeout errors specifically - encourage retry
@@ -59,6 +69,16 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
                     });
                     return null;
                 }
+
+                // Handle rate limit errors
+                if (result.error && result.error.includes('Daily limit reached')) {
+                    setAiState('error');
+                    toast.error('Daily Limit Reached', {
+                        description: 'You strictly have 10 description generations per day. Please try again tomorrow!',
+                    });
+                    return null;
+                }
+
                 throw new Error(result.error || 'Failed to generate description');
             }
 

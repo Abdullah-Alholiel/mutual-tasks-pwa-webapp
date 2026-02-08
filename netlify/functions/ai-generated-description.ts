@@ -100,6 +100,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             },
             body: JSON.stringify({
                 title: title.trim(),
+                project_title: title.trim(), // Added to match n8n prompt
                 type
             }),
             cache: 'no-store',
@@ -120,11 +121,23 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         const responseText = await response.text();
         console.log('[AI Description] n8n success, response length:', responseText.length);
 
+        // CHECK: Is the response actually valid content?
+        if (!responseText || responseText.trim().length === 0) {
+            console.warn('[AI Description] n8n returned an empty response. Usage NOT incremented.');
+            return {
+                statusCode: 204, // No Content
+                headers,
+                body: ''
+            };
+        }
+
+        // ONLY increment usage if we have valid content
         try {
             await incrementUsage(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
             console.log('[AI Description] Usage incremented for userId:', userId, 'date:', usageDate);
         } catch (e) {
             console.error('[AI Description] Failed to increment usage:', e);
+            // We still return the content even if usage logging fails
         }
 
         return {
