@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
-import { Sparkles, CheckCircle2, Calendar, RotateCcw, Info } from 'lucide-react';
+import { Sparkles, CheckCircle2, Calendar, RotateCcw, Info, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { useAIProjectGeneration } from '../hooks';
@@ -50,7 +50,7 @@ export const AIProjectModal = ({
     onCreateProject,
 }: AIProjectModalProps) => {
     const [description, setDescription] = useState('');
-    const { aiState, generatedProject, generateProject, resetState, confirmProjectCreation } = useAIProjectGeneration();
+    const { aiState, generatedProject, generateProject, resetState, confirmProjectCreation, remainingToday } = useAIProjectGeneration();
 
     /**
      * Handle the generate button click
@@ -98,11 +98,25 @@ export const AIProjectModal = ({
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 rounded-lg bg-[#8B5CF6] flex items-center justify-center">
-                            <Sparkles className="w-4 h-4 text-white" />
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-[#8B5CF6] flex items-center justify-center">
+                                <Sparkles className="w-4 h-4 text-white" />
+                            </div>
+                            <DialogTitle>AI Project Generator</DialogTitle>
                         </div>
-                        <DialogTitle>AI Project Generator</DialogTitle>
+                        {/* Usage Indicator */}
+                        {remainingToday !== null && (
+                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${remainingToday === 0
+                                    ? 'bg-destructive/10 text-destructive'
+                                    : remainingToday <= 1
+                                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                        : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
+                                }`}>
+                                <Zap className="w-3 h-3" />
+                                <span>{remainingToday}/3 left today</span>
+                            </div>
+                        )}
                     </div>
                     <DialogDescription>
                         Describe your project idea and I'll create it with tasks for you!

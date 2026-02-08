@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export const AI_USAGE_LIMITS = {
     project_generation: 3,
-    description_generation: 5,
+    description_generation: 10,
 } as const;
 
 export type AIUsageType = keyof typeof AI_USAGE_LIMITS;
@@ -111,6 +111,7 @@ export async function incrementUsage(
 
 export async function verifyMagicLinkSession(token: string): Promise<number | null> {
     console.log('[Session] Verifying magic link session token');
+    console.log('[Session] Token prefix:', token.substring(0, 20) + '...');
 
     try {
         // Use VITE_SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL as fallback)
@@ -132,12 +133,15 @@ export async function verifyMagicLinkSession(token: string): Promise<number | nu
 
         const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+        console.log('[Session] Querying sessions table for token...');
         const { data, error } = await supabase
             .from('sessions')
             .select('user_id, expires_at')
             .eq('token', token)
             .gt('expires_at', new Date().toISOString())
             .maybeSingle();
+
+        console.log('[Session] Query result:', { data, error: error?.message || null });
 
         if (error) {
             console.error('[Session] Verification failed:', error.code, error.message);

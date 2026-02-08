@@ -61,6 +61,11 @@ export async function generateAIDescription(
                 return { success: false, error: 'Session expired. Please sign in again.' };
             }
 
+            // Check for timeout errors - encourage retry
+            if (response.status === 504 || response.status === 408) {
+                return { success: false, error: 'timeout' };
+            }
+
             throw new Error(`Service error: ${response.status}`);
         }
 

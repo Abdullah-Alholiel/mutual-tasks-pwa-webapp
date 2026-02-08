@@ -74,6 +74,11 @@ export interface GenerateProjectResult {
     success: boolean;
     project?: AIGeneratedProject;
     error?: string;
+    /** Rate limit info when available */
+    rateLimitInfo?: {
+        limit: number;
+        remaining: number;
+    };
 }
 
 // ============================================================================

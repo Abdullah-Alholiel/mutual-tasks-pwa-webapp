@@ -3,6 +3,19 @@
   command = "npm run build"
   functions = "netlify/functions"
 
+[dev]
+  targetPort = 8080
+  port = 9999
+  framework = "#custom"
+  command = "npm run dev"
+  autoLaunch = false
+  
+[functions]
+  node_bundler = "esbuild"
+
+[build.environment]
+  NETLIFY_USE_EDGE_FUNCTIONS = "false"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

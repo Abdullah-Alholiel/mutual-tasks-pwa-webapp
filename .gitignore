@@ -31,3 +31,6 @@ dist-ssr
 .opencode
 .agents
 
+
+# Local Netlify folder
+.netlify

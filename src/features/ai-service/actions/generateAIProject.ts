@@ -6,6 +6,10 @@ import type { GenerateProjectResult, AIGeneratedProject, N8nGeminiResponse } fro
 import { aiLogger } from '../utils';
 import { getSessionToken } from '@/lib/auth/sessionStorage';
 
+// Rate limit error type for specific handling
+export const RATE_LIMIT_ERROR = 'RATE_LIMIT_EXCEEDED';
+export const TIMEOUT_ERROR = 'TIMEOUT_ERROR';
+
 /**
  * Generate a complete project with tasks from a natural language description.
  * 
@@ -44,9 +48,37 @@ export async function generateAIProject(
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Unknown error');
-            aiLogger.error('n8n Webhook Error', undefined, { status: response.status, errorText });
-            throw new Error(`External service error: ${response.status}`);
+            aiLogger.error('API Error', undefined, { status: response.status, errorText });
+
+            // Handle rate limit specifically
+            if (response.status === 429) {
+                const limit = response.headers.get('X-RateLimit-Limit') || '3';
+                return {
+                    success: false,
+                    error: RATE_LIMIT_ERROR,
+                    rateLimitInfo: {
+                        limit: parseInt(limit),
+                        remaining: 0,
+                    }
+                };
+            }
+
+            // Handle timeout errors (Netlify default timeout, gateway timeout)
+            if (response.status === 504 || response.status === 408) {
+                return { success: false, error: TIMEOUT_ERROR };
+            }
+
+            // Handle auth errors
+            if (response.status === 401) {
+                return { success: false, error: 'Please log in again to use AI features' };
+            }
+
+            throw new Error(`Service error: ${response.status}`);
         }
+
+        // Extract rate limit info from successful response
+        const remaining = parseInt(response.headers.get('X-RateLimit-Remaining') || '3');
+        const limit = parseInt(response.headers.get('X-RateLimit-Limit') || '3');
 
         const responseText = await response.text();
         aiLogger.info('Received response from n8n', { responseLength: responseText.length });
@@ -80,9 +112,14 @@ export async function generateAIProject(
         if (project) {
             aiLogger.success('Project generated successfully', {
                 projectName: project.name,
-                taskCount: project.tasks.length
+                taskCount: project.tasks.length,
+                remaining
             });
-            return { success: true, project };
+            return {
+                success: true,
+                project,
+                rateLimitInfo: { limit, remaining }
+            };
         } else {
             return { success: false, error: 'Failed to parse AI response into valid project' };
         }

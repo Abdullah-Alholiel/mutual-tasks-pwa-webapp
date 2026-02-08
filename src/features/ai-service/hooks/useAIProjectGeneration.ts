@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import type { AIProjectState, AIGeneratedProject } from '../types';
-import { generateAIProject } from '../actions';
+import { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR } from '../actions';
 import {
     aiLogger,
     AI_ERROR_MESSAGES,
@@ -87,14 +87,45 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
             return null;
         }
 
-        setRemainingToday(3);
-
         setAiState('loading');
         setGeneratedProject(null);
         aiLogger.info('Starting project generation', { descriptionLength: description.length });
 
         try {
             const result = await generateAIProject(description);
+
+            // Handle rate limit specifically
+            if (result.error === RATE_LIMIT_ERROR) {
+                setAiState('error');
+                setRemainingToday(0);
+
+                toast.error(AI_ERROR_MESSAGES.LIMIT_EXCEEDED_PROJECT.title, {
+                    description: AI_ERROR_MESSAGES.LIMIT_EXCEEDED_PROJECT.description,
+                });
+
+                // Auto-reset error state after 3 seconds
+                setTimeout(() => {
+                    setAiState('idle');
+                }, 3000);
+
+                return null;
+            }
+
+            // Handle timeout errors - encourage user to retry
+            if (result.error === TIMEOUT_ERROR) {
+                setAiState('idle'); // Reset to idle so they can try again immediately
+
+                toast.error(AI_ERROR_MESSAGES.TIMEOUT.title, {
+                    description: AI_ERROR_MESSAGES.TIMEOUT.description,
+                });
+
+                return null;
+            }
+
+            // Update remaining count from API response
+            if (result.rateLimitInfo) {
+                setRemainingToday(result.rateLimitInfo.remaining);
+            }
 
             if (result.success && result.project) {
                 setAiState('success');

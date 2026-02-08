@@ -51,6 +51,14 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
                 toast.success('Description generated successfully!');
                 return result.description;
             } else {
+                // Handle timeout errors specifically - encourage retry
+                if (result.error === 'timeout') {
+                    setAiState('idle'); // Reset to idle so they can retry immediately
+                    toast.error(AI_ERROR_MESSAGES.TIMEOUT.title, {
+                        description: AI_ERROR_MESSAGES.TIMEOUT.description,
+                    });
+                    return null;
+                }
                 throw new Error(result.error || 'Failed to generate description');
             }
 

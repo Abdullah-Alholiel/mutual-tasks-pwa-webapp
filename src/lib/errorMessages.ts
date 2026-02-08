@@ -13,7 +13,7 @@ export const AI_ERROR_MESSAGES = {
     },
     LIMIT_EXCEEDED_DESCRIPTION: {
         title: 'Daily Limit Reached',
-        description: "You've used all 5 AI description generations for today. Try again tomorrow!",
+        description: "You've used all 10 AI description generations for today. Try again tomorrow!",
     },
     LIMIT_WARNING_PROJECT: (remaining: number) => ({
         title: 'Limited Uses Remaining',
@@ -52,8 +52,8 @@ export const AI_ERROR_MESSAGES = {
         description: 'No internet connection detected. Please connect and try again.',
     },
     TIMEOUT: {
-        title: 'Request Timed Out',
-        description: 'The AI is taking too long to respond. Please try again.',
+        title: 'Taking Too Long',
+        description: 'The AI is being slow right now. Please tap try again!',
     },
     CONNECTION_REFUSED: {
         title: 'Service Unreachable',
