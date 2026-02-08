@@ -49,13 +49,31 @@ const TaskParticipantAvatarsComponent = ({
       }
     });
 
-    const allParticipants = Array.from(uniqueParticipantsMap.values());
+    let allParticipants = Array.from(uniqueParticipantsMap.values());
+
+    // Sort participants: Completed (earliest first) -> Pending
+    allParticipants.sort((a, b) => {
+      const getCompletionTime = (p: typeof a) => {
+        const pUserId = normalizeId(p.userId);
+        const log = completionLogs.find(l =>
+          normalizeId(l.taskId) === normalizeId(task.id) &&
+          normalizeId(l.userId) === pUserId
+        );
+        // If completed, return timestamp. If not, return Infinity to push to end.
+        return log ? new Date(log.createdAt).getTime() : Infinity;
+      };
+
+      const timeA = getCompletionTime(a);
+      const timeB = getCompletionTime(b);
+
+      return timeA - timeB;
+    });
 
     const visible = allParticipants.slice(0, maxVisible);
     const remaining = allParticipants.length - maxVisible;
 
     return { visibleParticipants: visible, remainingCount: Math.max(0, remaining) };
-  }, [task.taskStatus]);
+  }, [task.taskStatus, completionLogs, task.id]);
 
   const participantData: ParticipantDisplayData[] = useMemo(() => {
     return visibleParticipants.map(participant => {
@@ -97,8 +115,8 @@ const TaskParticipantAvatarsComponent = ({
   }
 
   return (
-    <div className="flex items-center">
-      <div className="flex items-center -space-x-1.5 py-1.5">
+    <div className="flex items-center" role="group" aria-label="Task participants">
+      <div className="flex items-center -space-x-2 py-1">
         {participantData.map((participant) => {
           const userName = participant.user?.name || '';
           const userAvatar = participant.user?.avatar || '';
@@ -110,73 +128,80 @@ const TaskParticipantAvatarsComponent = ({
               className="relative"
             >
               <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 400,
+                  damping: 25,
+                  delay: participantData.indexOf(participant) * 0.05 // Staggered animation
+                }}
                 whileHover={{ scale: 1.1, zIndex: 10 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               >
                 <Avatar
                   className={cn(
-                    "w-[34px] h-[34px] lg:w-[37px] lg:h-[37px] ring-2 ring-background transition-all duration-300",
+                    "w-[30px] h-[30px] rounded-full ring-2 ring-background transition-all duration-300", // Fixed size 30px, perfect circle
                     participant.ringColorClass
                   )}
+                  aria-label={`${userName || 'Unknown user'}: ${participant.isCompleted ? (participant.isLate ? 'Completed late' : 'Completed') : 'Pending'}`}
                 >
                   <AvatarImage src={userAvatar} alt={userName} />
-                  <AvatarFallback className="text-xs font-semibold">
+                  <AvatarFallback className="text-[11px] font-semibold">
                     {userInitial}
                   </AvatarFallback>
                 </Avatar>
               </motion.div>
 
-              <div className="absolute -bottom-1 -right-0.5">
-                {participant.isCompleted ? (
-                  <div className="w-4 h-4 lg:w-[17px] lg:h-[17px]">
-                    <CompletionStatusIcon
-                      status={participant.isLate ? 'late' : 'completed'}
-                      size="sm"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-4 h-4 lg:w-[17px] lg:h-[17px]">
-                    <CompletionStatusIcon
-                      status="pending"
-                      size="sm"
-                    />
-                  </div>
+              {/* Status icon - positioned more to South-West (bottom-left) */}
+              <div className="absolute -bottom-1 -left-1 z-10">
+                {participant.isCompleted && (
+                  <CompletionStatusIcon
+                    status={participant.isLate ? 'late' : 'completed'}
+                    size="sm"
+                    className="ring-2 ring-background"
+                  />
                 )}
               </div>
             </div>
           );
         })}
 
+        {/* Show +N button only when there are more participants beyond visible */}
         {remainingCount > 0 && (
           <motion.button
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: Math.min(participantData.length, 3) * 0.05 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             onClick={(e) => {
               e.stopPropagation();
               onViewAll?.();
             }}
-            className="relative z-10 w-[34px] h-[34px] lg:w-[37px] lg:h-[37px] rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-sm group"
+            // Exact same size as avatars: w-[30px] h-[30px]
+            className="relative z-10 w-[30px] h-[30px] rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 cursor-pointer shadow-sm group active:scale-95"
             aria-label={`View ${remainingCount} more participants`}
           >
-            <span className="text-sm font-bold text-muted-foreground group-hover:text-primary transition-colors">
+            <span className="text-[10px] font-bold text-muted-foreground group-hover:text-primary transition-colors">
               +{remainingCount}
             </span>
           </motion.button>
         )}
 
-        {remainingCount === 0 && participantData.length > 0 && (
+        {/* Show 'view all' button (ellipsis) ONLY when there are 3+ participants and none remaining */}
+        {remainingCount === 0 && participantData.length > 3 && (
           <motion.button
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: participantData.length * 0.05 }}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             onClick={(e) => {
               e.stopPropagation();
               onViewAll?.();
             }}
-            className="relative z-10 w-[34px] h-[34px] lg:w-[37px] lg:h-[37px] rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 cursor-pointer shadow-sm group"
+            // Exact same size as avatars: w-[30px] h-[30px]
+            className="relative z-10 w-[30px] h-[30px] rounded-full bg-muted ring-2 ring-background border border-border flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 cursor-pointer shadow-sm group active:scale-95"
             aria-label="View all participants"
           >
             <MoreHorizontal className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />

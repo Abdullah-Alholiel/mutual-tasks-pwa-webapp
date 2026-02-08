@@ -32,6 +32,7 @@ export const useProjectDetail = () => {
   // Get project from route state or database
   const projectFromState = location.state?.project as Project | undefined;
   const projectParticipantsFromState = location.state?.projectParticipants as ProjectParticipant[] | undefined;
+  const isAICreatedProject = location.state?.isAICreatedProject as boolean | undefined;
   const { data: projectFromDb, isLoading: projectLoading } = useProject(id);
   const currentProject = projectFromState || projectFromDb;
 
@@ -188,6 +189,7 @@ export const useProjectDetail = () => {
 
     // Loading state
     isLoading,
+    isAICreatedProject,
 
     // Task lists
     activeTasks,

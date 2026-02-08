@@ -231,7 +231,7 @@ export const TaskViewModal = ({
                                 </Badge>
                             )}
 
-                            <DialogTitle className="text-xl font-bold tracking-tight text-left line-clamp-2">
+                            <DialogTitle className="text-xl font-bold tracking-tight text-left">
                                 {task.title}
                             </DialogTitle>
 

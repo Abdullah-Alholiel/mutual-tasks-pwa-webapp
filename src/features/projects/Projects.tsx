@@ -385,14 +385,19 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
       toast.success(`Created "${generatedProject.name}" with ${totalTaskCount} tasks!`);
-      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
+      navigate(`/projects/${newProject.id}`, {
+        state: {
+          project: projectWithParticipants,
+          projectParticipants: projectWithParticipants.participantRoles,
+          isAICreatedProject: true
+        }
+      });
 
     } catch (error) {
       console.error('Failed to create AI project:', error);
       toast.error('Failed to create project', {
         description: 'Please try again or create manually.',
       });
-    } finally {
       setIsCreatingAIProject(false);
     }
   }, [user, isAuthenticated, createProjectMutation, createMultipleTasksWithStatuses, queryClient, navigate]);

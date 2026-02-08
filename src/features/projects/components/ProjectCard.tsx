@@ -34,7 +34,6 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
         {project.isPublic && (
           <Badge variant="outline" className="text-[10px] h-5 flex items-center gap-1 flex-none absolute top-4 right-4 z-10 bg-background/80 backdrop-blur-sm">
             <Globe className="w-3 h-3" />
-            Public
           </Badge>
         )}
 

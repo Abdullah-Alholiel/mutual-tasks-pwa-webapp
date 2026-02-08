@@ -62,10 +62,26 @@ All colors MUST be HSL.
     /* Yellow - pending tasks */
     --status-accepted: 217 76% 48%;
     /* Blue - accepted/manager */
-    --status-completed: 160 84% 39%;
-    /* Green - completed tasks */
-    --status-archived: 214 19% 48%;
-    /* Grey - archived items */
+    --status-completed: 142.1 76.2% 36.3%;
+    --status-upcoming: 255 92% 65%;
+    /* Purple - upcoming tasks */
+    --status-overdue: 0 84.2% 60.2%;
+
+    /* Editorial Design: Tailored Border Colors */
+    --border-active: 221.2 83.2% 53.3%;
+    /* Blue-600 */
+    --border-in-progress: 45 93% 47%;
+    /* Amber-500 */
+    --border-review: 270 95% 75%;
+    /* Purple-600 equivalent */
+    --border-review: 270 95% 75%;
+    /* Purple-600 equivalent */
+    --status-recovered: 45 93% 47%;
+    /* Yellow-500 (same as in-progress/warning) */
+    --status-archived: 0 84.2% 60.2%;
+    /* Red-500 (same as overdue/destructive) */
+    --status-archived-text: 214 19% 48%;
+    /* Grey - archived items text */
     --status-warning: 45 96% 64%;
     /* Yellow - warnings */
     --status-error: 0 84% 60%;
@@ -332,7 +348,8 @@ body.keyboard-visible [role="main"] {
   /* Optimize list items for off-screen rendering */
   .scroll-optimized {
     content-visibility: auto;
-    contain-intrinsic-size: 0 180px;
+    contain-intrinsic-size: 0 175px;
+    /* Production compact: avg between 140px (no buttons) and 180px (with buttons) */
   }
 
   /* Touch-optimized scrolling container */

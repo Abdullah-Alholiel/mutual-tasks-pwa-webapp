@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Users } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import type { Project } from '@/types';
 import { getIconByName } from '@/lib/projects/projectIcons';
@@ -14,6 +14,7 @@ interface ProjectHeaderProps {
   onJoin: () => void;
   isJoining?: boolean;
   onCreateTask: () => void;
+  onViewMembers: () => void;
 }
 
 export const ProjectHeader = ({
@@ -24,7 +25,8 @@ export const ProjectHeader = ({
   onEdit,
   onJoin,
   isJoining,
-  onCreateTask
+  onCreateTask,
+  onViewMembers
 }: ProjectHeaderProps) => {
   const Icon = getIconByName(project.icon || 'Target');
 
@@ -44,6 +46,7 @@ export const ProjectHeader = ({
             <Button
               onClick={onCreateTask}
               className="gradient-primary text-white rounded-full h-10 w-10 p-0"
+              title="New Task"
             >
               <Plus className="w-4 h-4" />
             </Button>
@@ -51,8 +54,18 @@ export const ProjectHeader = ({
           <Button
             variant="outline"
             size="icon"
+            onClick={onViewMembers}
+            className="shrink-0 h-10 w-10 rounded-full"
+            title="View Members"
+          >
+            <Users className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
             onClick={onEdit}
             className="shrink-0 h-10 w-10 rounded-full"
+            title="Project Settings"
           >
             <Settings className="w-4 h-4" />
           </Button>
@@ -102,6 +115,7 @@ export const ProjectHeader = ({
                 <Button
                   onClick={onCreateTask}
                   className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold"
+                  title="New Task"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   <span>New</span>
@@ -110,8 +124,18 @@ export const ProjectHeader = ({
               <Button
                 variant="outline"
                 size="icon"
+                onClick={onViewMembers}
+                className="shrink-0 h-10 w-10 rounded-full"
+                title="View Members"
+              >
+                <Users className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={onEdit}
                 className="shrink-0 h-10 w-10 rounded-full"
+                title="Project Settings"
               >
                 <Settings className="w-4 h-4" />
               </Button>
@@ -131,10 +155,10 @@ export const ProjectHeader = ({
           <h1 className="text-2xl font-bold break-words flex-1 min-w-0">{project.name}</h1>
         </div>
         {project.description && (
-          <p className="text-sm text-muted-foreground break-words mt-1">{project.description}</p>
+          <p className="text-sm text-muted-foreground break-words mt-1 text-left pl-0">{project.description}</p>
         )}
       </div>
-    </div >
+    </div>
   );
 };
 

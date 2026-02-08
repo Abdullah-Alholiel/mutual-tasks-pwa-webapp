@@ -702,7 +702,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 260px',
+                    containIntrinsicSize: '0 185px', // Production: 180px active cards
                   }}
                 >
                   <TaskCard
@@ -744,7 +744,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 260px',
+                    containIntrinsicSize: '0 185px', // Production: 180px active cards
                   }}
                 >
                   <TaskCard
@@ -786,7 +786,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
                   style={{
                     contain: 'layout style',
                     contentVisibility: 'auto',
-                    containIntrinsicSize: '0 220px',
+                    containIntrinsicSize: '0 145px', // Production: 140px completed cards
                   }}
                 >
                   <TaskCard

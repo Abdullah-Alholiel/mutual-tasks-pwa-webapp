@@ -4,7 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { CheckCircle2, Clock, Repeat, RotateCcw, User as UserIcon, Trash2, Pencil } from 'lucide-react';
+import {
+  Clock,
+  RotateCcw,
+  CheckCircle2,
+  Repeat,
+  User as UserIcon
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/features/auth/useAuth';
 import { useUser, useBatchUsers } from '@/features/users/hooks/useUsers';
@@ -198,7 +204,6 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
   const uiStatus: TaskStatus = taskStatusUserStatus;
 
   // Permission checks
-  const isModifiableStatus = uiStatus === 'active' || uiStatus === 'upcoming';
   const canModify = useMemo(() => {
     if (!project || !currentUser) return false;
     const userId = normalizeId(currentUser.id);
@@ -258,24 +263,21 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
     });
   };
 
-  // Calculate card height based on task state
+  // Calculate card height based on task state - PRODUCTION COMPACT DESIGN
+  // Target: fit 3 cards on mobile screen with comfortable spacing
   const getCardHeight = () => {
     if ((uiStatus === 'completed' && myCompletion) || uiStatus === 'upcoming') {
-      // Completed & Upcoming tasks: 50px shorter than standard
-      // Standard: 240px (Mobile & Desktop)
-      // Height: 240 - 50 = 190px
-      return 'h-[190px] lg:h-[190px]';
+      // Completed & Upcoming tasks: Compact (no action buttons)
+      // Mobile: 130px, Desktop: 140px - Tighter vertical spacing
+      return 'h-[130px] lg:h-[140px]';
     }
     if (shouldShowRecover || shouldShowComplete) {
-      // Active/Recovered tasks with buttons: 10px taller than standard
-      // Standard: 240px
-      // Height: 240 + 10 = 250px
-      return 'h-[250px] lg:h-[250px]';
+      // Active/Recovered tasks with buttons: Taller for action
+      // Mobile: 165px, Desktop: 175px - Optimized for new button size
+      return 'h-[165px] lg:h-[175px]';
     }
-    // Default height (Standard)
-    // Mobile: 240px
-    // Desktop: 240px
-    return 'h-[240px] lg:h-[240px]';
+    // Default height
+    return 'h-[130px] lg:h-[140px]';
   };
 
   // Handle card click to open task detail modal
@@ -305,15 +307,26 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
         >
           <Card
             className={cn(
-              "p-5 hover-lift shadow-sm hover:shadow-md transition-all duration-300 border-border/60 flex flex-col overflow-hidden cursor-pointer relative group bg-card/50 hover:bg-card/80 backdrop-blur-sm",
+              "p-3 lg:p-4 hover-lift shadow-sm hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden cursor-pointer relative group bg-card",
+              // Editorial Design: Solid left border for status, no blur/transparency for performance
+              "border-l-[4px] border-y border-r border-border/50",
               getCardHeight(),
-              isJustCompleted && "ring-2 ring-primary/50"
+              isJustCompleted && "ring-2 ring-primary/50",
+              // Status-specific left border colors
+              uiStatus === 'active' && "border-l-primary",
+              uiStatus === 'completed' && "border-l-status-completed",
+              uiStatus === 'upcoming' && "border-l-[hsl(var(--status-upcoming))]", // Tailored Purple
+              uiStatus === 'archived' && "border-l-destructive", // Enforce Red via destructive
+              isRecovered && "border-l-[hsl(var(--status-recovered))]", // Tailored Yellow
+              // Removed invalid 'todo'/'in-progress' checks
             )}
             onClick={handleCardClick}
+            role="article"
+            aria-label={`Task: ${task.title}. Status: ${uiStatus}. ${project ? `Project: ${project.name}.` : ''}`}
           >
-            {/* Shine Effect - Hover */}
+            {/* Shine Effect - Reduced intensity for Editorial feel */}
             <motion.div
-              className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-primary/5 to-transparent z-0 pointer-events-none"
+              className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/5 to-transparent z-0 pointer-events-none"
               initial={{ x: '-100%' }}
               whileHover={{ x: '100%' }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -327,110 +340,96 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
                   animate={{ x: '100%', opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 1, ease: "easeInOut" }}
-                  className="absolute inset-y-0 w-full bg-gradient-to-r from-transparent via-primary/30 to-transparent z-10 pointer-events-none"
+                  className="absolute inset-y-0 w-full bg-gradient-to-r from-transparent via-primary/20 to-transparent z-10 pointer-events-none"
                 />
               )}
             </AnimatePresence>
             <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-3 flex-none">
+              {/* Compact Header - All badges inline */}
+              <div className="flex items-start justify-between gap-2 flex-none">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                  {/* Inline badges row: Project + Recurrence + Status */}
+                  <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                     {project && (
                       <Badge
                         variant="outline"
-                        className="text-xs font-bold px-3 py-0.5 rounded-full flex items-center gap-1.5 transition-all duration-300 shadow-sm cursor-pointer hover:opacity-80 text-left h-auto min-h-[1.5rem]"
+                        className="text-[11px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 transition-all duration-200 shadow-sm cursor-pointer hover:opacity-80 text-left h-[22px] max-w-full"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/projects/${project.id}`);
                         }}
                         style={project.color ? {
-                          backgroundColor: adjustColorOpacity(project.color, 0.15),
-                          borderColor: adjustColorOpacity(project.color, 0.3),
+                          backgroundColor: adjustColorOpacity(project.color, 0.1),
+                          borderColor: adjustColorOpacity(project.color, 0.3), // Clearer border
                           color: project.color
                         } : undefined}
+                        title={project.name}
+                        aria-label={`Project: ${project.name}. Click to view project.`}
                       >
                         {project.icon && (() => {
                           const Icon = getIconByName(project.icon);
-                          return <Icon className="w-3 h-3" />;
+                          return <Icon className="w-3 h-3 shrink-0" />;
                         })()}
-                        <span>{project.name}</span>
+                        {/* Flexible truncate - let it take available space */}
+                        <span className="truncate">{project.name}</span>
                       </Badge>
                     )}
                     {task.type === 'habit' && task.recurrencePattern && (
-                      <Badge variant="outline" className="text-xs font-bold flex items-center gap-1 shrink-0 bg-background/50 border-border/50 px-2.5 py-0.5 rounded-full">
+                      <Badge
+                        variant="outline"
+                        // Perfect circle for icon-only badge
+                        className="flex items-center justify-center shrink-0 bg-background/60 border-border/60 p-0 w-[22px] h-[22px] rounded-full"
+                        title={task.recurrencePattern.toLowerCase() === 'daily' ? 'Daily habit' : task.recurrencePattern.toLowerCase() === 'weekly' ? 'Weekly habit' : `${task.recurrencePattern} habit`}
+                        aria-label={`Recurring: ${task.recurrencePattern}`}
+                      >
                         <Repeat className="w-3 h-3" />
-                        {task.recurrencePattern.toLowerCase() === 'daily'
-                          ? 'Daily'
-                          : task.recurrencePattern.toLowerCase() === 'weekly'
-                            ? 'Weekly'
-                            : task.recurrencePattern.charAt(0).toUpperCase() + task.recurrencePattern.slice(1).toLowerCase()}
-                        {task.showRecurrenceIndex && task.recurrenceIndex && (
-                          <span> • {task.recurrenceIndex}{task.recurrenceTotal ? `/${task.recurrenceTotal}` : ''}</span>
-                        )}
+                        {/* Recurrence details removed from card face for cleaner look */}
                       </Badge>
                     )}
+                    {/* Status badge - pushed to right via flex if needed, or inline */}
+                    <Badge
+                      variant={getStatusBadgeVariant(uiStatus)}
+                      className={cn(
+                        "text-[11px] capitalize shrink-0 font-bold h-[22px] px-2 ml-auto", // ml-auto pushes it right
+                        getStatusColor(uiStatus),
+                        uiStatus === 'completed' && 'bg-status-completed/15 border-status-completed/40 text-status-completed',
+                        uiStatus === 'archived' && 'bg-destructive/15 border-destructive/40 text-destructive',
+                        uiStatus === 'upcoming' && 'bg-[hsl(var(--status-upcoming))]/15 border-[hsl(var(--status-upcoming))]/40 text-[hsl(var(--status-upcoming))]'
+                      )}
+                      style={
+                        uiStatus === 'completed' ? {
+                          borderColor: 'hsl(var(--status-completed) / 0.4)',
+                          backgroundColor: 'hsl(var(--status-completed) / 0.15)',
+                          color: 'hsl(var(--status-completed))'
+                        } : uiStatus === 'archived' ? {
+                          borderColor: 'hsl(var(--destructive) / 0.4)',
+                          backgroundColor: 'hsl(var(--destructive) / 0.15)',
+                          color: 'hsl(var(--destructive))'
+                        } : uiStatus === 'upcoming' ? {
+                          borderColor: 'hsl(var(--status-upcoming) / 0.4)',
+                          backgroundColor: 'hsl(var(--status-upcoming) / 0.15)',
+                          color: 'hsl(var(--status-upcoming))'
+                        } : undefined
+                      }
+                      aria-label={`Status: ${uiStatus}`}
+                    >
+                      {uiStatus}
+                    </Badge>
                   </div>
 
-                  <h3 className="font-semibold text-lg lg:text-xl text-foreground line-clamp-2">
+                  {/* Compact title - single line with tooltip */}
+                  <h3
+                    className="font-semibold text-base lg:text-lg text-foreground line-clamp-1 mt-0.5"
+                    title={task.title}
+                  >
                     {task.title}
                   </h3>
-
-                  {task.description && (
-                    <p className="hidden sm:block text-sm text-muted-foreground line-clamp-1 mt-0.5">
-                      {task.description}
-                    </p>
-                  )}
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <Badge
-                    variant={getStatusBadgeVariant(uiStatus)}
-                    className={`${getStatusColor(uiStatus)} capitalize shrink-0 font-bold ${uiStatus === 'completed'
-                      ? 'bg-status-completed/15 border-status-completed/40 text-status-completed font-bold'
-                      : ''
-                      }`}
-                    style={uiStatus === 'completed' ? {
-                      borderColor: 'hsl(var(--status-completed) / 0.4)',
-                      backgroundColor: 'hsl(var(--status-completed) / 0.15)',
-                      color: 'hsl(var(--status-completed))'
-                    } : undefined}
-                  >
-                    {uiStatus}
-                  </Badge>
-                  <div className="flex items-center gap-1">
-                    {onEdit && canModify && isModifiableStatus && task.type !== 'habit' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit(task);
-                        }}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                    {onDelete && canModify && isModifiableStatus && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(task.id);
-                        }}
-                        title="Delete Task"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                {/* REMOVED: Edit/Delete buttons (Actionable via card click) */}
               </div>
 
-              {/* Participants & Completion Status */}
+              {/* Participants & Completion Status - Compact with proper spacing */}
               {showMemberInfo && (
                 <div className="flex items-center justify-between gap-2 flex-none pt-2">
                   <TaskParticipantAvatars
@@ -523,11 +522,11 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
                 </div>
               )}
 
-              {/* Actions */}
+              {/* Actions - Production Ready */}
               {(shouldShowRecover || shouldShowComplete) && (
                 <div className={cn(
-                  "flex-none pt-4 mt-auto",
-                  'border-t border-border/50'
+                  "flex-none pt-2.5 mt-auto",
+                  // separator removed
                 )}>
                   <AnimatePresence mode="wait">
                     {/* Show Recover button for archived tasks, Mark As Completed for active tasks */}
@@ -543,10 +542,11 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
                             onRecover?.(task.id);
                           }}
                           variant="outline"
-                          className="w-full"
+                          className="w-full h-8 text-[13px] font-medium active:scale-[0.98] transition-transform"
+                          aria-label={`Recover task: ${task.title}`}
                         >
-                          <RotateCcw className="w-4 h-4 mr-2" />
-                          Recover Task
+                          <RotateCcw className="w-3.5 h-3.5 mr-2" />
+                          Recover
                         </Button>
                       </motion.div>
                     )}
@@ -562,10 +562,11 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
                             e.stopPropagation();
                             handleComplete();
                           }}
-                          className="w-full gradient-primary text-white hover:opacity-90"
+                          className="w-full h-8 text-[13px] font-medium gradient-primary text-white hover:opacity-90 active:scale-[0.98] transition-transform shadow-sm"
+                          aria-label={`Mark task as completed: ${task.title}`}
                         >
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Mark as Completed
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
+                          Mark Complete
                         </Button>
                       </motion.div>
                     )}

@@ -79,6 +79,7 @@ const ProjectDetail = () => {
     completedCount,
     totalTasks,
     isLoading,
+    isAICreatedProject,
     activeTasks,
     upcomingTasks,
     completedTasks,
@@ -214,7 +215,7 @@ const ProjectDetail = () => {
 
   if (isLoading) {
     return (
-      <PageLoader text="Loading project..." />
+      <PageLoader text={isAICreatedProject ? "Setting up your AI-generated project..." : "Loading project..."} />
     );
   }
 
@@ -286,6 +287,7 @@ const ProjectDetail = () => {
             onJoin={handleJoinProject}
             isJoining={isJoining}
             onCreateTask={() => setShowTaskForm(true)}
+            onViewMembers={() => setShowMembersDialog(true)}
           />
 
           <ProjectStats
@@ -297,10 +299,6 @@ const ProjectDetail = () => {
             completedTasksCount={completedTasks.length}
             upcomingCount={upcomingTasks.length}
             archivedCount={archivedTasks.length}
-            participants={participants}
-            canManage={canManage}
-            onAddMember={() => setShowAddMemberForm(true)}
-            onViewMembers={() => setShowMembersDialog(true)}
           />
 
           {/* Tasks Tabs */}
