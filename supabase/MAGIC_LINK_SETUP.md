@@ -60,11 +60,11 @@ MailJet_API_Key=your_mailjet_api_key
 MailJet_API_Secret=your_mailjet_api_secret
 MailJet_From_Email=noreply@yourdomain.com
 MailJet_From_Name=Momentum
-APP_URL=https://mutualtask-pwa.netlify.app  # Optional - auto-detected if not set
+APP_URL=https://social-momentum.netlify.app  # Optional - auto-detected if not set
 ```
 
 **Note on APP_URL**: The Edge Function will automatically detect the environment:
-- **Production**: Uses `https://mutualtask-pwa.netlify.app` when Supabase URL contains `.supabase.co`
+- **Production**: Uses `https://social-momentum.netlify.app` when Supabase URL contains `.supabase.co`
 - **Development**: Uses `http://localhost:8080` for local development
 - You can override this by setting `APP_URL` or `VITE_APP_URL` in Supabase secrets
 

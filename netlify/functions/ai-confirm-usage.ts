@@ -5,6 +5,7 @@ import {
     incrementUsage,
     getCorsHeaders,
     AI_USAGE_LIMITS,
+    getTodayDate,
     type AIUsageType
 } from './shared/utils';
 
@@ -43,10 +44,15 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
         const userTimezone = event.headers['x-user-timezone'] || 'UTC';
 
+        console.log('[AI Confirm Usage] Starting usage confirmation:', { usageType, userTimezone });
+
         const userId = await verifyMagicLinkSession(sessionToken);
         if (!userId) {
+            console.log('[AI Confirm Usage] Session verification failed');
             return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Invalid or expired session' }) };
         }
+
+        console.log('[AI Confirm Usage] Session verified for user:', userId);
 
         const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
         const supabaseAdmin = createClient(
@@ -55,14 +61,23 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
+        const usageDate = getTodayDate(userTimezone);
+        console.log('[AI Confirm Usage] About to increment usage:', { userId, usageType, usageDate, userTimezone });
+
         await incrementUsage(supabaseAdmin, userId, usageType, userTimezone);
 
-        console.log('[AI Confirm Usage] Usage recorded:', { userId, usageType, userTimezone });
+        console.log('[AI Confirm Usage] Usage recorded successfully:', { userId, usageType, usageDate });
 
         return {
             statusCode: 200,
             headers,
-            body: JSON.stringify({ success: true, message: 'Usage recorded successfully' }),
+            body: JSON.stringify({
+                success: true,
+                message: 'Usage recorded successfully',
+                usageDate: usageDate,
+                userId: userId,
+                usageType: usageType
+            }),
         };
 
     } catch (error) {

@@ -6,7 +6,8 @@ import {
     incrementUsage,
     getCorsHeaders,
     buildRateLimitResponse,
-    AI_USAGE_LIMITS
+    AI_USAGE_LIMITS,
+    getTodayDate
 } from './shared/utils';
 
 const USAGE_TYPE = 'description_generation';
@@ -19,6 +20,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     }
 
     if (event.httpMethod !== 'POST') {
+        console.log('[AI Description] Method not allowed:', event.httpMethod);
         return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed. Use POST.' }) };
     }
 
@@ -42,16 +44,23 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
         const authHeader = event.headers['authorization'];
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('[AI Description] Missing authorization header');
             return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }) };
         }
         const sessionToken = authHeader.substring(7);
 
         const userTimezone = event.headers['x-user-timezone'] || 'UTC';
+        const usageDate = getTodayDate(userTimezone);
+
+        console.log('[AI Description] Starting generation:', { type, titleLength: title.length, timezone: userTimezone, usageDate });
 
         const userId = await verifyMagicLinkSession(sessionToken);
         if (!userId) {
+            console.log('[AI Description] Session verification failed');
             return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Invalid or expired session' }) };
         }
+
+        console.log('[AI Description] Session verified for user:', userId);
 
         const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
         const supabaseAdmin = createClient(
@@ -61,8 +70,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         );
 
         const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
+        console.log('[AI Description] Rate limit check:', rateLimit);
 
         if (!rateLimit.allowed) {
+            console.log('[AI Description] Rate limit exceeded for user:', userId);
             return buildRateLimitResponse(headers, rateLimit.limit);
         }
 
@@ -73,6 +84,12 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         }
 
         const secretKey = process.env.x_momentum_secret;
+
+        console.log('[AI Description] Calling n8n:', {
+            urlPrefix: n8nUrl.substring(0, 50) + '...',
+            hasSecret: !!secretKey,
+            title: title.trim().substring(0, 50)
+        });
 
         const response = await fetch(n8nUrl, {
             method: 'POST',
@@ -88,6 +105,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             cache: 'no-store',
         });
 
+        console.log('[AI Description] n8n response status:', response.status);
+
         if (!response.ok) {
             const errText = await response.text();
             console.error('[AI Description] n8n Error:', response.status, errText);
@@ -99,10 +118,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         }
 
         const responseText = await response.text();
+        console.log('[AI Description] n8n success, response length:', responseText.length);
 
         try {
             await incrementUsage(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
-            console.log('[AI Description] Usage incremented for userId:', userId);
+            console.log('[AI Description] Usage incremented for userId:', userId, 'date:', usageDate);
         } catch (e) {
             console.error('[AI Description] Failed to increment usage:', e);
         }

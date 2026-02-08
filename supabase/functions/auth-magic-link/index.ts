@@ -30,7 +30,7 @@ const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000;
  * 2. VITE_APP_URL environment variable (fallback for compatibility)
  * 3. Auto-detect from Supabase URL (fallback for development)
  * 
- * Production: https://mutualtask-pwa.netlify.app
+ * Production: https://social-momentum.netlify.app
  * Development: http://localhost:8080
  */
 function getAppUrl(): string {
@@ -56,7 +56,7 @@ function getAppUrl(): string {
 
   // Return production URL if in production, otherwise development URL
   return isProduction
-    ? 'https://mutualtask-pwa.netlify.app'
+    ? 'https://social-momentum.netlify.app'
     : 'http://localhost:8080';
 }
 

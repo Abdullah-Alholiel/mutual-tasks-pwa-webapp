@@ -2,7 +2,7 @@
 // AI Project Modal - Modal for AI-Powered Project Generation
 // ============================================================================
 
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { Sparkles, CheckCircle2, Calendar, RotateCcw, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { useAIProjectGeneration } from '../hooks';
 import type { AIGeneratedProject, AIGeneratedTask } from '../types';
@@ -66,7 +65,13 @@ export const AIProjectModal = ({
     const handleCreate = async () => {
         if (generatedProject) {
             // Increment usage count ONLY when user confirms project creation
-            await confirmProjectCreation();
+            // Block project creation if usage logging fails (to enforce 3/day limit)
+            const usageConfirmed = await confirmProjectCreation();
+            if (!usageConfirmed) {
+                // Don't proceed with project creation if we couldn't log usage
+                // This ensures the 3/day limit is enforced
+                return;
+            }
             onCreateProject(generatedProject);
             handleClose();
         }

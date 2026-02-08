@@ -41,10 +41,10 @@ Click **"New secret"** for each of the following:
    - **Value**: Your application's base URL
    - **Examples**:
      - Development: `http://localhost:8080`
-     - Production: `https://mutualtask-pwa.netlify.app`
+     - Production: `https://social-momentum.netlify.app`
    - **Important**: No trailing slash at the end
    - **Auto-detection**: If not set, the Edge Function will automatically detect the environment:
-     - **Production**: Uses `https://mutualtask-pwa.netlify.app` when Supabase URL contains `.supabase.co`
+     - **Production**: Uses `https://social-momentum.netlify.app` when Supabase URL contains `.supabase.co`
      - **Development**: Uses `http://localhost:8080` for local development
 
 ### Secret Name Case Sensitivity

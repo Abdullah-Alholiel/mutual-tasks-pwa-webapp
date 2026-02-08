@@ -52,6 +52,8 @@ export async function incrementUsage(
 ): Promise<void> {
     const today = getTodayDate(timezone);
 
+    console.log('[AI Usage] incrementUsage called:', { userId, usageType, today, timezone });
+
     const { data: existing, error: fetchError } = await supabaseAdmin
         .from('ai_usage_logs')
         .select('id, count')
@@ -65,7 +67,11 @@ export async function incrementUsage(
         throw new Error('Failed to check usage record');
     }
 
+    console.log('[AI Usage] Existing record lookup:', { found: !!existing, existing });
+
     if (existing) {
+        console.log('[AI Usage] Updating existing record:', { id: existing.id, currentCount: existing.count, newCount: existing.count + 1 });
+
         const { error: updateError } = await supabaseAdmin
             .from('ai_usage_logs')
             .update({
@@ -78,22 +84,28 @@ export async function incrementUsage(
             console.error('[AI Usage] Failed to update usage:', updateError);
             throw new Error('Failed to update usage count');
         }
-    } else {
-        console.log('[AI Usage] No existing usage record, inserting new one');
 
-        const { error: insertError } = await supabaseAdmin
+        console.log('[AI Usage] Successfully updated record');
+    } else {
+        console.log('[AI Usage] No existing record, inserting new one:', { userId, usageType, today });
+
+        const { data: insertedData, error: insertError } = await supabaseAdmin
             .from('ai_usage_logs')
             .insert({
                 user_id: userId,
                 usage_type: usageType,
                 usage_date: today,
                 count: 1,
-            });
+            })
+            .select()
+            .single();
 
         if (insertError) {
             console.error('[AI Usage] Failed to insert usage:', insertError);
             throw new Error('Failed to record usage');
         }
+
+        console.log('[AI Usage] Successfully inserted new record:', insertedData);
     }
 }
 

@@ -14,7 +14,7 @@ export class MailJetEmailService implements EmailService {
     // Support both MailJet_API_Key and MailJet_API_Secret format
     this.apiKey = process.env.MailJet_API_Key || process.env.MAILJET_API_KEY || '';
     this.apiSecret = process.env.MailJet_API_Secret || process.env.MAILJET_API_SECRET || '';
-    this.fromEmail = process.env.MailJet_From_Email || process.env.MAILJET_FROM_EMAIL || 'noreply@momentum.app';
+    this.fromEmail = process.env.MailJet_From_Email || process.env.MAILJET_FROM_EMAIL || 'momentum.pwa@gmail.com';
     this.fromName = process.env.MailJet_From_Name || process.env.MAILJET_FROM_NAME || 'Momentum';
 
     if (!this.apiKey || !this.apiSecret) {

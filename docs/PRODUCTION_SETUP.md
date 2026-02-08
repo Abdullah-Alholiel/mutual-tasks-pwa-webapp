@@ -28,7 +28,7 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 # Sentry (Optional but recommended)
 VITE_SENTRY_DSN=https://your-dsn@sentry.io/project-id
-VITE_APP_URL=https://momentum.app
+VITE_APP_URL=https://social-momentum.netlify.app
 
 # For build-time Sentry features (source maps)
 SENTRY_AUTH_TOKEN=your-sentry-auth-token

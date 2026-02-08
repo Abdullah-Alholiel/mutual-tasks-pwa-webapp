@@ -103,9 +103,9 @@ serve(async (req) => {
 
     const apiKey = Deno.env.get('MailJet_API_Key') || Deno.env.get('MAILJET_API_KEY') || '';
     const apiSecret = Deno.env.get('MailJet_API_Secret') || Deno.env.get('MAILJET_API_SECRET') || '';
-    const fromEmail = Deno.env.get('MailJet_From_Email') || Deno.env.get('MAILJET_FROM_EMAIL') || 'noreply@momentum.app';
+    const fromEmail = Deno.env.get('MailJet_From_Email') || Deno.env.get('MAILJET_FROM_EMAIL') || 'momentum.pwa@gmail.com';
     const fromName = 'Momentum';
-    const appUrl = Deno.env.get('VITE_APP_URL') || 'https://momentum.app';
+    const appUrl = Deno.env.get('VITE_APP_URL') || Deno.env.get('APP_URL') || 'https://social-momentum.netlify.app';
 
     if (!apiKey || !apiSecret) {
       return new Response(

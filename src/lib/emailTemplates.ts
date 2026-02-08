@@ -25,7 +25,7 @@ export const createSigninEmail = (
   userName?: string
 ): EmailData => {
   const greeting = userName ? `Hi ${userName},` : 'Hi there,';
-  
+
   return {
     to: email,
     subject: 'Sign in to Momentum',
@@ -90,7 +90,7 @@ export const createSignupEmail = (
   userName?: string
 ): EmailData => {
   const greeting = userName ? `Hi ${userName},` : 'Hi there,';
-  
+
   return {
     to: email,
     subject: 'Welcome to Momentum! Complete your signup',
@@ -156,13 +156,13 @@ export const createTaskCreatedEmail = (
   creator: User
 ): EmailData => {
   // Support both Vite and Next.js environment variables
-  const appUrl = 
+  const appUrl =
     (typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) ||
     (typeof process !== 'undefined' && process.env?.VITE_APP_URL) ||
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) ||
-    'https://momentum.app';
+    'https://social-momentum.netlify.app';
   const taskUrl = `${appUrl}/projects/${project.id}`;
-  
+
   return {
     to: recipient.email,
     subject: `New task: "${task.title}" in ${project.name}`,
@@ -261,12 +261,12 @@ export const createTaskCompletedEmail = (
             
             <p style="font-size: 16px; color: #666;">
               ${allCompleted
-                ? '🎊 Amazing! Both of you have completed this task. Great teamwork!' 
-                : 'Keep up the momentum! Complete your part to finish this task together.'}
+        ? '🎊 Amazing! Both of you have completed this task. Great teamwork!'
+        : 'Keep up the momentum! Complete your part to finish this task together.'}
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${(typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'https://momentum.app'}/" 
+              <a href="${(typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'https://social-momentum.netlify.app'}/" 
                  style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
                 View Task
               </a>
@@ -303,7 +303,7 @@ export class MockEmailService implements EmailService {
       subject: emailData.subject,
       preview: emailData.text?.substring(0, 100) + '...'
     });
-    
+
     // In production, this would call your email service API
     // Example with Resend:
     // await fetch('https://api.resend.com/emails', {
@@ -313,7 +313,7 @@ export class MockEmailService implements EmailService {
     //     'Content-Type': 'application/json',
     //   },
     //   body: JSON.stringify({
-    //     from: 'Momentum <noreply@momentum.app>',
+    //     from: 'Momentum <momentum.pwa@gmail.com>',
     //     to: emailData.to,
     //     subject: emailData.subject,
     //     html: emailData.html,
