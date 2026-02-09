@@ -143,7 +143,7 @@ export const useProjectMembers = ({
 
       // Create task statuses for all tasks
       const taskStatusesToCreate = projectTasks
-        .filter(task => {
+        .filter(() => {
           // Check if status already exists (safety check)
           // We'll check this in the loop below to avoid unnecessary creates
           return true;
@@ -256,93 +256,91 @@ export const useProjectMembers = ({
 
       const now = new Date();
 
-      // Get all existing tasks in the project once (shared across all new members)
-      const projectTasks = await db.tasks.getAll({ projectId: pId });
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // ✅ OPTIMISTIC UPDATE - Do this FIRST, immediately
+      const optimisticParticipants = userIdsToAdd.map(userId => ({
+        projectId: pId,
+        userId: userId,
+        role: 'participant' as const,
+        addedAt: now,
+        removedAt: undefined
+      }));
+      setProjectParticipants(prev => [...prev, ...optimisticParticipants]);
 
-      // Add each user as participant
-      const addedParticipants: ProjectParticipant[] = [];
-
-      for (const userIdToAdd of userIdsToAdd) {
-        await db.projects.addParticipant(pId, userIdToAdd, 'participant');
-
-        // Create task statuses for all existing tasks for this user
-        const taskStatusesToCreate = projectTasks
-          .map(task => {
-            const dueDate = new Date(task.dueDate);
-            dueDate.setHours(0, 0, 0, 0);
-            const isPastDue = dueDate.getTime() < today.getTime();
-
-            return {
-              taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
-              userId: userIdToAdd,
-              status: isPastDue ? ('archived' as const) : ('active' as const),
-              archivedAt: isPastDue ? now : undefined,
-              ringColor: undefined,
-            };
-          });
-
-        // Create task statuses (checking for existence first to avoid duplicates)
-        if (taskStatusesToCreate.length > 0) {
-          await Promise.all(
-            taskStatusesToCreate.map(async (statusData) => {
-              const existingStatus = await db.taskStatus.getByTaskAndUser(statusData.taskId, statusData.userId);
-              if (!existingStatus) {
-                await db.taskStatus.create(statusData);
-              }
-            })
-          );
-        }
-
-        addedParticipants.push({
-          projectId: pId,
-          userId: userIdToAdd,
-          role: 'participant',
-          addedAt: now,
-          removedAt: undefined
-        });
-      }
-
-      // Update local state
-      setProjectParticipants(prev => [...prev, ...addedParticipants]);
-
-      // Get user details for notifications
-      const userIdsStr = userIdsToAdd.map(id => String(id));
-      const usersToAdd = await Promise.all(
-        userIdsStr.map(async (userIdStr) => {
-          const userData = await db.users.getById(parseInt(userIdStr));
-          return userData;
-        })
-      );
-
-      // Send notifications to all newly added members and existing members
-      try {
-        for (const userIdToAdd of userIdsToAdd) {
-          await notificationService.notifyProjectJoined(pId, userIdToAdd, userIdsToAdd.length);
-        }
-      } catch (notifError) {
-        console.error('Failed to send notifications:', notifError);
-      }
-
-      // Immediately refetch to ensure UI updates instantly
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['project', projectId] }),
-        queryClient.refetchQueries({ queryKey: ['project', String(pId)] }),
-        queryClient.refetchQueries({ queryKey: ['project', pId] }),
-        queryClient.refetchQueries({ queryKey: ['projects'] }),
-        queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
-        ...userIdsToAdd.map(userIdToAdd => queryClient.refetchQueries({ queryKey: ['projects', userIdToAdd] })),
-        queryClient.refetchQueries({ queryKey: ['tasks'] }),
-        queryClient.refetchQueries({ queryKey: ['taskStatuses'] }),
-        ...userIdsToAdd.map(userIdToAdd => queryClient.refetchQueries({ queryKey: ['tasks', 'today', userIdToAdd] })),
-      ]);
-
+      // Show success toast immediately (user sees this while loading)
       toast.success('Members added! 🎉', {
-        description: addedParticipants.length === 1
-          ? "The new member is now part of the project."
-          : "Everyone has been added to the project."
+        description: `They'll be added to all tasks shortly.`
       });
+
+      // ✅ ACTUALLY AWAIT the work - no fire-and-forget
+      try {
+        // Get all tasks
+        const projectTasks = await db.tasks.getAll({ projectId: pId });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // ✅ PARALLEL: Add all users at once (not serial)
+        await Promise.all(
+          userIdsToAdd.map(async (userIdToAdd) => {
+            await db.projects.addParticipant(pId, userIdToAdd, 'participant');
+
+            // Create task statuses
+            const taskStatusesToCreate = projectTasks.map(task => {
+              const dueDate = new Date(task.dueDate);
+              dueDate.setHours(0, 0, 0, 0);
+              const isPastDue = dueDate.getTime() < today.getTime();
+
+              return {
+                taskId: typeof task.id === 'string' ? parseInt(task.id) : task.id,
+                userId: userIdToAdd,
+                status: isPastDue ? ('archived' as const) : ('active' as const),
+                archivedAt: isPastDue ? now : undefined,
+                ringColor: undefined,
+              };
+            });
+
+            if (taskStatusesToCreate.length > 0) {
+              await Promise.all(
+                taskStatusesToCreate.map(async (statusData) => {
+                  const existingStatus = await db.taskStatus.getByTaskAndUser(statusData.taskId, statusData.userId);
+                  if (!existingStatus) {
+                    await db.taskStatus.create(statusData);
+                  }
+                })
+              );
+            }
+          })
+        );
+
+        // ✅ PARALLEL: Send all notifications at once
+        await Promise.all(
+          userIdsToAdd.map(userIdToAdd =>
+            notificationService.notifyProjectJoined(pId, userIdToAdd, userIdsToAdd.length).catch(err => {
+              console.error('Notification failed:', err);
+            })
+          )
+        );
+
+        // ✅ NON-BLOCKING: Refetch queries (don't await)
+        Promise.all([
+          queryClient.refetchQueries({ queryKey: ['project', projectId] }),
+          queryClient.refetchQueries({ queryKey: ['project', String(pId)] }),
+          queryClient.refetchQueries({ queryKey: ['project', pId] }),
+          queryClient.refetchQueries({ queryKey: ['projects'] }),
+          queryClient.refetchQueries({ queryKey: ['projects', 'with-stats'] }),
+          ...userIdsToAdd.map(userIdToAdd => queryClient.refetchQueries({ queryKey: ['projects', userIdToAdd] })),
+          queryClient.refetchQueries({ queryKey: ['tasks'] }),
+          queryClient.refetchQueries({ queryKey: ['taskStatuses'] }),
+          ...userIdsToAdd.map(userIdToAdd => queryClient.refetchQueries({ queryKey: ['tasks', 'today', userIdToAdd] })),
+        ]).catch(err => {
+          console.error('Refetch failed:', err);
+        });
+
+      } catch (error) {
+        handleError(error, 'handleAddMembers background process');
+        // Start rollback or extensive error handling if critical data consistency is lost
+        // For now, simple logging as this is an optimistic update scenario
+      }
+
     } catch (error) {
       handleError(error, 'handleAddMembers');
     }
@@ -372,7 +370,6 @@ export const useProjectMembers = ({
       // 3. Remove the user from the project (soft delete)
       await db.projects.removeParticipant(pId, userIdToRemove);
 
-      const now = new Date();
       setProjectParticipants(prev =>
         prev.filter(pp => {
           const ppProjectId = typeof pp.projectId === 'string' ? parseInt(pp.projectId) : pp.projectId;

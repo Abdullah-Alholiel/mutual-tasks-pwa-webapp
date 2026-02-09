@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/useAuth';
 import { useProjectDetail } from './hooks/useProjectDetail';
 import type { Project, Task, User } from '@/types';
@@ -36,6 +37,7 @@ import { TaskCard } from '../tasks/components/TaskCard';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { Loader, PageLoader } from '@/components/ui/loader';
 import { normalizeId } from '@/lib/idUtils';
+import { validateHandleFormat, findUserByIdentifier } from '@/lib/userUtils';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { ProjectStats } from '@/features/projects/components/ProjectStats';
 import ResourceNotFound from '@/components/ui/ResourceNotFound';
@@ -78,9 +80,14 @@ const ProjectDetail = () => {
     progress,
     completedCount,
     totalTasks,
+    // Combined counts including recurring tasks
+    activeCountTotal,
+    upcomingCountTotal,
+    completedCountTotal,
+    archivedCountTotal,
     isLoading,
     isAICreatedProject,
-    activeTasks,
+    taskCreationFailed,
     upcomingTasks,
     completedTasks,
     habitTasks,
@@ -112,7 +119,7 @@ const ProjectDetail = () => {
     handleComplete,
     handleCreateTask,
     handleUpdateTask,
-    handleAddMember,
+
     handleAddMembers,
     handleRemoveParticipant,
     handleUpdateRole,
@@ -156,31 +163,124 @@ const ProjectDetail = () => {
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
 
-  // Friend selection for adding multiple members
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
+  const [pendingAdditions, setPendingAdditions] = useState<User[]>([]);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const { data: friends = [] } = useFriends();
 
-  // Toggle friend selection
+  const handleAddByHandle = async () => {
+    if (!memberIdentifier.trim()) return;
+
+    setSearchError(null);
+
+    const handleValidation = validateHandleFormat(memberIdentifier);
+    if (!handleValidation.isValid) {
+      setSearchError(handleValidation.error || 'Invalid handle format');
+      return;
+    }
+
+    try {
+      const userToAdd = await findUserByIdentifier(memberIdentifier);
+
+      if (!userToAdd) {
+        setSearchError("User not found. Please check the handle.");
+        return;
+      }
+
+      const userIdToAdd = typeof userToAdd.id === 'string' ? parseInt(userToAdd.id) : userToAdd.id;
+      const isInProject = participants.some(p => {
+        const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+        return pUserId === userIdToAdd;
+      });
+
+      if (isInProject) {
+        setSearchError("This user is already a member of the project.");
+        return;
+      }
+
+      const isInPending = pendingAdditions.some(u => u.id === userToAdd.id);
+      if (isInPending) {
+        setSearchError("This user is already in your selection.");
+        return;
+      }
+
+      // Check if user is already in available friends list
+      const availableFriendIds = friends
+        .map(f => f.friend)
+        .filter((f): f is User => {
+          if (!f) return false;
+          return !participants.some(p => {
+            const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+            return pUserId === f.id;
+          });
+        })
+        .map(f => f.id);
+
+      const isInAvailableFriends = availableFriendIds.includes(userIdToAdd);
+
+      if (isInAvailableFriends) {
+        // User is already a friend and available - just select them
+        setSelectedFriendIds(prev => {
+          if (prev.includes(String(userToAdd.id))) {
+            return prev;
+          }
+          return [...prev, String(userToAdd.id)];
+        });
+
+        setMemberIdentifier('');
+        toast.success('Friend selected', {
+          description: `${userToAdd.name} is already in your friends list and has been selected.`
+        });
+        // Don't add to pending additions - they're already in the list
+        return;
+      }
+
+      setPendingAdditions(prev => [...prev, userToAdd]);
+      setMemberIdentifier('');
+      // Auto-select this user
+      setSelectedFriendIds(prev => [...prev, String(userToAdd.id)]);
+
+      toast.success('Added to selection', {
+        description: `${userToAdd.name} has been added to your selection.`
+      });
+    } catch (error) {
+      setSearchError("Failed to find user. Please try again.");
+    }
+  };
+
   const handleToggleFriend = (friendId: string) => {
-    setSelectedFriendIds(prev =>
+    setSelectedFriendIds((prev: string[]) =>
       prev.includes(friendId)
-        ? prev.filter(id => id !== friendId)
+        ? prev.filter((id: string) => id !== friendId)
         : [...prev, friendId]
     );
   };
 
-  // Handle adding selected friends
   const handleAddSelectedFriends = async () => {
-    if (selectedFriendIds.length === 0) {
-      handleAddMember();
-      return;
-    }
+    if (selectedFriendIds.length === 0) return;
 
-    const friendIdsAsNumbers = selectedFriendIds.map(id => typeof id === 'string' ? parseInt(id) : parseInt(id));
-    await handleAddMembers(friendIdsAsNumbers);
-    setSelectedFriendIds([]);
-    setMemberIdentifier('');
+    const friendIdsAsNumbers = selectedFriendIds.map((id: string) => typeof id === 'string' ? parseInt(id) : parseInt(id));
+
+    // Close modal immediately
     setShowAddMemberForm(false);
+
+    // Clear state
+    setMemberIdentifier('');
+    setSelectedFriendIds([]);
+    setPendingAdditions([]);
+
+    // Show loading until process completes
+    setIsAddingMember(true);
+
+    try {
+      await handleAddMembers(friendIdsAsNumbers);
+    } catch (error) {
+      console.error('Failed to add members:', error);
+    } finally {
+      // Hide loading when actual work is done
+      setIsAddingMember(false);
+    }
   };
 
 
@@ -263,6 +363,20 @@ const ProjectDetail = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Adding Member Loading Banner Overlay */}
+      <AnimatePresence>
+        {isAddingMember && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80"
+          >
+            <Loader containerHeight="h-auto" size={50} />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="h-full w-full overflow-y-auto custom-scrollbar">
         <div
           className="px-4 md:px-6 max-w-7xl mx-auto w-full space-y-6 animate-fade-in"
@@ -290,15 +404,43 @@ const ProjectDetail = () => {
             onViewMembers={() => setShowMembersDialog(true)}
           />
 
+          {/* Alert: Task creation failed during AI project creation */}
+          {taskCreationFailed && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3"
+            >
+              <Sparkles className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-amber-700 dark:text-amber-400">
+                  AI-generated tasks couldn't be added
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your project was created successfully. Add tasks manually to get started.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowTaskForm(true)}
+                className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Task
+              </Button>
+            </motion.div>
+          )}
+
           <ProjectStats
             project={project}
             progress={progress}
             completedCount={completedCount}
             totalTasks={totalTasks}
-            activeCount={activeTasks.length}
-            completedTasksCount={completedTasks.length}
-            upcomingCount={upcomingTasks.length}
-            archivedCount={archivedTasks.length}
+            activeCount={activeCountTotal}
+            completedTasksCount={completedCountTotal}
+            upcomingCount={upcomingCountTotal}
+            archivedCount={archivedCountTotal}
           />
 
           {/* Tasks Tabs */}
@@ -609,56 +751,79 @@ const ProjectDetail = () => {
           <DialogHeader>
             <DialogTitle>Add Team Member</DialogTitle>
             <DialogDescription>
-              Add a new member to this project by entering their handle or selecting from your friends
+              Find users by handle to add to your selection, or select from your friends
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
+            {/* Handle Input Section */}
             <div className="space-y-2">
               <Label htmlFor="handle">Handle</Label>
-              <div className="relative">
-                <InputComponent
-                  id="handle"
-                  type="text"
-                  placeholder="username"
-                  value={memberIdentifier}
-                  onChange={(e) => {
-                    let value = e.target.value;
-                    if (value && !value.startsWith('@')) {
-                      value = `@${value}`;
-                    }
-                    setMemberIdentifier(value);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && memberIdentifier.trim()) {
-                      handleAddMember();
-                    }
-                  }}
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <InputComponent
+                    id="handle"
+                    type="text"
+                    placeholder="username"
+                    value={memberIdentifier}
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      if (value && !value.startsWith('@')) {
+                        value = `@${value}`;
+                      }
+                      setMemberIdentifier(value);
+                      setSearchError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && memberIdentifier.trim()) {
+                        e.preventDefault();
+                        handleAddByHandle();
+                      }
+                    }}
+                    disabled={isAddingMember}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAddByHandle}
+                  disabled={!memberIdentifier.trim() || isAddingMember}
+                  className="shrink-0"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </Button>
               </div>
+              {searchError && (
+                <p className="text-xs text-destructive">{searchError}</p>
+              )}
               <p className="text-xs text-muted-foreground">
-                Enter the user's unique handle (e.g., @username)
+                Press Enter or click the + button to add to selection
               </p>
             </div>
-
+            {/* Selection List Section */}
             <div className="space-y-2">
-              <Label className="text-sm">Select Friends</Label>
+              <Label className="text-sm">
+                Selected {selectedFriendIds.length} friend{selectedFriendIds.length !== 1 ? 's' : ''}
+              </Label>
               <FriendSelector
-                availableFriends={friends.map(f => f.friend).filter((f): f is User => {
-                  if (!f) return false;
-                  return !participants.some(p => {
-                    const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
-                    return pUserId === f.id;
-                  });
-                })}
+                availableFriends={[
+                  ...friends.map(f => f.friend).filter((f): f is User => {
+                    if (!f) return false;
+                    return !participants.some(p => {
+                      const pUserId = typeof p.userId === 'string' ? parseInt(p.userId) : p.userId;
+                      return pUserId === f.id;
+                    });
+                  }),
+                  ...pendingAdditions
+                ]}
                 selectedUserIds={selectedFriendIds}
+                highlightedUserIds={new Set(pendingAdditions.map(u => String(u.id)))}
                 onToggleUser={handleToggleFriend}
                 selectedColor={currentProject?.color}
                 maxHeight="250px"
-                emptyMessage="No friends available to add"
+                emptyMessage="Add a handle to see users here"
               />
             </div>
-
+            {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
               <Button
                 variant="outline"
@@ -666,6 +831,8 @@ const ProjectDetail = () => {
                   setShowAddMemberForm(false);
                   setMemberIdentifier('');
                   setSelectedFriendIds([]);
+                  setPendingAdditions([]);
+                  setSearchError(null);
                 }}
                 className="flex-1"
               >
@@ -673,12 +840,18 @@ const ProjectDetail = () => {
               </Button>
               <Button
                 onClick={handleAddSelectedFriends}
-                disabled={!memberIdentifier.trim() && selectedFriendIds.length === 0}
+                disabled={selectedFriendIds.length === 0 || isAddingMember}
                 className="flex-1 gradient-primary text-white"
               >
-                <UserPlus className="w-4 h-4 mr-2" />
+                {isAddingMember ? (
+                  <Loader size={16} />
+                ) : (
+                  <UserPlus className="w-4 h-4 mr-2" />
+                )}
                 {selectedFriendIds.length > 0
-                  ? `Add ${selectedFriendIds.length} Member${selectedFriendIds.length > 1 ? 's' : ''}`
+                  ? isAddingMember
+                    ? 'Adding...'
+                    : `Add ${selectedFriendIds.length} Member${selectedFriendIds.length > 1 ? 's' : ''}`
                   : 'Add Member'
                 }
               </Button>

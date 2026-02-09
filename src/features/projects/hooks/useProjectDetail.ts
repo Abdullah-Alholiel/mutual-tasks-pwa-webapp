@@ -33,6 +33,7 @@ export const useProjectDetail = () => {
   const projectFromState = location.state?.project as Project | undefined;
   const projectParticipantsFromState = location.state?.projectParticipants as ProjectParticipant[] | undefined;
   const isAICreatedProject = location.state?.isAICreatedProject as boolean | undefined;
+  const taskCreationFailed = location.state?.taskCreationFailed as boolean | undefined;
   const { data: projectFromDb, isLoading: projectLoading } = useProject(id);
   const currentProject = projectFromState || projectFromDb;
 
@@ -109,6 +110,11 @@ export const useProjectDetail = () => {
     progress,
     completedCount,
     totalTasks,
+    // Combined counts including recurring tasks
+    activeCountTotal,
+    upcomingCountTotal,
+    completedCountTotal,
+    archivedCountTotal,
   } = taskCategories;
 
   // Task mutations
@@ -186,10 +192,16 @@ export const useProjectDetail = () => {
     progress,
     completedCount,
     totalTasks,
+    // Combined counts including recurring tasks (for ProjectStats)
+    activeCountTotal,
+    upcomingCountTotal,
+    completedCountTotal,
+    archivedCountTotal,
 
     // Loading state
     isLoading,
     isAICreatedProject,
+    taskCreationFailed,
 
     // Task lists
     activeTasks,

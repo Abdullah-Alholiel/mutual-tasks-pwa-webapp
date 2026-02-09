@@ -22,26 +22,53 @@ export const TIMEOUT_ERROR = 'TIMEOUT_ERROR';
 export async function generateAIProject(
     description: string
 ): Promise<GenerateProjectResult> {
-    // Call the Netlify Serverless Function
-    const functionUrl = '/.netlify/functions/ai-generate-project';
+    // Check if running in local development mode (direct N8N call)
+    const isLocalDev = import.meta.env.DEV && import.meta.env.VITE_USE_LOCAL_N8N === 'true';
 
-    aiLogger.info('Starting AI project generation', { descriptionLength: description.length });
+    // Local: Call N8N directly, Production: Call Netlify function
+    const functionUrl = isLocalDev
+        ? 'https://n8n-pwg804wg84008c00g8www4gc.145.241.109.213.sslip.io/webhook/ai-generated-project-momentumPWA'
+        : '/.netlify/functions/ai-generate-project';
 
-    // Get session token for authorization
+    aiLogger.info('Starting AI project generation', {
+        descriptionLength: description.length,
+        isLocalDev,
+        endpoint: isLocalDev ? 'N8N Direct' : 'Netlify Function'
+    });
+
+    // Get session token for authorization (used in production)
     const sessionToken = getSessionToken();
-    if (!sessionToken) {
+    if (!sessionToken && !isLocalDev) {
         aiLogger.error('No session token found');
         return { success: false, error: 'Please log in to use AI features' };
     }
 
     try {
+        // Build headers based on environment
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'x-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+        };
+
+        // Add auth headers - different for local vs production
+        if (isLocalDev) {
+            // Local: Use N8N secret header (both formats for compatibility)
+            const secret = import.meta.env.VITE_N8N_SECRET;
+            headers['x-momentum-secret'] = secret;
+            headers['x_momentum_secret'] = secret; // N8N might use underscore format
+
+            aiLogger.info('Local N8N mode - headers set', {
+                hasSecret: !!secret,
+                secretPreview: secret.substring(0, 5) + '...'
+            });
+        } else {
+            // Production: Use session token
+            headers['Authorization'] = `Bearer ${sessionToken}`;
+        }
+
         const response = await fetch(functionUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionToken}`,
-                'x-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
-            },
+            headers,
             body: JSON.stringify({ description: description.trim() }),
             cache: 'no-store',
         });

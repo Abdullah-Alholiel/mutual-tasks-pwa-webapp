@@ -50,6 +50,7 @@ export const AIProjectModal = ({
     onCreateProject,
 }: AIProjectModalProps) => {
     const [description, setDescription] = useState('');
+    const [highlightInput, setHighlightInput] = useState(false);
     const { aiState, generatedProject, generateProject, resetState, confirmProjectCreation, remainingToday } = useAIProjectGeneration();
 
     /**
@@ -87,40 +88,43 @@ export const AIProjectModal = ({
     };
 
     /**
-     * Start over with a new description
+     * Start over and return to input phase
+     * NOTE: Preserves the original description so user can modify and retry
+     * Contrast with handleClose() which clears all state and closes modal
      */
     const handleStartOver = () => {
-        setDescription('');
+        setHighlightInput(true);
         resetState();
+        setTimeout(() => setHighlightInput(false), 2000);
     };
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <DialogHeader>
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-[#8B5CF6] flex items-center justify-center">
-                                <Sparkles className="w-4 h-4 text-white" />
-                            </div>
-                            <DialogTitle>AI Project Generator</DialogTitle>
+                    <div className="flex items-center gap-3 mb-2 pr-8">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#7C3AED] flex items-center justify-center shadow-lg shadow-[#8B5CF6]/20">
+                            <Sparkles className="w-5 h-5 text-white" />
                         </div>
-                        {/* Usage Indicator */}
+                        <DialogTitle className="text-xl">AI Project Generator</DialogTitle>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                        <DialogDescription className="flex-1">
+                            Describe your project idea and I'll create it with tasks for you!
+                        </DialogDescription>
+                        {/* Usage Indicator - positioned after description for better visual flow */}
                         {remainingToday !== null && (
-                            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${remainingToday === 0
-                                    ? 'bg-destructive/10 text-destructive'
-                                    : remainingToday <= 1
-                                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                        : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-colors ${remainingToday === 0
+                                ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                                : remainingToday <= 1
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                    : 'bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/20'
                                 }`}>
-                                <Zap className="w-3 h-3" />
-                                <span>{remainingToday}/3 left today</span>
+                                <Zap className="w-3.5 h-3.5" />
+                                <span>{remainingToday}/3 left</span>
                             </div>
                         )}
                     </div>
-                    <DialogDescription>
-                        Describe your project idea and I'll create it with tasks for you!
-                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
@@ -151,12 +155,18 @@ export const AIProjectModal = ({
                                         placeholder="Describe your project idea..."
                                         value={description}
                                         onChange={(e) => setDescription(e.target.value)}
-                                        className="min-h-[120px] text-base resize-none"
+                                        className={`min-h-[120px] text-base resize-none transition-all duration-300 ${highlightInput ? 'ring-2 ring-[#8B5CF6] ring-offset-2' : ''}`}
                                         disabled={aiState === 'loading'}
+                                        autoFocus={generatedProject === null && description !== ''}
                                     />
-                                    <p className="text-xs text-muted-foreground">
-                                        Be as detailed as you like - include timeline, frequency, and specific tasks.
-                                    </p>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground">
+                                            Be as detailed as you like - include timeline, frequency, and specific tasks.
+                                        </p>
+                                        <span className="text-xs text-muted-foreground tabular-nums">
+                                            {description.length} chars
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Generate Button */}
@@ -204,7 +214,7 @@ export const AIProjectModal = ({
                                         className="flex-1"
                                     >
                                         <RotateCcw className="w-4 h-4 mr-2" />
-                                        Start Over
+                                        Edit Prompt
                                     </Button>
                                     <Button
                                         type="button"

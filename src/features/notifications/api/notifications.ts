@@ -120,7 +120,7 @@ export class NotificationsRepository {
       console.warn('[NotificationsRepo] Deduplication check failed:', checkError.message);
       // Continue with creation if check fails
     } else if (existingDuplicates && existingDuplicates.length > 0) {
-      console.log('[NotificationsRepo] ⚠️ Skipping duplicate notification:', {
+      console.debug('[NotificationsRepo] ⚠️ Skipping duplicate notification:', {
         userId: notificationData.userId,
         type: notificationData.type,
         message: notificationData.message.substring(0, 50) + '...',
@@ -192,7 +192,7 @@ export class NotificationsRepository {
       }
 
       if (existingDuplicates && existingDuplicates.length > 0) {
-        console.log('[NotificationsRepo] ⚠️ Skipping duplicate notification:', {
+        console.debug('[NotificationsRepo] ⚠️ Skipping duplicate notification:', {
           userId: notification.userId,
           type: notification.type,
           message: notification.message.substring(0, 50) + '...',

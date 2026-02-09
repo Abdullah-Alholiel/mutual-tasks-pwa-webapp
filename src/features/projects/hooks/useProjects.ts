@@ -113,9 +113,8 @@ export const useCreateProject = () => {
     onSuccess: (newProject) => {
       // Invalidate and refetch projects
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast.success('Project ready! 🏢', {
-        description: "You're all set to start adding tasks."
-      });
+      // Note: Toast removed here - caller (Projects.tsx/ProjectForm) handles success messaging
+      // This prevents confusing double-toasts during AI project creation
 
       // Send notifications using unified service (handles Push, In-app, and Email)
       if (user) {

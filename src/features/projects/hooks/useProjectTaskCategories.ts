@@ -33,6 +33,11 @@ export const useProjectTaskCategories = ({
   completedHabitSeries: HabitSeries[];
   upcomingHabitSeries: HabitSeries[];
   archivedHabitSeries: HabitSeries[];
+  // Combined counts including both one-off and recurring tasks
+  activeCountTotal: number;
+  upcomingCountTotal: number;
+  completedCountTotal: number;
+  archivedCountTotal: number;
 } => {
   // Get project tasks using utility - show ALL tasks in the project
   const projectTasksRaw = useMemo(() =>
@@ -155,7 +160,16 @@ export const useProjectTaskCategories = ({
   };
 
   // Habits: group habit tasks by their series and status
-  const { habitTasks, completedHabitSeries, upcomingHabitSeries, archivedHabitSeries } = useMemo(() => {
+  const {
+    habitTasks,
+    completedHabitSeries,
+    upcomingHabitSeries,
+    archivedHabitSeries,
+    activeHabitCount,
+    upcomingHabitCount,
+    completedHabitCount,
+    archivedHabitCount,
+  } = useMemo(() => {
     const habits = projectTasks.filter(t => t.type === 'habit');
 
     if (!user) {
@@ -163,49 +177,58 @@ export const useProjectTaskCategories = ({
         habitTasks: groupHabitsBySeries(habits),
         completedHabitSeries: [],
         upcomingHabitSeries: [],
-        archivedHabitSeries: []
+        archivedHabitSeries: [],
+        activeHabitCount: 0,
+        upcomingHabitCount: 0,
+        completedHabitCount: 0,
+        archivedHabitCount: 0,
       };
     }
 
     const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
 
-    // Filter habits by status for different tabs
-    const completedHabits = habits.filter(task =>
-      completionLogs.some(cl => {
-        const clUserId = typeof cl.userId === 'string' ? parseInt(cl.userId) : cl.userId;
-        const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
-        const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
-        return clTaskId === taskId && clUserId === userId;
-      })
-    );
+    // Strictly categorize habits using the same logic as one-off tasks
+    const activeHabits: Task[] = [];
+    const upcomingHabits: Task[] = [];
+    const completedHabits: Task[] = [];
+    const archivedHabits: Task[] = [];
 
-    const archivedHabits = habits.filter(task => {
+    habits.forEach(task => {
       const myStatus = taskStatuses.find(ts => {
         const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
         const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
         const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
         return tsTaskId === taskId && tsUserId === userId;
       });
-      return myStatus?.status === 'archived';
-    });
 
-    const upcomingHabits = habits.filter(task => {
-      // Check if not completed and not archived
-      const isCompleted = completionLogs.some(cl => {
+      const myCompletion = completionLogs.find(cl => {
         const clUserId = typeof cl.userId === 'string' ? parseInt(cl.userId) : cl.userId;
         const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
         const clTaskId = typeof cl.taskId === 'string' ? parseInt(cl.taskId) : cl.taskId;
         return clTaskId === taskId && clUserId === userId;
       });
-      if (isCompleted) return false;
 
-      const myStatus = taskStatuses.find(ts => {
-        const tsUserId = typeof ts.userId === 'string' ? parseInt(ts.userId) : ts.userId;
-        const taskId = typeof task.id === 'string' ? parseInt(task.id) : task.id;
-        const tsTaskId = typeof ts.taskId === 'string' ? parseInt(ts.taskId) : ts.taskId;
-        return tsTaskId === taskId && tsUserId === userId;
-      });
-      return myStatus?.status !== 'archived';
+      const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
+
+      if (myCompletion) {
+        completedHabits.push(task);
+        return;
+      }
+
+      switch (userStatus) {
+        case 'active':
+        case 'recovered':
+          activeHabits.push(task);
+          break;
+        case 'upcoming':
+          upcomingHabits.push(task);
+          break;
+        case 'archived':
+          archivedHabits.push(task);
+          break;
+        default:
+          activeHabits.push(task);
+      }
     });
 
     return {
@@ -217,7 +240,12 @@ export const useProjectTaskCategories = ({
         const dateB = b.tasks[0] ? new Date(b.tasks[0].dueDate).getTime() : 0;
         return dateA - dateB;
       }),
-      archivedHabitSeries: groupHabitsBySeries(archivedHabits)
+      archivedHabitSeries: groupHabitsBySeries(archivedHabits),
+      // Individual habit counts for combining with one-off task counts
+      activeHabitCount: activeHabits.length,
+      upcomingHabitCount: upcomingHabits.length,
+      completedHabitCount: completedHabits.length,
+      archivedHabitCount: archivedHabits.length,
     };
   }, [projectTasks, user, completionLogs, taskStatuses]);
 
@@ -226,10 +254,17 @@ export const useProjectTaskCategories = ({
       categorizedTasks.activeTasks.length ||
       categorizedTasks.upcomingTasks.length ||
       categorizedTasks.completedTasks.length ||
-      categorizedTasks.archivedTasks.length
+      categorizedTasks.archivedTasks.length ||
+      habitTasks.length
     ),
-    [categorizedTasks]
+    [categorizedTasks, habitTasks]
   );
+
+  // Combined counts: one-off tasks + recurring habit tasks
+  const activeCountTotal = categorizedTasks.activeTasks.length + activeHabitCount;
+  const upcomingCountTotal = categorizedTasks.upcomingTasks.length + upcomingHabitCount;
+  const completedCountTotal = categorizedTasks.completedTasks.length + completedHabitCount;
+  const archivedCountTotal = categorizedTasks.archivedTasks.length + archivedHabitCount;
 
   return {
     ...categorizedTasks,
@@ -242,5 +277,10 @@ export const useProjectTaskCategories = ({
     progress,
     completedCount,
     totalTasks,
+    // Combined counts for ProjectStats (includes recurring tasks)
+    activeCountTotal,
+    upcomingCountTotal,
+    completedCountTotal,
+    archivedCountTotal,
   };
 };

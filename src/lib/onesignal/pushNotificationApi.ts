@@ -28,11 +28,16 @@ export interface PushNotificationPayload {
  * either `netlify dev` or deployed environment.
  */
 export async function sendPushNotification(payload: PushNotificationPayload): Promise<boolean> {
-    try {
-        // Skip on localhost where Netlify functions aren't available
-        const isLocalhost = window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1';
+    // Skip on localhost where Netlify functions aren't available
+    const isLocalhost = window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1';
 
+    if (isLocalhost) {
+        console.debug('[Push] Skipped on localhost - Netlify functions not available');
+        return false;
+    }
+
+    try {
         const response = await fetch('/.netlify/functions/send-push-notification', {
             method: 'POST',
             headers: {
@@ -43,12 +48,7 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
 
         // Handle 404 (function not found) - common on localhost
         if (response.status === 404) {
-            if (isLocalhost) {
-                // Silent fail on localhost - expected behavior
-                console.debug('[Push] Netlify function not available (localhost)');
-            } else {
-                console.warn('[Push] Netlify function not found (404)');
-            }
+            console.warn('[Push] Netlify function not found (404)');
             return false;
         }
 

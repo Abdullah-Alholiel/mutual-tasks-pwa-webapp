@@ -230,7 +230,9 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
       // Navigate to the new project
-      // Navigate to the new project
+      toast.success('Project ready! 🏢', {
+        description: "You're all set to start adding tasks."
+      });
       navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
     } catch (error) {
       console.error('Failed to create project:', error);
@@ -364,8 +366,15 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       }
 
       // Create all tasks in batch using the multiple tasks mutation
+      let taskCreationFailed = false;
       if (allTaskInputs.length > 0) {
-        await createMultipleTasksWithStatuses.mutateAsync(allTaskInputs);
+        try {
+          await createMultipleTasksWithStatuses.mutateAsync(allTaskInputs);
+        } catch (taskError) {
+          console.error('Failed to create tasks:', taskError);
+          taskCreationFailed = true;
+          // Don't throw - we'll still navigate to the project
+        }
       }
 
       // 3. Seed React Query cache and navigate
@@ -384,14 +393,24 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
-      toast.success(`Created "${generatedProject.name}" with ${totalTaskCount} tasks!`);
+      // Navigate FIRST (loader persists until unmount), then show toast
       navigate(`/projects/${newProject.id}`, {
         state: {
           project: projectWithParticipants,
           projectParticipants: projectWithParticipants.participantRoles,
-          isAICreatedProject: true
+          isAICreatedProject: true,
+          taskCreationFailed,
         }
       });
+
+      // Show appropriate toast after navigation is triggered
+      if (taskCreationFailed) {
+        toast.error('Tasks could not be added', {
+          description: `Project "${generatedProject.name}" was created. Please add tasks manually.`,
+        });
+      } else {
+        toast.success(`Created "${generatedProject.name}" with ${totalTaskCount} tasks!`);
+      }
 
     } catch (error) {
       console.error('Failed to create AI project:', error);
@@ -415,6 +434,11 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
 
   if (joiningProject) {
     return <PageLoader text={`Joining "${joiningProject.name}"...`} />;
+  }
+
+  // Show full-screen loader during AI project creation
+  if (isCreatingAIProject) {
+    return <PageLoader text="Creating your AI-generated project..." />;
   }
 
   if (isInitialLoading) {
@@ -582,11 +606,6 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
         onOpenChange={setShowAIModal}
         onCreateProject={handleAIProjectCreate}
       />
-
-      {/* Loading overlay for AI project creation */}
-      {isCreatingAIProject && (
-        <PageLoader text="Creating your AI-generated project..." />
-      )}
     </>
   );
 };
@@ -618,7 +637,6 @@ const PublicProjectCard = ({ project, onJoin }: PublicProjectCardProps) => {
                 </h3>
                 <Badge variant="outline" className="text-xs flex items-center gap-1 flex-none">
                   <Globe className="w-3 h-3" />
-                  Public
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2">

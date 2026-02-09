@@ -165,6 +165,13 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
      * Returns true if usage was successfully logged, false otherwise
      */
     const confirmProjectCreation = useCallback(async (): Promise<boolean> => {
+        // Skip usage tracking in local dev mode (no Netlify functions available)
+        const isLocalDev = import.meta.env.DEV && import.meta.env.VITE_USE_LOCAL_N8N === 'true';
+        if (isLocalDev) {
+            aiLogger.info('Local dev mode - skipping usage confirmation');
+            return true; // Allow project creation without tracking
+        }
+
         if (!user?.id || !generatedProject) {
             aiLogger.warn('confirmProjectCreation called without user or project', {
                 hasUser: !!user?.id,
