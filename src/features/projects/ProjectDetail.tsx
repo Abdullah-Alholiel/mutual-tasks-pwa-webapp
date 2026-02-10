@@ -317,14 +317,13 @@ const ProjectDetail = () => {
   };
 
   const getOnEditTask = (task: Task) => {
-    // Only upcoming tasks can be edited - this restriction applies to everyone, including owners
-    // Get the user's task status for this task
+    // Only upcoming, active, and recovered tasks can be edited/deleted.
     const myTaskStatus = task.taskStatus?.find(ts => currentUser && compareIds(ts.userId, currentUser.id));
-    // Check if user has completed this task
     const myCompletion = completionLogs.find(log =>
       currentUser && compareIds(log.taskId, task.id) && compareIds(log.userId, currentUser.id)
     );
-    // Check if task is editable (only upcoming tasks)
+
+    // Check if task is editable
     if (!canEditTask(myTaskStatus, myCompletion, task)) {
       return undefined;
     }

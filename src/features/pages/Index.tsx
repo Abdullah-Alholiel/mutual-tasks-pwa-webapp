@@ -8,9 +8,9 @@ import { Archive, Calendar, CheckCircle2, Clock, Plus, RotateCcw, Sparkles } fro
 import { Button } from '../../components/ui/button';
 import { TaskStatCard } from '../../components/TaskStatCard';
 import { TaskCalendar } from '../../components/TaskCalendar';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
-import type { Task, User, ProjectParticipant } from '../../types';
+import type { Task, User, ProjectParticipant, Project } from '../../types';
 import {
   getNeedsActionTasks,
   getCompletedTasksForToday,
@@ -158,6 +158,53 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
     user ? getProjectsWhereCanCreateTasks(projectsWithRoles, user.id) : [],
     [projectsWithRoles, user]
   );
+
+  // side effect: Auto-sync overdue tasks to 'archived' status in DB
+  useEffect(() => {
+    if (!user || tasksLoading || allTasksWithStatuses.length === 0) return;
+
+    const overdueToUpdate = allTasksWithStatuses.filter(task => {
+      const userIdNum = normalizeId(user.id);
+      const taskIdNum = normalizeId(task.id);
+
+      const myStatus = taskStatuses.find(ts =>
+        compareIds(ts.taskId, taskIdNum) && compareIds(ts.userId, userIdNum)
+      );
+
+      // Only sync if DB status is 'active' or 'upcoming'
+      // and NOT completed (no completion log)
+      if (!myStatus || (myStatus.status !== 'active' && myStatus.status !== 'upcoming')) return false;
+
+      const myCompletion = completionLogs.find(cl =>
+        compareIds(cl.taskId, taskIdNum) && compareIds(cl.userId, userIdNum)
+      );
+
+      if (myCompletion) return false;
+
+      const computedStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
+      return computedStatus === 'archived';
+    });
+
+    if (overdueToUpdate.length > 0) {
+      console.log(`[Index] 🔄 Auto-archiving ${overdueToUpdate.length} overdue tasks...`);
+      overdueToUpdate.forEach(task => {
+        const userIdNum = normalizeId(user.id);
+        const taskIdNum = normalizeId(task.id);
+        const myStatus = taskStatuses.find(ts =>
+          compareIds(ts.taskId, taskIdNum) && compareIds(ts.userId, userIdNum)
+        )!;
+
+        updateTaskStatusMutation.mutate({
+          id: myStatus.id,
+          data: {
+            status: 'archived',
+            archivedAt: new Date(),
+            ringColor: 'red' // Overdue tasks should show red ring
+          }
+        });
+      });
+    }
+  }, [allTasksWithStatuses, user, tasksLoading, taskStatuses, completionLogs]);
 
   const handleComplete = async (taskId: string | number, difficultyRating?: number) => {
     if (!user) return;
@@ -428,7 +475,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
       if (!user) return;
 
       const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
-      const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
+      const defaultDueDate = taskData.dueDate ?? new Date();
 
       const project = allProjects.find(p => p.id === taskData.projectId);
       if (!project) {
@@ -441,7 +488,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
 
       if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
         // For habits, create multiple tasks
-        const startDate = normalizeToStartOfDay(taskData.dueDate);
+        const startDate = taskData.dueDate;
         const endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 28); // 28 days for habits
 
@@ -457,10 +504,10 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
               recurrencePattern: taskData.recurrencePattern,
               title: taskData.title,
               description: taskData.description,
-              dueDate: normalizeToStartOfDay(new Date(currentDate))
+              dueDate: new Date(currentDate)
             },
             participantUserIds,
-            dueDate: normalizeToStartOfDay(new Date(currentDate))
+            dueDate: new Date(currentDate)
           });
 
           if (taskData.recurrencePattern === 'Daily') {
@@ -612,7 +659,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
     }
   };
 
-  const handleCreateProject = async (projectData: {
+  const createProjectWithParticipants = async (projectData: {
     name: string;
     description: string;
     participants: string[];
@@ -684,8 +731,6 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
         }
       }
 
-      setShowProjectForm(false);
-
       // Construct updated project object with participants for immediate UI feedback
       const projectWithParticipants = {
         ...newProject,
@@ -697,12 +742,39 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
       queryClient.setQueryData(['project', String(newProject.id)], projectWithParticipants);
       queryClient.setQueryData(['project', Number(newProject.id)], projectWithParticipants);
 
-      // Navigate to the new project
-      navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
+      return projectWithParticipants;
     } catch (error) {
       console.error('Failed to create project:', error);
       toast.error('Failed to create project');
+      return undefined;
     }
+  };
+
+  const handleCreateProject = async (projectData: {
+    name: string;
+    description: string;
+    participants: string[];
+    color: string;
+    isPublic: boolean;
+    icon: string;
+  }) => {
+    const newProject = await createProjectWithParticipants(projectData);
+    if (newProject) {
+      setShowProjectForm(false);
+      // Navigate to the new project
+      navigate(`/projects/${newProject.id}`, { state: { project: newProject } });
+    }
+  };
+
+  const handleCreateProjectForTask = async (projectData: {
+    name: string;
+    description: string;
+    participants: string[];
+    color: string;
+    isPublic: boolean;
+    icon: string;
+  }) => {
+    return await createProjectWithParticipants(projectData);
   };
 
   const getOnEditTask = (task: Task) => {
@@ -717,14 +789,13 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
       compareIds(pr.userId, userIdNum) && (pr.role === 'manager' || pr.role === 'owner') && !pr.removedAt
     );
 
-    // Only upcoming tasks can be edited - this restriction applies to everyone, including owners
-    // Get the user's task status for this task
+    // Only upcoming, active, and recovered tasks can be edited/deleted.
     const myTaskStatus = task.taskStatus?.find(ts => compareIds(ts.userId, user.id));
-    // Check if user has completed this task
     const myCompletion = completionLogs.find(log =>
       compareIds(log.taskId, task.id) && compareIds(log.userId, user.id)
     );
-    // Check if task is editable (only upcoming tasks)
+
+    // Check if task is editable
     if (!canEditTask(myTaskStatus, myCompletion, task)) {
       return undefined;
     }
@@ -1273,6 +1344,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
         }}
         projects={projectsWhereCanCreateTasks}
         allowProjectSelection={true}
+        onCreateProject={handleCreateProjectForTask}
       />
 
       <ProjectForm

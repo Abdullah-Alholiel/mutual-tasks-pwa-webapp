@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Calendar } from '@/components/ui/calendar';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import type { Project, Task, TaskType, RecurrencePattern } from '@/types';
 import { motion } from 'framer-motion';
 import { CalendarIcon, Repeat, Sparkles, Plus, Pencil } from 'lucide-react';
@@ -18,6 +19,8 @@ import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { useCurrentUser } from '@/features/auth/useCurrentUser';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';
+import { calculateTaskStatusUserStatus } from '@/lib/tasks/taskUtils';
+import { normalizeId } from '@/lib/idUtils';
 
 interface TaskFormProps {
   open: boolean;
@@ -48,7 +51,9 @@ interface TaskFormProps {
     description: string;
     participants: string[];
     color: string;
-  }) => Project;
+    isPublic: boolean;
+    icon: string;
+  }) => Promise<Project | undefined>;
 }
 
 export const TaskForm = ({
@@ -117,9 +122,7 @@ export const TaskForm = ({
         setIsRecurring(false);
         setRecurrencePattern('Daily');
         setShowRecurrenceIndex(false);
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        setDueDate(now);
+        setDueDate(new Date());
         if (!initialProject) {
           setSelectedProjectId('');
         }
@@ -129,17 +132,24 @@ export const TaskForm = ({
     }
   }, [open, initialTask, initialProject, setAiState]);
 
-  const handleCreateProject = (projectData: {
+  const handleCreateProject = async (projectData: {
     name: string;
     description: string;
     participants: string[];
     color: string;
     isPublic: boolean;
+    icon: string;
   }) => {
     if (onCreateProject) {
-      const newProject = onCreateProject(projectData);
-      setSelectedProjectId(newProject.id);
-      setShowProjectForm(false);
+      try {
+        const newProject = await onCreateProject(projectData);
+        if (newProject) {
+          setSelectedProjectId(newProject.id);
+        }
+        setShowProjectForm(false);
+      } catch (error) {
+        console.error('Failed to create project from task form:', error);
+      }
     }
   };
 
@@ -175,20 +185,14 @@ export const TaskForm = ({
     //   }
     // }
 
-    // Set due date to start of day (no time component)
-    let finalDueDate: Date | undefined = undefined;
-    if (dueDate) {
-      finalDueDate = new Date(dueDate);
-      finalDueDate.setHours(0, 0, 0, 0);
-    }
-
+    // Use due date as-is (preserves time component)
     onSubmit({
       title: title.trim(),
       description: description.trim(),
       projectId: project.id,
       type: isRecurring ? 'habit' : 'one_off',
       recurrencePattern: isRecurring ? recurrencePattern : undefined,
-      dueDate: finalDueDate,
+      dueDate: dueDate,
       customRecurrence: isRecurring && recurrencePattern === 'custom' ? {
         ...customRecurrence,
         interval: Number(customRecurrence.interval) || 1,
@@ -203,9 +207,7 @@ export const TaskForm = ({
     setIsRecurring(false);
     setRecurrencePattern('Daily');
     setShowRecurrenceIndex(false);
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    setDueDate(now);
+    setDueDate(new Date());
     setCustomRecurrence({
       frequency: 'days',
       interval: 1,
@@ -249,6 +251,8 @@ export const TaskForm = ({
                   onValueChange={(value) => {
                     if (value === 'none') {
                       setSelectedProjectId('');
+                    } else if (value === 'create_new') {
+                      setShowProjectForm(true);
                     } else {
                       // Handle both string and number IDs
                       const numValue = parseInt(value);
@@ -293,21 +297,14 @@ export const TaskForm = ({
                         </div>
                       </SelectItem>
                     ))}
-                    {/* Create New Project button - separate from select items */}
+                    {/* Create New Project option - integrated into select items */}
                     <div className="border-t border-border mt-1 pt-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setShowProjectForm(true);
-                        }}
-                        className="w-full justify-start text-primary font-medium hover:bg-primary/10"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Create New Project
-                      </Button>
+                      <SelectItem value="create_new" className="text-primary font-medium focus:bg-primary/10 focus:text-primary cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Plus className="w-4 h-4" />
+                          <span>Create New Project</span>
+                        </div>
+                      </SelectItem>
                     </div>
                   </SelectContent>
                 </Select>
@@ -364,40 +361,39 @@ export const TaskForm = ({
           </div>
 
           {/* Due Date */}
-          <div className="space-y-2">
-            <Label>Due Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !dueDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={dueDate}
-                  onSelect={(date) => {
-                    if (date) {
-                      const newDate = new Date(date);
-                      newDate.setHours(0, 0, 0, 0);
-                      setDueDate(newDate);
-                    } else {
-                      setDueDate(date);
-                    }
-                  }}
-                  initialFocus
-                  className="pointer-events-auto"
+          {(() => {
+            let isTimeEditable = true;
+            if (initialTask) {
+              // Calculate status for the current user to see if it's upcoming
+              const myStatus = initialTask.taskStatus?.find(ts =>
+                currentUser && normalizeId(ts.userId) === normalizeId(currentUser.id)
+              );
+
+              const computedStatus = calculateTaskStatusUserStatus(myStatus, undefined, initialTask);
+              const isRecurring = initialTask.type === 'habit';
+
+              // Editable ONLY if upcoming AND NOT recurring
+              isTimeEditable = computedStatus === 'upcoming' && !isRecurring;
+            }
+
+            return (
+              <div className="space-y-1">
+                <DateTimePicker
+                  value={dueDate}
+                  onChange={setDueDate}
+                  label="Due Date"
+                  placeholder="Select date and time"
+                  showTime={true}
+                  disabled={!isTimeEditable}
                 />
-              </PopoverContent>
-            </Popover>
-          </div>
+                {!isTimeEditable && initialTask && (
+                  <p className="text-[10px] text-muted-foreground ml-1">
+                    Time can only be edited for upcoming, non-recurring tasks.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Recurring Task Toggle - Only show during creation */}
           {!initialTask && (
@@ -666,7 +662,7 @@ export const TaskForm = ({
             </Button>
             <Button
               type="submit"
-              disabled={!title.trim() || !project}
+              disabled={!title.trim() || !project || (dueDate ? new Date(dueDate).getTime() < new Date().getTime() : false)}
               className="flex-1 gradient-primary text-white"
             >
               {initialTask ? 'Update Task' : 'Create Task'}

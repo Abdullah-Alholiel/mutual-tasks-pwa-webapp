@@ -4,6 +4,7 @@
 
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import type { Task, User, TaskStatusEntity, CompletionLog } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -180,13 +181,17 @@ export const TaskMembersList = ({
                                     const checkDate = new Date(date);
                                     checkDate.setHours(0, 0, 0, 0);
 
-                                    if (checkDate.getTime() === today.getTime()) return 'Today';
+                                    if (checkDate.getTime() === today.getTime()) {
+                                        return `Today ${format(date, 'h:mm a')}`;
+                                    }
 
                                     const yesterday = new Date(today);
                                     yesterday.setDate(yesterday.getDate() - 1);
-                                    if (checkDate.getTime() === yesterday.getTime()) return 'Yesterday';
+                                    if (checkDate.getTime() === yesterday.getTime()) {
+                                        return `Yesterday ${format(date, 'h:mm a')}`;
+                                    }
 
-                                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    return format(date, 'MMM d h:mm a');
                                 })()}
                             </span>
                         )}

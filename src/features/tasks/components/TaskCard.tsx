@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import type { Task, User, TaskStatus, TaskStatusEntity, CompletionLog } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ import { useUser, useBatchUsers } from '@/features/users/hooks/useUsers';
 import { DifficultyRatingModal } from './DifficultyRatingModal';
 import { TaskParticipantAvatars } from '@/components/tasks/TaskParticipantAvatars';
 import { CompletionStatusIcon } from '@/components/tasks/CompletionStatusIcon';
+import { DueDateTimeDisplay } from '@/components/tasks/DueDateTimeDisplay';
 import { cn } from '@/lib/utils';
 import { normalizeId, compareIds } from '@/lib/idUtils';
 
@@ -209,7 +211,7 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
     if (!project || !currentUser) return false;
     const userId = normalizeId(currentUser.id);
 
-    // Only upcoming tasks can be edited - this restriction applies to everyone, including owners
+    // Only upcoming, active, and recovered tasks can be edited/deleted - this ensures owners can manage tasks today.
     if (!canEditTask(myTaskStatus, myCompletion, task)) return false;
 
     // Project owner always has permission (for tasks that are upcoming)
@@ -472,30 +474,14 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
                       );
                     }
 
-                    // Default: show task due date
+                    // Default: show task due date with time
                     if (task.dueDate) {
-                      const dueDate = new Date(task.dueDate);
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const dueDateOnly = new Date(dueDate);
-                      dueDateOnly.setHours(0, 0, 0, 0);
-                      const isToday = dueDateOnly.getTime() === today.getTime();
-                      const isTomorrow = dueDateOnly.getTime() === today.getTime() + 86400000;
-
-                      let dateLabel = '';
-                      if (isToday) {
-                        dateLabel = 'Today';
-                      } else if (isTomorrow) {
-                        dateLabel = 'Tomorrow';
-                      } else {
-                        dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                      }
-
                       return (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{dateLabel}</span>
-                        </div>
+                        <DueDateTimeDisplay
+                          dueDate={task.dueDate}
+                          showTimeIfSet={true}
+                          size="md"
+                        />
                       );
                     }
 
@@ -506,21 +492,11 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
 
               {/* Default fallback for date when showMemberInfo is false */}
               {!showMemberInfo && task.dueDate && (
-                <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>
-                    {(() => {
-                      const dueDate = new Date(task.dueDate);
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const dueDateOnly = new Date(dueDate);
-                      dueDateOnly.setHours(0, 0, 0, 0);
-                      if (dueDateOnly.getTime() === today.getTime()) return 'Today';
-                      if (dueDateOnly.getTime() === today.getTime() + 86400000) return 'Tomorrow';
-                      return dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                    })()}
-                  </span>
-                </div>
+                <DueDateTimeDisplay
+                  dueDate={task.dueDate}
+                  showTimeIfSet={true}
+                  size="md"
+                />
               )}
 
               {/* Actions - Production Ready */}
@@ -708,13 +684,17 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
                             const checkDate = new Date(date);
                             checkDate.setHours(0, 0, 0, 0);
 
-                            if (checkDate.getTime() === today.getTime()) return 'Today';
+                            if (checkDate.getTime() === today.getTime()) {
+                              return `Today ${format(date, 'h:mm a')}`;
+                            }
 
                             const yesterday = new Date(today);
                             yesterday.setDate(yesterday.getDate() - 1);
-                            if (checkDate.getTime() === yesterday.getTime()) return 'Yesterday';
+                            if (checkDate.getTime() === yesterday.getTime()) {
+                              return `Yesterday ${format(date, 'h:mm a')}`;
+                            }
 
-                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                            return format(date, 'MMM d h:mm a');
                           })()}
                         </span>
                       )}

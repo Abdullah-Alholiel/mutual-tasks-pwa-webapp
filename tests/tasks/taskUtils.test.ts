@@ -68,13 +68,13 @@ describe('calculateTaskStatusUserStatus', () => {
         expect(result).toBe('upcoming');
     });
 
-    it('should return active for today tasks', () => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+    it('should return active for today future tasks', () => {
+        const laterToday = new Date();
+        laterToday.setHours(laterToday.getHours() + 1);
 
         const task = {
             id: 1,
-            dueDate: today,
+            dueDate: laterToday,
         } as Task;
 
         const taskStatus = {
@@ -87,6 +87,27 @@ describe('calculateTaskStatusUserStatus', () => {
         const result = calculateTaskStatusUserStatus(taskStatus, undefined, task);
 
         expect(result).toBe('active');
+    });
+
+    it('should return archived for today past due tasks', () => {
+        const earlierToday = new Date();
+        earlierToday.setHours(earlierToday.getHours() - 1);
+
+        const task = {
+            id: 1,
+            dueDate: earlierToday,
+        } as Task;
+
+        const taskStatus = {
+            id: 1,
+            taskId: 1,
+            userId: 1,
+            status: 'active' as const,
+        } as TaskStatusEntity;
+
+        const result = calculateTaskStatusUserStatus(taskStatus, undefined, task);
+
+        expect(result).toBe('archived');
     });
 
     it('should return archived for past due tasks without completion', () => {
@@ -133,10 +154,10 @@ describe('calculateTaskStatusUserStatus', () => {
 
 describe('canCompleteTask', () => {
     it('should allow completion for active tasks', () => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const laterToday = new Date();
+        laterToday.setHours(laterToday.getHours() + 1);
 
-        const task = { dueDate: today } as Task;
+        const task = { dueDate: laterToday } as Task;
         const taskStatus = { status: 'active' as const } as TaskStatusEntity;
 
         const result = canCompleteTask(taskStatus, undefined, task);

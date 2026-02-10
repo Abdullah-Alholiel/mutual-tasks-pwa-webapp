@@ -148,6 +148,11 @@ export const useCreateTask = () => {
         throw new Error('User must be authenticated to create a task');
       }
 
+      // Validation: Prevent creating tasks with past due times (with 1 min buffer)
+      if (data.dueDate && new Date(data.dueDate).getTime() < new Date().getTime() - 60000) {
+        throw new Error('Cannot create a task with a past due date/time. Please select a future date/time.');
+      }
+
       const db = getDatabaseClient();
       return await db.tasks.create(data);
     },
@@ -187,6 +192,11 @@ export const useCreateTaskWithStatuses = () => {
     mutationFn: async (input: CreateTaskWithStatusesInput) => {
       if (!user) {
         throw new Error('User must be authenticated to create a task');
+      }
+
+      // Validation: Prevent creating tasks with past due times (with 1 min buffer)
+      if (input.dueDate && new Date(input.dueDate).getTime() < new Date().getTime() - 60000) {
+        throw new Error('Cannot create a task with a past due date/time. Please select a future date/time.');
       }
 
       console.log('[useCreateTaskWithStatuses] Using atomic creation for:', input.task.title);

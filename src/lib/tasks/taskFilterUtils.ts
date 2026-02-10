@@ -7,7 +7,7 @@
 // Supports both string and number IDs for compatibility.
 // ============================================================================
 
-import type { Task, TaskStatusEntity, CompletionLog, Project, User } from '@/types';
+import type { Task, TaskStatusEntity, CompletionLog, Project } from '@/types';
 import { calculateTaskStatusUserStatus, normalizeToStartOfDay } from '../tasks/taskUtils';
 import { normalizeId } from '@/lib/idUtils';
 
@@ -590,9 +590,8 @@ export const getArchivedTasksForDate = (
   const date = targetDate ? normalizeToStartOfDay(targetDate) : today;
   const userIdNum = normalizeId(userId);
 
-  // "Archived" ONLY exists for past dates.
-  // Today and future dates never show archived tasks.
-  if (date.getTime() >= today.getTime()) return [];
+  // "Archived" section shows tasks from past dates AND overdue tasks from today.
+  if (date.getTime() > today.getTime()) return [];
 
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);

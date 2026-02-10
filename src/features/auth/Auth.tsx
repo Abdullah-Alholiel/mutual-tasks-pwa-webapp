@@ -450,9 +450,8 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
-
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-background overflow-x-hidden relative selection:bg-primary/20">
+    <div className="fixed inset-0 bg-background overflow-hidden selection:bg-primary/20">
       <FloatingBlobs />
 
       {/* Theme Toggle */}
@@ -460,266 +459,264 @@ const Auth = () => {
         <ThemeToggle size="compact" />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center justify-center p-4 md:p-6 py-6 md:py-12">
-        <div className="w-full max-w-[400px]">
-          <AuthHeader />
+      <div className="h-full w-full overflow-y-auto touch-scroll custom-scrollbar relative z-10">
+        <div className="flex flex-col items-center justify-center p-4 md:p-6 py-6 md:py-12 min-h-full">
+          <div className="w-full max-w-[400px]">
+            <AuthHeader />
 
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, type: "spring", stiffness: 100, damping: 20 }}
-          >
-            <Card className="p-6 md:p-8 shadow-2xl border-border/40 glass-strong rounded-[2rem]">
-              <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6 h-12 bg-muted/30 p-1 rounded-xl border border-border/20">
-                  <TabsTrigger value="login" className="text-sm font-bold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    Sign In
-                  </TabsTrigger>
-                  <TabsTrigger value="signup" className="text-sm font-bold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    Sign Up
-                  </TabsTrigger>
-                </TabsList>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15, type: "spring", stiffness: 100, damping: 20 }}
+            >
+              <Card className="p-6 md:p-8 shadow-2xl border-border/40 glass-strong rounded-[2rem]">
+                <Tabs defaultValue="login" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6 h-12 bg-muted/30 p-1 rounded-xl border border-border/20">
+                    <TabsTrigger value="login" className="text-sm font-bold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                      Sign In
+                    </TabsTrigger>
+                    <TabsTrigger value="signup" className="text-sm font-bold rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                      Sign Up
+                    </TabsTrigger>
+                  </TabsList>
 
-                {/* Login Tab */}
-                <TabsContent value="login" className="space-y-6 mt-0 focus-visible:outline-none">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black tracking-tight">Welcome back</h2>
-                    <p className="text-sm text-muted-foreground font-medium">
-                      Pick up where you left off.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="login-input" className="font-bold text-xs ml-1">
-                          {loginMethod === 'username' ? 'Username' : 'Email Address'}
-                        </Label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLoginMethod(prev => prev === 'username' ? 'email' : 'username');
-                            setLoginInput('');
-                          }}
-                          className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-wider"
-                        >
-                          Use {loginMethod === 'username' ? 'Email' : 'Username'} instead
-                        </button>
-                      </div>
-                      <div className="relative group">
-                        {loginMethod === 'username' ? (
-                          <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        ) : (
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        )}
-                        <Input
-                          id="login-input"
-                          type={loginMethod === 'username' ? 'text' : 'email'}
-                          placeholder={loginMethod === 'username' ? 'username' : 'you@email.com'}
-                          value={loginInput}
-                          onChange={(e) => setLoginInput(e.target.value)}
-                          className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
-                          disabled={isLoading}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      className="w-full gradient-primary text-white hover:opacity-95 shadow-lg shadow-primary/25 rounded-xl h-12 text-base font-bold transition-all hover:scale-[1.01] active:scale-[0.99]"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          Send Magic Link
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </>
-                      )}
-                    </Button>
-                  </form>
-
-                  <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 text-xs font-medium text-muted-foreground space-y-2 backdrop-blur-sm">
-                    <p className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                      <span>
-                        No passwords, no friction. We'll email you a secure link to jump right in.
-                      </span>
-                    </p>
-                    <p className="flex items-start gap-2 text-amber-600/90 dark:text-amber-500/90">
-                      <Mail className="w-4 h-4 shrink-0" />
-                      <span>
-                        Don't see it? Peek in your spam folder—sometimes magic links get lost.
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="pt-1">
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-border/50" />
-                      </div>
-                      <div className="relative flex justify-center text-[10px] uppercase">
-                        <span className="bg-transparent px-3 text-muted-foreground font-bold">
-                          Alternative
-                        </span>
-                      </div>
-                    </div>
-
-                    {!showPasteLink ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full mt-4 text-muted-foreground font-semibold h-10 text-xs rounded-lg hover:bg-muted/50 transition-colors"
-                        onClick={() => setShowPasteLink(true)}
-                      >
-                        <Link2 className="w-3 h-3 mr-2" />
-                        Sign In with Link
-                      </Button>
-                    ) : (
-                      <div className="mt-4 space-y-3">
-                        <Input
-                          type="url"
-                          placeholder="Paste the full link from your email here..."
-                          value={pastedLink}
-                          onChange={(e) => setPastedLink(e.target.value)}
-                          className="h-10 text-xs font-mono rounded-lg border-border bg-white/30 dark:bg-black/10"
-                          disabled={isPasteLinkLoading}
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="flex-1 h-10 text-xs rounded-lg"
-                            onClick={() => { setShowPasteLink(false); setPastedLink(''); }}
-                            disabled={isPasteLinkLoading}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            className="flex-1 gradient-primary text-white h-10 text-xs rounded-lg font-bold"
-                            onClick={handlePasteLink}
-                            disabled={isPasteLinkLoading || !pastedLink.trim()}
-                          >
-                            {isPasteLinkLoading ? 'Signing in...' : 'Sign In'}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                {/* Signup Tab */}
-                <TabsContent value="signup" className="space-y-6 mt-0 focus-visible:outline-none">
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-black tracking-tight">Join Momentum</h2>
-                    <p className="text-sm text-muted-foreground font-medium">
-                      Start collaborating today.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleSignup} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-name" className="font-bold text-xs ml-1">Full Name</Label>
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        placeholder="Your Name"
-                        value={signupName}
-                        onChange={(e) => setSignupName(e.target.value)}
-                        className="h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20 focus:ring-primary/20 transition-all shadow-sm"
-                        disabled={isLoading}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email" className="font-bold text-xs ml-1">Email Address</Label>
-                      <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="you@email.com"
-                          value={signupEmail}
-                          onChange={(e) => setSignupEmail(e.target.value)}
-                          className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20"
-                          disabled={isLoading}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-handle" className="font-bold text-xs ml-1">Handle</Label>
-                      <div className="relative group">
-                        <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="signup-handle"
-                          type="text"
-                          placeholder="username"
-                          value={signupHandle}
-                          onChange={(e) => {
-                            let val = e.target.value;
-                            if (val && !val.startsWith('@')) val = `@${val}`;
-                            setSignupHandle(val);
-                          }}
-                          className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20"
-                          disabled={isLoading}
-                          required
-                        />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground font-medium ml-1">
-                        Unique handle for identification.
+                  {/* Login Tab */}
+                  <TabsContent value="login" className="space-y-6 mt-0 focus-visible:outline-none">
+                    <div className="space-y-1">
+                      <h2 className="text-2xl font-black tracking-tight">Welcome back</h2>
+                      <p className="text-sm text-muted-foreground font-medium">
+                        Pick up where you left off.
                       </p>
                     </div>
 
-                    <Button
-                      type="submit"
-                      className="w-full gradient-primary text-white hover:opacity-95 shadow-lg shadow-primary/25 rounded-xl h-12 text-base font-bold transition-all hover:scale-[1.01] active:scale-[0.99]"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-                          Creating...
-                        </>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="login-input" className="font-bold text-xs ml-1">
+                            {loginMethod === 'username' ? 'Username' : 'Email Address'}
+                          </Label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLoginMethod(prev => prev === 'username' ? 'email' : 'username');
+                              setLoginInput('');
+                            }}
+                            className="text-[10px] font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-wider"
+                          >
+                            Use {loginMethod === 'username' ? 'Email' : 'Username'} instead
+                          </button>
+                        </div>
+                        <div className="relative group">
+                          {loginMethod === 'username' ? (
+                            <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          ) : (
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          )}
+                          <Input
+                            id="login-input"
+                            type={loginMethod === 'username' ? 'text' : 'email'}
+                            placeholder={loginMethod === 'username' ? 'username' : 'you@email.com'}
+                            value={loginInput}
+                            onChange={(e) => setLoginInput(e.target.value)}
+                            className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                            disabled={isLoading}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="w-full gradient-primary text-white hover:opacity-95 shadow-lg shadow-primary/25 rounded-xl h-12 text-base font-bold transition-all hover:scale-[1.01] active:scale-[0.99]"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            Send Magic Link
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
+                    </form>
+
+                    <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 text-xs font-medium text-muted-foreground space-y-2 backdrop-blur-sm">
+                      <p className="flex items-start gap-2">
+                        <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                        <span>
+                          No passwords, no friction. We'll email you a secure link to jump right in.
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-2 text-amber-600/90 dark:text-amber-500/90">
+                        <Mail className="w-4 h-4 shrink-0" />
+                        <span>
+                          Don't see it? Peek in your spam folder—sometimes magic links get lost.
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="pt-1">
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-border/50" />
+                        </div>
+                        <div className="relative flex justify-center text-[10px] uppercase">
+                          <span className="bg-transparent px-3 text-muted-foreground font-bold">
+                            Alternative
+                          </span>
+                        </div>
+                      </div>
+
+                      {!showPasteLink ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="w-full mt-4 text-muted-foreground font-semibold h-10 text-xs rounded-lg hover:bg-muted/50 transition-colors"
+                          onClick={() => setShowPasteLink(true)}
+                        >
+                          <Link2 className="w-3 h-3 mr-2" />
+                          Sign In with Link
+                        </Button>
                       ) : (
-                        <>
-                          Create Account
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </>
+                        <div className="mt-4 space-y-3">
+                          <Input
+                            type="url"
+                            placeholder="Paste the full link from your email here..."
+                            value={pastedLink}
+                            onChange={(e) => setPastedLink(e.target.value)}
+                            className="h-10 text-xs font-mono rounded-lg border-border bg-white/30 dark:bg-black/10"
+                            disabled={isPasteLinkLoading}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="flex-1 h-10 text-xs rounded-lg"
+                              onClick={() => { setShowPasteLink(false); setPastedLink(''); }}
+                              disabled={isPasteLinkLoading}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              type="button"
+                              className="flex-1 gradient-primary text-white h-10 text-xs rounded-lg font-bold"
+                              onClick={handlePasteLink}
+                              disabled={isPasteLinkLoading || !pastedLink.trim()}
+                            >
+                              {isPasteLinkLoading ? 'Signing in...' : 'Sign In'}
+                            </Button>
+                          </div>
+                        </div>
                       )}
-                    </Button>
-                  </form>
+                    </div>
+                  </TabsContent>
 
-                  <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 text-xs font-medium text-muted-foreground space-y-2 backdrop-blur-sm">
-                    <p className="flex items-start gap-2">
-                      <Sparkles className="w-4 h-4 text-primary shrink-0" />
-                      <span>
-                        We'll send you a link to verify your email and complete your setup.
-                      </span>
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </Card>
+                  {/* Signup Tab */}
+                  <TabsContent value="signup" className="space-y-6 mt-0 focus-visible:outline-none">
+                    <div className="space-y-1">
+                      <h2 className="text-2xl font-black tracking-tight">Join Momentum</h2>
+                      <p className="text-sm text-muted-foreground font-medium">
+                        Start collaborating today.
+                      </p>
+                    </div>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-center text-xs text-muted-foreground/70 mt-8 font-medium px-4"
-            >
-              By continuing, you agree to our <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Terms of Service</span> and <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Privacy Policy</span>
-            </motion.p>
-          </motion.div>
+                    <form onSubmit={handleSignup} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-name" className="font-bold text-xs ml-1">Full Name</Label>
+                        <Input
+                          id="signup-name"
+                          type="text"
+                          placeholder="Your Name"
+                          value={signupName}
+                          onChange={(e) => setSignupName(e.target.value)}
+                          className="h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20 focus:ring-primary/20 transition-all shadow-sm"
+                          disabled={isLoading}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-email" className="font-bold text-xs ml-1">Email Address</Label>
+                        <div className="relative group">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="signup-email"
+                            type="email"
+                            placeholder="you@email.com"
+                            value={signupEmail}
+                            onChange={(e) => setSignupEmail(e.target.value)}
+                            className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20"
+                            disabled={isLoading}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-handle" className="font-bold text-xs ml-1">Handle</Label>
+                        <div className="relative group">
+                          <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="signup-handle"
+                            type="text"
+                            placeholder="username"
+                            value={signupHandle}
+                            onChange={(e) => setSignupHandle(e.target.value)}
+                            className="pl-11 h-12 text-sm rounded-xl border-border/60 bg-white/50 dark:bg-black/20"
+                            disabled={isLoading}
+                            required
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-medium ml-1">
+                          Unique handle for identification.
+                        </p>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        className="w-full gradient-primary text-white hover:opacity-95 shadow-lg shadow-primary/25 rounded-xl h-12 text-base font-bold transition-all hover:scale-[1.01] active:scale-[0.99]"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            Create Account
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </>
+                        )}
+                      </Button>
+                    </form>
+
+                    <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 text-xs font-medium text-muted-foreground space-y-2 backdrop-blur-sm">
+                      <p className="flex items-start gap-2">
+                        <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                        <span>
+                          We'll send you a link to verify your email and complete your setup.
+                        </span>
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </Card>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-center text-xs text-muted-foreground/70 mt-8 font-medium px-4"
+              >
+                By continuing, you agree to our <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Terms of Service</span> and <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Privacy Policy</span>
+              </motion.p>
+            </motion.div>
+          </div>
         </div>
       </div>
     </div>

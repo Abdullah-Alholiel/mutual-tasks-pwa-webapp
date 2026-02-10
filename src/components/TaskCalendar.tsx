@@ -120,7 +120,7 @@ export const TaskCalendar = ({ onDateChange, selectedDate: externalSelectedDate 
             className={cn(
               "h-5.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors",
               isTodayButtonActive
-                ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
+                ? "bg-primary text-primary-foreground"
                 : "bg-muted/60 text-muted-foreground hover:bg-muted"
             )}
             aria-label="Go to today"
@@ -166,7 +166,7 @@ export const TaskCalendar = ({ onDateChange, selectedDate: externalSelectedDate 
                   className={cn(
                     "flex flex-col items-center justify-center py-1.5 rounded-xl transition-all duration-200 relative",
                     isSelected
-                      ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25"
+                      ? "bg-primary text-primary-foreground"
                       : isWeekend
                         ? "text-muted-foreground/60 hover:bg-muted/40"
                         : "hover:bg-muted/50"

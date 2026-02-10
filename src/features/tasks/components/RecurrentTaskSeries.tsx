@@ -4,6 +4,7 @@ import { ChevronDown, Repeat, Trash2, CalendarClock, CheckCircle2 } from 'lucide
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TaskCard } from './TaskCard';
+import { DueDateTimeDisplay } from '@/components/tasks/DueDateTimeDisplay';
 import type { CompletionLog, Task } from '@/types';
 import type { HabitSeries } from '@/features/projects/hooks/types';
 
@@ -53,7 +54,7 @@ export const RecurrentTaskSeries = ({
 
     // Format next due
     const formattedNextDue = nextUpTask?.dueDate
-        ? new Date(nextUpTask.dueDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+        ? <DueDateTimeDisplay dueDate={new Date(nextUpTask.dueDate)} showTimeIfSet={true} size="sm" />
         : 'No upcoming tasks';
 
     return (
@@ -89,7 +90,11 @@ export const RecurrentTaskSeries = ({
                                     <div className={`flex items-center gap-1.5 ${isToday ? 'text-emerald-600' : 'text-amber-600'}`}>
                                         <CalendarClock className={`w-3.5 h-3.5 ${isToday ? 'text-emerald-600' : 'text-amber-600'}`} />
                                         <span>
-                                            {isToday ? `Today: ${nextUpTask.title}` : `Upcoming: ${formattedNextDue}`}
+                                            {isToday ? `Today: ${nextUpTask.title}` : (
+                                                <span className="flex items-center gap-1.5">
+                                                    Upcoming: {formattedNextDue}
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
                                 )}
