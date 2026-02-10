@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Sparkles, Mail, ArrowRight, AtSign, CheckCircle2, Copy, Check } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { validateHandleFormat } from '@/lib/userUtils';
 import { requestLogin, requestSignup, verifyMagicLink } from '@/lib/auth/auth';

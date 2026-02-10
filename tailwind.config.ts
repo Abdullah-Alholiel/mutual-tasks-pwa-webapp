@@ -53,6 +53,8 @@ export default {
           accepted: "hsl(var(--status-accepted))",
           completed: "hsl(var(--status-completed))",
           archived: "hsl(var(--status-archived))",
+          upcoming: "hsl(var(--status-upcoming))",
+          recovered: "hsl(var(--status-recovered))",
           warning: "hsl(var(--status-warning))",
           error: "hsl(var(--status-error))",
           purple: "hsl(var(--status-purple))",

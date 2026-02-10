@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import type { Project, ProjectParticipant, User, ProjectRole } from '@/types';
 import { handleError } from '@/lib/errorUtils';
 import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';

@@ -9,7 +9,7 @@ import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
 import { InlineLoader } from '@/components/ui/loader';
 import { useNavigate } from 'react-router-dom';
 import { getUserProjects } from '@/lib/projects/projectUtils';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/features/auth/useAuth';
 import { useCurrentUser, useCurrentUserStats } from '../auth/useCurrentUser';

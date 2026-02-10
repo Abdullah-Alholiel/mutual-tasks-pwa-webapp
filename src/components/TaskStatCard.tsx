@@ -5,27 +5,46 @@ interface TaskStatCardProps {
   label: string;
   color?: string;
   delay: number;
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
-export const TaskStatCard = ({ count, label, color, delay }: TaskStatCardProps) => {
-  const isRecovered = label === 'Recovered';
-  const countColor = isRecovered ? 'text-status-warning' : color;
-
+export const TaskStatCard = ({ count, label, color, delay, onClick, isActive }: TaskStatCardProps) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="bg-card border border-border/50 rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center justify-center min-h-[100px]"
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={isActive}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+      }}
+      transition={{
+        opacity: { delay, duration: 0.3 },
+        y: { delay, duration: 0.3 },
+      }}
+      className={[
+        'flex items-center justify-center gap-1.5 rounded-full px-3 py-1.5 transition-all duration-200',
+        isActive
+          ? 'bg-primary/10 ring-1 ring-primary/40 shadow-sm'
+          : 'bg-muted/50 hover:bg-muted/80',
+        onClick ? 'cursor-pointer select-none active:scale-95' : ''
+      ].join(' ')}
     >
-      <div
-        className={`text-3xl md:text-4xl font-bold mb-1 ${countColor}`}
-      >
+      <span className={`text-base font-bold leading-none tabular-nums ${color}`}>
         {count}
-      </div>
-      <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground font-semibold text-center">
+      </span>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold leading-none">
         {label}
-      </div>
+      </span>
     </motion.div>
   );
 };

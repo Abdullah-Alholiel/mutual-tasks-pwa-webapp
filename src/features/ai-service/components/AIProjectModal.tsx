@@ -2,7 +2,7 @@
 // AI Project Modal - Modal for AI-Powered Project Generation
 // ============================================================================
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -32,6 +32,8 @@ interface AIProjectModalProps {
     onOpenChange: (open: boolean) => void;
     /** Callback when user confirms project creation */
     onCreateProject: (project: AIGeneratedProject) => void;
+    /** Optional project to retry/edit */
+    initialProject?: AIGeneratedProject | null;
 }
 
 // ============================================================================
@@ -48,10 +50,18 @@ export const AIProjectModal = ({
     open,
     onOpenChange,
     onCreateProject,
+    initialProject,
 }: AIProjectModalProps) => {
     const [description, setDescription] = useState('');
     const [highlightInput, setHighlightInput] = useState(false);
     const { aiState, generatedProject, generateProject, resetState, confirmProjectCreation, remainingToday } = useAIProjectGeneration();
+
+    // Initialize description from initialProject when modal opens
+    useEffect(() => {
+        if (open && initialProject) {
+            setDescription(initialProject.description);
+        }
+    }, [open, initialProject]);
 
     /**
      * Handle the generate button click
@@ -103,9 +113,7 @@ export const AIProjectModal = ({
             <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <DialogHeader>
                     <div className="flex items-center gap-3 mb-2 pr-8">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#8B5CF6] to-[#7C3AED] flex items-center justify-center shadow-lg shadow-[#8B5CF6]/20">
-                            <Sparkles className="w-5 h-5 text-white" />
-                        </div>
+                        <Sparkles className="w-6 h-6 text-[#8B5CF6]" />
                         <DialogTitle className="text-xl">AI Project Generator</DialogTitle>
                     </div>
                     <div className="flex items-center justify-between gap-3">

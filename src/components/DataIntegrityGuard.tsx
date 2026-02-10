@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { Task } from '@/types';
 
 interface IntegrityIssue {

@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/features/auth/useAuth';
 import { useProjectDetail } from './hooks/useProjectDetail';
 import type { Project, Task, User } from '@/types';

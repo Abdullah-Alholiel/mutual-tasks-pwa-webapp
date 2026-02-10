@@ -20,7 +20,7 @@ export const PERFORMANCE_CONFIG = {
         USER_DATA_GC_TIME: 1000 * 60 * 30, // 30 minutes
 
         // Task data - short cache (changes frequently)
-        TASK_DATA_STALE_TIME: 1000 * 30, // 30 seconds
+        TASK_DATA_STALE_TIME: 1000 * 60 * 5, // 5 minutes
         TASK_DATA_GC_TIME: 1000 * 60 * 5, // 5 minutes
 
         // Project data - medium cache

@@ -11,7 +11,7 @@ import { getDatabaseClient } from '@/db';
 import { useAuth } from '../../auth/useAuth';
 import type { Project } from '@/types';
 import { handleError } from '@/lib/errorUtils';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { normalizeId } from '@/lib/idUtils';
 import { PERFORMANCE_CONFIG } from '@/config/appConfig';
 import { perf } from '@/lib/monitoring/performance';

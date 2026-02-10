@@ -55,7 +55,8 @@ import { useState } from 'react';
 // ============================================================================
 
 interface TaskViewModalProps {
-    task: Task | null;
+    task?: Task | null;
+    taskId?: number | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onEdit?: (task: Task) => void;
@@ -74,6 +75,7 @@ interface TaskViewModalProps {
  */
 export const TaskViewModal = ({
     task,
+    taskId,
     open,
     onOpenChange,
     onEdit,
@@ -85,18 +87,41 @@ export const TaskViewModal = ({
     const { user: currentUser } = useAuth();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const projectId = task ? normalizeId(task.projectId) : 0;
+
+    // NEW: Use taskId if provided, otherwise fall back to task.projectId
+    const effectiveTaskId = taskId
+        ? normalizeId(taskId)
+        : (task ? normalizeId(task.id) : 0);
+
+    // NEW: Fetch FRESH task data when modal is open (always refetch for latest state)
+    const { data: freshTask, isLoading: isFreshTaskLoading } = useQuery({
+        queryKey: ['task', effectiveTaskId],
+        queryFn: async () => {
+            if (!effectiveTaskId) return null;
+            const db = getDatabaseClient();
+            return await db.tasks.getById(effectiveTaskId);
+        },
+        enabled: !!effectiveTaskId && open,
+        staleTime: 0, // Always refetch to ensure fresh data
+        refetchOnMount: 'always',
+    });
+
+    // Use fresh task data if available, otherwise fall back to task prop
+    // When opening by taskId (no task prop), freshTask is the only source
+    const taskToUse = freshTask ?? task;
+
+    const projectId = taskToUse ? normalizeId(taskToUse.projectId) : 0;
     const { data: project } = useProject(projectId);
 
     // Extract unique participant user IDs
     const participantUserIds = useMemo(() => {
-        if (!task?.taskStatus) return [];
+        if (!taskToUse?.taskStatus) return [];
         const uniqueIds = new Set<number>();
-        task.taskStatus.forEach((ts) => {
+        taskToUse.taskStatus.forEach((ts) => {
             uniqueIds.add(normalizeId(ts.userId));
         });
         return Array.from(uniqueIds);
-    }, [task?.taskStatus]);
+    }, [taskToUse?.taskStatus]);
 
     // Fetch participant user data
     const { data: participantUsersData = [] } = useQuery({
@@ -127,37 +152,37 @@ export const TaskViewModal = ({
 
     // Get current user's task status
     const myTaskStatus = useMemo(() => {
-        if (!currentUser || !task?.taskStatus) return undefined;
+        if (!currentUser || !taskToUse?.taskStatus) return undefined;
         const userId = normalizeId(currentUser.id);
-        return task.taskStatus.find((ts) => normalizeId(ts.userId) === userId);
-    }, [task?.taskStatus, currentUser]);
+        return taskToUse.taskStatus.find((ts) => normalizeId(ts.userId) === userId);
+    }, [taskToUse?.taskStatus, currentUser]);
 
     // Check for completion
     const myCompletion = useMemo(() => {
-        if (!currentUser || !task) return undefined;
+        if (!currentUser || !taskToUse) return undefined;
         const userId = normalizeId(currentUser.id);
-        const taskId = normalizeId(task.id);
+        const taskId = normalizeId(taskToUse.id);
         return completionLogs.find(
             (log) =>
                 normalizeId(log.taskId) === taskId && normalizeId(log.userId) === userId
         );
-    }, [completionLogs, task, currentUser]);
+    }, [completionLogs, taskToUse, currentUser]);
 
     // Calculate UI status
-    const uiStatus = task
-        ? calculateTaskStatusUserStatus(myTaskStatus, myCompletion, task)
+    const uiStatus = taskToUse
+        ? calculateTaskStatusUserStatus(myTaskStatus, myCompletion, taskToUse)
         : 'active';
 
     const handleEdit = () => {
-        if (task && onEdit) {
+        if (taskToUse && onEdit) {
             onOpenChange(false);
-            onEdit(task);
+            onEdit(taskToUse);
         }
     };
 
     const handleDelete = () => {
-        if (task && onDelete) {
-            onDelete(task.id);
+        if (taskToUse && onDelete) {
+            onDelete(taskToUse.id);
             setShowDeleteConfirm(false);
             onOpenChange(false);
         }
@@ -170,9 +195,12 @@ export const TaskViewModal = ({
         }
     };
 
-    if (!task) return null;
+    // Show loading state inside the dialog when data is being fetched
+    const isLoading = !taskToUse && isFreshTaskLoading;
 
-    const dueDate = task.dueDate ? new Date(task.dueDate) : null;
+    if (!taskToUse && !isLoading) return null;
+
+    const dueDate = taskToUse?.dueDate ? new Date(taskToUse.dueDate) : null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -201,6 +229,33 @@ export const TaskViewModal = ({
             <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl [&>button.absolute]:hidden">
                 {/* Background gradient */}
                 <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background pointer-events-none" />
+
+                {/* Loading Skeleton */}
+                {isLoading && (
+                    <div className="p-6 relative z-10 space-y-4 animate-pulse">
+                        <div className="h-5 w-24 bg-muted rounded-full" />
+                        <div className="h-7 w-3/4 bg-muted rounded-lg" />
+                        <div className="flex gap-2 mt-2">
+                            <div className="h-5 w-16 bg-muted rounded-full" />
+                            <div className="h-5 w-20 bg-muted rounded-full" />
+                        </div>
+                        <div className="border-t border-border/40 my-4" />
+                        <div className="space-y-2">
+                            <div className="h-4 w-full bg-muted rounded" />
+                            <div className="h-4 w-5/6 bg-muted rounded" />
+                            <div className="h-4 w-2/3 bg-muted rounded" />
+                        </div>
+                        <div className="border-t border-border/40 my-4" />
+                        <div className="flex gap-3">
+                            <div className="h-10 w-10 bg-muted rounded-full" />
+                            <div className="h-10 w-10 bg-muted rounded-full" />
+                            <div className="h-10 w-10 bg-muted rounded-full" />
+                        </div>
+                    </div>
+                )}
+
+                {/* Main Content - only render when data is available */}
+                {taskToUse && (<>
 
                 {/* Header */}
                 <DialogHeader className="p-6 pb-4 relative z-10 border-b border-border/40">
@@ -232,7 +287,7 @@ export const TaskViewModal = ({
                             )}
 
                             <DialogTitle className="text-xl font-bold tracking-tight text-left">
-                                {task.title}
+                                {taskToUse.title}
                             </DialogTitle>
 
                             <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -267,15 +322,15 @@ export const TaskViewModal = ({
                                 )}
 
                                 {/* Recurrence */}
-                                {task.type === 'habit' && task.recurrencePattern && (
+                                {taskToUse.type === 'habit' && taskToUse.recurrencePattern && (
                                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                         <Repeat className="w-3.5 h-3.5" />
                                         <span>
-                                            {task.recurrencePattern === 'Daily'
+                                            {taskToUse.recurrencePattern === 'Daily'
                                                 ? 'Daily'
-                                                : task.recurrencePattern === 'weekly'
+                                                : taskToUse.recurrencePattern === 'weekly'
                                                     ? 'Weekly'
-                                                    : task.recurrencePattern}
+                                                    : taskToUse.recurrencePattern}
                                         </span>
                                     </div>
                                 )}
@@ -284,7 +339,7 @@ export const TaskViewModal = ({
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-1 shrink-0">
-                            {canModify && onEdit && task.type !== 'habit' && (
+                            {canModify && onEdit && taskToUse.type !== 'habit' && (
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -306,27 +361,27 @@ export const TaskViewModal = ({
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto px-6 py-4 relative z-10 custom-scrollbar">
                     {/* Description */}
-                    {task.description && (
+                    {taskToUse.description && (
                         <div className="mb-6">
                             <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-muted-foreground">
                                 <FileText className="w-4 h-4" />
                                 <span>Description</span>
                             </div>
                             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                                {task.description}
+                                {taskToUse.description}
                             </p>
                         </div>
                     )}
 
                     {/* Members Section */}
-                    {task.taskStatus && task.taskStatus.length > 0 && (
+                    {taskToUse.taskStatus && taskToUse.taskStatus.length > 0 && (
                         <div>
                             <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-muted-foreground">
                                 <Users className="w-4 h-4" />
-                                <span>Members ({task.taskStatus.length})</span>
+                                <span>Members ({taskToUse.taskStatus.length})</span>
                             </div>
                             <TaskMembersList
-                                task={task}
+                                task={taskToUse}
                                 completionLogs={completionLogs}
                                 participantUsers={participantUsers}
                                 maxVisibleWithoutScroll={5}
@@ -345,18 +400,18 @@ export const TaskViewModal = ({
                                     className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                                 >
                                     <Trash2 className="w-4 h-4 mr-2" />
-                                    {task.type === 'habit' ? 'Delete Series' : 'Delete Task'}
+                                    {taskToUse.type === 'habit' ? 'Delete Series' : 'Delete Task'}
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>
-                                        {task.type === 'habit' ? 'Delete Recurring Series?' : 'Delete Task?'}
+                                        {taskToUse.type === 'habit' ? 'Delete Recurring Series?' : 'Delete Task?'}
                                     </AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        {task.type === 'habit'
-                                            ? `Are you sure you want to delete "${task.title}"? This will delete ALL instances of this recurring task series.`
-                                            : `Are you sure you want to delete "${task.title}"? This action cannot be undone and will remove the task for all participants.`
+                                        {taskToUse.type === 'habit'
+                                            ? `Are you sure you want to delete "${taskToUse.title}"? This will delete ALL instances of this recurring task series.`
+                                            : `Are you sure you want to delete "${taskToUse.title}"? This action cannot be undone and will remove the task for all participants.`
                                         }
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
@@ -366,13 +421,15 @@ export const TaskViewModal = ({
                                         onClick={handleDelete}
                                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
-                                        {task.type === 'habit' ? 'Delete Series' : 'Delete'}
+                                        {taskToUse.type === 'habit' ? 'Delete Series' : 'Delete'}
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </div>
                 )}
+
+                </>)}
             </DialogContent>
         </Dialog>
     );

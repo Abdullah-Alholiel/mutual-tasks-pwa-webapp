@@ -11,7 +11,7 @@ import { getDatabaseClient } from '@/db';
 import { useAuth } from '../../auth/useAuth';
 import type { Task, TaskStatusEntity, CompletionLog, DifficultyRating } from '@/types';
 import { handleError } from '@/lib/errorUtils';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { getTodayTasks, getProjectTasks, getUserTasks } from '../../../lib/tasks/taskFilterUtils';
 import { PERFORMANCE_CONFIG } from '@/config/appConfig';
 import { TASK_KEYS, PROJECT_KEYS, USER_KEYS, COMPLETION_LOG_KEYS, TASK_STATUS_KEYS } from '@/lib/queryKeys';

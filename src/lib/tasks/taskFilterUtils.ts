@@ -13,7 +13,7 @@ import { normalizeId } from '@/lib/idUtils';
 
 /**
  * Get tasks for today (based on dueDate)
- * 
+ *
  * @param tasks - Array of tasks
  * @param userId - Optional user ID to filter by participation
  * @returns Tasks due today
@@ -29,6 +29,43 @@ export const getTodayTasks = (
     const isToday = dueDate.getTime() === today.getTime();
 
     if (!isToday) return false;
+
+    // If userId provided, filter to tasks visible to that user
+    if (userId !== undefined) {
+      const userIdNum = normalizeId(userId);
+      const creatorId = normalizeId(task.creatorId);
+      const isCreator = creatorId === userIdNum;
+      const hasStatus = task.taskStatus?.some(ts => {
+        const tsUserId = normalizeId(ts.userId);
+        return tsUserId === userIdNum;
+      });
+      return isCreator || hasStatus;
+    }
+
+    return true;
+  });
+};
+
+/**
+ * Filter tasks by a specific date (including past, today, and future dates)
+ *
+ * @param tasks - Array of tasks
+ * @param date - Date to filter by (undefined means today)
+ * @param userId - Optional user ID to filter by participation
+ * @returns Tasks due on specified date
+ */
+export const filterTasksByDate = (
+  tasks: Task[],
+  date: Date | undefined,
+  userId?: string | number
+): Task[] => {
+  const targetDate = date ? normalizeToStartOfDay(date) : normalizeToStartOfDay(new Date());
+
+  return tasks.filter(task => {
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
+    const isTargetDate = dueDate.getTime() === targetDate.getTime();
+
+    if (!isTargetDate) return false;
 
     // If userId provided, filter to tasks visible to that user
     if (userId !== undefined) {
@@ -120,28 +157,42 @@ function isUserInTaskProject(
 }
 
 /**
- * Get tasks that need user action (active tasks due today, not completed, not recovered)
- * This is for the "Needs Your Action" section in today's view
+ * Get tasks that need user action (active tasks due on the target date, not completed, not recovered)
+ * This is for the "Needs Your Action" section
  * 
  * @param tasks - Array of tasks
  * @param taskStatuses - Array of task statuses
  * @param completionLogs - Array of completion logs
  * @param userId - User ID to filter by
  * @param projects - Array of projects (optional, for checking project membership)
- * @returns Tasks needing action (active, due today, not completed, not recovered)
+ * @param targetDate - Date to filter by (defaults to today when undefined)
+ * @returns Tasks needing action (active, due on target date, not completed, not recovered)
  */
 export const getNeedsActionTasks = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
   userId: string | number,
-  projects?: Project[]
+  projects?: Project[],
+  targetDate?: Date
 ): Task[] => {
+  const date = targetDate ? normalizeToStartOfDay(targetDate) : normalizeToStartOfDay(new Date());
   const today = normalizeToStartOfDay(new Date());
+  const isViewingToday = date.getTime() === today.getTime();
   const userIdNum = normalizeId(userId);
+
+  // "Needs Action" ONLY exists for TODAY.
+  // Future dates → tasks show as "Coming Up"
+  // Past dates → tasks show as "Archived" (they expired)
+  if (!isViewingToday) return [];
 
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
+
+    // Task must be due TODAY
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
+    if (dueDate.getTime() !== today.getTime()) return false;
+
     const myStatus = taskStatuses.find(ts => {
       const tsTaskId = normalizeId(ts.taskId);
       const tsUserId = normalizeId(ts.userId);
@@ -153,14 +204,13 @@ export const getNeedsActionTasks = (
       return clTaskId === taskId && clUserId === userIdNum;
     });
 
+    // Completed tasks don't need action
+    if (myCompletion || myStatus?.status === 'completed') return false;
+
     const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
     if (userStatus !== 'active') return false;
 
-    // Use task dueDate (effectiveDueDate not in TaskStatusEntity type)
-    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
-    const isDueToday = dueDate.getTime() === today.getTime();
-    if (!isDueToday) return false;
-
+    // Check user visibility: user must have a status, be the creator, or be in the project
     if (!myStatus) {
       if (projects) {
         return isUserInTaskProject(task, userId, projects);
@@ -312,22 +362,28 @@ export const getCompletedTasks = (
 };
 
 /**
- * Get completed tasks for today (for "Completed for the Day" section)
+ * Get completed tasks for a specific date (for "Done for the Day" section)
+ * Returns tasks that were completed on the target date.
  * 
  * @param tasks - Array of tasks
- * @param taskStatuses - Array of task statuses
  * @param completionLogs - Array of completion logs
  * @param userId - User ID to filter by
- * @returns Completed tasks with today's date
+ * @param targetDate - Date to filter by (defaults to today when undefined)
+ * @returns Completed tasks for the target date
  */
 export const getCompletedTasksForToday = (
   tasks: Task[],
-  taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
-  userId: string | number
+  userId: string | number,
+  targetDate?: Date,
+  taskStatuses?: TaskStatusEntity[]
 ): Task[] => {
+  const date = targetDate ? normalizeToStartOfDay(targetDate) : normalizeToStartOfDay(new Date());
   const today = normalizeToStartOfDay(new Date());
   const userIdNum = normalizeId(userId);
+
+  // Future dates never show completed tasks (can't complete them yet)
+  if (date.getTime() > today.getTime()) return [];
 
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
@@ -338,33 +394,60 @@ export const getCompletedTasksForToday = (
     });
     if (!myCompletion) return false;
 
-    // Check if completion was on today's date (use createdAt as completion date)
-    const completionDate = normalizeToStartOfDay(new Date(myCompletion.createdAt));
-    const isCompletedToday = completionDate.getTime() === today.getTime();
+    // Check if this was a recovered task (completed after recovery)
+    const myStatus = taskStatuses?.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const wasRecovered = myStatus?.recoveredAt !== undefined && myStatus?.recoveredAt !== null;
 
-    return isCompletedToday;
+    if (wasRecovered && myStatus?.recoveredAt) {
+      // Recovered tasks: show on the recovery date only
+      const recoveryDate = normalizeToStartOfDay(new Date(myStatus.recoveredAt));
+      return recoveryDate.getTime() === date.getTime();
+    }
+
+    // Strict single-date scoping: task shows if due on OR completed on the target date
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
+    const isDueOnDate = dueDate.getTime() === date.getTime();
+
+    const completionDate = normalizeToStartOfDay(new Date(myCompletion.createdAt));
+    const isCompletedOnDate = completionDate.getTime() === date.getTime();
+
+    return isDueOnDate || isCompletedOnDate;
   });
 };
 
 /**
  * Get recovered tasks (for "Another Chance?" section)
- * Shows all tasks with task status user status of "recovered" regardless of date
+ * When a targetDate is provided, shows recovered tasks with due date on or before that date.
+ * When no targetDate is provided (today's view), shows all recovered tasks regardless of date.
  * 
  * @param tasks - Array of tasks
  * @param taskStatuses - Array of task statuses
  * @param completionLogs - Array of completion logs
  * @param userId - User ID to filter by
  * @param projects - Array of projects (optional, for checking project membership)
- * @returns Recovered tasks (regardless of date)
+ * @param targetDate - Date to scope recovered tasks by (when set, only shows recovered tasks due on or before this date)
+ * @returns Recovered tasks
  */
 export const getRecoveredTasks = (
   tasks: Task[],
   taskStatuses: TaskStatusEntity[],
   completionLogs: CompletionLog[],
   userId: string | number,
-  projects?: Project[]
+  projects?: Project[],
+  targetDate?: Date
 ): Task[] => {
   const userIdNum = normalizeId(userId);
+  const today = normalizeToStartOfDay(new Date());
+  const date = targetDate ? normalizeToStartOfDay(targetDate) : today;
+  const isViewingToday = date.getTime() === today.getTime();
+  const isFutureDate = date.getTime() > today.getTime();
+
+  // Future dates never have recovered tasks
+  if (isFutureDate) return [];
 
   return tasks.filter(task => {
     const taskId = normalizeId(task.id);
@@ -379,13 +462,168 @@ export const getRecoveredTasks = (
       return clTaskId === taskId && clUserId === userIdNum;
     });
 
-    // Exclude completed tasks - they should not appear in recovered section
+    // Exclude completed tasks
     if (myCompletion) return false;
 
-    const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
-    if (userStatus !== 'recovered') return false;
+    if (isViewingToday) {
+      // Today: use calculateTaskStatusUserStatus — it checks recoveredAt
+      // and returns 'recovered' only if still within the recovery day
+      const userStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
+      if (userStatus !== 'recovered') return false;
+    } else {
+      // Past dates: recovered tasks show on their RECOVERY date only
+      const hasRecovery = myStatus?.recoveredAt !== undefined && myStatus?.recoveredAt !== null;
+      if (!hasRecovery) return false;
 
-    // If user has no status, check if they're in the project
+      const recoveryDate = normalizeToStartOfDay(new Date(myStatus!.recoveredAt!));
+      if (recoveryDate.getTime() !== date.getTime()) return false;
+    }
+
+    // If user has no status, check project membership
+    if (!myStatus) {
+      if (projects) {
+        return isUserInTaskProject(task, userId, projects);
+      }
+      const creatorId = normalizeId(task.creatorId);
+      return creatorId === userIdNum;
+    }
+
+    return true;
+  });
+};
+
+/**
+ * Get upcoming tasks for a future date view.
+ * This section ONLY appears when viewing a FUTURE date.
+ * Returns tasks due ON that future date that haven't been completed/archived.
+ *
+ * Rule: Today and past dates NEVER show "Coming Up" — those dates are
+ * in the present/past, so there's nothing "upcoming" about them.
+ *
+ * @param tasks - Array of tasks
+ * @param taskStatuses - Array of task statuses
+ * @param completionLogs - Array of completion logs
+ * @param userId - User ID to filter by
+ * @param projects - Array of projects (optional, for checking project membership)
+ * @param targetDate - The date being viewed (defaults to today)
+ * @returns Upcoming tasks due on the target date (empty for today and past dates)
+ */
+export const getUpcomingTasksForDate = (
+  tasks: Task[],
+  taskStatuses: TaskStatusEntity[],
+  completionLogs: CompletionLog[],
+  userId: string | number,
+  projects?: Project[],
+  targetDate?: Date
+): Task[] => {
+  const date = targetDate ? normalizeToStartOfDay(targetDate) : normalizeToStartOfDay(new Date());
+  const today = normalizeToStartOfDay(new Date());
+  const userIdNum = normalizeId(userId);
+
+  // "Coming Up" ONLY exists for future dates.
+  // Today and past dates never show upcoming tasks.
+  if (date.getTime() <= today.getTime()) return [];
+
+  return tasks.filter(task => {
+    const taskId = normalizeId(task.id);
+
+    // Task must be due ON the selected future date
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
+    if (dueDate.getTime() !== date.getTime()) return false;
+
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.find(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
+
+    // Exclude completed tasks
+    if (myCompletion || myStatus?.status === 'completed') return false;
+    // Exclude recovered tasks
+    if (myStatus?.recoveredAt || myStatus?.status === 'recovered') return false;
+    // Exclude explicitly archived tasks
+    if (myStatus?.status === 'archived' || (myStatus?.archivedAt && !myStatus?.recoveredAt)) return false;
+
+    // Check user visibility
+    if (!myStatus) {
+      if (projects) {
+        return isUserInTaskProject(task, userId, projects);
+      }
+      const creatorId = normalizeId(task.creatorId);
+      return creatorId === userIdNum;
+    }
+
+    return true;
+  });
+};
+
+/**
+ * Get archived tasks for a past date view.
+ * This section ONLY appears when viewing a PAST date.
+ * Returns tasks due ON that past date that expired (not completed, not recovered).
+ *
+ * Rule: Today and future dates NEVER show "Archived" — today's tasks are active
+ * (not yet expired), and future tasks haven't happened yet.
+ *
+ * @param tasks - Array of tasks
+ * @param taskStatuses - Array of task statuses
+ * @param completionLogs - Array of completion logs
+ * @param userId - User ID to filter by
+ * @param projects - Array of projects (optional, for checking project membership)
+ * @param targetDate - The date being viewed (defaults to today)
+ * @returns Archived tasks due on the target date (empty for today and future dates)
+ */
+export const getArchivedTasksForDate = (
+  tasks: Task[],
+  taskStatuses: TaskStatusEntity[],
+  completionLogs: CompletionLog[],
+  userId: string | number,
+  projects?: Project[],
+  targetDate?: Date
+): Task[] => {
+  const today = normalizeToStartOfDay(new Date());
+  const date = targetDate ? normalizeToStartOfDay(targetDate) : today;
+  const userIdNum = normalizeId(userId);
+
+  // "Archived" ONLY exists for past dates.
+  // Today and future dates never show archived tasks.
+  if (date.getTime() >= today.getTime()) return [];
+
+  return tasks.filter(task => {
+    const taskId = normalizeId(task.id);
+
+    // Task must be due ON the selected past date (strict single-date scoping)
+    const dueDate = normalizeToStartOfDay(new Date(task.dueDate));
+    if (dueDate.getTime() !== date.getTime()) return false;
+
+    const myStatus = taskStatuses.find(ts => {
+      const tsTaskId = normalizeId(ts.taskId);
+      const tsUserId = normalizeId(ts.userId);
+      return tsTaskId === taskId && tsUserId === userIdNum;
+    });
+    const myCompletion = completionLogs.find(cl => {
+      const clTaskId = normalizeId(cl.taskId);
+      const clUserId = normalizeId(cl.userId);
+      return clTaskId === taskId && clUserId === userIdNum;
+    });
+
+    // Exclude completed tasks
+    if (myCompletion || myStatus?.status === 'completed') return false;
+    // Exclude recovered tasks (they have their own section)
+    if (myStatus?.recoveredAt || myStatus?.status === 'recovered') return false;
+
+    // Use calculateTaskStatusUserStatus for accurate archived detection.
+    // Handles: explicit 'archived', archivedAt flag, AND auto-archived
+    // (status='active' in DB but past due date → computed as 'archived').
+    const computedStatus = calculateTaskStatusUserStatus(myStatus, myCompletion, task);
+    if (computedStatus !== 'archived') return false;
+
+    // Check user visibility
     if (!myStatus) {
       if (projects) {
         return isUserInTaskProject(task, userId, projects);

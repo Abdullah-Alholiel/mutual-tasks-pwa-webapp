@@ -3,20 +3,23 @@ import { TaskCard } from '../tasks/components/TaskCard';
 import { TaskForm } from '../tasks/components/TaskForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { motion } from 'framer-motion';
-import { Calendar, CheckCircle2, Plus, RotateCcw, Sparkles } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Archive, Calendar, CheckCircle2, Clock, Plus, RotateCcw, Sparkles } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { TaskStatCard } from '../../components/TaskStatCard';
+import { TaskCalendar } from '../../components/TaskCalendar';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import type { Task, User, ProjectParticipant } from '../../types';
 import {
-  getTodayTasks,
   getNeedsActionTasks,
   getCompletedTasksForToday,
   getRecoveredTasks,
-  updateTasksWithStatuses
+  getUpcomingTasksForDate,
+  getArchivedTasksForDate,
+  updateTasksWithStatuses,
 } from '../../lib/tasks/taskFilterUtils';
+import { recoverTask } from '../../lib/tasks/taskRecoveryUtils';
 import { getParticipatingUserIds } from '../../lib/tasks/taskCreationUtils';
 import { getProjectsWhereCanCreateTasks } from '../../lib/projects/projectUtils';
 import { notifyTaskUpdated } from '../../lib/tasks/taskEmailNotifications';
@@ -39,6 +42,9 @@ import { TASK_CONFIG } from '@/config/appConfig';
 import { useNavigate } from 'react-router-dom';
 import { ProjectForm } from '../projects/components/ProjectForm';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useRef } from 'react';
+import { useTaskViewModal } from '../tasks/hooks/useTaskViewModal';
+
 // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
 
 const containerVariants = {
@@ -47,6 +53,12 @@ const containerVariants = {
     opacity: 1,
     transition: {
       staggerChildren: 0.08
+    }
+  },
+  exit: {
+    opacity: 0,
+    transition: {
+      duration: 0.2
     }
   }
 };
@@ -76,7 +88,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
   const navigate = useNavigate();
   const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
   const { data: todayTasksRaw = [], isLoading: tasksLoading } = useTodayTasks();
-  const { data: allUserTasks = [], isLoading: _allTasksLoading } = useUserTasks(); // For recovered tasks
+  const { data: allUserTasks = [], isLoading: _allTasksLoading } = useUserTasks(); // For recovered tasks and date filtering
   const createTaskMutation = useCreateTaskWithStatuses();
   const createMultipleTasksMutation = useCreateMultipleTasksWithStatuses();
   const createCompletionLogMutation = useCreateCompletionLog();
@@ -85,14 +97,30 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
   const updateTaskMutation = useUpdateTask();
   const createProjectMutation = useCreateProject();
 
+  // Calendar date filtering
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
   // Global realtime subscriptions are handled by GlobalRealtimeSubscriptions in AppLayout
   // No need to create subscriptions here - they're managed globally
 
-  const { data: taskStatuses = [], isLoading: statusesLoading } = useTaskStatuses();
+  const { data: taskStatuses = [] } = useTaskStatuses();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const { openTaskViewByTaskId } = useTaskViewModal();
+  const createdTaskRef = useRef<{ task: Task; projectId: number } | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState<'active' | 'completed' | 'recovered' | 'upcoming' | 'archived' | null>(null);
+  const handleStatusFilter = (status: 'active' | 'completed' | 'recovered' | 'upcoming' | 'archived') => {
+    setStatusFilter(prev => prev === status ? null : status);
+  };
+
+  // When the user picks a new date, reset the status filter so all sections show
+  const handleDateChange = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setStatusFilter(null);
+  };
 
   // Update tasks with their statuses
   const tasksWithStatuses = useMemo(() =>
@@ -100,7 +128,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
     [todayTasksRaw, taskStatuses]
   );
 
-  // Update ALL user tasks with their statuses (for finding recovered tasks)
+  // Update ALL user tasks with their statuses (for finding recovered tasks and date filtering)
   const allTasksWithStatuses = useMemo(() =>
     updateTasksWithStatuses(allUserTasks, taskStatuses),
     [allUserTasks, taskStatuses]
@@ -114,7 +142,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
   }, [allTasksWithStatuses]);
 
   // Fetch completion logs for all tasks (includes all participants' completions)
-  const { data: completionLogs = [], isLoading: logsLoading } = useProjectCompletionLogs(allTaskIds);
+  const { data: completionLogs = [] } = useProjectCompletionLogs(allTaskIds);
 
   // Update projects with participant roles for permission checking
   const projectsWithRoles = useMemo(() =>
@@ -130,25 +158,6 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
     user ? getProjectsWhereCanCreateTasks(projectsWithRoles, user.id) : [],
     [projectsWithRoles, user]
   );
-
-  // Filter tasks for today using utility
-  const myTasks = useMemo(() => {
-    if (!user) return [];
-    return getTodayTasks(tasksWithStatuses, user.id).filter(task => {
-      // Task should appear if user is in project participants or is creator
-      const project = allProjects.find(p => compareIds(p.id, task.projectId));
-      if (!project) return false;
-
-      const userIdNum = normalizeId(user.id);
-      const isCreator = compareIds(task.creatorId, userIdNum);
-
-      const isInProject = project.participantRoles?.some(pr => {
-        return compareIds(pr.userId, userIdNum) && !pr.removedAt;
-      }) || compareIds(project.ownerId, userIdNum) || isCreator;
-
-      return isInProject;
-    });
-  }, [tasksWithStatuses, allProjects, user]);
 
   const handleComplete = async (taskId: string | number, difficultyRating?: number) => {
     if (!user) return;
@@ -289,7 +298,15 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
       toast.success('Great job!', {
         description: penaltyApplied
           ? 'Waiting for your partners to complete... (Half XP - Recovered)'
-          : 'Waiting for your partners to complete...'
+          : 'Waiting for your partners to complete...',
+        action: {
+          label: "View",
+          onClick: () => {
+            // Use openTaskViewByTaskId to fetch fresh data after completion
+            const viewTaskId = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+            openTaskViewByTaskId(viewTaskId);
+          }
+        }
       });
     } catch (error) {
       toast.error('Failed to complete task');
@@ -297,22 +314,99 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
     }
   };
 
-  // Filter tasks using utilities for today's view sections
+  // Determine if a specific date is selected (not today's default view)
+  const isDateSelected = selectedDate !== undefined;
+  const isToday = useMemo(() => {
+    if (!selectedDate) return true;
+    const today = normalizeToStartOfDay(new Date());
+    const selected = normalizeToStartOfDay(selectedDate);
+    return selected.getTime() === today.getTime();
+  }, [selectedDate]);
+
+  // Filter tasks using date-aware utilities for the selected date's view sections
   const needsActionTasks = useMemo(() =>
-    user ? getNeedsActionTasks(myTasks, taskStatuses, completionLogs, user.id, projectsWithRoles) : [],
-    [myTasks, taskStatuses, completionLogs, projectsWithRoles, user]
+    user ? getNeedsActionTasks(
+      allTasksWithStatuses, taskStatuses, completionLogs, user.id,
+      projectsWithRoles, selectedDate
+    ) : [],
+    [allTasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user, selectedDate]
   );
 
   const completedTasksForToday = useMemo(() =>
-    user ? getCompletedTasksForToday(allTasksWithStatuses, taskStatuses, completionLogs, user.id) : [],
-    [allTasksWithStatuses, taskStatuses, completionLogs, user]
+    user ? getCompletedTasksForToday(
+      allTasksWithStatuses, completionLogs, user.id, selectedDate, taskStatuses
+    ) : [],
+    [allTasksWithStatuses, completionLogs, user, selectedDate, taskStatuses]
   );
 
-  // Use allTasksWithStatuses for recovered tasks since they have past due dates (not in today's tasks)
+  // Use allTasksWithStatuses for recovered tasks since they have past due dates
+  // Recovered tasks show on the recovery date, not the original due date
   const recoveredTasks = useMemo(() =>
-    user ? getRecoveredTasks(allTasksWithStatuses, taskStatuses, completionLogs, user.id, projectsWithRoles) : [],
-    [allTasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user]
+    user ? getRecoveredTasks(
+      allTasksWithStatuses, taskStatuses, completionLogs, user.id,
+      projectsWithRoles, selectedDate
+    ) : [],
+    [allTasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user, selectedDate]
   );
+
+  // Upcoming tasks: tasks due after the selected date
+  const upcomingTasks = useMemo(() =>
+    user ? getUpcomingTasksForDate(
+      allTasksWithStatuses, taskStatuses, completionLogs, user.id,
+      projectsWithRoles, selectedDate
+    ) : [],
+    [allTasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user, selectedDate]
+  );
+
+  // Archived tasks: past-due tasks that weren't completed or recovered
+  const archivedTasks = useMemo(() =>
+    user ? getArchivedTasksForDate(
+      allTasksWithStatuses, taskStatuses, completionLogs, user.id,
+      projectsWithRoles, selectedDate
+    ) : [],
+    [allTasksWithStatuses, taskStatuses, completionLogs, projectsWithRoles, user, selectedDate]
+  );
+
+  // Handle recover for archived tasks (same pattern as project detail page)
+  const handleRecover = async (taskId: string | number) => {
+    if (!user) return;
+
+    const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+    const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
+
+    const result = recoverTask(String(taskIdNum), String(userId), allTasksWithStatuses, taskStatuses);
+
+    if (!result || !result.success) {
+      toast.error('Cannot recover this task');
+      return;
+    }
+
+    try {
+      const db = getDatabaseClient();
+
+      // Persist task status update to database
+      if (result.updatedTaskStatus) {
+        await db.taskStatus.updateByTaskAndUser(taskIdNum, userId, {
+          status: 'recovered',
+          recoveredAt: result.updatedTaskStatus.recoveredAt,
+          archivedAt: undefined,
+          ringColor: 'yellow',
+        });
+      }
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['taskStatuses'] });
+      queryClient.invalidateQueries({ queryKey: ['completionLogs', 'tasks'] });
+
+      toast.success('Back on the list! 🔙', {
+        description: 'Complete it today to earn XP.',
+      });
+    } catch (error) {
+      console.error('Failed to recover task:', error);
+      toast.error('Failed to recover task');
+    }
+  };
 
   const handleCreateTask = async (taskData: {
     title: string;
@@ -382,11 +476,21 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
         await createMultipleTasksMutation.mutateAsync(tasksToCreate);
 
         toast.success(`${tasksToCreate.length} habit tasks created! 🚀`, {
-          description: 'Statuses created for all participants'
+          description: 'Statuses created for all participants',
+          action: {
+            label: "View",
+            onClick: () => {
+              // Navigate to project since multiple tasks were created
+              const projectId = typeof taskData.projectId === 'string'
+                ? parseInt(taskData.projectId)
+                : taskData.projectId;
+              navigate(`/projects/${projectId}`);
+            },
+          },
         });
       } else {
         // One-off task
-        await createTaskMutation.mutateAsync({
+        const creationResult = await createTaskMutation.mutateAsync({
           task: {
             projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId,
             creatorId: userId,
@@ -400,8 +504,30 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
           dueDate: defaultDueDate
         });
 
+        const createdTask = creationResult.task;
+
+        // Store reference for toast action
+        createdTaskRef.current = {
+          task: {
+            ...createdTask,
+            id: typeof createdTask.id === 'string' ? parseInt(createdTask.id) : createdTask.id
+          },
+          projectId: typeof taskData.projectId === 'string' ? parseInt(taskData.projectId) : taskData.projectId
+        };
+
         toast.success('Task created! 🚀', {
-          description: 'Statuses created for all participants'
+          description: 'Statuses created for all participants',
+          action: {
+            label: "View",
+            onClick: () => {
+              if (createdTaskRef.current?.task) {
+                const taskId = typeof createdTaskRef.current.task.id === 'string'
+                  ? parseInt(createdTaskRef.current.task.id)
+                  : createdTaskRef.current.task.id;
+                openTaskViewByTaskId(taskId);
+              }
+            },
+          },
         });
       }
 
@@ -466,7 +592,20 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
         });
       }
 
-      toast.success('Task updated! ✨');
+      const updatedTask = taskToEdit; // Capture current task state before clearing
+      toast.success('Task updated! ✨', {
+        action: {
+          label: "View",
+          onClick: () => {
+            if (updatedTask) {
+              const taskId = typeof updatedTask.id === 'string'
+                ? parseInt(updatedTask.id)
+                : updatedTask.id;
+              openTaskViewByTaskId(taskId);
+            }
+          },
+        },
+      });
     } catch (error) {
       console.error('Failed to update task:', error);
       toast.error('Failed to update task');
@@ -589,21 +728,26 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
 
   // We no longer block the whole page on loading
   // SWR pattern: show cached data instantly if available
-  const isInitialLoading = (tasksLoading || projectsLoading || statusesLoading || logsLoading || isRestoring) &&
-    (todayTasksRaw.length === 0 && allProjects.length === 0);
+  // We no longer block the whole page on loading
+  // SWR pattern: show cached data instantly if available
+  const isInitialLoading = isRestoring ||
+    (tasksLoading && todayTasksRaw.length === 0) ||
+    (projectsLoading && allProjects.length === 0);
 
   if (isInitialLoading) {
     return (
-      <div className="space-y-8 p-4">
-        <div className="h-20 w-full animate-pulse bg-muted rounded-2xl" />
-        <div className="grid grid-cols-3 gap-4">
-          <div className="h-24 animate-pulse bg-muted rounded-2xl" />
-          <div className="h-24 animate-pulse bg-muted rounded-2xl" />
-          <div className="h-24 animate-pulse bg-muted rounded-2xl" />
+      <div className="space-y-3 p-4 animate-fade-in">
+        <div className="h-10 w-40 animate-pulse bg-muted rounded-lg" />
+        <div className="h-[72px] w-full animate-pulse bg-muted rounded-2xl" />
+        <div className="flex justify-center gap-2">
+          <div className="h-7 w-20 animate-pulse bg-muted rounded-full" />
+          <div className="h-7 w-24 animate-pulse bg-muted rounded-full" />
+          <div className="h-7 w-24 animate-pulse bg-muted rounded-full" />
         </div>
         <div className="space-y-4">
-          <div className="h-32 w-full animate-pulse bg-muted rounded-2xl" />
-          <div className="h-32 w-full animate-pulse bg-muted rounded-2xl" />
+          <div className="h-16 w-full animate-pulse bg-muted rounded-2xl" />
+          <div className="h-16 w-full animate-pulse bg-muted rounded-2xl" />
+          <div className="h-16 w-full animate-pulse bg-muted rounded-2xl" />
         </div>
       </div>
     );
@@ -611,27 +755,28 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
 
   return (
     <>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-3 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-3xl font-bold"
+              className="text-2xl font-bold"
             >
-              Today
+              Home
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-sm text-muted-foreground flex items-center gap-2"
+              className="text-xs text-muted-foreground flex items-center gap-1.5"
             >
-              <Calendar className="w-4 h-4" />
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'long',
+              <Calendar className="w-3.5 h-3.5" />
+              {isToday ? 'Today • ' : ''}
+              {(selectedDate ?? new Date()).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
                 day: 'numeric'
               })}
             </motion.p>
@@ -655,157 +800,442 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
           </DropdownMenu>
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-3 gap-4">
-          <TaskStatCard
-            count={needsActionTasks.length}
-            label="Active"
-            color="text-primary"
-            delay={0.2}
-          />
-          <TaskStatCard
-            count={completedTasksForToday.length}
-            label="Completed"
-            color="text-status-completed"
-            delay={0.3}
-          />
-          <TaskStatCard
-            count={recoveredTasks.length}
-            label="Recovered"
-            color="text-status-warning"
-            delay={0.4}
-          />
+        {/* Mini Calendar */}
+        <TaskCalendar
+          onDateChange={handleDateChange}
+          selectedDate={selectedDate}
+        />
+
+        {/* Stats Overview — below calendar, only show tags with count > 0 */}
+        <div className="flex items-center justify-center gap-2 w-full flex-wrap">
+          {needsActionTasks.length > 0 && (
+            <TaskStatCard
+              count={needsActionTasks.length}
+              label="Active"
+              color="text-primary"
+              delay={0.3}
+              onClick={() => handleStatusFilter('active')}
+              isActive={statusFilter === 'active'}
+            />
+          )}
+          {upcomingTasks.length > 0 && (
+            <TaskStatCard
+              count={upcomingTasks.length}
+              label="Upcoming"
+              color="text-status-upcoming"
+              delay={0.32}
+              onClick={() => handleStatusFilter('upcoming')}
+              isActive={statusFilter === 'upcoming'}
+            />
+          )}
+          {completedTasksForToday.length > 0 && (
+            <TaskStatCard
+              count={completedTasksForToday.length}
+              label="Completed"
+              color="text-status-completed"
+              delay={0.35}
+              onClick={() => handleStatusFilter('completed')}
+              isActive={statusFilter === 'completed'}
+            />
+          )}
+          {recoveredTasks.length > 0 && (
+            <TaskStatCard
+              count={recoveredTasks.length}
+              label="Recovered"
+              color="text-status-recovered"
+              delay={0.37}
+              onClick={() => handleStatusFilter('recovered')}
+              isActive={statusFilter === 'recovered'}
+            />
+          )}
+          {archivedTasks.length > 0 && (
+            <TaskStatCard
+              count={archivedTasks.length}
+              label="Archived"
+              color="text-status-archived"
+              delay={0.4}
+              onClick={() => handleStatusFilter('archived')}
+              isActive={statusFilter === 'archived'}
+            />
+          )}
         </div>
 
-        {/* Needs Your Action */}
-        {needsActionTasks.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-bold">Needs Your Action</h2>
-            </div>
-            {/* Optimized task container for smooth scrolling */}
+        <AnimatePresence mode="popLayout" initial={false}>
+          {/* Needs Your Action */}
+          {(statusFilter === null || statusFilter === 'active') && needsActionTasks.length > 0 && (
             <motion.div
-              className="space-y-3"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
+              key="active-section"
+              layout
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-4 overflow-hidden"
               style={{
                 transform: 'translateZ(0)',
-                willChange: 'contents',
+                willChange: 'opacity, height'
               }}
             >
-              {needsActionTasks.map((task) => (
-                <motion.div
-                  key={task.id}
-                  variants={itemVariants}
-                  style={{
-                    contain: 'layout style',
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: '0 185px', // Production: 180px active cards
-                  }}
-                >
-                  <TaskCard
-                    task={task}
-                    completionLogs={completionLogs}
-                    onComplete={handleComplete}
-                    showRecover={false}
-                    onDelete={handleDeleteTask}
-                    onEdit={getOnEditTask(task)}
-                  />
-                </motion.div>
-              ))}
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-bold">Needs Your Action</h2>
+              </div>
+              {/* Optimized task container for smooth scrolling */}
+              <motion.div
+                className="space-y-3"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'contents',
+                }}
+              >
+                {needsActionTasks.map((task) => (
+                  <motion.div
+                    key={task.id}
+                    variants={itemVariants}
+                    style={{
+                      contain: 'layout style',
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: '0 185px', // Production: 180px active cards
+                    }}
+                  >
+                    <TaskCard
+                      task={task}
+                      completionLogs={completionLogs}
+                      onComplete={handleComplete}
+                      showRecover={false}
+                      onDelete={handleDeleteTask}
+                      onEdit={getOnEditTask(task)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
             </motion.div>
-          </div>
-        )}
+          )}
 
-        {/* Another Chance ? */}
-        {recoveredTasks.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <RotateCcw className="w-5 h-5 text-status-warning" />
-              <h2 className="text-xl font-bold">Another Chance ?</h2>
-            </div>
-            {/* Optimized task container for smooth scrolling */}
+          {/* Another Chance ? */}
+          {(statusFilter === null || statusFilter === 'recovered') && recoveredTasks.length > 0 && (
             <motion.div
-              className="space-y-3"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
+              layout
+              key="recovered-section"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-4 overflow-hidden"
               style={{
                 transform: 'translateZ(0)',
-                willChange: 'contents',
+                willChange: 'opacity, height'
               }}
             >
-              {recoveredTasks.map((task) => (
-                <motion.div
-                  key={task.id}
-                  variants={itemVariants}
-                  style={{
-                    contain: 'layout style',
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: '0 185px', // Production: 180px active cards
-                  }}
-                >
-                  <TaskCard
-                    task={task}
-                    completionLogs={completionLogs}
-                    onComplete={handleComplete}
-                    showRecover={false}
-                    onDelete={handleDeleteTask}
-                    onEdit={getOnEditTask(task)}
-                  />
-                </motion.div>
-              ))}
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-status-recovered" />
+                <h2 className="text-xl font-bold">Another Chance?</h2>
+              </div>
+              {/* Optimized task container for smooth scrolling */}
+              <motion.div
+                className="space-y-3"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'contents',
+                }}
+              >
+                {recoveredTasks.map((task) => (
+                  <motion.div
+                    key={task.id}
+                    variants={itemVariants}
+                    style={{
+                      contain: 'layout style',
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: '0 185px', // Production: 180px active cards
+                    }}
+                  >
+                    <TaskCard
+                      task={task}
+                      completionLogs={completionLogs}
+                      onComplete={handleComplete}
+                      showRecover={false}
+                      onDelete={handleDeleteTask}
+                      onEdit={getOnEditTask(task)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
             </motion.div>
-          </div>
-        )}
+          )}
 
-        {/* Done for the Day */}
-        {completedTasksForToday.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-success" />
-              <h2 className="text-xl font-bold">Done for the Day</h2>
-            </div>
-            {/* Optimized task container for smooth scrolling */}
+          {/* Done for the Day */}
+          {(statusFilter === null || statusFilter === 'completed') && completedTasksForToday.length > 0 && (
             <motion.div
-              className="space-y-3 opacity-60"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
+              layout
+              key="completed-section"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-4 overflow-hidden"
               style={{
                 transform: 'translateZ(0)',
-                willChange: 'contents',
+                willChange: 'opacity, height'
               }}
             >
-              {completedTasksForToday.map((task) => (
-                <motion.div
-                  key={task.id}
-                  variants={itemVariants}
-                  style={{
-                    contain: 'layout style',
-                    contentVisibility: 'auto',
-                    containIntrinsicSize: '0 145px', // Production: 140px completed cards
-                  }}
-                >
-                  <TaskCard
-                    task={task}
-                    completionLogs={completionLogs}
-                    onDelete={handleDeleteTask}
-                    onEdit={getOnEditTask(task)}
-                  />
-                </motion.div>
-              ))}
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-status-completed" />
+                <h2 className="text-xl font-bold">Done for the Day</h2>
+              </div>
+              {/* Optimized task container for smooth scrolling */}
+              <motion.div
+                className="space-y-3 opacity-60"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'contents',
+                }}
+              >
+                {completedTasksForToday.map((task) => (
+                  <motion.div
+                    key={task.id}
+                    variants={itemVariants}
+                    style={{
+                      contain: 'layout style',
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: '0 145px', // Production: 140px completed cards
+                    }}
+                  >
+                    <TaskCard
+                      task={task}
+                      completionLogs={completionLogs}
+                      onDelete={handleDeleteTask}
+                      onEdit={getOnEditTask(task)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
             </motion.div>
-          </div>
-        )}
+          )}
 
-        {/* Empty state */}
-        {needsActionTasks.length === 0 && completedTasksForToday.length === 0 && recoveredTasks.length === 0 && (
+          {/* Coming Up */}
+          {(statusFilter === null || statusFilter === 'upcoming') && upcomingTasks.length > 0 && (
+            <motion.div
+              layout
+              key="upcoming-section"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-4 overflow-hidden"
+              style={{
+                transform: 'translateZ(0)',
+                willChange: 'opacity, height'
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-status-upcoming" />
+                <h2 className="text-xl font-bold">Coming Up</h2>
+              </div>
+              <motion.div
+                className="space-y-3 opacity-80"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'contents',
+                }}
+              >
+                {upcomingTasks.map((task) => (
+                  <motion.div
+                    key={task.id}
+                    variants={itemVariants}
+                    style={{
+                      contain: 'layout style',
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: '0 185px',
+                    }}
+                  >
+                    <TaskCard
+                      task={task}
+                      completionLogs={completionLogs}
+                      showRecover={false}
+                      onDelete={handleDeleteTask}
+                      onEdit={getOnEditTask(task)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* Archived */}
+          {(statusFilter === null || statusFilter === 'archived') && archivedTasks.length > 0 && (
+            <motion.div
+              layout
+              key="archived-section"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-4 overflow-hidden"
+              style={{
+                transform: 'translateZ(0)',
+                willChange: 'opacity, height'
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Archive className="w-5 h-5 text-status-archived" />
+                <h2 className="text-xl font-bold">Left Behind</h2>
+              </div>
+              <motion.div
+                className="space-y-3 opacity-50"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'contents',
+                }}
+              >
+                {archivedTasks.map((task) => (
+                  <motion.div
+                    key={task.id}
+                    variants={itemVariants}
+                    style={{
+                      contain: 'layout style',
+                      contentVisibility: 'auto',
+                      containIntrinsicSize: '0 185px',
+                    }}
+                  >
+                    <TaskCard
+                      task={task}
+                      completionLogs={completionLogs}
+                      showRecover={true}
+                      onRecover={handleRecover}
+                      onDelete={handleDeleteTask}
+                      onEdit={getOnEditTask(task)}
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* Active Empty State */}
+          {statusFilter === 'active' && needsActionTasks.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+            >
+              <EmptyState
+                title={isDateSelected && !isToday ? 'No active tasks for this date' : 'No active tasks'}
+                description={
+                  isDateSelected && !isToday
+                    ? `No tasks due on ${(selectedDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Why not create a new challenge? 🚀`
+                    : "You're all caught up! Why not create a new challenge and invite a friend? Momentum starts with you! 🚀"
+                }
+                icon={Sparkles}
+                action={{
+                  label: "New Task",
+                  onClick: () => setShowTaskForm(true),
+                  icon: <Plus className="w-4 h-4" />
+                }}
+              />
+            </motion.div>
+          )}
+
+          {/* Recovered Empty State */}
+          {statusFilter === 'recovered' && recoveredTasks.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+            >
+              <EmptyState
+                title={isDateSelected && !isToday ? 'No recovered tasks for this date' : 'No recovered tasks'}
+                description={
+                  isDateSelected && !isToday
+                    ? "No recovered tasks for this date. You're staying on top of your goals! 🔥"
+                    : "You're staying on top of your goals! No tasks need recovering. Keep up the great streak! 🔥"
+                }
+                icon={RotateCcw}
+              />
+            </motion.div>
+          )}
+
+          {/* Upcoming Empty State */}
+          {statusFilter === 'upcoming' && upcomingTasks.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+            >
+              <EmptyState
+                title="No upcoming tasks"
+                description={`No tasks scheduled for ${(selectedDate ?? new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Create a new task to stay productive! 🚀`}
+                icon={Clock}
+                action={{
+                  label: "New Task",
+                  onClick: () => setShowTaskForm(true),
+                  icon: <Plus className="w-4 h-4" />
+                }}
+              />
+            </motion.div>
+          )}
+
+          {/* Archived Empty State */}
+          {statusFilter === 'archived' && archivedTasks.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+            >
+              <EmptyState
+                title="No archived tasks"
+                description="No overdue tasks! You're crushing it! 🌟"
+                icon={Archive}
+              />
+            </motion.div>
+          )}
+
+          {/* Completed Empty State */}
+          {statusFilter === 'completed' && completedTasksForToday.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+            >
+              <EmptyState
+                title={isDateSelected && !isToday ? 'No completed tasks for this date' : 'No completed tasks yet'}
+                description={
+                  isDateSelected && !isToday
+                    ? `No tasks completed on ${(selectedDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`
+                    : "Nothing completed yet today. Tackle a small task to get the ball rolling! You got this! 💪"
+                }
+                icon={CheckCircle2}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {statusFilter === null && needsActionTasks.length === 0 && completedTasksForToday.length === 0 && recoveredTasks.length === 0 && upcomingTasks.length === 0 && archivedTasks.length === 0 && (
           <EmptyState
-            title="All clear for today!"
-            description="Ready to conquer the day? Start a new task or check out your projects."
+            title={isDateSelected && !isToday ? 'All clear for this date!' : 'All clear for today!'}
+            description={
+              isDateSelected && !isToday
+                ? `No tasks for ${(selectedDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. Ready to create something new?`
+                : 'Ready to conquer the day? Start a new task or check out your projects.'
+            }
             action={{
               label: "New",
               onClick: () => setShowTaskForm(true),

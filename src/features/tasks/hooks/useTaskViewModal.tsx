@@ -11,6 +11,7 @@ import type { Task, CompletionLog } from '@/types';
 
 interface TaskViewModalState {
     task: Task | null;
+    taskId?: number | null; // NEW: Track taskId for fresh data fetch
     isOpen: boolean;
     onEdit?: (task: Task) => void;
     onDelete?: (taskId: number) => void;
@@ -21,6 +22,15 @@ interface TaskViewModalState {
 interface TaskViewModalContextValue extends TaskViewModalState {
     openTaskView: (
         task: Task,
+        options?: {
+            onEdit?: (task: Task) => void;
+            onDelete?: (taskId: number) => void;
+            canModify?: boolean;
+            completionLogs?: CompletionLog[];
+        }
+    ) => void;
+    openTaskViewByTaskId: (
+        taskId: number | string,
         options?: {
             onEdit?: (task: Task) => void;
             onDelete?: (taskId: number) => void;
@@ -54,6 +64,7 @@ interface TaskViewModalProviderProps {
 export const TaskViewModalProvider = ({ children }: TaskViewModalProviderProps) => {
     const [state, setState] = useState<TaskViewModalState>({
         task: null,
+        taskId: null,
         isOpen: false,
         onEdit: undefined,
         onDelete: undefined,
@@ -73,6 +84,31 @@ export const TaskViewModalProvider = ({ children }: TaskViewModalProviderProps) 
         ) => {
             setState({
                 task,
+                taskId: null, // Reset taskId when opening via task object
+                isOpen: true,
+                onEdit: options?.onEdit,
+                onDelete: options?.onDelete,
+                canModify: options?.canModify ?? false,
+                completionLogs: options?.completionLogs ?? [],
+            });
+        },
+        []
+    );
+
+    const openTaskViewByTaskId = useCallback(
+        (
+            taskId: number | string,
+            options?: {
+                onEdit?: (task: Task) => void;
+                onDelete?: (taskId: number) => void;
+                canModify?: boolean;
+                completionLogs?: CompletionLog[];
+            }
+        ) => {
+            const taskIdNum = typeof taskId === 'string' ? parseInt(taskId) : taskId;
+            setState({
+                task: null, // IMPORTANT: null so modal fetches fresh data
+                taskId: taskIdNum,
                 isOpen: true,
                 onEdit: options?.onEdit,
                 onDelete: options?.onDelete,
@@ -87,12 +123,20 @@ export const TaskViewModalProvider = ({ children }: TaskViewModalProviderProps) 
         setState((prev) => ({
             ...prev,
             isOpen: false,
+            // Clear task data on close to prevent stale data flash on next open
+            task: null,
+            taskId: null,
+            onEdit: undefined,
+            onDelete: undefined,
+            canModify: false,
+            completionLogs: [],
         }));
     }, []);
 
     const value: TaskViewModalContextValue = {
         ...state,
         openTaskView,
+        openTaskViewByTaskId,
         closeTaskView,
     };
 

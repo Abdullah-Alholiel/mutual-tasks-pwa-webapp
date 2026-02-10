@@ -6,7 +6,7 @@
 // that should be used consistently across all components.
 // ============================================================================
 
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 export interface AppError {
   message: string;

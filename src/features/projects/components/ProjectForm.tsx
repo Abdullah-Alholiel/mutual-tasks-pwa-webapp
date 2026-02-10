@@ -11,7 +11,7 @@ import { FolderKanban, Sparkles, Globe, Lock, AtSign, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils';
 import { adjustColorOpacity } from '@/lib/colorUtils';
 import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { findUserByIdentifier, validateHandleFormat } from '@/lib/userUtils';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { useAIGeneration } from '@/hooks/useAIGeneration';

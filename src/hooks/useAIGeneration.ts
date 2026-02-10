@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { generateAIDescription } from '@/features/ai/actions';
 import { useAuth } from '@/features/auth/useAuth';
 import { getSessionToken } from '@/lib/auth/sessionStorage';

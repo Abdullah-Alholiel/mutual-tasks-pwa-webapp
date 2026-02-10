@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 import { useCurrentUser } from '@/features/auth/useCurrentUser';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { PERFORMANCE_CONFIG } from '@/config/appConfig';
 
 const db = getDatabaseClient();

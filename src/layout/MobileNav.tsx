@@ -48,7 +48,7 @@ export const MobileNav = () => {
       {/* Pill-shaped container - full width */}
       <div className="w-full bg-background/70 backdrop-blur-2xl border border-border/40 shadow-xl rounded-full px-4 py-2 flex items-center justify-around ring-1 ring-white/10 dark:ring-black/10 pointer-events-auto">
 
-        {/* Today */}
+        {/* Home */}
         <NavLink
           to="/"
           end

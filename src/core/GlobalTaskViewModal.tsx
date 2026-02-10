@@ -12,6 +12,7 @@ import { TaskViewModal, useTaskViewModal } from '@/features/tasks';
 export const GlobalTaskViewModal = () => {
     const {
         task,
+        taskId,
         isOpen,
         closeTaskView,
         onEdit,
@@ -23,6 +24,7 @@ export const GlobalTaskViewModal = () => {
     return (
         <TaskViewModal
             task={task}
+            taskId={taskId}
             open={isOpen}
             onOpenChange={(open) => {
                 if (!open) closeTaskView();

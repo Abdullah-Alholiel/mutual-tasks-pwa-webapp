@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { useState, useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import type { AIProjectState, AIGeneratedProject } from '../types';
 import { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR } from '../actions';
 import {

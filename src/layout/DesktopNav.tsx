@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LogOut } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { Inbox } from '@/features/notifications/Inbox';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { useState } from 'react';
@@ -21,7 +21,7 @@ import { LogoutConfirmationDialog } from '@/components/LogoutConfirmationDialog'
 
 
 const navItems = [
-  { to: '/', icon: Home, label: 'Today' },
+  { to: '/', icon: Home, label: 'Home' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/friends', icon: Users, label: 'Friends' },
   { to: '/profile', icon: User, label: 'Profile' },

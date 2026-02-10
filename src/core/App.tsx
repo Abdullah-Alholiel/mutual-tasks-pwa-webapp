@@ -1,14 +1,11 @@
-import { Toaster } from "@/components/ui/toaster";
+
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, onlineManager } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "../features/pages/Index";
-import Projects from "../features/projects/Projects";
 import ProjectDetail from "../features/projects/ProjectDetail";
-import Profile from "../features/profile/Profile";
 import Auth from "../features/auth/Auth";
 import FriendProfile from "../features/friends/pages/FriendProfile";
 import NotFound from "../features/pages/NotFound";
@@ -122,7 +119,7 @@ const App = () => {
             <OneSignalInitializer />
             <DataIntegrityGuard>
               <TooltipProvider>
-                <Toaster />
+
                 <Sonner />
                 {needRefresh && (
                   <PWAUpdateBanner

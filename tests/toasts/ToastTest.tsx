@@ -1,17 +1,20 @@
 "use client"
 
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { 
-  CheckCircle2, 
-  XCircle, 
-  AlertCircle, 
-  Info, 
-  Calendar,
-  Sparkles,
-  ArrowLeft
+import {
+   CheckCircle2,
+   XCircle,
+   AlertCircle,
+   Info,
+   Calendar,
+   Sparkles,
+   ArrowLeft,
+   Play,
+   Zap,
+   RotateCcw
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -70,7 +73,7 @@ export function ToastTest() {
             <Button
               variant="outline"
               onClick={() =>
-                toast("Event has been created", {
+                toast.info("Event has been created", {
                   description: "Sunday, December 03, 2023 at 9:00 AM",
                 })
               }
@@ -258,13 +261,40 @@ export function ToastTest() {
           </CardContent>
         </Card>
 
-        {/* Mobile Positioning Test */}
+        {/* Stacking Stress Test */}
         <Card>
           <CardHeader>
-            <CardTitle>Mobile Positioning Test</CardTitle>
+            <CardTitle>Stacking Stress Test</CardTitle>
             <CardDescription>
-              Verify that toasts appear at the top on mobile devices (&lt; 768px width) 
-              and at the bottom on desktop devices
+              Rapidly fire multiple toasts to verify the 2-toast limit and stacking behavior
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="default"
+              onClick={() => {
+                let count = 1;
+                const interval = setInterval(() => {
+                  toast(`Toast #${count}`, {
+                    description: `This is toast number ${count} in the sequence`,
+                  });
+                  count++;
+                  if (count > 5) clearInterval(interval);
+                }, 300);
+              }}
+              className="w-full md:w-auto"
+            >
+              Fire 5 Toasts (300ms interval)
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Mobile Positioning & Header Overlap */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mobile Positioning & Header Overlap</CardTitle>
+            <CardDescription>
+              Verify toasts appear at the TOP on mobile (&lt; 768px) and DO NOT overlap the header
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -273,25 +303,48 @@ export function ToastTest() {
               <p className="text-xs text-muted-foreground">
                 Width: {viewportWidth !== null ? viewportWidth : "Loading..."}px
                 <br />
-                Expected position: {viewportWidth !== null && viewportWidth < 768 ? "TOP" : "BOTTOM"}
+                Expected position: {viewportWidth !== null && viewportWidth < 768 ? "TOP (Below Header)" : "TOP-RIGHT"}
                 <br />
                 <span className="text-xs">
-                  {viewportWidth !== null && viewportWidth < 768 
-                    ? "📱 Mobile view - toasts appear at top" 
-                    : "🖥️ Desktop view - toasts appear at bottom"}
+                  {viewportWidth !== null && viewportWidth < 768
+                    ? "📱 Mobile: Should appear below the header elements"
+                    : "🖥️ Desktop: Should appear at top-right"}
                 </span>
               </p>
             </div>
             <Button
               variant="outline"
               onClick={() =>
-                toast("Position test", {
-                  description: `This toast should appear at the ${viewportWidth !== null && viewportWidth < 768 ? "TOP" : "BOTTOM"} of the screen.`,
+                toast("Header Overlap Check", {
+                  description: "I should appear BELOW the mobile header (Inbox/Theme toggle).",
                 })
               }
               className="w-full md:w-auto"
             >
               Test Position
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Complex Content */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Complex Content</CardTitle>
+            <CardDescription>
+              Test handling of long content and rich elements
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col md:flex-row md:flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={() =>
+                toast("Very Long Description", {
+                  description: "This is a very long description that should wrap comfortably on mobile devices without breaking the layout or being cut off. It contains enough text to test the maximum width constraints of the toast component.",
+                })
+              }
+              className="w-full md:w-auto"
+            >
+              Long Description
             </Button>
           </CardContent>
         </Card>
@@ -306,12 +359,12 @@ export function ToastTest() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-[#1D4ED8] dark:text-[#1D4ED8] space-y-2">
-            <p>1. On mobile: Toasts should appear at the top of the screen, below the safe area.</p>
-            <p>2. On desktop: Toasts should appear at the bottom-right of the screen.</p>
-            <p>3. Test on actual mobile device or resize browser to &lt; 768px width.</p>
-            <p>4. Verify safe area padding on iOS devices with notch.</p>
-            <p>5. Check that toasts have proper shadows, rounded corners, and are dismissible.</p>
-            <p>6. Test that multiple toasts stack correctly without overlapping navigation bars.</p>
+            <p>1. On mobile: Toasts should appear at the TOP, pushed down below the header (~48px + safe area).</p>
+            <p>2. On desktop: Toasts should appear at the TOP-RIGHT of the screen.</p>
+            <p>3. MAX VISIBLE: Only 2 toasts should be fully visible at once.</p>
+            <p>4. Verify the "Stacking Stress Test" shows smooth stacking behavior.</p>
+            <p>5. Check that toasts do NOT overlap the Mobile Header (Inbox/Theme buttons).</p>
+            <p>6. Test swiping to dismiss.</p>
           </CardContent>
         </Card>
       </div>

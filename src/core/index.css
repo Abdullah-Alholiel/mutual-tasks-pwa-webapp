@@ -164,8 +164,12 @@ All colors MUST be HSL.
     /* Blue - accepted/manager */
     --status-completed: 160 84% 45%;
     /* Green - completed tasks */
-    --status-archived: 215 20% 65%;
-    /* Grey - archived items */
+    --status-archived: 0 84% 65%;
+    /* Red - archived items (red in both modes) */
+    --status-upcoming: 255 92% 72%;
+    /* Purple - upcoming tasks (brighter in dark) */
+    --status-recovered: 45 93% 55%;
+    /* Yellow - recovered tasks (brighter in dark) */
     --status-warning: 45 96% 68%;
     /* Yellow - warnings */
     --status-error: 0 84% 65%;
@@ -250,12 +254,23 @@ All colors MUST be HSL.
     position: relative;
   }
 
-  /* Prevent horizontal scroll on all containers */
+  /* Prevent horizontal scroll on all containers.
+     IMPORTANT: Exclude Sonner's <section> wrapper — Sonner renders
+     <section> > <ol data-sonner-toaster> > <li data-sonner-toast>.
+     overflow-x:hidden on that <section> clips the fixed-positioned
+     toast container, making toasts invisible. */
   main,
-  section,
+  section:not(:has([data-sonner-toaster])),
   [role="main"] {
     max-width: 100%;
     overflow-x: hidden;
+  }
+
+  /* Sonner's <section> wrapper must allow overflow for fixed toasts */
+  section:has([data-sonner-toaster]) {
+    overflow: visible !important;
+    max-width: none !important;
+    position: static !important;
   }
 }
 
@@ -447,183 +462,197 @@ body.keyboard-visible [role="main"] {
     /* Firefox */
   }
 
-  /* Toast positioning - always on top with high z-index */
+  /* ============================================
+     TOAST STYLES
+
+     HOW SONNER WORKS:
+     - DOM: <section> > <ol data-sonner-toaster> > <li data-sonner-toast>
+     - The <ol> is position:fixed via Sonner's embedded :where() stylesheet
+     - Positioning uses CSS vars: --width (356px), --offset-top/right (32px)
+     - Stacking uses translateY transforms on each <li> — NEVER override these
+     - :where() has lowest specificity so any attr selector wins
+
+     STRATEGY:
+     1. Override Sonner's CSS variables to control size & offset
+     2. Only add visual styles (radius, shadow, font) on individual toasts
+     3. NEVER touch transform on [data-sonner-toast]
+     ============================================ */
+
+  /* Toast container <ol> — override Sonner's CSS variable defaults */
   [data-sonner-toaster] {
     z-index: 9999 !important;
     pointer-events: auto;
-    /* Sonner uses fixed positioning - ensure container allows vertical stacking */
-    position: fixed !important;
+    --width: 296px !important;
+    --offset-right: 1rem !important;
+    --offset-bottom: auto !important;
+    --offset-left: auto !important;
+    /* Desktop: push below the top-bar area */
+    --offset-top: 5rem !important;
   }
 
+  /* Mobile: push toast BELOW the Dynamic Island / notch AND below the
+     MobileHeader (notification bell + theme toggle row), so it appears
+     at the same vertical level as the page title.
+
+     Layout stack on mobile (top to bottom):
+       env(safe-area-inset-top) — Dynamic Island / notch (up to ~59px)
+       1rem page padding-top
+       MobileHeader 40px + 16px margin-bottom
+       → Page title starts here
+
+     We use a generous 7.5rem base to guarantee clearance on all devices
+     (iPhone SE through iPhone 15 Pro Max). */
+  @media (max-width: 767px) {
+    [data-sonner-toaster] {
+      --width: min(296px, calc(100vw - 2rem)) !important;
+      --offset-top: calc(env(safe-area-inset-top, 20px) + 7.5rem) !important;
+      --offset-right: 1rem !important;
+    }
+  }
+
+  /* Individual toast <li> — visual styling ONLY.
+     DO NOT set position, top, right, left, bottom, or transform.
+     Sonner manages all of those for stacking via translateY. */
   [data-sonner-toast] {
     @apply shadow-lg;
     border-radius: 14px !important;
-    /* Ensure toasts overlap completely - same position for all */
-    position: absolute !important;
     margin: 0 !important;
     font-family: 'Satoshi', sans-serif !important;
+    /* Ensure swipe works smoothly on touch devices */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
-  /* Close button styling - proportional size for all devices */
-  [data-sonner-toast] button[data-close-button] {
-    width: 20px !important;
-    height: 20px !important;
-    min-width: 20px !important;
-    min-height: 20px !important;
-    padding: 3px !important;
-    margin: 0 !important;
-    flex-shrink: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border-radius: 6px !important;
-    opacity: 0.7 !important;
-    transition: all 0.2s ease !important;
-    background: transparent !important;
-    border: 1px solid transparent !important;
+  /* ============================================
+     CUSTOM TOAST — Theme-aware card
+     ============================================ */
+  .custom-toast-content {
+    background-color: hsl(var(--background));
+    border: 1px solid hsl(var(--border) / 0.5);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
   }
 
-  /* Hover state for close button */
-  [data-sonner-toast] button[data-close-button]:hover {
-    opacity: 1 !important;
-    background: hsl(var(--muted) / 0.5) !important;
-    border-color: hsl(var(--border)) !important;
+  /* ============================================
+     TOAST TYPE COLORS — Global palette variables
+     Each type sets a --toast-accent used by child elements.
+     ============================================ */
+  .toast-success { --toast-accent: var(--status-completed); }
+  .toast-error   { --toast-accent: var(--destructive); }
+  .toast-warning { --toast-accent: var(--status-warning); }
+  .toast-info    { --toast-accent: var(--primary); }
+
+  /* Icon circle — uses the type accent */
+  .toast-icon-circle {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: hsl(var(--toast-accent));
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px hsl(var(--toast-accent) / 0.25);
   }
 
-  /* Close button icon sizing */
-  [data-sonner-toast] button[data-close-button] svg {
-    width: 14px !important;
-    height: 14px !important;
-    flex-shrink: 0 !important;
+  /* Title — accent-colored */
+  .toast-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: hsl(var(--toast-accent));
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    font-family: 'Satoshi', sans-serif;
   }
 
-  /* Override Sonner's translateY transforms that create vertical spacing */
-  /* Force all toasts to be in the exact same position - they overlap completely */
-  [data-sonner-toaster][data-position="top-right"] [data-sonner-toast] {
-    top: 0 !important;
-    right: 0 !important;
-    left: auto !important;
-    transform: none !important;
-    animation: toast-slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* Description — muted foreground */
+  .custom-toast-description {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 400;
+    color: hsl(var(--muted-foreground));
+    line-height: 1.4;
+    margin-top: 3px;
+    font-family: 'Satoshi', sans-serif;
   }
 
-  [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast] {
-    bottom: 0 !important;
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    animation: toast-slide-in-bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* Action button — accent bg, white text */
+  .toast-action-btn {
+    padding: 6px 14px;
+    background-color: hsl(var(--toast-accent));
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: 'Satoshi', sans-serif;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    box-shadow: 0 1px 3px hsl(var(--toast-accent) / 0.2);
+  }
+  .toast-action-btn:hover {
+    transform: scale(1.03);
+    filter: brightness(1.08);
+    box-shadow: 0 2px 8px hsl(var(--toast-accent) / 0.3);
+  }
+  .toast-action-btn:active {
+    transform: scale(0.98);
   }
 
-  /* Exit animations */
-  [data-sonner-toaster][data-position="top-right"] [data-sonner-toast][data-removed="true"] {
-    animation: toast-slide-out-right 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  /* ============================================
+     CLOSE BUTTON — Inline flex item (no overlap)
+     Desktop: hidden, appears on toast hover
+     Mobile: always visible, subtle
+     ============================================ */
+  .custom-toast-close {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    color: hsl(var(--muted-foreground));
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 6px;
+    flex-shrink: 0;
+    transition: color 0.15s ease, opacity 0.2s ease, background-color 0.15s ease;
   }
 
-  [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast][data-removed="true"] {
-    animation: toast-slide-out-bottom 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  /* Override any inline styles Sonner applies for vertical stacking */
-  [data-sonner-toast][style*="translateY"] {
-    transform: none !important;
-  }
-
-  [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast][style*="translateY"] {
-    transform: translateX(-50%) !important;
-  }
-
-  /* Mobile toast positioning - Bottom Center */
-  @media (max-width: 767px) {
-    [data-sonner-toaster] {
-      bottom: 1.5rem !important;
-      top: auto !important;
-      left: 0 !important;
-      right: 0 !important;
-      padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-      padding-left: env(safe-area-inset-left, 0.5rem) !important;
-      padding-right: env(safe-area-inset-right, 0.5rem) !important;
-      width: 100% !important;
-      transform: none !important;
-    }
-
-    [data-sonner-toast] {
-      position: relative !important;
-      margin: 0 auto !important;
-      width: calc(100% - 1.5rem) !important;
-      max-width: 400px !important;
-      left: 0 !important;
-      right: 0 !important;
-      transform: none !important;
-    }
-
-    [data-sonner-toaster][data-position="bottom-center"] [data-sonner-toast] {
-      transform: none !important;
-    }
-  }
-
-  /* Desktop toast positioning - Top Right */
-  @media (min-width: 768px) {
-    [data-sonner-toaster] {
-      top: 1.5rem !important;
-      right: 1.5rem !important;
-      bottom: auto !important;
-      left: auto !important;
-    }
-
-    [data-sonner-toast] {
-      max-width: 380px !important;
-      width: 380px !important;
-    }
-  }
-
-  /* Animations */
-  @keyframes toast-slide-in-right {
-    from {
+  /* Desktop: fade in on toast hover */
+  @media (hover: hover) and (pointer: fine) {
+    .custom-toast-close {
       opacity: 0;
-      transform: translateX(20px);
     }
-
-    to {
-      opacity: 1;
-      transform: translateX(0);
+    [data-sonner-toast]:hover .custom-toast-close {
+      opacity: 0.5;
     }
-  }
-
-  @keyframes toast-slide-out-right {
-    from {
-      opacity: 1;
-      transform: translateX(0);
-    }
-
-    to {
-      opacity: 0;
-      transform: translateX(20px);
+    .custom-toast-close:hover {
+      opacity: 1 !important;
+      background-color: hsl(var(--muted) / 0.8);
+      color: hsl(var(--foreground));
     }
   }
 
-  @keyframes toast-slide-in-bottom {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
+  /* Mobile/touch: always visible, subtle */
+  @media (hover: none) and (pointer: coarse) {
+    .custom-toast-close {
+      opacity: 0.4;
     }
-
-    to {
+    .custom-toast-close:active {
       opacity: 1;
-      transform: translateY(0);
+      background-color: hsl(var(--muted) / 0.8);
     }
   }
 
-  @keyframes toast-slide-out-bottom {
-    from {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    to {
-      opacity: 0;
-      transform: translateY(20px);
-    }
+  /* Swipe visual feedback */
+  [data-sonner-toast][data-swiping="true"] .custom-toast-content {
+    opacity: 0.85;
   }
 
 }

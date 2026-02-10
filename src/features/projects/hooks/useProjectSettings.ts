@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import type { Project, User } from '@/types';
 import { handleError } from '@/lib/errorUtils';
 import { getDatabaseClient } from '@/db';

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PageLoader } from '@/components/ui/loader';
 import type { Project } from '@/types';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -231,7 +231,18 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
 
       // Navigate to the new project
       toast.success('Project ready! 🏢', {
-        description: "You're all set to start adding tasks."
+        description: "You're all set to start adding tasks.",
+        action: {
+          label: "View Project",
+          onClick: () => {
+            if (typeof newProject.id === 'string') {
+              navigate(`/projects/${newProject.id}`, {
+                state: { project: projectWithParticipants },
+                replace: true
+              });
+            }
+          },
+        },
       });
       navigate(`/projects/${newProject.id}`, { state: { project: projectWithParticipants } });
     } catch (error) {
@@ -242,6 +253,7 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
 
   const [joiningProject, setJoiningProject] = useState<Project | null>(null);
   const [isCreatingAIProject, setIsCreatingAIProject] = useState(false);
+  const [aiProjectToRetry, setAiProjectToRetry] = useState<AIGeneratedProject | null>(null);
 
   /**
    * Handle AI-generated project creation
@@ -409,13 +421,30 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
           description: `Project "${generatedProject.name}" was created. Please add tasks manually.`,
         });
       } else {
-        toast.success(`Created "${generatedProject.name}" with ${totalTaskCount} tasks!`);
+        toast.success(`Created "${generatedProject.name}" with ${totalTaskCount} tasks!`, {
+          action: {
+            label: "View Project",
+            onClick: () => {
+              if (typeof newProject.id === 'string') {
+                navigate(`/projects/${newProject.id}`, { replace: true });
+              }
+            },
+          },
+        });
+        setAiProjectToRetry(null); // Clear retry state on success
       }
 
     } catch (error) {
       console.error('Failed to create AI project:', error);
       toast.error('Failed to create project', {
         description: 'Please try again or create manually.',
+        action: {
+          label: "Retry",
+          onClick: () => {
+            setAiProjectToRetry(generatedProject);
+            setShowAIModal(true);
+          },
+        },
       });
       setIsCreatingAIProject(false);
     }
@@ -472,7 +501,11 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
           <div className="flex items-center gap-2">
             <AIProjectButton
               onClick={() => setShowAIModal(true)}
-              className="rounded-full h-10"
+              showLabel={false}
+              size="icon"
+              variant="outline"
+              className="rounded-full"
+              title="Generate AI Project"
             />
             <Button
               onClick={() => setShowProjectForm(true)}
@@ -605,6 +638,7 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
         open={showAIModal}
         onOpenChange={setShowAIModal}
         onCreateProject={handleAIProjectCreate}
+        initialProject={aiProjectToRetry}
       />
     </>
   );

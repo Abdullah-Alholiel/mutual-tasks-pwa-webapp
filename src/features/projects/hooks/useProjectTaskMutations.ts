@@ -4,7 +4,7 @@
 
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import type { Task, TaskStatusEntity, DifficultyRating, TaskStatus, User, RingColor } from '@/types';
 import { normalizeToStartOfDay } from '@/lib/tasks/taskUtils';
 import { validateProjectForTaskCreation, getParticipatingUserIds } from '@/lib/tasks/taskCreationUtils';
