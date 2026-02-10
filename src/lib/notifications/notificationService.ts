@@ -1,6 +1,6 @@
 import { getDatabaseClient } from '@/db';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
-import type { NotificationType, Task, Project, User } from '@/types';
+import type { NotificationType } from '@/types';
 import { sendPushNotification } from '@/lib/onesignal/pushNotificationApi';
 import { getNotificationMessage } from './notificationMessages';
 
@@ -353,20 +353,24 @@ export const notificationService = {
 
   async notifyRoleChanged(projectId: number, updaterId: number, targetUserId: number, role: string) {
     const db = getDatabaseClient();
-    const [project, updater, targetUser] = await Promise.all([
-      db.projects.getById(projectId),
-      db.users.getById(updaterId),
-      db.users.getById(targetUserId),
-    ]);
+    try {
+      // Only fetch project as we don't need updater/targetUser details for this notification
+      const project = await db.projects.getById(projectId);
 
-    if (!project || !updater || !targetUser) return;
+      if (!project) {
+        console.error(`[NotificationService] Project not found: ${projectId}`);
+        return;
+      }
 
-    await sendNotification({
-      userId: targetUserId,
-      type: 'role_changed',
-      data: { userName: 'You', role, projectName: project.name },
-      projectId,
-    });
+      await sendNotification({
+        userId: targetUserId,
+        type: 'role_changed',
+        data: { userName: 'You', role, projectName: project.name },
+        projectId,
+      });
+    } catch (error) {
+      console.error('[NotificationService] Error in notifyRoleChanged:', error);
+    }
   },
 
   // Friend Events

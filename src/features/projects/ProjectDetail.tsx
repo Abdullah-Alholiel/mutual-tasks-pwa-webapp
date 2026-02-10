@@ -36,7 +36,8 @@ import { ProjectTaskSections } from './components/ProjectTaskSections';
 import { TaskCard } from '../tasks/components/TaskCard';
 import { AIGenerateButton } from '@/components/ui/ai-generate-button';
 import { Loader, PageLoader } from '@/components/ui/loader';
-import { normalizeId } from '@/lib/idUtils';
+import { normalizeId, compareIds } from '@/lib/idUtils';
+import { canEditTask } from '@/lib/tasks/taskUtils';
 import { validateHandleFormat, findUserByIdentifier } from '@/lib/userUtils';
 import { ProjectHeader } from '@/features/projects/components/ProjectHeader';
 import { ProjectStats } from '@/features/projects/components/ProjectStats';
@@ -144,9 +145,18 @@ const ProjectDetail = () => {
 
 
 
-  const handleJoinProject = async () => {
+  // Confirmation dialog states
+  const [showJoinConfirmation, setShowJoinConfirmation] = useState(false);
+
+  const handleJoinProject = () => {
+    if (!project) return;
+    setShowJoinConfirmation(true);
+  };
+
+  const confirmJoinProject = async () => {
     if (!project) return;
     setIsJoining(true);
+    setShowJoinConfirmation(false);
     try {
       await joinProjectMutation.mutateAsync(project.id);
       // useProjectDetail will automatically refetch data due to query invalidation in useJoinProject
@@ -307,6 +317,18 @@ const ProjectDetail = () => {
   };
 
   const getOnEditTask = (task: Task) => {
+    // Only upcoming tasks can be edited - this restriction applies to everyone, including owners
+    // Get the user's task status for this task
+    const myTaskStatus = task.taskStatus?.find(ts => currentUser && compareIds(ts.userId, currentUser.id));
+    // Check if user has completed this task
+    const myCompletion = completionLogs.find(log =>
+      currentUser && compareIds(log.taskId, task.id) && compareIds(log.userId, currentUser.id)
+    );
+    // Check if task is editable (only upcoming tasks)
+    if (!canEditTask(myTaskStatus, myCompletion, task)) {
+      return undefined;
+    }
+
     if (isParticipant && (canManage || (currentUser && normalizeId(task.creatorId) === normalizeId(currentUser.id)))) {
       return handleEditTaskWrapper;
     }
@@ -887,6 +909,35 @@ const ProjectDetail = () => {
               isOwner={isOwner}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Join Project Confirmation Dialog */}
+      <Dialog open={showJoinConfirmation} onOpenChange={setShowJoinConfirmation}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Join Project?</DialogTitle>
+            <DialogDescription className="pt-2 text-base">
+              Do you want to join <span className="font-semibold text-foreground">"{project?.name}"</span>?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowJoinConfirmation(false)}
+              className="rounded-xl"
+            >
+              No, go back
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl px-8 gradient-primary text-white"
+              onClick={confirmJoinProject}
+            >
+              Join Project
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

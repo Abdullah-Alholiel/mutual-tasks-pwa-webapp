@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus, Settings, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Settings, Users, LogIn } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import type { Project } from '@/types';
 import { getIconByName } from '@/lib/projects/projectIcons';
@@ -42,14 +42,33 @@ export const ProjectHeader = ({
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div className="flex items-center gap-2">
-          {canManage && (
-            <Button
-              onClick={onCreateTask}
-              className="gradient-primary text-white rounded-full h-10 w-10 p-0"
-              title="New Task"
-            >
-              <Plus className="w-4 h-4" />
-            </Button>
+          {!isParticipant && project.isPublic ? (
+            <>
+              <Button
+                variant="default"
+                size="icon"
+                onClick={onJoin}
+                disabled={isJoining}
+                className="shrink-0 h-10 w-10 rounded-full gradient-primary text-white"
+                title="Join Project"
+              >
+                {isJoining ? (
+                  <Spinner size={16} />
+                ) : (
+                  <LogIn className="w-4 h-4" />
+                )}
+              </Button>
+            </>
+          ) : (
+            canManage && (
+              <Button
+                onClick={onCreateTask}
+                className="gradient-primary text-white rounded-full h-10 w-10 p-0"
+                title="New Task"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            )
           )}
           <Button
             variant="outline"
@@ -60,15 +79,17 @@ export const ProjectHeader = ({
           >
             <Users className="w-4 h-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onEdit}
-            className="shrink-0 h-10 w-10 rounded-full"
-            title="Project Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
+          {(isParticipant || canManage) && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onEdit}
+              className="shrink-0 h-10 w-10 rounded-full"
+              title="Project Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -97,18 +118,29 @@ export const ProjectHeader = ({
 
         <div className="flex items-center gap-2 shrink-0 mt-1">
           {!isParticipant && project.isPublic ? (
-            <Button
-              onClick={onJoin}
-              disabled={isJoining}
-              className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold"
-            >
-              {isJoining ? (
-                <Spinner size={16} className="mr-1.5" />
-              ) : (
-                <Plus className="w-4 h-4 mr-1.5" />
-              )}
-              <span>Join</span>
-            </Button>
+            <>
+              <Button
+                onClick={onJoin}
+                disabled={isJoining}
+                className="gradient-primary text-white rounded-full h-10 px-4 text-sm font-semibold"
+              >
+                {isJoining ? (
+                  <Spinner size={16} className="mr-1.5" />
+                ) : (
+                  <LogIn className="w-4 h-4 mr-1.5" />
+                )}
+                <span>Join</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onViewMembers}
+                className="shrink-0 h-10 w-10 rounded-full"
+                title="View Members"
+              >
+                <Users className="w-4 h-4" />
+              </Button>
+            </>
           ) : (
             <>
               {canManage && (

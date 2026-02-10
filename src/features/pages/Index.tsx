@@ -23,7 +23,7 @@ import { recoverTask } from '../../lib/tasks/taskRecoveryUtils';
 import { getParticipatingUserIds } from '../../lib/tasks/taskCreationUtils';
 import { getProjectsWhereCanCreateTasks } from '../../lib/projects/projectUtils';
 import { notifyTaskUpdated } from '../../lib/tasks/taskEmailNotifications';
-import { normalizeToStartOfDay } from '../../lib/tasks/taskUtils';
+import { normalizeToStartOfDay, canEditTask, calculateTaskStatusUserStatus } from '../../lib/tasks/taskUtils';
 import { normalizeId, compareIds } from '../../lib/idUtils';
 import { useAuth } from '../auth/useAuth';
 import { useProjects, useCreateProject } from '../projects/hooks/useProjects';
@@ -717,6 +717,18 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
       compareIds(pr.userId, userIdNum) && (pr.role === 'manager' || pr.role === 'owner') && !pr.removedAt
     );
 
+    // Only upcoming tasks can be edited - this restriction applies to everyone, including owners
+    // Get the user's task status for this task
+    const myTaskStatus = task.taskStatus?.find(ts => compareIds(ts.userId, user.id));
+    // Check if user has completed this task
+    const myCompletion = completionLogs.find(log =>
+      compareIds(log.taskId, task.id) && compareIds(log.userId, user.id)
+    );
+    // Check if task is editable (only upcoming tasks)
+    if (!canEditTask(myTaskStatus, myCompletion, task)) {
+      return undefined;
+    }
+
     if (isOwner || isManager || isCreator) {
       return (t: Task) => {
         setTaskToEdit(t);
@@ -1306,3 +1318,4 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
 };
 
 export default Index;
+

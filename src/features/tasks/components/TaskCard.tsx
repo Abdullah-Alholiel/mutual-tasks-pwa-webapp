@@ -19,14 +19,15 @@ import { TaskParticipantAvatars } from '@/components/tasks/TaskParticipantAvatar
 import { CompletionStatusIcon } from '@/components/tasks/CompletionStatusIcon';
 import { cn } from '@/lib/utils';
 import { normalizeId, compareIds } from '@/lib/idUtils';
-import { triggerRewardConfetti } from '@/lib/utils/confetti';
+
 import {
   getRingColor,
   calculateRingColor,
   canCompleteTask,
   getStatusBadgeVariant,
   getStatusColor,
-  calculateTaskStatusUserStatus
+  calculateTaskStatusUserStatus,
+  canEditTask
 } from '../../../lib/tasks/taskUtils';
 import { getIconByName } from '@/lib/projects/projectIcons';
 import { adjustColorOpacity } from '@/lib/colorUtils';
@@ -208,13 +209,16 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
     if (!project || !currentUser) return false;
     const userId = normalizeId(currentUser.id);
 
-    // Project owner always has permission
+    // Only upcoming tasks can be edited - this restriction applies to everyone, including owners
+    if (!canEditTask(myTaskStatus, myCompletion, task)) return false;
+
+    // Project owner always has permission (for tasks that are upcoming)
     if (normalizeId(project.ownerId) === userId) return true;
 
     // Check participant role
     const participant = project.participantRoles?.find(p => normalizeId(p.userId) === userId);
     return participant?.role === 'owner' || participant?.role === 'manager';
-  }, [project, currentUser]);
+  }, [project, currentUser, myTaskStatus, myCompletion, task]);
 
   const isTaskArchived = uiStatus === 'archived';
 
@@ -252,9 +256,6 @@ const TaskCardComponent = ({ task, completionLogs = [], onComplete, onRecover, o
     // Deduplicate to prevent rapid double-clicks from creating duplicate completions
     deduplicator.deduplicate(`complete-${task.id}`, async () => {
       if (onComplete) {
-        // Trigger high-quality multi-burst confetti for immediate delight
-        triggerRewardConfetti();
-
         await onComplete(task.id, rating);
         setIsJustCompleted(true);
         setTimeout(() => setIsJustCompleted(false), 2000);

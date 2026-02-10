@@ -192,23 +192,7 @@ export const calculateRingColor = (
   // ============================================================================
   // Task is expired if current time is past due date
   // Only show red if task is not completed (no completion log)
-  // PRIORITY 2: Check if task is recovered but NOT completed
-  // Recovered-but-not-completed tasks show RED (expired)
-  if ((taskStatus?.recoveredAt || taskStatus?.status === 'recovered') && !completionLog) {
-    // Check if the recovered task has expired again
-    if (taskStatus.recoveredAt) {
-      const now = new Date();
-      const recoveryDayEnd = new Date(taskStatus.recoveredAt);
-      recoveryDayEnd.setHours(23, 59, 59, 999); // End of recovery day
 
-      // If current time is past end of recovery day, task expired again -> red
-      if (now > recoveryDayEnd) {
-        return 'red';
-      }
-    }
-    // Within recovery day but not completed, still show red (recovered tasks are still expired)
-    return 'red';
-  }
 
   // PRIORITY 3: Check if task status user status would be archived (past due, not completed)
   // Note: General task status only includes 'active' and 'upcoming', so we check via taskStatus
@@ -492,4 +476,26 @@ export const getStatusColor = (
     default:
       return 'text-muted-foreground';
   }
+};
+
+/**
+ * Check if a task can be edited by the current user
+ * Only upcoming tasks can be edited - archived, completed, active, or recovered tasks
+ * cannot be edited by anyone, including the owner.
+ * 
+ * @param taskStatus - The user's task status entity
+ * @param completionLog - The completion log for this user (if completed)
+ * @param task - The task entity (for checking due date)
+ * @returns True if the task can be edited
+ */
+export const canEditTask = (
+  taskStatus: TaskStatusEntity | undefined,
+  completionLog: CompletionLog | undefined,
+  task: Task
+): boolean => {
+  // Calculate the task status user status
+  const computedStatus = calculateTaskStatusUserStatus(taskStatus, completionLog, task);
+
+  // Only upcoming tasks can be edited
+  return computedStatus === 'upcoming';
 };
