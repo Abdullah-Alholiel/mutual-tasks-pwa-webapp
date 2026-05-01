@@ -14,18 +14,14 @@ RUN npm run build
 # ── Stage 2: Serve ──────────────────────────────────────────────
 FROM nginx:alpine AS runner
 
-# copy built assets to nginx
-COPY --from=builder /app/dist /usr/share/nginx/html
+# remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
 
-# SPA fallback: redirect all routes to index.html
-RUN printf 'server {\n\
-  listen 80;\n\
-  location / {\n\
-    root /usr/share/nginx/html;\n\
-    index index.html;\n\
-    try_files $uri $uri/ /index.html;\n\
-  }\n\
-}\n' > /etc/nginx/conf.d/default.conf
+# copy our SPA nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# copy built assets
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
