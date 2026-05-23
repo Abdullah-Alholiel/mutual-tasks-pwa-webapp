@@ -204,7 +204,7 @@ const Index = ({ isInternalSlide: _isInternalSlide }: IndexProps) => {
         });
       });
     }
-  }, [allTasksWithStatuses, user, tasksLoading, taskStatuses, completionLogs]);
+  }, [allTasksWithStatuses, user, tasksLoading, taskStatuses, completionLogs, updateTaskStatusMutation]);
 
   const handleComplete = async (taskId: string | number, difficultyRating?: number) => {
     if (!user) return;

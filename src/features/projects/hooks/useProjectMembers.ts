@@ -48,7 +48,7 @@ export const useProjectMembers = ({
     } else if (projectParticipantsFromState && projectParticipants.length === 0) {
       setProjectParticipants(projectParticipantsFromState);
     }
-  }, [projectFromDb?.participantRoles]);
+  }, [projectFromDb?.participantRoles, projectParticipantsFromState, projectParticipants.length]);
 
   // Get project participants with user data
   const participants = useMemo((): ParticipantWithUser[] => {
@@ -440,7 +440,7 @@ export const useProjectMembers = ({
     } catch (error) {
       handleError(error, 'handleUpdateRole');
     }
-  }, [currentProject, projectId, queryClient]);
+  }, [currentProject, user, projectId, queryClient]);
 
   return {
     // State
