@@ -87,7 +87,7 @@ export const useProjectSettings = ({
 
       // Invalidation is handled by the mutation
       if (user) {
-        notifyProjectUpdated(pId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch((err: any) => {
+        notifyProjectUpdated(pId, typeof user.id === 'string' ? parseInt(user.id) : user.id).catch((err: Error | unknown) => {
           console.error('Failed to send project update notification:', err);
         });
       }
@@ -146,7 +146,7 @@ export const useProjectSettings = ({
         // Ensure unique IDs
         const uniqueIds = Array.from(new Set(participantIds));
 
-        notifyProjectDeleted(userId, currentProject.name, uniqueIds).catch((err: any) => {
+        notifyProjectDeleted(userId, currentProject.name, uniqueIds).catch((err: Error | unknown) => {
           console.error('Failed to send project deletion emails:', err);
         });
       }

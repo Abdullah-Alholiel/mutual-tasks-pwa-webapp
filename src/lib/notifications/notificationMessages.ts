@@ -37,12 +37,13 @@ export const getNotificationMessage = (type: NotificationType, data: MessageData
             }
             return `${userName} is now part of the team! They just joined ${projectName}. Welcome!`;
 
-        case 'role_changed':
+        case 'role_changed': {
             if (role === 'participant') {
                 return `Role update: You are now a participant in ${projectName}.`;
             }
             const article = role === 'owner' ? 'an' : 'a';
             return `Level up! You're now ${article} ${role} in ${projectName}. Time to shine! ✨`;
+        }
 
         case 'friend_request':
             return `${userName} wants to team up! Check out their friend request.`;

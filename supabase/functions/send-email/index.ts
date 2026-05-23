@@ -1,10 +1,15 @@
-// @ts-nocheck
 // ============================================================================
 // Supabase Edge Function: Send Email via MailJet
 // ============================================================================
 // Note: This file runs on Deno runtime, not Node.js. TypeScript errors are expected
 // in the IDE but will work correctly when deployed to Supabase Edge Functions.
 // ============================================================================
+
+declare const Deno: {
+  env: { get(key: string): string | undefined };
+};
+
+declare function serve(fn: (req: Request) => Promise<Response>): void;
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 

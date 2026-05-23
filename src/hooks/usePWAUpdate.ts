@@ -3,7 +3,7 @@ import { useEffect, useCallback, useState } from 'react';
 const UPDATE_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // Check if we're in production mode - service worker only works in production
-const isProduction = (import.meta as any).env?.PROD;
+const isProduction = import.meta.env?.PROD;
 
 /**
  * Aggressive PWA Update Hook

@@ -467,7 +467,7 @@ const FriendsPage = ({ isInternalSlide = false, isActive = true }: FriendsPagePr
                                                                 <DropdownMenuContent align="end">
                                                                     <DropdownMenuItem
                                                                         className="text-destructive focus:text-destructive cursor-pointer"
-                                                                        onClick={(e) => handleRemoveFriend(item.id, user.name, e as any)}
+                                                                        onClick={(e) => handleRemoveFriend(item.id, user.name, e)}
                                                                     >
                                                                         <UserMinus className="w-4 h-4 mr-2" />
                                                                         Remove Friend

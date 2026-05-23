@@ -94,7 +94,14 @@ const SuccessScreen = ({
   isIOS,
   isAndroid,
   isMobile
-}: any) => (
+}: {
+  handleContinueInBrowser: () => void;
+  handleCopyLink: () => void;
+  linkCopied: boolean;
+  isIOS: boolean;
+  isAndroid: boolean;
+  isMobile: boolean;
+}) => (
   <div className="min-h-screen min-h-[100dvh] flex flex-col items-center justify-center p-4 md:p-6 py-6 md:py-10 relative">
     <FloatingBlobs />
     <div className="w-full max-w-md relative z-10">

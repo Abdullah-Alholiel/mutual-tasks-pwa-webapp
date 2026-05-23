@@ -309,11 +309,11 @@ export async function requestLogin(email: string): Promise<{ success: boolean; m
     });
 
     // Handle non-OK responses and non-JSON responses
-    let data: any;
+    let data: Record<string, unknown> | { success: boolean; message?: string; error?: string };
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
-        data = await response.json();
+        data = await response.json() as Record<string, unknown>;
       } catch (parseError) {
         console.error('Failed to parse JSON response:', parseError);
         return { success: false, error: 'Invalid response from server' };
@@ -324,10 +324,10 @@ export async function requestLogin(email: string): Promise<{ success: boolean; m
     }
 
     if (!response.ok) {
-      return { success: false, error: data.error || 'Failed to send magic link' };
+      return { success: false, error: (data as Record<string, unknown>).error as string || 'Failed to send magic link' };
     }
 
-    return data;
+    return data as { success: boolean; message?: string; error?: string };
   } catch (error) {
     console.error('Failed to request login:', error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
@@ -367,11 +367,11 @@ export async function requestSignup(
     });
 
     // Handle non-OK responses and non-JSON responses
-    let data: any;
+    let data: Record<string, unknown> | { success: boolean; message?: string; error?: string };
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
-        data = await response.json();
+        data = await response.json() as Record<string, unknown>;
       } catch (parseError) {
         console.error('Failed to parse JSON response:', parseError);
         return { success: false, error: 'Invalid response from server' };
@@ -382,10 +382,10 @@ export async function requestSignup(
     }
 
     if (!response.ok) {
-      return { success: false, error: data.error || 'Failed to send magic link' };
+      return { success: false, error: (data as Record<string, unknown>).error as string || 'Failed to send magic link' };
     }
 
-    return data;
+    return data as { success: boolean; message?: string; error?: string };
   } catch (error) {
     console.error('Failed to request signup:', error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
@@ -428,11 +428,11 @@ export async function verifyMagicLink(token: string): Promise<{
     });
 
     // Handle non-OK responses and non-JSON responses
-    let data: any;
+    let data: Record<string, unknown>;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
-        data = await response.json();
+        data = await response.json() as Record<string, unknown>;
       } catch (parseError) {
         console.error('Failed to parse JSON response:', parseError);
         return { success: false, error: 'Invalid response from server' };
@@ -443,18 +443,18 @@ export async function verifyMagicLink(token: string): Promise<{
     }
 
     if (!response.ok) {
-      return { success: false, error: data.error || 'Verification failed' };
+      return { success: false, error: (data.error as string) || 'Verification failed' };
     }
 
     // Store session token (client-side only) in both cookies and localStorage
     if (data.sessionToken && data.expiresAt) {
-      setSessionToken(data.sessionToken, data.expiresAt);
+      setSessionToken(data.sessionToken as string, data.expiresAt as string);
     }
 
     return {
       success: true,
-      sessionToken: data.sessionToken,
-      expiresAt: data.expiresAt
+      sessionToken: data.sessionToken as string,
+      expiresAt: data.expiresAt as string
     };
   } catch (error) {
     console.error('Failed to verify magic link:', error);

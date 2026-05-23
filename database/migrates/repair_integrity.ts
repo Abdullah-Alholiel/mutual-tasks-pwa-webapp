@@ -11,6 +11,16 @@
 import 'dotenv/config';
 import { Client } from 'pg';
 
+interface DatabaseError extends Error {
+  code?: string;
+  detail?: string;
+  hint?: string;
+}
+
+function isDatabaseError(error: unknown): error is DatabaseError {
+  return error instanceof Error && ('code' in error || 'detail' in error);
+}
+
 // Get connection string from environment
 const connectionString = process.env.SUPABASE_DB_URL ?? '';
 
@@ -240,15 +250,16 @@ async function run() {
                 const result = await client.query(statement);
                 const rowCount = result.rowCount ?? 0;
                 console.log(`  ✓ Success ${rowCount > 0 ? `(${rowCount} rows affected)` : ''}`);
-            } catch (error: any) {
+            } catch (error: unknown) {
+                const dbError = isDatabaseError(error) ? error : null;
                 // Ignore "already exists" errors for idempotent operations
-                if (error.code === '42P07' || error.code === '42710' ||
-                    error.message?.includes('already exists')) {
+                if (dbError?.code === '42P07' || dbError?.code === '42710' ||
+                    dbError?.message?.includes('already exists')) {
                     console.log('  ✓ (already exists, skipping)');
-                } else if (error.code === '42883' || error.message?.includes('does not exist')) {
+                } else if (dbError?.code === '42883' || dbError?.message?.includes('does not exist')) {
                     console.log('  - (skipped - object does not exist yet)');
                 } else {
-                    console.error(`  ✗ Error: ${error.message}`);
+                    console.error(`  ✗ Error: ${dbError?.message || String(error)}`);
                     // Don't throw - continue with other repairs
                 }
             }

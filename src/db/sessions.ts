@@ -14,6 +14,15 @@ export interface Session {
   lastAccessedAt: Date;
 }
 
+interface SessionRow {
+  id: number;
+  user_id: number;
+  token: string;
+  expires_at: string;
+  created_at: string;
+  last_accessed_at: string;
+}
+
 export class SessionsRepository {
   constructor(private supabase: SupabaseClient) {}
 
@@ -132,7 +141,7 @@ export class SessionsRepository {
   /**
    * Transform database row to Session interface
    */
-  private transformRow(row: any): Session {
+  private transformRow(row: SessionRow): Session {
     return {
       id: row.id,
       userId: row.user_id,

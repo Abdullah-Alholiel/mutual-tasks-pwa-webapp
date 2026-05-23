@@ -6,7 +6,7 @@ import { Plus, FolderKanban, Globe, Users, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PageLoader } from '@/components/ui/loader';
-import type { Project } from '@/types';
+import type { Project, User, ProjectParticipant } from '@/types';
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -171,8 +171,8 @@ const Projects = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = tru
       });
 
       // Add participants if provided
-      const updatedParticipants: any[] = [];
-      const updatedRoles: any[] = [];
+      const updatedParticipants: User[] = [];
+      const updatedRoles: ProjectParticipant[] = [];
 
       // Add owner (current user) to the local state lists
       if (user) {

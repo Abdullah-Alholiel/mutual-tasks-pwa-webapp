@@ -40,7 +40,7 @@ async function sendNotification({
   data: { userName?: string; taskTitle?: string; projectName?: string; role?: string; streakCount?: number; count?: number };
   taskId?: number;
   projectId?: number;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }) {
   const channels = NOTIFICATION_CHANNELS[type];
   const message = getNotificationMessage(type, data);

@@ -7,8 +7,8 @@
 
 import * as Sentry from "@sentry/react";
 
-const SENTRY_DSN = (import.meta as any).env?.VITE_SENTRY_DSN;
-const SENTRY_ENVIRONMENT = (import.meta as any).env?.MODE;
+const SENTRY_DSN = import.meta.env?.VITE_SENTRY_DSN as string | undefined;
+const SENTRY_ENVIRONMENT = import.meta.env?.MODE as string | undefined;
 
 // Initialize Sentry only in production or if DSN is explicitly provided
 export const initializeSentry = () => {

@@ -405,7 +405,7 @@ export const useProjectTaskMutations = ({
 
       // Send completion notification to other participants
       if (projectId) {
-        notifyTaskCompleted(taskId, projectId, userId).catch((error: any) => {
+        notifyTaskCompleted(taskId, projectId, userId).catch((error: Error | unknown) => {
           console.error('Failed to send completion notifications:', error);
         });
       }
@@ -523,7 +523,7 @@ export const useProjectTaskMutations = ({
         // Send email notification for the first task
         if (results.length > 0) {
           const mainTask = results[0].task;
-          notifyTaskCreated(mainTask.id, mainTask.projectId, userId).catch((error: any) => {
+          notifyTaskCreated(mainTask.id, mainTask.projectId, userId).catch((error: Error | unknown) => {
             console.error('Failed to send task creation emails:', error);
           });
         }
@@ -549,7 +549,7 @@ export const useProjectTaskMutations = ({
         });
 
         // Send email notification
-        notifyTaskCreated(result.task.id, result.task.projectId, userId).catch((error: any) => {
+        notifyTaskCreated(result.task.id, result.task.projectId, userId).catch((error: Error | unknown) => {
           console.error('Failed to send task creation emails:', error);
         });
       }
@@ -849,7 +849,7 @@ export const useProjectTaskMutations = ({
 
       // Send update notification
       if (user) {
-        notifyTaskUpdated(taskId, taskData.projectId, normalizeId(user.id)).catch((err: any) => {
+        notifyTaskUpdated(taskId, taskData.projectId, normalizeId(user.id)).catch((err: Error | unknown) => {
           console.error('Failed to send task update notification:', err);
         });
       }

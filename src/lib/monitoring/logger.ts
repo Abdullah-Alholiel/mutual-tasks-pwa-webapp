@@ -38,7 +38,7 @@ class Logger {
 
     constructor(options: LoggerOptions = {}) {
         this.level = options.level ?? this.getLogLevelFromEnv();
-        const envMode = (import.meta as any).env?.MODE;
+        const envMode = import.meta.env?.MODE;
         const validModes = ['development', 'production', 'test'] as const;
         this.environment = options.environment ?? (envMode && validModes.includes(envMode) ? envMode : 'development');
         this.enableStackTrace = options.enableStackTrace ?? true;

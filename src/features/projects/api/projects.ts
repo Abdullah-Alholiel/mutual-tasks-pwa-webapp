@@ -176,7 +176,7 @@ export class ProjectsRepository {
         .in('id', userIds.map(toStringId));
 
       if (!userError && userData) {
-        const userMap = new Map(userData.map((u: any) => [toNumberId(u.id), transformUserRow(u)]));
+        const userMap = new Map(userData.map((u: Record<string, unknown>) => [toNumberId(u.id), transformUserRow(u)]));
         participants.forEach(p => {
           p.user = userMap.get(p.userId);
         });
@@ -211,7 +211,7 @@ export class ProjectsRepository {
         .in('id', userIds.map(toStringId));
 
       if (!userError && userData) {
-        const userMap = new Map(userData.map((u: any) => [toNumberId(u.id), transformUserRow(u)]));
+        const userMap = new Map(userData.map((u: Record<string, unknown>) => [toNumberId(u.id), transformUserRow(u)]));
         participants.forEach(p => {
           p.user = userMap.get(p.userId);
         });

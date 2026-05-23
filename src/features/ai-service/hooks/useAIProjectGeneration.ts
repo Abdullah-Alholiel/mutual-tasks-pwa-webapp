@@ -211,7 +211,7 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
             });
 
             const responseText = await response.text();
-            let responseData: any;
+            let responseData: Record<string, unknown>;
             try {
                 responseData = JSON.parse(responseText);
             } catch {
