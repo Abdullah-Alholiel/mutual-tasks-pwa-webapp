@@ -135,7 +135,7 @@ export const useSmartScroll = ({
         window.addEventListener('resize', handleResize);
 
         return () => {
-            window.removeEventListener('scroll', throttledHandleScroll, { capture: true } as any);
+            window.removeEventListener('scroll', throttledHandleScroll, { capture: true, passive: true });
             window.removeEventListener('resize', handleResize);
         };
     }, [safeZone, scrollUpThreshold, enabled]);

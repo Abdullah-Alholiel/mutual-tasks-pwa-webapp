@@ -1,5 +1,17 @@
 import 'dotenv/config';
 import { Client } from 'pg';
+
+interface DatabaseError extends Error {
+  code?: string;
+  detail?: string;
+  hint?: string;
+  where?: string;
+}
+
+function isDatabaseError(error: unknown): error is DatabaseError {
+  return error instanceof Error && ('code' in error || 'detail' in error);
+}
+
 import {
   NOTIFICATION_TYPES,
   PROJECT_ROLES,
@@ -385,7 +397,7 @@ const MIGRATION_STATEMENTS = [
   // Indexes will be handled separately with table verification
 ];
 
-const tryConnection = async (connString: string, attempt: number, total: number): Promise<Client> => {
+const tryConnection = async (connString: string, attempt: number, total: number): Promise<Client | null> => {
   // Ensure SSL mode is set
   let finalConnString = connString;
   if (!finalConnString.includes('sslmode=')) {
@@ -426,31 +438,27 @@ const tryConnection = async (connString: string, attempt: number, total: number)
     }
     
     return client;
-    } catch (error) {
-      await client.end().catch(() => {});
+  } catch (error) {
+    await client.end().catch(() => {});
 
-      // If this isn't last attempt, return null to try next
-      if (attempt < total && error instanceof Error) {
-        const errorCode = (error as NodeJS.ErrnoException).code;
-        const errorMessage = error.message;
-        
-        if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED' ||
-            errorCode === 'XX000' || errorMessage?.includes('Tenant')) {
-          return null; // Try next connection string
-        }
+    // If this isn't last attempt, return null to try next
+    if (attempt < total && error instanceof Error) {
+      const errorCode = (error as NodeJS.ErrnoException).code;
+      const errorMessage = error.message;
+      
+      if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED' ||
+          errorCode === 'XX000' || errorMessage?.includes('Tenant')) {
+        return null; // Try next connection string
       }
+    }
 
-      throw error;
-    }
-    }
-    
     throw error;
   }
 };
 
 const run = async () => {
   let client: Client | null = null;
-  let lastError: any = null;
+  let lastError: Error | NodeJS.ErrnoException | null = null;
   
   // Try each connection string in order
   for (let i = 0; i < connectionStrings.length; i++) {
@@ -459,27 +467,30 @@ const run = async () => {
       if (client) {
         break; // Success!
       }
-    } catch (error: any) {
-      lastError = error;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
       // Continue to next connection string
     }
   }
   
   if (!client) {
     console.error('\n❌ Failed to connect with all connection methods.\n');
-    if (lastError?.code === 'ENOTFOUND' || lastError?.message?.includes('getaddrinfo')) {
-      console.error('DNS resolution failed. Please check:');
-      console.error('  1. Your network connection');
-      console.error('  2. The connection string hostname is correct\n');
-    } else if (lastError?.code === 'ECONNREFUSED') {
-      console.error('Connection refused. Please check:');
-      console.error('  1. Your Supabase project is active');
-      console.error('  2. Your IP is not blocked by Supabase firewall\n');
-    } else if (lastError?.code === 'XX000' || lastError?.message?.includes('Tenant')) {
-      console.error('Authentication failed. Please check:');
-      console.error('  1. The database password in your connection string is correct');
-      console.error('  2. Get a fresh connection string from:');
-      console.error('     Supabase Dashboard → Database → Connection string → URI\n');
+    if (lastError && 'code' in lastError) {
+      const errCode = (lastError as NodeJS.ErrnoException).code;
+      if (errCode === 'ENOTFOUND' || lastError.message?.includes('getaddrinfo')) {
+        console.error('DNS resolution failed. Please check:');
+        console.error('  1. Your network connection');
+        console.error('  2. The connection string hostname is correct\n');
+      } else if (errCode === 'ECONNREFUSED') {
+        console.error('Connection refused. Please check:');
+        console.error('  1. Your Supabase project is active');
+        console.error('  2. Your IP is not blocked by Supabase firewall\n');
+      } else if (errCode === 'XX000' || lastError.message?.includes('Tenant')) {
+        console.error('Authentication failed. Please check:');
+        console.error('  1. The database password in your connection string is correct');
+        console.error('  2. Get a fresh connection string from:');
+        console.error('     Supabase Dashboard → Database → Connection string → URI\n');
+      }
     }
     throw lastError || new Error('Failed to establish database connection');
   }
@@ -505,21 +516,24 @@ const run = async () => {
       try {
         const result = await client.query(statement);
         console.info(`  ✓ Success`);
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const dbError = isDatabaseError(error) ? error : null;
         // Only skip if it's a genuine "already exists" error for idempotent operations
         // Be very specific about what constitutes "already exists"
-        const isAlreadyExists = 
-          (error?.code === '42P07' && error?.message?.includes('already exists')) || // duplicate_table
-          (error?.code === '42710' && error?.message?.includes('already exists')) || // duplicate_object  
-          (error?.code === '42723' && error?.message?.includes('already exists')) || // duplicate_function
-          (error?.code === '42P16' && error?.message?.includes('already exists')) || // invalid_table_definition
-          (error?.code === '23505' && error?.message?.includes('already exists')); // unique_violation for indexes
+        const isAlreadyExists = dbError
+          ? ((dbError.code === '42P07' && dbError.message?.includes('already exists')) || // duplicate_table
+          (dbError.code === '42710' && dbError.message?.includes('already exists')) || // duplicate_object  
+          (dbError.code === '42723' && dbError.message?.includes('already exists')) || // duplicate_function
+          (dbError.code === '42P16' && dbError.message?.includes('already exists')) || // invalid_table_definition
+          (dbError.code === '23505' && dbError.message?.includes('already exists'))) // unique_violation for indexes
+          : false;
         
         // Explicitly exclude "does not exist" errors
-        const isDoesNotExist = 
-          error?.code === '42P01' || // undefined_table
-          error?.message?.includes('does not exist') ||
-          error?.message?.includes('relation') && error?.message?.includes('does not exist');
+        const isDoesNotExist = dbError
+          ? (dbError.code === '42P01' || // undefined_table
+          dbError.message?.includes('does not exist') ||
+          (dbError.message?.includes('relation') && dbError.message?.includes('does not exist')))
+          : false;
         
         if (isAlreadyExists && !isDoesNotExist) {
           console.info(`  ✓ (already exists, skipping)`);
@@ -527,15 +541,15 @@ const run = async () => {
         }
         
         // For other errors, log details and rethrow
-        console.error(`  ✗ Error [${error.code || 'UNKNOWN'}]: ${error.message}`);
-        if (error.detail) {
-          console.error(`     Detail: ${error.detail}`);
+        console.error(`  ✗ Error [${dbError?.code || 'UNKNOWN'}]: ${dbError?.message || String(error)}`);
+        if (dbError?.detail) {
+          console.error(`     Detail: ${dbError.detail}`);
         }
-        if (error.hint) {
-          console.error(`     Hint: ${error.hint}`);
+        if (dbError?.hint) {
+          console.error(`     Hint: ${dbError.hint}`);
         }
-        if (error.where) {
-          console.error(`     Where: ${error.where}`);
+        if (dbError?.where) {
+          console.error(`     Where: ${dbError.where}`);
         }
         throw error;
       }
@@ -565,18 +579,20 @@ const run = async () => {
       try {
         await client.query(indexDef.statement);
         console.info(`  ✓ Success`);
-      } catch (error: any) {
-        const isAlreadyExists = 
-          error?.code === '42P07' || // duplicate_table
-          error?.code === '42710' || // duplicate_object
-          error?.message?.includes('already exists');
+      } catch (error: unknown) {
+        const dbError = isDatabaseError(error) ? error : null;
+        const isAlreadyExists = dbError
+          ? (dbError.code === '42P07' || // duplicate_table
+          dbError.code === '42710' || // duplicate_object
+          dbError.message?.includes('already exists'))
+          : false;
         
         if (isAlreadyExists) {
           console.info(`  ✓ (already exists, skipping)`);
           continue;
         }
         
-        console.error(`  ✗ Error [${error.code || 'UNKNOWN'}]: ${error.message}`);
+        console.error(`  ✗ Error [${dbError?.code || 'UNKNOWN'}]: ${dbError?.message || String(error)}`);
         throw error;
       }
     }

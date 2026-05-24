@@ -18,6 +18,19 @@ export interface MagicLink {
   createdAt: Date;
 }
 
+interface MagicLinkRow {
+  id: number;
+  token: string;
+  user_id: number | null;
+  email: string;
+  is_signup: boolean;
+  signup_name: string | null;
+  signup_handle: string | null;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+}
+
 export class MagicLinksRepository {
   constructor(private supabase: SupabaseClient) {}
 
@@ -103,7 +116,7 @@ export class MagicLinksRepository {
   /**
    * Transform database row to MagicLink interface
    */
-  private transformRow(row: any): MagicLink {
+  private transformRow(row: MagicLinkRow): MagicLink {
     return {
       id: row.id,
       token: row.token,

@@ -44,8 +44,8 @@ describe('validateTaskCreation', () => {
     it('should throw ValidationError for missing due date', () => {
         const data = { ...validTaskData, dueDate: undefined };
 
-        expect(() => validateTaskCreation(data as any)).toThrow(ValidationError);
-        expect(() => validateTaskCreation(data as any)).toThrow('Due date is required');
+        expect(() => validateTaskCreation(data as Partial<typeof validTaskData>)).toThrow(ValidationError);
+        expect(() => validateTaskCreation(data as Partial<typeof validTaskData>)).toThrow('Due date is required');
     });
 
     it('should throw ValidationError for habit without recurrence pattern', () => {
@@ -55,8 +55,8 @@ describe('validateTaskCreation', () => {
             recurrencePattern: undefined
         };
 
-        expect(() => validateTaskCreation(data as any)).toThrow(ValidationError);
-        expect(() => validateTaskCreation(data as any)).toThrow('Recurrence pattern is required');
+        expect(() => validateTaskCreation(data as Partial<typeof validTaskData>)).toThrow(ValidationError);
+        expect(() => validateTaskCreation(data as Partial<typeof validTaskData>)).toThrow('Recurrence pattern is required');
     });
 
     it('should pass for valid habit with recurrence', () => {

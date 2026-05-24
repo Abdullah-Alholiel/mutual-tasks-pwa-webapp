@@ -29,7 +29,6 @@ import type { Notification } from '@/types';
 import { NOTIFICATION_KEYS, TASK_KEYS, PROJECT_KEYS, TASK_STATUS_KEYS, COMPLETION_LOG_KEYS } from '@/lib/queryKeys';
 import { browserNotificationService } from '@/lib/notifications/browserNotificationService';
 import { logger } from '@/lib/monitoring/logger';
-import { withRetry } from '@/lib/utils/retry';
 
 // ============================================================================
 // Type Definitions
@@ -311,6 +310,8 @@ export function useUnifiedRealtime(options: UseUnifiedRealtimeOptions = {}) {
     const isReconnecting = useRef(false);  // Prevents reconnection storms after timeout
     const healthCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Ref to break circular dependency between performHealthCheck ↔ attemptReconnect
+    const attemptReconnectRef = useRef<() => void>(() => {});
 
     // CRITICAL FIX: Removed connectionStatus from dependencies to break infinite loop
     // Uses ref to compare values without triggering callback recreation
@@ -336,7 +337,7 @@ export function useUnifiedRealtime(options: UseUnifiedRealtimeOptions = {}) {
         } else {
             logger.warn('[UnifiedRealtime] Unhealthy channel detected, attempting reconnection');
             isReconnecting.current = true;  // Set reconnecting flag before attempting reconnect
-            attemptReconnect();
+            attemptReconnectRef.current();
         }
     }, [updateConnectionStatus]);
 
@@ -393,6 +394,9 @@ export function useUnifiedRealtime(options: UseUnifiedRealtimeOptions = {}) {
 
         }, delay);
     }, [updateConnectionStatus]);
+
+    // Wire up the ref so performHealthCheck can call attemptReconnect without circular dep
+    attemptReconnectRef.current = attemptReconnect;
 
     const cleanup = useCallback((supabase: ReturnType<typeof getSharedSupabaseClient>) => {
         stopHealthMonitoring();

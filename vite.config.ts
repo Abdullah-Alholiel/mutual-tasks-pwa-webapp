@@ -111,7 +111,7 @@ export default defineConfig(({ mode }) => {
       }),
       react(),
       mode === "development" && componentTagger(),
-      isAnalyze && (visualizer as any)({
+      isAnalyze && visualizer({
         open: true,
         gzipSize: true,
         brotliSize: true,

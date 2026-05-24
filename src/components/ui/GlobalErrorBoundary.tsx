@@ -33,7 +33,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         logger.error("[GlobalErrorBoundary] Uncaught error:", error, errorInfo);
 
         // Send to error tracking service (Sentry) in production
-        if ((import.meta as any).env?.PROD) {
+        if (import.meta.env?.PROD) {
             captureException(error, {
                 componentStack: errorInfo.componentStack,
                 errorBoundary: true,
@@ -57,7 +57,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                                 An unexpected error occurred. We've optimized the app to prevent data loss,
                                 but we need to reload to get things back on track.
                             </p>
-                            {this.state.error && (typeof import.meta !== 'undefined' && (import.meta as any).env?.DEV) && (
+                            {this.state.error && import.meta.env?.DEV && (
                                 <div className="p-3 bg-muted rounded-md text-left overflow-auto max-h-40 text-xs font-mono">
                                     {this.state.error.toString()}
                                 </div>

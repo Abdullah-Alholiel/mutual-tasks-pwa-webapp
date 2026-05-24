@@ -49,7 +49,7 @@ const TaskParticipantAvatarsComponent = ({
       }
     });
 
-    let allParticipants = Array.from(uniqueParticipantsMap.values());
+    const allParticipants = Array.from(uniqueParticipantsMap.values());
 
     // Sort participants: Completed (earliest first) -> Pending
     allParticipants.sort((a, b) => {

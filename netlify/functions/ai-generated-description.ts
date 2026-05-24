@@ -7,10 +7,11 @@ import {
     getCorsHeaders,
     buildRateLimitResponse,
     AI_USAGE_LIMITS,
-    getTodayDate
+    getTodayDate,
+    type AIUsageType
 } from './shared/utils';
 
-const USAGE_TYPE = 'description_generation';
+const USAGE_TYPE: AIUsageType = 'description_generation';
 
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
     const headers = getCorsHeaders();
@@ -69,7 +70,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
-        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
+        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE, userTimezone);
         console.log('[AI Description] Rate limit check:', rateLimit);
 
         if (!rateLimit.allowed) {
@@ -133,7 +134,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
         // ONLY increment usage if we have valid content
         try {
-            await incrementUsage(supabaseAdmin, userId, USAGE_TYPE as any, userTimezone);
+            await incrementUsage(supabaseAdmin, userId, USAGE_TYPE, userTimezone);
             console.log('[AI Description] Usage incremented for userId:', userId, 'date:', usageDate);
         } catch (e) {
             console.error('[AI Description] Failed to increment usage:', e);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // ============================================================================
 // Supabase Edge Function: Magic Link Authentication
 // ============================================================================
@@ -6,6 +5,19 @@
 // Note: This file runs on Deno runtime, not Node.js. TypeScript errors are expected
 // in the IDE but will work correctly when deployed to Supabase Edge Functions.
 // ============================================================================
+
+interface ErrorWithContext extends Error {
+  context?: {
+    response?: { status: number; statusText: string };
+    [key: string]: unknown;
+  };
+}
+
+declare const Deno: {
+  env: { get(key: string): string | undefined };
+};
+
+declare function serve(fn: (req: Request) => Promise<Response>): void;
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -163,7 +175,7 @@ serve(async (req) => {
 
         if (emailError) {
           // Try to extract response body for better error details
-          const errorDetails: any = {
+          const errorDetails: Record<string, unknown> = {
             message: emailError.message,
             context: emailError.context,
           };
@@ -187,15 +199,16 @@ serve(async (req) => {
         } else {
           console.log('Email sent successfully:', emailData);
         }
-      } catch (emailErr: any) {
+      } catch (emailErr: unknown) {
+        const errCtx = emailErr instanceof Error ? (emailErr as ErrorWithContext).context : undefined;
         console.error('Exception while sending email:', {
           error: emailErr,
           message: emailErr instanceof Error ? emailErr.message : String(emailErr),
           stack: emailErr instanceof Error ? emailErr.stack : undefined,
-          context: emailErr?.context,
-          response: emailErr?.context?.response ? {
-            status: emailErr.context.response.status,
-            statusText: emailErr.context.response.statusText,
+          context: errCtx,
+          response: errCtx?.response ? {
+            status: errCtx.response.status,
+            statusText: errCtx.response.statusText,
           } : undefined,
         });
         // Don't fail the request if email fails - magic link is still valid
@@ -277,7 +290,7 @@ serve(async (req) => {
 
         if (emailError) {
           // Try to extract response body for better error details
-          const errorDetails: any = {
+          const errorDetails: Record<string, unknown> = {
             message: emailError.message,
             context: emailError.context,
           };
@@ -301,15 +314,16 @@ serve(async (req) => {
         } else {
           console.log('Email sent successfully:', emailData);
         }
-      } catch (emailErr: any) {
+      } catch (emailErr: unknown) {
+        const errCtx = emailErr instanceof Error ? (emailErr as ErrorWithContext).context : undefined;
         console.error('Exception while sending email:', {
           error: emailErr,
           message: emailErr instanceof Error ? emailErr.message : String(emailErr),
           stack: emailErr instanceof Error ? emailErr.stack : undefined,
-          context: emailErr?.context,
-          response: emailErr?.context?.response ? {
-            status: emailErr.context.response.status,
-            statusText: emailErr.context.response.statusText,
+          context: errCtx,
+          response: errCtx?.response ? {
+            status: errCtx.response.status,
+            statusText: errCtx.response.statusText,
           } : undefined,
         });
         // Don't fail the request if email fails - magic link is still valid

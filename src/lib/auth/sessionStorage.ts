@@ -157,15 +157,15 @@ export function setStoredUserSync(user: CachedUser | { id: number | string; name
         id: typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
         name: user.name || '',
         handle: user.handle || '',
-        email: (user as any).email || '',
-        avatar: (user as any).avatar || '',
-        timezone: (user as any).timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-        createdAt: (user as any).createdAt instanceof Date 
-          ? (user as any).createdAt.toISOString() 
-          : ((user as any).createdAt || new Date().toISOString()),
-        updatedAt: (user as any).updatedAt instanceof Date 
-          ? (user as any).updatedAt.toISOString() 
-          : ((user as any).updatedAt || new Date().toISOString()),
+        email: user.email || '',
+        avatar: user.avatar || '',
+        timezone: user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        createdAt: user.createdAt instanceof Date
+          ? user.createdAt.toISOString()
+          : (user.createdAt || new Date().toISOString()),
+        updatedAt: user.updatedAt instanceof Date
+          ? user.updatedAt.toISOString()
+          : (user.updatedAt || new Date().toISOString()),
       };
       localStorage.setItem(USER_CACHE_KEY, JSON.stringify(normalizedUser));
     } else {

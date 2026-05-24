@@ -158,5 +158,5 @@ export async function checkTaskIds() {
 
 // Export for browser console access
 if (typeof window !== 'undefined') {
-    (window as any).dbDiagnostic = { runDiagnostic, checkTaskIds };
+    (window as Window & { dbDiagnostic?: { runDiagnostic: () => Promise<void>; checkTaskIds: () => Promise<{ total: number; minId: number; maxId: number; gaps: number[] }> } }).dbDiagnostic = { runDiagnostic, checkTaskIds };
 }
