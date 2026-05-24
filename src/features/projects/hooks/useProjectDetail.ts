@@ -35,7 +35,7 @@ export const useProjectDetail = () => {
   const isAICreatedProject = location.state?.isAICreatedProject as boolean | undefined;
   const taskCreationFailed = location.state?.taskCreationFailed as boolean | undefined;
   const { data: projectFromDb, isLoading: projectLoading } = useProject(id);
-  const currentProject = projectFromState || projectFromDb;
+  const currentProject = projectFromState || (projectFromDb ?? undefined);
 
   // Task form state
   const [showTaskForm, setShowTaskForm] = useState(false);
@@ -64,8 +64,6 @@ export const useProjectDetail = () => {
   });
   const {
     participants,
-    projectParticipants,
-    setProjectParticipants,
     showAddMemberForm,
     setShowAddMemberForm,
     showMembersDialog,
