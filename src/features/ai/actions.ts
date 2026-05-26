@@ -14,7 +14,7 @@ export async function generateAIDescription(
     type: 'task' | 'project',
     title: string
 ): Promise<GenerateDescriptionResult> {
-    // Call the Netlify Serverless Function
+    // Call the AI description generation API
     const functionUrl = '/api/ai-generated-description';
 
     try {

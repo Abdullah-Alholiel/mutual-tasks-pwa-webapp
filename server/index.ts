@@ -28,7 +28,7 @@ app.use(cors({
   methods: ['POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'authorization', 'x-user-timezone'],
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // ── Helpers (from netlify/functions/shared/utils.ts) ───────
 const AI_USAGE_LIMITS = {
@@ -42,12 +42,17 @@ function getTodayDate(timezone: string = 'UTC'): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: timezone });
 }
 
-function getSupabaseAdmin(): SupabaseClient {
+// ── Singleton Supabase Admin Client ─────────────────────
+const supabaseAdminClient: SupabaseClient = (() => {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL!;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return createClient(url, key, {
     global: { headers: { 'apikey': key } },
   });
+})();
+
+function getSupabaseAdmin(): SupabaseClient {
+  return supabaseAdminClient;
 }
 
 async function verifyMagicLinkSession(token: string): Promise<number | null> {
@@ -105,33 +110,39 @@ async function incrementUsage(
   timezone: string = 'UTC'
 ): Promise<void> {
   const today = getTodayDate(timezone);
-  const { data: existing, error: fetchError } = await supabaseAdmin
+
+  // Try insert first; if unique constraint violated (code 23505), do update instead.
+  const { error: insertError } = await supabaseAdmin
     .from('ai_usage_logs')
-    .select('id, count')
-    .eq('user_id', userId)
-    .eq('usage_type', usageType)
-    .eq('usage_date', today)
-    .maybeSingle();
+    .insert({ user_id: userId, usage_type: usageType, usage_date: today, count: 1 });
 
-  if (fetchError) throw new Error('Failed to check usage record');
+  if (insertError) {
+    if (insertError.code === '23505') {
+      // Row already exists — fetch current count and increment
+      const { data: existing, error: fetchError } = await supabaseAdmin
+        .from('ai_usage_logs')
+        .select('id, count')
+        .eq('user_id', userId)
+        .eq('usage_type', usageType)
+        .eq('usage_date', today)
+        .single();
 
-  if (existing) {
-    const { error: updateError } = await supabaseAdmin
-      .from('ai_usage_logs')
-      .update({ count: existing.count + 1, updated_at: new Date().toISOString() })
-      .eq('id', existing.id);
-    if (updateError) throw new Error('Failed to update usage count');
-  } else {
-    const { error: insertError } = await supabaseAdmin
-      .from('ai_usage_logs')
-      .insert({ user_id: userId, usage_type: usageType, usage_date: today, count: 1 });
-    if (insertError) throw new Error('Failed to record usage');
+      if (fetchError || !existing) throw new Error('Failed to fetch usage record for update');
+
+      const { error: updateErr } = await supabaseAdmin
+        .from('ai_usage_logs')
+        .update({ count: existing.count + 1, updated_at: new Date().toISOString() })
+        .eq('id', existing.id);
+      if (updateErr) throw new Error('Failed to update usage count');
+    } else {
+      throw new Error('Failed to record usage');
+    }
   }
 }
 
 function extractSessionToken(req: express.Request): string | null {
   const authHeader = req.headers['authorization'];
-  if (!authHeader || !typeof authHeader === 'string' || !authHeader.startsWith('Bearer ')) return null;
+  if (!authHeader || typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) return null;
   return authHeader.substring(7);
 }
 
@@ -353,6 +364,18 @@ app.post('/api/ai-confirm-usage', async (req, res) => {
  * Sends a push notification via OneSignal.
  */
 app.post('/api/send-push-notification', async (req, res) => {
+  const sessionToken = extractSessionToken(req);
+  if (!sessionToken) {
+    res.status(401).json({ error: 'Unauthorized: Missing or invalid authorization header' });
+    return;
+  }
+
+  const userId = await verifyMagicLinkSession(sessionToken);
+  if (!userId) {
+    res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
+    return;
+  }
+
   const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID;
   const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY;
 

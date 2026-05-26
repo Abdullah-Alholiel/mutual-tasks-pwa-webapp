@@ -1,13 +1,6 @@
 node_modules
-dist
 .git
-.env
-.env.*
-.netlify
-.cursor
-.agent
-.agents
-.opencode
-.DS_Store
-*.log
-_temp_*
+dist
+*.md
+.env*
+netlify/

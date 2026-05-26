@@ -288,6 +288,16 @@ CREATE TABLE IF NOT EXISTS public.ai_usage_logs (
 CREATE SEQUENCE IF NOT EXISTS public.ai_usage_logs_id_seq OWNED BY public.ai_usage_logs.id;
 ALTER TABLE public.ai_usage_logs ALTER COLUMN id SET DEFAULT nextval('public.ai_usage_logs_id_seq'::regclass);
 
+-- Unique constraint to prevent duplicate usage records (required for atomic rate limiting)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ai_usage_logs_user_type_date_unique'
+  ) THEN
+    ALTER TABLE public.ai_usage_logs ADD CONSTRAINT ai_usage_logs_user_type_date_unique
+      UNIQUE (user_id, usage_type, usage_date);
+  END IF;
+END $$;
+
 -- ============================================================
 -- 3. INDEXES (from remote + codebase analysis)
 -- ============================================================
@@ -314,6 +324,13 @@ CREATE INDEX IF NOT EXISTS idx_magic_links_expires ON public.magic_links(expires
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON public.sessions(token);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON public.sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON public.sessions(expires_at);
+
+-- Composite index for rate limit queries
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_lookup ON public.ai_usage_logs (user_id, usage_type, usage_date);
+
+-- Friends table indexes
+CREATE INDEX IF NOT EXISTS idx_friends_user_id ON public.friends (user_id);
+CREATE INDEX IF NOT EXISTS idx_friends_friend_id ON public.friends (friend_id);
 
 -- ============================================================
 -- 4. FUNCTIONS AND TRIGGERS
