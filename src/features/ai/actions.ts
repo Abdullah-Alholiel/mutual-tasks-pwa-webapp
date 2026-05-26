@@ -15,7 +15,7 @@ export async function generateAIDescription(
     title: string
 ): Promise<GenerateDescriptionResult> {
     // Call the Netlify Serverless Function
-    const functionUrl = '/.netlify/functions/ai-generated-description';
+    const functionUrl = '/api/ai-generated-description';
 
     try {
         // Get session token for authentication

@@ -1,27 +1,23 @@
-# ── Stage 1: Build ──────────────────────────────────────────────
-FROM node:22-alpine AS builder
-
+# Build stage
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# install dependencies first (layer cache)
-COPY package.json package-lock.json ./
+COPY package*.json ./
 RUN npm ci
-
-# copy source and build
 COPY . .
 RUN npm run build
 
-# ── Stage 2: Serve ──────────────────────────────────────────────
-FROM nginx:alpine AS runner
+# Production stage
+FROM node:20-alpine AS runner
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev && npm install express cors
+COPY --from=builder /app/dist ./dist
+COPY server ./server
+COPY tsconfig.json ./
 
-# remove default nginx config
-RUN rm /etc/nginx/conf.d/default.conf
+# Install tsx for running TypeScript server
+RUN npm install -g tsx
 
-# copy our SPA nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# copy built assets
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3001
+ENV API_PORT=3001
+CMD ["tsx", "server/index.ts"]

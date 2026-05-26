@@ -38,7 +38,7 @@ export async function sendPushNotification(payload: PushNotificationPayload): Pr
     }
 
     try {
-        const response = await fetch('/.netlify/functions/send-push-notification', {
+        const response = await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

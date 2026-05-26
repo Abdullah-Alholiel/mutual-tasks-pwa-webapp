@@ -160,7 +160,7 @@ export const createTaskCreatedEmail = (
     (typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) ||
     (typeof process !== 'undefined' && process.env?.VITE_APP_URL) ||
     (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) ||
-    'https://social-momentum.netlify.app';
+    'http://145.241.109.213:3001';
   const taskUrl = `${appUrl}/projects/${project.id}`;
 
   return {
@@ -266,7 +266,7 @@ export const createTaskCompletedEmail = (
             </p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${(typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'https://social-momentum.netlify.app'}/" 
+              <a href="${(typeof window !== 'undefined' && typeof import.meta !== 'undefined' && import.meta.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.VITE_APP_URL) || (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'http://145.241.109.213:3001'}/"
                  style="display: inline-block; background: linear-gradient(135deg, #1D4ED8 0%, #1D4ED8 100%); color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600;">
                 View Task
               </a>

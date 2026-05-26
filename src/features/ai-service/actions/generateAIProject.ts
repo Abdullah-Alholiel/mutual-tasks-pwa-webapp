@@ -28,7 +28,7 @@ export async function generateAIProject(
     // Local: Call N8N directly, Production: Call Netlify function
     const functionUrl = isLocalDev
         ? 'https://n8n-pwg804wg84008c00g8www4gc.145.241.109.213.sslip.io/webhook/ai-generated-project-momentumPWA'
-        : '/.netlify/functions/ai-generate-project';
+        : '/api/ai-generate-project';
 
     aiLogger.info('Starting AI project generation', {
         descriptionLength: description.length,

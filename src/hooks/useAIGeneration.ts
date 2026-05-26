@@ -111,7 +111,7 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
                 return;
             }
 
-            const response = await fetch('/.netlify/functions/ai-confirm-usage', {
+            const response = await fetch('/api/ai-confirm-usage', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
