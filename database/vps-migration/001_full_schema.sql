@@ -340,30 +340,48 @@ CREATE OR REPLACE FUNCTION public.create_task_with_statuses(
   p_project_id integer,
   p_creator_id integer,
   p_title text,
-  p_description text,
-  p_type task_type,
-  p_recurrence_pattern recurrence_pattern,
-  p_due_date timestamptz
+  p_description text DEFAULT NULL,
+  p_type text DEFAULT 'one_off',
+  p_recurrence_pattern text DEFAULT NULL,
+  p_due_date timestamptz DEFAULT NULL,
+  p_recurrence_index integer DEFAULT NULL,
+  p_recurrence_total integer DEFAULT NULL,
+  p_show_recurrence_index boolean DEFAULT false,
+  p_participant_user_ids integer[] DEFAULT '{}'
 )
-RETURNS integer AS $$
+RETURNS TABLE(task_id integer, task_data jsonb, statuses_created integer) AS $$
 DECLARE
-  v_task_id integer;
-  v_participant record;
+  v_task_id INTEGER;
+  v_participant_id INTEGER;
+  v_statuses_count INTEGER := 0;
+  v_task_record RECORD;
 BEGIN
-  INSERT INTO public.tasks (project_id, creator_id, title, description, type, recurrence_pattern, due_date)
-  VALUES (p_project_id, p_creator_id, p_title, p_description, p_type, p_recurrence_pattern, p_due_date)
+  INSERT INTO tasks (
+    project_id, creator_id, title, description, type,
+    recurrence_pattern, due_date, recurrence_index,
+    recurrence_total, show_recurrence_index,
+    created_at, updated_at
+  ) VALUES (
+    p_project_id, p_creator_id, p_title, p_description, p_type::task_type,
+    p_recurrence_pattern::recurrence_pattern, p_due_date, p_recurrence_index,
+    p_recurrence_total, p_show_recurrence_index,
+    NOW(), NOW()
+  )
   RETURNING id INTO v_task_id;
 
-  FOR v_participant IN
-    SELECT user_id FROM public.project_participants
-    WHERE project_id = p_project_id
-      AND (removed_at IS NULL OR removed_at > now())
+  FOREACH v_participant_id IN ARRAY p_participant_user_ids
   LOOP
-    INSERT INTO public.task_statuses (task_id, user_id, status)
-    VALUES (v_task_id, v_participant.user_id, 'active');
+    INSERT INTO task_statuses (task_id, user_id, status)
+    VALUES (v_task_id, v_participant_id, 'active');
+    v_statuses_count := v_statuses_count + 1;
   END LOOP;
 
-  RETURN v_task_id;
+  SELECT * INTO v_task_record FROM tasks WHERE id = v_task_id;
+
+  RETURN QUERY SELECT
+    v_task_id,
+    to_jsonb(v_task_record),
+    v_statuses_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
