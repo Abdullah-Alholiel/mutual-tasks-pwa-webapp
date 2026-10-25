@@ -101,6 +101,10 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
 
                 toast.error(AI_ERROR_MESSAGES.LIMIT_EXCEEDED_PROJECT.title, {
                     description: AI_ERROR_MESSAGES.LIMIT_EXCEEDED_PROJECT.description,
+                    action: {
+                        label: 'Go Premium',
+                        onClick: () => { window.location.href = '/premium'; },
+                    },
                 });
 
                 // Auto-reset error state after 3 seconds
@@ -238,7 +242,7 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
 
             aiLogger.info('Project generation usage confirmed successfully');
 
-            // Update remaining count
+            // Update remaining count (-1 = premium/unlimited, don't decrement)
             if (remainingToday !== null && remainingToday > 0) {
                 setRemainingToday(remainingToday - 1);
             }

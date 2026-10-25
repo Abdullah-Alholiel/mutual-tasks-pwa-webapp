@@ -122,6 +122,12 @@ export const AIProjectModal = ({
                         </DialogDescription>
                         {/* Usage Indicator - positioned after description for better visual flow */}
                         {remainingToday !== null && (
+                            remainingToday === -1 ? (
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    <span>Premium · Unlimited</span>
+                                </div>
+                            ) : (
                             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-colors ${remainingToday === 0
                                 ? 'bg-destructive/10 text-destructive border border-destructive/20'
                                 : remainingToday <= 1
@@ -131,6 +137,7 @@ export const AIProjectModal = ({
                                 <Zap className="w-3.5 h-3.5" />
                                 <span>{remainingToday}/3 left</span>
                             </div>
+                            )
                         )}
                     </div>
                 </DialogHeader>

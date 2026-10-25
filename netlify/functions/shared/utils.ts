@@ -20,6 +20,19 @@ export async function checkRateLimit(
     const today = getTodayDate(timezone);
     const limit = AI_USAGE_LIMITS[usageType];
 
+    // Premium users bypass daily AI caps entirely (unlimited generations).
+    const { data: userRow, error: premiumError } = await supabaseAdmin
+        .from('users')
+        .select('is_premium')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (!premiumError && userRow?.is_premium) {
+        console.log('[AI Rate Limit] Premium user — bypassing cap:', { userId, usageType });
+        // Convention: remaining/limit === -1 means "premium / unlimited"
+        return { allowed: true, remaining: -1, limit: -1, used: 0 };
+    }
+
     const { data, error } = await supabaseAdmin
         .from('ai_usage_logs')
         .select('count')

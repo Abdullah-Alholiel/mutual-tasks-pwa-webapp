@@ -9,6 +9,7 @@ import ProjectDetail from "../features/projects/ProjectDetail";
 import Auth from "../features/auth/Auth";
 import FriendProfile from "../features/friends/pages/FriendProfile";
 import NotFound from "../features/pages/NotFound";
+import Premium from "../features/pages/Premium";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { AuthProvider } from "@/features/auth/AuthContext";
 import { ThemeProvider } from "@/lib/ThemeContext";
@@ -156,6 +157,7 @@ const App = () => {
                         <Route path="/profile" element={<PageErrorBoundary><MainTabsShell /></PageErrorBoundary>} />
                         <Route path="/projects/:id" element={<PageErrorBoundary><ProjectDetail /></PageErrorBoundary>} />
                         <Route path="/friends/:id" element={<PageErrorBoundary><FriendProfile /></PageErrorBoundary>} />
+                        <Route path="/premium" element={<PageErrorBoundary><Premium /></PageErrorBoundary>} />
                       </Route>
 
                       {/* Catch-all route - not protected (404 page) */}

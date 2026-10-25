@@ -75,6 +75,10 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
                     setAiState('error');
                     toast.error('Daily Limit Reached', {
                         description: 'You strictly have 10 description generations per day. Please try again tomorrow!',
+                        action: {
+                            label: 'Go Premium',
+                            onClick: () => { window.location.href = '/premium'; },
+                        },
                     });
                     return null;
                 }
