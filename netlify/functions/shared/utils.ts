@@ -124,7 +124,6 @@ export async function incrementUsage(
 
 export async function verifyMagicLinkSession(token: string): Promise<number | null> {
     console.log('[Session] Verifying magic link session token');
-    console.log('[Session] Token prefix:', token.substring(0, 20) + '...');
 
     try {
         // Use VITE_SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL as fallback)

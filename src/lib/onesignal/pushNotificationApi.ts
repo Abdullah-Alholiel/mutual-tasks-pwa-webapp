@@ -31,12 +31,17 @@ export interface PushNotificationPayload {
 export async function sendPushNotification(payload: PushNotificationPayload): Promise<boolean> {
     try {
         // Caller auth (F1): the function rejects unauthenticated requests.
+        // No session → the request is guaranteed 401; skip the doomed round-trip.
         const sessionToken = getSessionToken();
+        if (!sessionToken) {
+            console.warn('[Push] No session token — skipping push request');
+            return false;
+        }
         const response = await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` }),
+                'Authorization': `Bearer ${sessionToken}`,
             },
             body: JSON.stringify(payload),
         });

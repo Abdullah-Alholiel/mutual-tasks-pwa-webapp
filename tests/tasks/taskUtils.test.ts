@@ -2,7 +2,7 @@
 // Task Utilities Tests
 // ============================================================================
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
     calculateTaskStatusUserStatus,
     normalizeToStartOfDay,
@@ -69,24 +69,31 @@ describe('calculateTaskStatusUserStatus', () => {
     });
 
     it('should return active for today future tasks', () => {
-        const laterToday = new Date();
-        laterToday.setHours(laterToday.getHours() + 1);
+        // Pin the clock mid-day: now+1h must NOT cross UTC midnight, or the util
+        // correctly classifies the task as 'upcoming' (flaky at 23:xx UTC otherwise).
+        vi.useFakeTimers({ now: new Date('2026-06-15T12:00:00Z') });
+        try {
+            const laterToday = new Date();
+            laterToday.setHours(laterToday.getHours() + 1);
 
-        const task = {
-            id: 1,
-            dueDate: laterToday,
-        } as Task;
+            const task = {
+                id: 1,
+                dueDate: laterToday,
+            } as Task;
 
-        const taskStatus = {
-            id: 1,
-            taskId: 1,
-            userId: 1,
-            status: 'active' as const,
-        } as TaskStatusEntity;
+            const taskStatus = {
+                id: 1,
+                taskId: 1,
+                userId: 1,
+                status: 'active' as const,
+            } as TaskStatusEntity;
 
-        const result = calculateTaskStatusUserStatus(taskStatus, undefined, task);
+            const result = calculateTaskStatusUserStatus(taskStatus, undefined, task);
 
-        expect(result).toBe('active');
+            expect(result).toBe('active');
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('should return archived for today past due tasks', () => {
@@ -154,15 +161,21 @@ describe('calculateTaskStatusUserStatus', () => {
 
 describe('canCompleteTask', () => {
     it('should allow completion for active tasks', () => {
-        const laterToday = new Date();
-        laterToday.setHours(laterToday.getHours() + 1);
+        // Pin the clock mid-day: now+1h must NOT cross UTC midnight (flaky at 23:xx UTC).
+        vi.useFakeTimers({ now: new Date('2026-06-15T12:00:00Z') });
+        try {
+            const laterToday = new Date();
+            laterToday.setHours(laterToday.getHours() + 1);
 
-        const task = { dueDate: laterToday } as Task;
-        const taskStatus = { status: 'active' as const } as TaskStatusEntity;
+            const task = { dueDate: laterToday } as Task;
+            const taskStatus = { status: 'active' as const } as TaskStatusEntity;
 
-        const result = canCompleteTask(taskStatus, undefined, task);
+            const result = canCompleteTask(taskStatus, undefined, task);
 
-        expect(result).toBe(true);
+            expect(result).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('should allow completion for recovered tasks', () => {
