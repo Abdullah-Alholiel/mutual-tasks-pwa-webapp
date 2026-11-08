@@ -11,7 +11,7 @@ import {
 const USAGE_TYPE = 'project_generation';
 
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    const headers = getCorsHeaders();
+    const headers = getCorsHeaders(event.headers['origin']);
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };

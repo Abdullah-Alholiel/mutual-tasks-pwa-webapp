@@ -174,12 +174,28 @@ export async function verifyMagicLinkSession(token: string): Promise<number | nu
     }
 }
 
-export function getCorsHeaders(): { [key: string]: string } {
-    return {
-        'Access-Control-Allow-Origin': '*',
+// Origins allowed to call these endpoints from a browser. Netlify itself serves
+// same-origin calls (Origin header absent), so the API paths need no wildcard.
+// NOTE: update when the Cloudflare Pages domain goes live (P1-9).
+const APP_ORIGIN_ALLOWLIST = [
+    'https://social-momentum.netlify.app',
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'http://localhost:3000',
+];
+
+export function getCorsHeaders(origin?: string | null): { [key: string]: string } {
+    const headers: { [key: string]: string } = {
         'Access-Control-Allow-Headers': 'Content-Type, authorization, x-user-timezone',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Vary': 'Origin',
     };
+    // Same-origin requests (the PWA calling /api/* on its own host) send no Origin
+    // header on many flows; only echo an allowlisted browser origin.
+    if (origin && APP_ORIGIN_ALLOWLIST.includes(origin)) {
+        headers['Access-Control-Allow-Origin'] = origin;
+    }
+    return headers;
 }
 
 export function buildRateLimitResponse(

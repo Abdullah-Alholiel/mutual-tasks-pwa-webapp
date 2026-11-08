@@ -21,11 +21,8 @@ import {
 function getSupabaseUrlLazy(): string {
   const url = getSupabaseUrl();
   if (!url) {
-    // Debug: log what we tried to find
-    if (typeof import.meta !== 'undefined' && import.meta.env) {
-      console.error('Environment check - import.meta.env keys:', Object.keys(import.meta.env));
-      console.error('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
-    }
+    // Debug: log what we tried to find (server-side only — never touch
+    // import.meta.env dynamically here; see src/lib/env.ts security note)
     if (typeof process !== 'undefined' && process.env) {
       console.error('Environment check - process.env keys:', Object.keys(process.env).filter(k => k.includes('SUPABASE')));
     }

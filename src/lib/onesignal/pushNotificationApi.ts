@@ -1,9 +1,12 @@
 // ============================================================================
 // OneSignal Push Notification API Utility
 // ============================================================================
-// Sends push notifications via the Express API server
-// The API key is securely stored server-side
+// Sends push notifications via the API function (/api/send-push-notification).
+// The OneSignal REST API key is securely stored server-side; the caller must
+// present a valid Momentum session token (Authorization: Bearer) — F1.
 // ============================================================================
+
+import { getSessionToken } from '@/lib/auth/sessionStorage';
 
 export interface PushNotificationPayload {
     /** Target user's external ID (Supabase user ID) */
@@ -27,10 +30,13 @@ export interface PushNotificationPayload {
  */
 export async function sendPushNotification(payload: PushNotificationPayload): Promise<boolean> {
     try {
+        // Caller auth (F1): the function rejects unauthenticated requests.
+        const sessionToken = getSessionToken();
         const response = await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(sessionToken && { 'Authorization': `Bearer ${sessionToken}` }),
             },
             body: JSON.stringify(payload),
         });

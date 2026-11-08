@@ -16,6 +16,29 @@
 [build.environment]
   NETLIFY_USE_EDGE_FUNCTIONS = "false"
 
+# API routes: /api/<fn-name> -> /.netlify/functions/<fn-name>
+# MUST come before the SPA fallback below, or the SPA swallows these paths
+# (verified live 2026-11-08: /api/ai-generate-project returned 404 index.html).
+[[redirects]]
+  from = "/api/send-push-notification"
+  to = "/.netlify/functions/send-push-notification"
+  status = 200
+
+[[redirects]]
+  from = "/api/ai-generate-project"
+  to = "/.netlify/functions/ai-generate-project"
+  status = 200
+
+[[redirects]]
+  from = "/api/ai-generated-description"
+  to = "/.netlify/functions/ai-generated-description"
+  status = 200
+
+[[redirects]]
+  from = "/api/ai-confirm-usage"
+  to = "/.netlify/functions/ai-confirm-usage"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
