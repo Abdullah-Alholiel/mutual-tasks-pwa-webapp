@@ -10,7 +10,7 @@ import {
 } from './shared/utils';
 
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    const headers = getCorsHeaders();
+    const headers = getCorsHeaders(event.headers['origin']);
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
@@ -87,7 +87,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             headers,
             body: JSON.stringify({
                 error: 'Failed to record usage',
-                details: error instanceof Error ? error.message : 'Unknown error',
             }),
         };
     }
