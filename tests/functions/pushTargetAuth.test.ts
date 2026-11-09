@@ -133,6 +133,17 @@ describe('canNotifyTarget (P1-6b push-target authorization)', () => {
         await expect(canNotifyTarget(client, 42, 99)).resolves.toBe(false);
     });
 
+    it('REJECTS when the CALLER was the one soft-removed (removed_at set on caller row)', async () => {
+        const client = fakeClient({
+            friends: [],
+            project_participants: [
+                { project_id: 7, user_id: 42, removed_at: '2026-11-01T00:00:00Z' },
+                { project_id: 7, user_id: 99, removed_at: null },
+            ],
+        });
+        await expect(canNotifyTarget(client, 42, 99)).resolves.toBe(false);
+    });
+
     it('REJECTS a user who only shared a DIFFERENT project with the caller', async () => {
         const client = fakeClient({
             friends: [],

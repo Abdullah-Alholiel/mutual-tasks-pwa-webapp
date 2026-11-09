@@ -19,7 +19,11 @@ const NOTIFICATION_CHANNELS: Record<NotificationType, { inApp: boolean; push: bo
   project_created: { inApp: true, push: true, email: true },
   project_deleted: { inApp: true, push: true, email: true },
   role_changed: { inApp: true, push: true, email: false },
-  friend_request: { inApp: true, push: true, email: false },
+  // P1-6b: a pending friend_request has no accepted-friend relationship yet,
+  // so the push-target gate rejects its push (403) by design — anyone can
+  // create a pending request toward any user. In-app still delivers; the
+  // acceptance (friend_accepted) pushes normally. Do not fire doomed pushes.
+  friend_request: { inApp: true, push: false, email: false },
   friend_accepted: { inApp: true, push: true, email: false },
   streak_reminder: { inApp: true, push: true, email: false },
 };

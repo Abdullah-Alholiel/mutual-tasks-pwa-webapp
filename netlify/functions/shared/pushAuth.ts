@@ -15,7 +15,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * friend_request row toward any user, so honoring pending rows would keep
  * the spoofing hole open (see docs/plans/2026-11-09-run2-p1-6b).
  *
- * Fails CLOSED: any DB error → false (and logged server-side only).
+ * Failure semantics: each phase (friends, shared-project) independently
+ * fails closed — an error inside one phase can only ever REMOVE signals,
+ * never add them; the function returns true only on a positively verified
+ * relationship, and false on total failure.
  */
 export async function canNotifyTarget(
     supabase: SupabaseClient,

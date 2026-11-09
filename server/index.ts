@@ -25,7 +25,9 @@ const PORT = process.env.API_PORT || 3001;
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors({
   // F12: explicit origin allowlist — never `*` on authenticated API paths.
-  // Netlify prod origin + local dev origins (matches shared/utils.ts allowlist).
+  // Default list mirrors netlify/functions/shared/utils.ts; override per
+  // environment with CORS_ORIGIN (comma-separated). Localhost entries belong
+  // to dev machines — drop them from the container's env in production.
   origin: (process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
     : ['https://social-momentum.netlify.app', 'http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000']),
@@ -460,12 +462,20 @@ app.post('/api/send-push-notification', async (req, res) => {
   // Push-target authorization (P1-6b): the caller may only notify users they
   // have a real relationship with (self, accepted friend either direction, or
   // a shared active project) — verified from the DB, never from caller input.
+  // Any failure here fails CLOSED (403): a missing/misconfigured admin client
+  // must never turn into an unauthenticated push send.
   const targetId = Number(externalUserId);
-  if (!Number.isFinite(targetId)) {
-    res.status(400).json({ error: 'Missing required fields: externalUserId, title, message' });
+  if (!Number.isInteger(targetId)) {
+    res.status(400).json({ error: 'externalUserId must be a valid user id' });
     return;
   }
-  const allowed = await canNotifyTarget(getSupabaseAdmin(), userId, targetId);
+  let allowed = false;
+  try {
+    allowed = await canNotifyTarget(getSupabaseAdmin(), userId, targetId);
+  } catch (authErr) {
+    console.error('[Push] Authorization check failed (failing closed):', authErr);
+    allowed = false;
+  }
   if (!allowed) {
     console.warn('[Push] Target authorization denied:', { userId, targetId });
     res.status(403).json({ error: 'Not allowed to notify this user' });
