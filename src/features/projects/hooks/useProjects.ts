@@ -241,14 +241,18 @@ export const useDeleteProject = () => {
       const participantIds = project?.participantRoles?.map(p => p.userId) || [];
       const projectName = project?.name || 'Unknown Project';
 
-      await db.projects.delete(projectId);
-
-      // Send deletion notifications (handles Push, In-app, and Email)
+      // Send deletion notifications BEFORE the delete resolves, and let the
+      // pushes settle (notifyProjectDeleted now awaits them, bounded at 6s):
+      // the push-target authorization (P1-6b) verifies a live shared-project
+      // relationship server-side, and `projects.delete` removes the
+      // participant rows FIRST — notifying after would 403 the notice.
       if (user) {
-        notificationService.notifyProjectDeleted(user.id, projectName, participantIds).catch(err =>
-          console.error('Failed to send project deletion notifications:', err)
-        );
+        await notificationService
+          .notifyProjectDeleted(user.id, projectName, participantIds)
+          .catch(err => console.error('Failed to send project deletion notifications:', err));
       }
+
+      await db.projects.delete(projectId);
     },
     onSuccess: () => {
       // Invalidate and refetch projects

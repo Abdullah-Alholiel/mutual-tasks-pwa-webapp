@@ -1,5 +1,6 @@
 import type { Handler, HandlerEvent } from '@netlify/functions';
-import { verifyMagicLinkSession, getCorsHeaders } from './shared/utils';
+import { verifyMagicLinkSession, getCorsHeaders, getSupabaseAdmin } from './shared/utils';
+import { canNotifyTarget } from './shared/pushAuth';
 
 /**
  * Netlify Serverless Function to Send Push Notifications via OneSignal
@@ -77,6 +78,28 @@ const handler: Handler = async (event: HandlerEvent) => {
                 statusCode: 400,
                 headers,
                 body: JSON.stringify({ error: 'Missing required fields: externalUserId, title, message' }),
+            };
+        }
+
+        // Push-target authorization (P1-6b): the caller may only notify users
+        // they have a real relationship with (self, accepted friend either
+        // direction, or a shared active project). Verified from the DB —
+        // caller-supplied context is never trusted for authorization.
+        const targetId = Number(externalUserId);
+        if (!Number.isFinite(targetId)) {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'Missing required fields: externalUserId, title, message' }),
+            };
+        }
+        const allowed = await canNotifyTarget(getSupabaseAdmin(), userId, targetId);
+        if (!allowed) {
+            console.warn('[send-push-notification] Target authorization denied:', { userId, targetId });
+            return {
+                statusCode: 403,
+                headers,
+                body: JSON.stringify({ error: 'Not allowed to notify this user' }),
             };
         }
 

@@ -283,6 +283,9 @@ export const notificationService = {
     const owner = await db.users.getById(ownerId);
     if (!owner) return;
 
+    // P1-6b: pushes now AWAIT their authorization+delivery round-trips (bounded
+    // below) so a project deletion that follows can't race the push-target
+    // check — the participant rows still exist while these settle.
     const promises = participantIds
       .filter(id => id !== ownerId)
       .map(userId =>
@@ -292,7 +295,8 @@ export const notificationService = {
           data: { userName: owner.name, projectName },
         })
       );
-    await Promise.all(promises);
+    const timeout = new Promise(resolve => setTimeout(resolve, 6000));
+    await Promise.race([Promise.all(promises), timeout]);
   },
 
   async notifyProjectUpdated(projectId: number, updaterId: number) {

@@ -24,7 +24,11 @@ const PORT = process.env.API_PORT || 3001;
 
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  // F12: explicit origin allowlist — never `*` on authenticated API paths.
+  // Netlify prod origin + local dev origins (matches shared/utils.ts allowlist).
+  origin: (process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+    : ['https://social-momentum.netlify.app', 'http://localhost:5173', 'http://localhost:4173', 'http://localhost:3000']),
   methods: ['POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'authorization', 'x-user-timezone'],
 }));
@@ -70,6 +74,68 @@ async function verifyMagicLinkSession(token: string): Promise<number | null> {
 
   if (error || !data) return null;
   return data.user_id;
+}
+
+// Push-target authorization (P1-6b) — same contract as
+// netlify/functions/shared/pushAuth.ts: caller may notify a target only when
+// target is self, an accepted friend (either direction), or shares an ACTIVE
+// project with the caller. Pending friend rows are NOT accepted (anyone can
+// create a friend_request toward any user). Fails CLOSED on any DB error.
+async function canNotifyTarget(
+  supabase: SupabaseClient,
+  callerId: number,
+  targetId: number
+): Promise<boolean> {
+  if (callerId === targetId) return true;
+
+  try {
+    const orFilter = `and(user_id.eq.${callerId},friend_id.eq.${targetId}),and(user_id.eq.${targetId},friend_id.eq.${callerId})`;
+    const { data: friendRows, error: friendError } = await supabase
+      .from('friends')
+      .select('id')
+      .eq('status', 'accepted')
+      .or(orFilter)
+      .limit(1);
+
+    if (!friendError && friendRows && friendRows.length > 0) return true;
+    if (friendError) {
+      console.error('[pushAuth] friends check failed:', friendError.code, friendError.message);
+    }
+  } catch (err) {
+    console.error('[pushAuth] friends check threw:', err);
+  }
+
+  try {
+    const { data: callerProjects, error: callerError } = await supabase
+      .from('project_participants')
+      .select('project_id')
+      .eq('user_id', callerId)
+      .is('removed_at', null);
+
+    if (callerError) {
+      console.error('[pushAuth] caller projects check failed:', callerError.code, callerError.message);
+      return false;
+    }
+    if (!callerProjects || callerProjects.length === 0) return false;
+
+    const projectIds = [...new Set(callerProjects.map(p => p.project_id))];
+
+    const { count, error: sharedError } = await supabase
+      .from('project_participants')
+      .select('project_id', { count: 'exact', head: true })
+      .eq('user_id', targetId)
+      .is('removed_at', null)
+      .in('project_id', projectIds);
+
+    if (sharedError) {
+      console.error('[pushAuth] shared project check failed:', sharedError.code, sharedError.message);
+      return false;
+    }
+    return (count ?? 0) > 0;
+  } catch (err) {
+    console.error('[pushAuth] shared-project check threw:', err);
+    return false;
+  }
 }
 
 async function checkRateLimit(
@@ -391,6 +457,21 @@ app.post('/api/send-push-notification', async (req, res) => {
     return;
   }
 
+  // Push-target authorization (P1-6b): the caller may only notify users they
+  // have a real relationship with (self, accepted friend either direction, or
+  // a shared active project) — verified from the DB, never from caller input.
+  const targetId = Number(externalUserId);
+  if (!Number.isFinite(targetId)) {
+    res.status(400).json({ error: 'Missing required fields: externalUserId, title, message' });
+    return;
+  }
+  const allowed = await canNotifyTarget(getSupabaseAdmin(), userId, targetId);
+  if (!allowed) {
+    console.warn('[Push] Target authorization denied:', { userId, targetId });
+    res.status(403).json({ error: 'Not allowed to notify this user' });
+    return;
+  }
+
   try {
     const payload = {
       app_id: ONESIGNAL_APP_ID,
@@ -419,7 +500,8 @@ app.post('/api/send-push-notification', async (req, res) => {
 
     if (!response.ok) {
       console.error('[Push] OneSignal error:', response.status, result);
-      res.status(response.status).json({ error: 'Failed to send push notification', details: result });
+      // F19: upstream detail logged above; clients get a generic error only.
+      res.status(502).json({ error: 'Failed to send push notification' });
       return;
     }
 
