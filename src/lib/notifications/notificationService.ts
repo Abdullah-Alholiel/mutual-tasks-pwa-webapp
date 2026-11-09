@@ -19,7 +19,11 @@ const NOTIFICATION_CHANNELS: Record<NotificationType, { inApp: boolean; push: bo
   project_created: { inApp: true, push: true, email: true },
   project_deleted: { inApp: true, push: true, email: true },
   role_changed: { inApp: true, push: true, email: false },
-  friend_request: { inApp: true, push: true, email: false },
+  // P1-6b: a pending friend_request has no accepted-friend relationship yet,
+  // so the push-target gate rejects its push (403) by design — anyone can
+  // create a pending request toward any user. In-app still delivers; the
+  // acceptance (friend_accepted) pushes normally. Do not fire doomed pushes.
+  friend_request: { inApp: true, push: false, email: false },
   friend_accepted: { inApp: true, push: true, email: false },
   streak_reminder: { inApp: true, push: true, email: false },
 };
@@ -283,6 +287,9 @@ export const notificationService = {
     const owner = await db.users.getById(ownerId);
     if (!owner) return;
 
+    // P1-6b: pushes now AWAIT their authorization+delivery round-trips (bounded
+    // below) so a project deletion that follows can't race the push-target
+    // check — the participant rows still exist while these settle.
     const promises = participantIds
       .filter(id => id !== ownerId)
       .map(userId =>
@@ -292,7 +299,8 @@ export const notificationService = {
           data: { userName: owner.name, projectName },
         })
       );
-    await Promise.all(promises);
+    const timeout = new Promise(resolve => setTimeout(resolve, 6000));
+    await Promise.race([Promise.all(promises), timeout]);
   },
 
   async notifyProjectUpdated(projectId: number, updaterId: number) {

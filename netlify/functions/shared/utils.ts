@@ -212,3 +212,21 @@ export function buildRateLimitResponse(
         }),
     };
 }
+
+// ── Singleton Supabase admin client ─────────────────────────
+// Service-role access for server-side authorization reads
+// (push-target check etc.). Never import this from client code:
+// the module lives under netlify/functions/ and is only bundled
+// server-side. Key arrives via env binding, never VITE_-prefixed (F2).
+let adminClient: SupabaseClient | null = null;
+
+export function getSupabaseAdmin(): SupabaseClient {
+    if (adminClient) return adminClient;
+    const url = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+        throw new Error('Supabase admin client not configured');
+    }
+    adminClient = createClient(url, key);
+    return adminClient;
+}
