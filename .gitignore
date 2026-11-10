@@ -37,3 +37,6 @@ dist-ssr
 
 # tsc -b incremental build info (generated)
 *.tsbuildinfo
+
+# factory run artifacts
+kanban/LOCK.json
