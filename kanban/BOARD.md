@@ -48,3 +48,8 @@ AI limits owner-only · Level A until P3 conditions met.
 - Run 2 (2026-11-09): PR #7 merged — P1-6b push-target authorization. Leftovers closed in run 3.
 - Run 3 (2026-11-10): PR #8 merged — P1-8/F19 error-detail strip on AI functions (bef8197).
   Report: kanban/RUNS/20261110T2359Z-run3.md
+- Run 4 (2026-11-11): **PROMOTE EXECUTED** — D-014 owner-approved; PR #9 staging→main
+  (merge commit 04222f7, merge not squash), prod verified live, push hole closed. Plus:
+  PR #10 merged — P1-11 realtime fix (friends subscription, 714923d). Full-stack audit found
+  allow-all RLS on all 13 tables (escalated, owner-only) + completion_logs publication gap
+  (escalated). Sweep port-diff abort fixed. Report: kanban/RUNS/20261111T2231Z-run4.md
