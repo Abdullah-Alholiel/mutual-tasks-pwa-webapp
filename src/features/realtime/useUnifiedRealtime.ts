@@ -472,9 +472,9 @@ export function useUnifiedRealtime(options: UseUnifiedRealtimeOptions = {}) {
             )
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'friendships' },
+                { event: '*', schema: 'public', table: 'friends' },
                 (payload) => {
-                    logger.debug('[UnifiedRealtime] FRIENDSHIPS event received');
+                    logger.debug('[UnifiedRealtime] FRIENDS event received');
                     handleFriendshipChange(queryClient, payload);
                 }
             );
