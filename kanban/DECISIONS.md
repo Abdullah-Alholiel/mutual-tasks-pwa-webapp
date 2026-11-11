@@ -18,6 +18,8 @@ new row that references the old one. Owner = Abdullah (Telegram).
 | D-010 | 2026-11-07 | Approve Netlify to Cloudflare Pages cutover when verified? → Approve after verification report | Owner-only per standing list; Netlify stays live until cutover verified (D-002) (Life OS portal D-20261106-33) | Abdullah |
 | D-011 | 2026-11-07 | Buy a domain for public launch (P4)? → Defer until P3 done | P4 needs owner-bought domain for Pages custom domain and Tunnel; KICKOFF (Life OS portal D-20261106-34) | Abdullah |
 | D-012 | 2026-11-07 | Confirm AI free-tier limits (3 project gens, 10 descriptions/day) → Keep current limits | D-005 says only owner changes limits; P2 moves them to DB (Life OS portal D-20261106-35) | Abdullah |
+| D-013 | 2026-11-11 | Momentum next run: fix the error-detail leak on the 3 AI functions and close P1-6b as done? → Yes | Reviewer-confirmed small slice; board hygiene. Reversible, staging only (Life OS portal D-20261110-04) | Abdullah |
+| D-014 | 2026-11-11 | Promote Momentum staging to main (2 security fixes waiting)? → Promote now | Production still has the push hole (any logged-in user can push any text to any user) and broken /api routes until PRs #6 and #7 are promoted; both are green on staging (Life OS portal D-20261110-01) | Abdullah |
 
 ## Standing owner-only list (always escalate, never do alone)
 
