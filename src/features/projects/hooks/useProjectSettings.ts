@@ -137,7 +137,10 @@ export const useProjectSettings = ({
       const db = getDatabaseClient();
       const pId = typeof currentProject.id === 'string' ? parseInt(currentProject.id) : currentProject.id;
 
-      // Notify participants about project deletion
+      // Notify participants about project deletion BEFORE the delete resolves:
+      // push-target authorization (P1-6b) checks a live shared-project
+      // relationship server-side, so the notices must settle while participant
+      // rows still exist (notifyProjectDeleted awaits pushes, bounded at 6s).
       if (user && participants.length > 0) {
         const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id;
         const participantIds = participants.map(p => typeof p.userId === 'string' ? parseInt(p.userId) : p.userId);
@@ -146,8 +149,8 @@ export const useProjectSettings = ({
         // Ensure unique IDs
         const uniqueIds = Array.from(new Set(participantIds));
 
-        notifyProjectDeleted(userId, currentProject.name, uniqueIds).catch((err: Error | unknown) => {
-          console.error('Failed to send project deletion emails:', err);
+        await notifyProjectDeleted(userId, currentProject.name, uniqueIds).catch((err: Error | unknown) => {
+          console.error('Failed to send project deletion notifications:', err);
         });
       }
 

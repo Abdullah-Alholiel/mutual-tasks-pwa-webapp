@@ -124,7 +124,6 @@ export async function incrementUsage(
 
 export async function verifyMagicLinkSession(token: string): Promise<number | null> {
     console.log('[Session] Verifying magic link session token');
-    console.log('[Session] Token prefix:', token.substring(0, 20) + '...');
 
     try {
         // Use VITE_SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL as fallback)
@@ -174,12 +173,28 @@ export async function verifyMagicLinkSession(token: string): Promise<number | nu
     }
 }
 
-export function getCorsHeaders(): { [key: string]: string } {
-    return {
-        'Access-Control-Allow-Origin': '*',
+// Origins allowed to call these endpoints from a browser. Netlify itself serves
+// same-origin calls (Origin header absent), so the API paths need no wildcard.
+// NOTE: update when the Cloudflare Pages domain goes live (P1-9).
+const APP_ORIGIN_ALLOWLIST = [
+    'https://social-momentum.netlify.app',
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'http://localhost:3000',
+];
+
+export function getCorsHeaders(origin?: string | null): { [key: string]: string } {
+    const headers: { [key: string]: string } = {
         'Access-Control-Allow-Headers': 'Content-Type, authorization, x-user-timezone',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Vary': 'Origin',
     };
+    // Same-origin requests (the PWA calling /api/* on its own host) send no Origin
+    // header on many flows; only echo an allowlisted browser origin.
+    if (origin && APP_ORIGIN_ALLOWLIST.includes(origin)) {
+        headers['Access-Control-Allow-Origin'] = origin;
+    }
+    return headers;
 }
 
 export function buildRateLimitResponse(
@@ -196,4 +211,22 @@ export function buildRateLimitResponse(
             remaining: 0,
         }),
     };
+}
+
+// ── Singleton Supabase admin client ─────────────────────────
+// Service-role access for server-side authorization reads
+// (push-target check etc.). Never import this from client code:
+// the module lives under netlify/functions/ and is only bundled
+// server-side. Key arrives via env binding, never VITE_-prefixed (F2).
+let adminClient: SupabaseClient | null = null;
+
+export function getSupabaseAdmin(): SupabaseClient {
+    if (adminClient) return adminClient;
+    const url = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+        throw new Error('Supabase admin client not configured');
+    }
+    adminClient = createClient(url, key);
+    return adminClient;
 }

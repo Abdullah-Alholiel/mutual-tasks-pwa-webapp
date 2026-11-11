@@ -23,6 +23,13 @@ export default defineConfig(({ mode }) => {
           target: 'http://localhost:9999',
           changeOrigin: true,
           secure: false,
+        },
+        // Same /api/* shape the production Netlify redirects define (netlify.toml)
+        '/api': {
+          target: 'http://localhost:9999',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (p: string) => p.replace(/^\/api\//, '/.netlify/functions/'),
         }
       }
     },

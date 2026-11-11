@@ -1,0 +1,24 @@
+{
+  "project": "momentum",
+  "repo": "/home/ubuntu/projects/mutual-tasks-pwa-webapp",
+  "board": "momentum-factory",
+  "phase": "P1",
+  "phase_name": "Cloudflare Pages migration + hardening",
+  "last_run": 3,
+  "last_run_at": "2026-11-10T23:55:00Z",
+  "last_run_report": "kanban/RUNS/20261110T2359Z-run3.md",
+  "consecutive_skip_count": 0,
+  "open_blockers": [
+    "SEC 2026-11-10: npm audit debt static - 2 critical + 19 high in repo deps (unchanged since 2026-11-05); criticals verified zero prod exposure (express/zod/vitest not shipped; netlify ships dist+functions only). Cards t_95d6a326 (audit fix), t_b133b484 (remove zod), t_3b38dbfd (vite major)",
+    "SEC 2026-11-10: security-sweep.sh aborts at port-diff (sort -nu vs comm lex order) under set -e - host-bound exposure check skipped; manual completion clean. gitleaks+trivy not installed. Card t_f4ee1721",
+    "DECISION 2026-11-10: staging is 3 security commits ahead of main (fc0b4c1, 089cb59, bef8197); prod still serves Oct-25 build - awaiting owner-approved promote PR staging->main",
+    "DEBT: pr-gate tsc step disabled - 98 pre-existing tsc -b errors on staging (enforce-by 2026-11-15); security/semgrep/pr-agent/release-verify workflows not yet created (P1-2/3/4/13)",
+    "INCIDENT 2026-11-10: kanban/ dir files (BOARD/DECISIONS/STATE/OWNER-QUEUE/LOCK) wiped at 22:48 UTC, coinciding exactly with a 'hermes kanban comment' CLI call; reviewer child cleared (event predates dispatch). Restored this run from /tmp Life-OS mirror + run context. Root cause not yet reproduced - see RUNS report."
+  ],
+  "pending_escalations": [
+    "Promote staging -> main (3 green security commits; owner yes/no per D-006 Level A)"
+  ],
+  "in_review_items": [],
+  "notes": "run3 (2026-11-10): P1-8/F19 done - 5 details leaks stripped on the 2 AI generation functions, 8 regression tests added (94/94), PR #8 squash-merged bef8197, staging deploy verified live serving bare {error} bodies. F12 allowlist verified present. ai-confirm-usage + push already clean. Express mirror already clean (run2). import.meta.env consumers recount: 14 code files (run2 claimed 7) - no live leak, bundle grep clean. F22 dual n8n secret header kept: compat shim, consumer JSON only in container DB (unverifiable without opening n8n container). Lock hygiene fixed: run2 stale lock released; LOCK.json + *.tsbuildinfo gitignored. kanban/ first git commit this run. Next run: re-verify bef8197, pick P1-11 RLS coverage + one hardening item (tsc baseline or t_f4ee1721 sweep fix). branch_model: staging=work, main=release-only (owner-approved PR) | hosting: Netlify live; Cloudflare Pages target (P1); never R2 | cron: factory 22:30 daily; watchdog /150min; backup-verify 05:30; sweep Tue 10:30; digest Sun 18:00 | owner_go_p1 recorded 2026-11-08 (D-20261106-31); p1_preconditions_owner: main branch protection (t_ed96c8d0), SOUL.md.draft approval (t_0e249925)",
+  "updated_at": "2026-11-10T23:55:00Z"
+}

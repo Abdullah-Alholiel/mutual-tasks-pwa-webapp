@@ -14,7 +14,7 @@ import {
 const USAGE_TYPE: AIUsageType = 'description_generation';
 
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    const headers = getCorsHeaders();
+    const headers = getCorsHeaders(event.headers['origin']);
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
@@ -115,7 +115,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             return {
                 statusCode: 502,
                 headers,
-                body: JSON.stringify({ error: 'AI service unavailable', details: response.statusText })
+                body: JSON.stringify({ error: 'AI service unavailable' })
             };
         }
 
@@ -154,13 +154,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
     } catch (error) {
         console.error('[AI Description] Function error:', error);
+        // F19: strip internal details — never leak upstream error text to clients.
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({
-                error: 'Failed to generate description',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            }),
+            body: JSON.stringify({ error: 'Failed to generate description' }),
         };
     }
 };

@@ -1,0 +1,37 @@
+Cronjob Response: Momentum Factory Loop
+(job_id: f00dc2e6be00)
+-------------
+
+# Factory Run #2 — 2026-11-09 22:31–23:59 UTC (88 of 90 min)
+
+**Mode:** full · **Models:** session glm-5.3-flash (probe 200) · reviewers glm-5.3-flash (probe 200 — reviewer 5.3 flagship ping 200, kept flash per quota discipline)
+
+## Promote health
+staging is now **2 commits ahead of main** (fc0b4c1 + 089cb59 — neither promoted; promote stays owner-only). Last promote: 2026-10-25. Prod (social-momentum.netlify.app) still serves the Oct-25 build — that's why `/api` probes on prod return the SPA 404 while the new code answers properly on PR previews. Backups healthy. No DB migrations in this run.
+
+## What shipped (PR #7, merged to staging as 089cb59, CI green)
+**The security hole from run 1 is now closed.** Previously any logged-in user could send a push notification with any text, under the app's "Momentum" title, to *any* user — run 1 fixed who calls, not which target. Now the server checks the relationship first: you can only push to **yourself, an accepted friend (either direction), or someone sharing an active project with you**. Everything is verified from the database server-side, and any failure blocks the send (fails closed). One trade-off, recorded: friend *request* notifications are in-app only until accepted (anyone can send a request to anyone, so trusting it would have kept the hole open) — acceptance still pushes normally.
+
+Also hardened in the same PR: project-deletion notices now go out *before* the delete (they were racing it), the Express server copy got the same gate plus two older fixes it was missing (error-detail leak + CORS `*`), and a reviewer catch: a missing server key can no longer break pushes silently — it blocks safely instead.
+
+**Verified how:** 86/86 tests pass (20 new — incl. the spoof-403 regression, pending-friend rejection, both soft-removed directions, fail-closed on DB errors); zero new type errors vs staging (proven by diff against a clean staging checkout, not eyeballed); build green; bundle secret-scan clean; live PR preview answers 401 JSON on the push endpoint (anonymous probe blocked in production code path). Reviewer A: proceed. Reviewer B: proceed-with-fixes → all fixes applied (73b32c5) before merge.
+
+## Leftovers (honest — run hit the tool budget before housekeeping)
+- **`kanban/LOCK.json` was NOT removed at run end.** Run #2 is finished — delete it or the next run will silently skip: `rm kanban/LOCK.json` (watchdog would also flag it).
+- STATE.json / kanban/RUNS report / board mirror comments not written; this message is the authoritative run record.
+- Staging branch-deploy of 089cb59 was still `pending` at cap time — next run should confirm it and re-probe the push endpoint there.
+- Old red PR #5 closed as superseded (staging's newer pr-gate made it a regression risk).
+
+## Reviewer corrections to run 1's claims (recorded for the board)
+1. F19 error-detail stripping **never landed on the 3 AI functions** (`ai-generate-project.ts`, `ai-generated-description.ts`, `ai-confirm-usage` still return upstream `details` on staging) — run 1 fixed the push function only.
+2. F2 "all dynamic `import.meta.env` consumers converted" is overstated: 7 files still use bare `import.meta.env` (sentry/logger/supabaseClient etc.). Not a live leak (bundle grep clean; VITE_ values are public by design) — but the claim didn't match reality.
+3. Prod `/api` endpoints don't exist until the staging→main promote — run 1's "verified on the live preview" was preview-only, correctly so.
+
+## Decisions needed
+1. **Promote staging → main?** 2 green security commits are waiting (fc0b4c1 + 089cb59). Until promoted, the production site still has the broken `/api` routing and the push-target hole.
+2. **`SUPABASE_SERVICE_ROLE_KEY` on Netlify:** confirm it's set in the Netlify UI env (the new gate needs it server-side; the client copy removal from run 1's decision still stands). Also remove `VITE_SUPABASE_SERVICE_ROLE_KEY` when ready (run 1 decision #1).
+3. **Next run pick:** fix the F19 details leak on the 3 AI functions (reviewer-confirmed, small slice)? And/or P1-7 quota work (needs owner-approved prod-migration path first).
+4. **P0 owner cards still open:** main branch protection + GitHub push protection; SOUL.md.draft approval.
+5. **board hygiene approval:** close P1-6b as DONE and fold P1-6c's "audit AI function responses" into next run's pick? (okay / adjust)
+
+To stop or manage this job, send me a new message (e.g. "stop reminder Momentum Factory Loop").

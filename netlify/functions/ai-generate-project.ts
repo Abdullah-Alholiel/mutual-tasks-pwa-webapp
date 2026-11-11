@@ -11,7 +11,7 @@ import {
 const USAGE_TYPE = 'project_generation';
 
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    const headers = getCorsHeaders();
+    const headers = getCorsHeaders(event.headers['origin']);
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
@@ -89,13 +89,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             });
         } catch (fetchError) {
             console.error('[AI Project] Fetch to n8n failed:', fetchError);
+            // F19: full detail logged server-side only; clients get the generic error.
             return {
                 statusCode: 500,
                 headers,
-                body: JSON.stringify({
-                    error: 'Failed to connect to AI service',
-                    details: fetchError instanceof Error ? fetchError.message : 'Network error'
-                })
+                body: JSON.stringify({ error: 'Failed to connect to AI service' })
             };
         }
 
@@ -105,7 +103,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             return {
                 statusCode: 502,
                 headers,
-                body: JSON.stringify({ error: 'AI service unavailable', details: response.statusText })
+                body: JSON.stringify({ error: 'AI service unavailable' })
             };
         }
 
@@ -125,13 +123,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
     } catch (error) {
         console.error('[AI Project] Function error:', error);
+        // F19: strip internal details — never leak upstream error text to clients.
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({
-                error: 'Failed to generate project',
-                details: error instanceof Error ? error.message : 'Unknown error',
-            }),
+            body: JSON.stringify({ error: 'Failed to generate project' }),
         };
     }
 };

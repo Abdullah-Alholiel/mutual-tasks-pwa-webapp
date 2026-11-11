@@ -1,18 +1,19 @@
-import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import type { Handler, HandlerEvent } from '@netlify/functions';
+import { verifyMagicLinkSession, getCorsHeaders, getSupabaseAdmin } from './shared/utils';
+import { canNotifyTarget } from './shared/pushAuth';
 
 /**
  * Netlify Serverless Function to Send Push Notifications via OneSignal
- * 
- * This function runs on Netlify's servers and securely accesses the
- * ONESIGNAL_REST_API_KEY environment variable without exposing it to clients.
+ *
+ * Caller authentication (F1): every POST must carry a valid Momentum session
+ * token (Authorization: Bearer <momentum_session_token>). Anonymous callers get
+ * 401 before any OneSignal work happens.
+ *
+ * Error responses never include upstream internals (F19): OneSignal response
+ * text is logged server-side only; clients get generic `{ error }` bodies.
  */
-const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Content-Type': 'application/json',
-    };
+const handler: Handler = async (event: HandlerEvent) => {
+    const headers = getCorsHeaders(event.headers['origin']);
 
     // Handle preflight
     if (event.httpMethod === 'OPTIONS') {
@@ -24,6 +25,26 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             statusCode: 405,
             headers,
             body: JSON.stringify({ error: 'Method not allowed' }),
+        };
+    }
+
+    // Caller auth (F1) — same session verification as the AI functions
+    const authHeader = event.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }),
+        };
+    }
+    const sessionToken = authHeader.substring(7);
+    const userId = await verifyMagicLinkSession(sessionToken);
+    if (!userId) {
+        console.warn('[send-push-notification] Rejected unauthenticated request');
+        return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: 'Unauthorized: Invalid or expired session' }),
         };
     }
 
@@ -44,7 +65,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         const payload = JSON.parse(event.body || '{}');
         const { externalUserId, title, message, url, icon, data } = payload;
 
-        console.log('[send-push-notification] Received request:', {
+        console.log('[send-push-notification] Authenticated request:', {
+            userId,
             externalUserId,
             title,
             message: message?.substring(0, 50),
@@ -56,6 +78,36 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
                 statusCode: 400,
                 headers,
                 body: JSON.stringify({ error: 'Missing required fields: externalUserId, title, message' }),
+            };
+        }
+
+        // Push-target authorization (P1-6b): the caller may only notify users
+        // they have a real relationship with (self, accepted friend either
+        // direction, or a shared active project). Verified from the DB —
+        // caller-supplied context is never trusted for authorization.
+        // Any failure here fails CLOSED (403): a missing/misconfigured admin
+        // client must never turn into an unauthenticated push send.
+        const targetId = Number(externalUserId);
+        if (!Number.isInteger(targetId)) {
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: 'externalUserId must be a valid user id' }),
+            };
+        }
+        let allowed = false;
+        try {
+            allowed = await canNotifyTarget(getSupabaseAdmin(), userId, targetId);
+        } catch (authErr) {
+            console.error('[send-push-notification] Authorization check failed (failing closed):', authErr);
+            allowed = false;
+        }
+        if (!allowed) {
+            console.warn('[send-push-notification] Target authorization denied:', { userId, targetId });
+            return {
+                statusCode: 403,
+                headers,
+                body: JSON.stringify({ error: 'Not allowed to notify this user' }),
             };
         }
 
@@ -75,8 +127,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             ios_badgeCount: 1,
         };
 
-        console.log('[send-push-notification] Sending to OneSignal:', JSON.stringify(oneSignalPayload));
-
         // Call OneSignal REST API
         const response = await fetch('https://onesignal.com/api/v1/notifications', {
             method: 'POST',
@@ -91,11 +141,12 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         console.log('[send-push-notification] OneSignal response:', response.status, responseText);
 
         if (!response.ok) {
+            // F19: full detail logged above; clients get a generic error only.
             console.error('[send-push-notification] OneSignal error:', response.status, responseText);
             return {
-                statusCode: response.status,
+                statusCode: 502,
                 headers,
-                body: JSON.stringify({ error: 'Failed to send push notification', details: responseText }),
+                body: JSON.stringify({ error: 'Failed to send push notification' }),
             };
         }
 
@@ -105,15 +156,13 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         if (result.errors && result.errors.includes('All included players are not subscribed')) {
             console.error('[send-push-notification] ⚠️ EXTERNAL ID NOT FOUND:', externalUserId);
             console.error('[send-push-notification] This means no OneSignal subscription has external_id:', externalUserId);
-            console.error('[send-push-notification] The user needs to log in on the deployed site to link their subscription');
             return {
-                statusCode: 200, // Return 200 as it's not a server error
+                statusCode: 200, // Not a server error — the user just has no subscription
                 headers,
                 body: JSON.stringify({
                     success: false,
                     error: 'No subscription found for user',
                     externalUserId,
-                    hint: 'User must log in on deployed site to create/link subscription'
                 }),
             };
         }
