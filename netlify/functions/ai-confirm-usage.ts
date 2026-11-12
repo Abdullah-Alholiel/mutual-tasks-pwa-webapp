@@ -61,10 +61,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
-        const usageDate = getTodayDate(userTimezone);
+        const usageDate = getTodayDate();
         console.log('[AI Confirm Usage] About to increment usage:', { userId, usageType, usageDate, userTimezone });
 
-        await incrementUsage(supabaseAdmin, userId, usageType, userTimezone);
+        await incrementUsage(supabaseAdmin, userId, usageType);
 
         console.log('[AI Confirm Usage] Usage recorded successfully:', { userId, usageType, usageDate });
 
