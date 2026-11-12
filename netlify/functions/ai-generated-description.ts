@@ -51,7 +51,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         const sessionToken = authHeader.substring(7);
 
         const userTimezone = event.headers['x-user-timezone'] || 'UTC';
-        const usageDate = getTodayDate(userTimezone);
+        const usageDate = getTodayDate();
 
         console.log('[AI Description] Starting generation:', { type, titleLength: title.length, timezone: userTimezone, usageDate });
 
@@ -70,7 +70,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
-        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE, userTimezone);
+        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE);
         console.log('[AI Description] Rate limit check:', rateLimit);
 
         if (!rateLimit.allowed) {
@@ -134,19 +134,21 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
         // ONLY increment usage if we have valid content
         try {
-            await incrementUsage(supabaseAdmin, userId, USAGE_TYPE, userTimezone);
+            await incrementUsage(supabaseAdmin, userId, USAGE_TYPE);
             console.log('[AI Description] Usage incremented for userId:', userId, 'date:', usageDate);
         } catch (e) {
             console.error('[AI Description] Failed to increment usage:', e);
             // We still return the content even if usage logging fails
         }
 
+        const remainingHeader = rateLimit.remaining === -1 ? -1 : Math.max(0, rateLimit.remaining - 1);
+
         return {
             statusCode: 200,
             headers: {
                 ...headers,
                 'X-RateLimit-Limit': String(rateLimit.limit),
-                'X-RateLimit-Remaining': String(rateLimit.remaining - 1),
+                'X-RateLimit-Remaining': String(remainingHeader),
                 'X-RateLimit-Reset': String(Date.now() + 86400000),
             },
             body: responseText,

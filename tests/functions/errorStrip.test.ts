@@ -68,7 +68,19 @@ describe('F19: AI function error bodies expose exactly {error}', () => {
         const res = await call(projectHandler as Handler, authedEvent({ description: 'build a reading habit' }));
         expect(res.statusCode).toBe(200);
         expect(res.body).toBe('{"name":"Deep Work"}');
-        expect(res.headers['X-RateLimit-Remaining']).toBe('2');
+        // F5: usage increments server-side on the SAME request as generation;
+        // the header reports the post-increment remaining (2 of 3 used 1).
+        expect(incrementMock).toHaveBeenCalledTimes(1);
+        expect(res.headers['X-RateLimit-Remaining']).toBe('1');
+    });
+
+    it('ai-generate-project: 200 premium path skips increment and reports -1 unlimited', async () => {
+        rateLimitMock.mockResolvedValue({ allowed: true, remaining: -1, limit: -1, used: 0 });
+        fetchMock.mockResolvedValue(okResponse('{"name":"Deep Work"}'));
+        const res = await call(projectHandler as Handler, authedEvent({ description: 'x' }));
+        expect(res.statusCode).toBe(200);
+        expect(incrementMock).not.toHaveBeenCalled();
+        expect(res.headers['X-RateLimit-Remaining']).toBe('-1');
     });
 
     it('ai-generate-project: n8n fetch failure → 500, no details field, no upstream text', async () => {
@@ -126,5 +138,55 @@ describe('F19: AI function error bodies expose exactly {error}', () => {
         expect(res.statusCode).toBe(200);
         expect(incrementMock).toHaveBeenCalledTimes(1);
         expect(res.headers['X-RateLimit-Remaining']).toBe('1');
+    });
+});
+
+describe('P1-7: atomic quota (F4/F5/F11)', () => {
+    beforeEach(() => {
+        verifyMock.mockReset();
+        rateLimitMock.mockReset();
+        incrementMock.mockReset();
+        fetchMock.mockReset();
+        verifyMock.mockResolvedValue(42);
+        rateLimitMock.mockResolvedValue({ allowed: true, limit: 3, remaining: 2 });
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubEnv('SUPABASE_URL', 'https://supabase.test');
+        vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-key');
+        vi.stubEnv('x_momentum_secret', 'test-secret');
+        vi.stubEnv('N8N_PROJECT_WEBHOOK_URL', 'https://n8n.test/webhook/project');
+        vi.stubEnv('N8N_DESCRIPTION_WEBHOOK_URL', 'https://n8n.test/webhook/description');
+    });
+
+    it('ai-generate-project: usage-log failure still returns 200 content (over-count is safe, never fail delivery)', async () => {
+        incrementMock.mockRejectedValue(new Error('ai_usage_logs down (internal)'));
+        fetchMock.mockResolvedValue(okResponse('{"name":"Deep Work"}'));
+        const res = await call(projectHandler as Handler, authedEvent({ description: 'x' }));
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toBe('{"name":"Deep Work"}');
+        expect(res.body).not.toContain('ai_usage_logs down');
+    });
+
+    it('ai-generate-project: n8n failure must NOT increment usage (F5 — pay only for delivered content)', async () => {
+        fetchMock.mockResolvedValue(new Response('{"boom":true}', { status: 502, statusText: 'Bad Gateway' }));
+        const res = await call(projectHandler as Handler, authedEvent({ description: 'x' }));
+        expect(res.statusCode).toBe(502);
+        expect(incrementMock).not.toHaveBeenCalled();
+    });
+
+    it('ai-confirm-usage: still accepts legacy client timezone header and returns UTC usageDate (F11)', async () => {
+        const { handler: confirmHandler } = await import('../../netlify/functions/ai-confirm-usage');
+        const res = await call(confirmHandler as Handler, {
+            httpMethod: 'POST',
+            headers: { authorization: 'Bearer good-token', 'x-user-timezone': 'Pacific/Kiritimati' },
+            body: JSON.stringify({ usageType: 'project_generation' }),
+        });
+        expect(res.statusCode).toBe(200);
+        const body = JSON.parse(res.body);
+        // F11: quota day is fixed UTC, never the client-supplied +14h timezone.
+        expect(body.usageDate).toBe('2026-11-10');
+        expect(incrementMock).toHaveBeenCalledTimes(1);
+        expect(incrementMock).toHaveBeenCalledWith(
+            expect.anything(), 42, 'project_generation'
+        );
     });
 });

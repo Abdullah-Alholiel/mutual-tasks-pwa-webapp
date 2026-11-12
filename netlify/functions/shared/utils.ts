@@ -7,17 +7,18 @@ export const AI_USAGE_LIMITS = {
 
 export type AIUsageType = keyof typeof AI_USAGE_LIMITS;
 
-export function getTodayDate(timezone: string = 'UTC'): string {
-    return new Date().toLocaleDateString('en-CA', { timeZone: timezone });
+// F11: the quota day is ALWAYS UTC. Never derive it from a client-supplied
+// timezone — that let the daily bucket stretch by ±12h across timezones.
+export function getTodayDate(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'UTC' });
 }
 
 export async function checkRateLimit(
     supabaseAdmin: SupabaseClient,
     userId: number,
-    usageType: AIUsageType,
-    timezone: string = 'UTC'
+    usageType: AIUsageType
 ): Promise<{ allowed: boolean; remaining: number; limit: number; used: number }> {
-    const today = getTodayDate(timezone);
+    const today = getTodayDate();
     const limit = AI_USAGE_LIMITS[usageType];
 
     // Premium users bypass daily AI caps entirely (unlimited generations).
@@ -60,12 +61,32 @@ export async function checkRateLimit(
 export async function incrementUsage(
     supabaseAdmin: SupabaseClient,
     userId: number,
-    usageType: AIUsageType,
-    timezone: string = 'UTC'
+    usageType: AIUsageType
 ): Promise<void> {
-    const today = getTodayDate(timezone);
+    // F4: increment ATOMICALLY via the consume_ai_usage RPC (single INSERT ..
+    // ON CONFLICT DO UPDATE, no read-then-write lost-update window).
+    // Falls back to the legacy path only while the RPC is not yet applied
+    // (003_consume_ai_usage_rpc.sql is owner-gated on prod).
+    try {
+        const { data, error: rpcError } = await supabaseAdmin
+            .rpc('consume_ai_usage', { p_user_id: userId, p_usage_type: usageType });
 
-    console.log('[AI Usage] incrementUsage called:', { userId, usageType, today, timezone });
+        if (!rpcError) {
+            console.log('[AI Usage] Atomic increment via RPC:', { userId, usageType, count: data });
+            return;
+        }
+
+        // Function not present yet (404/PGRST202) → legacy fallback.
+        // Anything else (network/permission) also falls back — the fallback
+        // is today's proven behavior and the count must never be dropped.
+        console.warn('[AI Usage] consume_ai_usage RPC unavailable, using legacy increment:', rpcError.message);
+    } catch (rpcThrown) {
+        console.warn('[AI Usage] consume_ai_usage RPC call threw, using legacy increment:', rpcThrown);
+    }
+
+    const today = getTodayDate();
+
+    console.log('[AI Usage] incrementUsage called:', { userId, usageType, today });
 
     const { data: existing, error: fetchError } = await supabaseAdmin
         .from('ai_usage_logs')

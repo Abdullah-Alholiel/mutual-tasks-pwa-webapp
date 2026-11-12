@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
     verifyMagicLinkSession,
     checkRateLimit,
+    incrementUsage,
     getCorsHeaders,
     buildRateLimitResponse,
     AI_USAGE_LIMITS
@@ -56,7 +57,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
-        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE, userTimezone);
+        const rateLimit = await checkRateLimit(supabaseAdmin, userId, USAGE_TYPE);
 
         if (!rateLimit.allowed) {
             return buildRateLimitResponse(headers, rateLimit.limit);
@@ -110,12 +111,32 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         const responseText = await response.text();
         console.log('[AI Project] Success, response length:', responseText.length);
 
+        // F5: increment usage SERVER-SIDE on the same request as the generation
+        // (counting previously relied on the client calling ai-confirm-usage —
+        // a stale bundle or a user who never confirmed got unlimited generations).
+        // Stale bundles that ALSO confirm will at worst double-count (over-count
+        // is the safe direction); under-count is no longer possible.
+        if (rateLimit.remaining !== -1) {
+            try {
+                await incrementUsage(supabaseAdmin, userId, USAGE_TYPE);
+            } catch (e) {
+                // Content already delivered — never fail the response on a
+                // usage-log failure. Over-count is safe, under-count is not.
+                console.error('[AI Project] Failed to increment usage:', e);
+            }
+            console.log('[AI Project] Usage incremented for userId:', userId);
+        } else {
+            console.log('[AI Project] Premium user — no usage increment');
+        }
+
+        const remainingHeader = rateLimit.remaining === -1 ? -1 : Math.max(0, rateLimit.remaining - 1);
+
         return {
             statusCode: 200,
             headers: {
                 ...headers,
                 'X-RateLimit-Limit': String(rateLimit.limit),
-                'X-RateLimit-Remaining': String(rateLimit.remaining),
+                'X-RateLimit-Remaining': String(remainingHeader),
                 'X-RateLimit-Reset': String(Date.now() + 86400000),
             },
             body: responseText,
