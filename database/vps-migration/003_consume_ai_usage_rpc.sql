@@ -22,7 +22,7 @@ DECLARE
     v_count integer;
 BEGIN
     INSERT INTO public.ai_usage_logs AS a (user_id, usage_type, usage_date, count)
-    VALUES (p_user_id, p_usage_type, (CURRENT_DATE AT TIME ZONE 'UTC')::date, 1)
+    VALUES (p_user_id, p_usage_type, (now() AT TIME ZONE 'UTC')::date, 1)
     ON CONFLICT (user_id, usage_type, usage_date)
     DO UPDATE SET count = a.count + 1, updated_at = now()
     RETURNING a.count INTO v_count;

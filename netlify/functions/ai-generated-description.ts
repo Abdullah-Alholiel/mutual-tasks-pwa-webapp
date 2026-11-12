@@ -132,13 +132,17 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             };
         }
 
-        // ONLY increment usage if we have valid content
-        try {
-            await incrementUsage(supabaseAdmin, userId, USAGE_TYPE);
-            console.log('[AI Description] Usage incremented for userId:', userId, 'date:', usageDate);
-        } catch (e) {
-            console.error('[AI Description] Failed to increment usage:', e);
-            // We still return the content even if usage logging fails
+        // ONLY increment usage if we have valid content. Premium users are
+        // exempt server-side (checkRateLimit returns -1) — keep the logs clean
+        // and consistent with ai-generate-project (no increment for unlimited).
+        if (rateLimit.remaining !== -1) {
+            try {
+                await incrementUsage(supabaseAdmin, userId, USAGE_TYPE);
+                console.log('[AI Description] Usage incremented for userId:', userId, 'date:', usageDate);
+            } catch (e) {
+                console.error('[AI Description] Failed to increment usage:', e);
+                // We still return the content even if usage logging fails
+            }
         }
 
         const remainingHeader = rateLimit.remaining === -1 ? -1 : Math.max(0, rateLimit.remaining - 1);
