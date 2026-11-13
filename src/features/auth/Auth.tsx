@@ -68,6 +68,7 @@ const FloatingBlobs = () => (
 
 const AuthHeader = () => (
   <motion.div
+    className="mom-reveal text-center mb-6 relative z-10"
     initial={{ opacity: 0, scale: 0.9, y: -30 }}
     animate={{ opacity: 1, scale: 1, y: 0 }}
     transition={{
@@ -75,7 +76,6 @@ const AuthHeader = () => (
       stiffness: 100,
       damping: 20
     }}
-    className="text-center mb-6 relative z-10"
   >
     <AuthLogo />
     <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2 gradient-text">
@@ -108,6 +108,7 @@ const SuccessScreen = ({
       <AuthHeader />
 
       <motion.div
+        className="mom-reveal"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
@@ -472,6 +473,7 @@ const Auth = () => {
             <AuthHeader />
 
             <motion.div
+              className="mom-reveal"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, type: "spring", stiffness: 100, damping: 20 }}
@@ -715,10 +717,10 @@ const Auth = () => {
               </Card>
 
               <motion.p
+                className="mom-reveal text-center text-xs text-muted-foreground/70 mt-8 font-medium px-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className="text-center text-xs text-muted-foreground/70 mt-8 font-medium px-4"
               >
                 By continuing, you agree to our <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Terms of Service</span> and <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Privacy Policy</span>
               </motion.p>

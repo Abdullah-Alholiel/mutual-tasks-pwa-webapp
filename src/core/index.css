@@ -13,6 +13,37 @@ All colors MUST be HSL.
     /* Dynamic viewport height for mobile */
     --vh: 1vh;
 
+    /*
+     * Launch lane L0 (2026-11-13): first paint must not depend on JS
+     * animation. On iOS Safari (WebKit) framer-motion's opacity-0 entrance
+     * wrappers can stay invisible for seconds while the bundle parses, so
+     * once the stylesheet is in, a short CSS animation forces everything to
+     * full opacity as a floor. React components animate opacity themselves;
+     * if their entrance animation already ran, opacity stays 1 (animation
+     * fill-mode none) and framer-motion inline styles always win.
+     */
+    --mom-opacity-reveal: 0.5s;
+  }
+}
+
+/* Force-visible floor for entrance wrappers (see --mom-opacity-reveal above). */
+.mom-reveal {
+  opacity: 1;
+  animation: mom-force-reveal var(--mom-opacity-reveal) ease-out both;
+  animation-delay: 0.1s;
+}
+
+@keyframes mom-force-reveal {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@layer base {
+  :root {
     /* Safe area insets for iOS */
     --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --safe-area-inset-right: env(safe-area-inset-right, 0px);
