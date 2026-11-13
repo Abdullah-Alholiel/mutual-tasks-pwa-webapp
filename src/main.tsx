@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./core/App.tsx";
 import "./core/index.css";
+import "./pwaRegister";
 import { GlobalErrorBoundary } from "./components/ui/GlobalErrorBoundary";
 
 // Import diagnostic utility for browser console debugging
