@@ -53,3 +53,8 @@ AI limits owner-only · Level A until P3 conditions met.
   PR #10 merged — P1-11 realtime fix (friends subscription, 714923d). Full-stack audit found
   allow-all RLS on all 13 tables (escalated, owner-only) + completion_logs publication gap
   (escalated). Sweep port-diff abort fixed. Report: kanban/RUNS/20261111T2231Z-run4.md
+- Run 5 (2026-11-12): **P1-7 SHIPPED** — PR #11 merged (cd2ddac): atomic AI usage quota
+  (F11 UTC-day key, F4 consume_ai_usage RPC + legacy fallback, F5 server-side project increment,
+  client confirm → no-op; RPC migration 003 ready but UNAPPLIED — owner-gated). PR #12 merged
+  (dcb50e2): dead Express server/Dockerfile + express/zod removed → npm audit 2crit+19high →
+  1crit+16high. Report: kanban/RUNS/20261112T2231Z-run5.md
