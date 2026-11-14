@@ -1,17 +1,16 @@
-import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import type { Handler, HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import {
     verifyMagicLinkSession,
     checkRateLimit,
     incrementUsage,
     getCorsHeaders,
-    buildRateLimitResponse,
-    AI_USAGE_LIMITS
+    buildRateLimitResponse
 } from './shared/utils';
 
 const USAGE_TYPE = 'project_generation';
 
-const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
+const handler: Handler = async (event: HandlerEvent) => {
     const headers = getCorsHeaders(event.headers['origin']);
 
     if (event.httpMethod === 'OPTIONS') {
@@ -42,8 +41,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }) };
         }
         const sessionToken = authHeader.substring(7);
-
-        const userTimezone = event.headers['x-user-timezone'] || 'UTC';
 
         const userId = await verifyMagicLinkSession(sessionToken);
         if (!userId) {
