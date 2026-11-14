@@ -63,11 +63,11 @@ describe('Pages ⇄ Netlify adapter bridge', () => {
         expect(await res.text()).toBe('{"error":"Unauthorized"}');
     });
 
-    it('installEnv adds missing keys, never overwrites existing ones, tolerates junk', () => {
+    it('installEnv re-stamps bindings every request (last-write-wins, rotation-safe)', () => {
         const g = globalThis as { process?: { env: Record<string, string> } };
-        g.process = { env: { EXISTING: 'keep' } };
-        installEnv({ NEW_KEY: 'v1', EXISTING: 'would-overwrite', EMPTY: '' });
-        expect(g.process.env.EXISTING).toBe('keep');
+        g.process = { env: { EXISTING: 'stale' } };
+        installEnv({ NEW_KEY: 'v1', EXISTING: 'binding-wins', EMPTY: '' });
+        expect(g.process.env.EXISTING).toBe('binding-wins');
         expect(g.process.env.NEW_KEY).toBe('v1');
         expect(g.process.env.EMPTY).toBe(''); // empty string is still a string value
         installEnv(null);

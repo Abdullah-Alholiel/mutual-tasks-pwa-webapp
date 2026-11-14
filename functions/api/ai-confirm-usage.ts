@@ -6,8 +6,9 @@ import { handler as netlifyHandler } from '../../netlify/functions/ai-confirm-us
 import { runNetlifyHandler } from './_shared/adapter';
 
 interface PagesContext {
+    request: Request;
     env: Record<string, unknown>;
 }
 
-export const onRequest = (ctx: PagesContext, request: Request): Promise<Response> =>
-    runNetlifyHandler(netlifyHandler, request, ctx.env);
+export const onRequest = (ctx: PagesContext): Promise<Response> =>
+    runNetlifyHandler(netlifyHandler, ctx.request, ctx.env);

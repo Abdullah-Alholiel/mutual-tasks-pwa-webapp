@@ -2,9 +2,13 @@
 // environment values arrive as bindings on `context.env`. The Netlify handler
 // modules (netlify/functions/shared/utils.ts) read everything from process.env,
 // so the Pages adapters install each binding into process.env before invoking
-// them. Values are copied per-request and only ever ADDED — this module never
-// overwrites an existing process.env entry (a local dev shell may already
-// export one; the Pages binding wins only when the key is absent).
+// them, on EVERY request.
+//
+// Bindings are per-deployment constants (the value cannot change while a given
+// deploy serves traffic), so last-write-wins is correct: each request re-stamps
+// the current deploy's binding values, which keeps rotations effective on warm
+// isolates and prevents a locally-exported stale key (wrangler pages dev)
+// from shadowing the binding.
 //
 // Service-role keys arrive ONLY via bindings (env.*), never VITE_-prefixed (F2).
 type RecordUnknown = Record<string, unknown>;
@@ -17,7 +21,7 @@ export function installEnv(env: unknown): void {
     }
     if (!env || typeof env !== 'object') return;
     for (const [k, v] of Object.entries(env as RecordUnknown)) {
-        if (typeof v === 'string' && !(k in g.process!.env)) {
+        if (typeof v === 'string') {
             g.process!.env[k] = v;
         }
     }
