@@ -28,7 +28,7 @@ production outranks the lane.
       phone. The preview currently carries an opt-in diagnostic panel (`?diag=1`, injected by
       Claude into the deployed index.html only, not in the repo); the owner's readout goes here.
 
-- [ ] L1 · Sign-in works end to end. Today `auth-magic-link` answers `success: true` while
+- [x] L1 · Sign-in works end to end. Today `auth-magic-link` answers `success: true` while
       `send-email` fails with 500 (MailJet keys are empty in `~/momentum-supabase/.env`), so no
       link ever arrives. Factory: return a real error when the email send fails, show it on the
       auth screen, add a unit test. Owner-only: put the MailJet keys on the VPS (asked 2026-11-13).
@@ -39,6 +39,14 @@ production outranks the lane.
       UPDATE 16:42 UTC: sign-in links now point at the Cloudflare staging address (functions APP_URL,
       owner go). Claude completed a full sign-in there in a phone-sized browser (dashboard renders).
       At cutover APP_URL must move to the Pages production address.
+      DONE 2026-11-14 run 7: PR #14 merged (squash ad30096) — auth-magic-link request-login AND
+      request-signup now return 502 {success:false,error} when the send fails (never success:true);
+      not-configured gets its own message; dev-facing fallback copy fixed in src/lib/auth/auth.ts
+      (3 sites); 10 unit tests on the delivery mapper. Deployed to the VPS functions container
+      (volume sync + recreate) and verified live: {} → 400 Invalid action (boot + shared import OK),
+      unknown user → honest 404 (fail branch). Smoke 21/21 incl. mail keys. Client already showed
+      toast.error(result.error) — no UI change needed. Real sign-in with a real inbox = owner
+      session's 2026-11-13 16:42 staging sign-in + real MailJet send (keys owner-set).
 - [ ] L2 · Cloudflare Pages port (plan item A5): `functions/` (4 functions), `_headers`,
       `_redirects`, CSP without `unsafe-eval` and the n8n host, `sourcemap: false`; preview on
       `*.pages.dev` serving `staging`. Owner-only: create the Pages project (asked 2026-11-13).

@@ -6,10 +6,12 @@ and strike the line by moving it to the resolved section below — never delete 
 
 ## Open
 
-- 2026-11-11 · RLS rewrite decision: all 13 tables run Allow-all policies (anon/authenticated/service_role, USING(true)) and anon has full DML incl TRUNCATE — the app's custom session model rides the anon key, so these policies ARE the app's access control. Need owner-approved policy design before any rewrite (owner-only: RLS) · run 4 full-stack audit (evidence in kanban/RUNS/20261111T2231Z-run4.md)
-- 2026-11-12 · F22 dual secret header check (10 seconds in the n8n UI): the AI webhooks use headerAuth and the credential's expected header name is encrypted at rest — confirm whether n8n wants `x-momentum-secret` or `x_momentum_secret`, then we can drop the other · run 5
+- (none — reminders for Abdullah: old cloud data copy-or-fresh (D-20261113-34), staging database project (A6), Oracle bucket link (L8), lawyer review of privacy/terms (C6) — tracked in LAUNCH-LANE.md "Waiting on the owner")
 
 ## Resolved
+
+- 2026-11-11 · RLS rewrite decision: all 13 tables run Allow-all policies (anon/authenticated/service_role, USING(true)) and anon has full DML incl TRUNCATE — the app's custom session model rides the anon key, so these policies ARE the app's access control. Need owner-approved policy design before any rewrite (owner-only: RLS) · run 4 full-stack audit → RESOLVED 2026-11-13: owner approved option (a) scoped-policy design on the custom-session model (D-018); build + rehearse on disposable copy = launch lane L5; applying on prod stays owner-only
+- 2026-11-12 · F22 dual secret header check (10 seconds in the n8n UI): the AI webhooks use headerAuth and the credential's expected header name is encrypted at rest — confirm whether n8n wants `x-momentum-secret` or `x_momentum_secret`, then we can drop the other · run 5 → RESOLVED 2026-11-13: owner approved keep-both-headers, close without the n8n check (D-019); settle on one name during the Pages functions port (L2)
 
 - 2026-11-11 · Promote staging → main (3 security fixes: F1 push auth, P1-6b push-target auth, F19 error strip) → APPROVED D-014 "Promote now"; executed this run as PR #9 (merge 04222f7), post-deploy checks green · kanban/RUNS/20261111T2231Z-run4.md
 - 2026-11-11 · completion_logs missing from supabase_realtime publication → DONE 2026-11-13 13:08 UTC: owner decided "do it" (Life OS D-20261112-02); applied on prod by Claude (owner session) with a fresh dump first. Proof: pg_publication_tables now lists 7 tables incl. public.completion_logs. Factory: verify only, no DB action · backup ~/backups/claude-hermes/20261113-1310-momentum-db-pub-003/
