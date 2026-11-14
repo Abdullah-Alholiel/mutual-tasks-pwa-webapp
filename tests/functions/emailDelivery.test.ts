@@ -62,6 +62,39 @@ describe('L1: email delivery mapping never fakes success', () => {
     expect(r.userMessage).toBe(EMAIL_NOT_CONFIGURED);
   });
 
+  it('detects not-configured via the REAL supabase-js v2 FunctionsHttpError shape (context.data)', () => {
+    // supabase-js v2 attaches the PARSED body at error.context.data and the
+    // upstream Response at error.context.response — not context.responseBody.
+    const err = new Error('Function returned an invalid response body status: 500');
+    (err as unknown as Record<string, unknown>).context = {
+      status: 500,
+      data: { success: false, error: 'Email service not configured.' },
+      response: { status: 500 },
+    };
+    const r = mapEmailDelivery(undefined, err);
+    expect(r.ok).toBe(false);
+    expect(r.userMessage).toBe(EMAIL_NOT_CONFIGURED);
+  });
+
+  it('fails when the real FunctionsHttpError shape carries a MailJet failure', () => {
+    const err = new Error('Function returned an invalid response body status: 500');
+    (err as unknown as Record<string, unknown>).context = {
+      status: 500,
+      data: { success: false, error: 'MailJet API error' },
+      response: { status: 500 },
+    };
+    const r = mapEmailDelivery(undefined, err);
+    expect(r.ok).toBe(false);
+    expect(r.userMessage).toBe(EMAIL_DELIVERY_FAILED);
+  });
+
+  it('fails on a 200 with a malformed body — only an EXPLICIT success passes', () => {
+    for (const bad of [undefined, {}, { message: 'ok' }, 'garbage string']) {
+      const r = mapEmailDelivery(bad, undefined);
+      expect(r.ok).toBe(false);
+    }
+  });
+
   it('fails (not fakes success) when invoke throws a network error', () => {
     const r = mapEmailDelivery(undefined, new TypeError('Failed to fetch'));
     expect(r.ok).toBe(false);

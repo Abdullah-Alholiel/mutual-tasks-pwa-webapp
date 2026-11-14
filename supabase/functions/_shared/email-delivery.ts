@@ -17,8 +17,8 @@
 /** The email could not be handed to the mail provider (or the function died). */
 export const EMAIL_DELIVERY_FAILED = 'Email delivery failed. The link was not sent. Please try again.';
 
-/** The email function is missing its MailJet keys. */
-export const EMAIL_NOT_CONFIGURED = 'Email service is temporarily unavailable. Please try again later.';
+/** The email function is missing its MailJet keys (or otherwise can't send). */
+export const EMAIL_NOT_CONFIGURED = 'Sign-in emails are not being delivered right now. Please try again in a few minutes.';
 
 /** The mail provider accepted the message. */
 export const EMAIL_SENT = 'Email sent successfully.';
@@ -40,17 +40,29 @@ export function isEmailNotConfigured(bodyEmail: string | undefined | null): bool
 }
 
 function readContextStatus(error: unknown): number | undefined {
-  const ctx = error && typeof error === 'object'
-    ? (error as { context?: { response?: { status?: number } } }).context
-    : undefined;
-  return ctx?.response?.status;
+  if (!error || typeof error !== 'object') return undefined;
+  const ctx = (error as {
+    context?: {
+      status?: number;
+      response?: { status?: number };
+    };
+  }).context;
+  // supabase-js v2 FunctionsHttpError: context.response is the upstream
+  // Response; older/different builds may expose a flat context.status.
+  return ctx?.response?.status ?? ctx?.status;
 }
 
 function readContextBody(error: unknown): string | undefined {
-  const ctx = error && typeof error === 'object'
-    ? (error as { context?: { responseBody?: unknown; body?: unknown } }).context
-    : undefined;
-  const raw = ctx?.responseBody ?? ctx?.body;
+  if (!error || typeof error !== 'object') return undefined;
+  const ctx = (error as {
+    context?: {
+      data?: unknown;
+      responseBody?: unknown;
+      body?: unknown;
+      response?: { body?: unknown };
+    };
+  }).context;
+  const raw = ctx?.data ?? ctx?.responseBody ?? ctx?.body ?? ctx?.response?.body;
   if (raw === undefined || raw === null) return undefined;
   if (typeof raw === 'string') {
     try {
@@ -107,8 +119,10 @@ export function mapEmailDelivery(
   }
 
   // Case 2: invoke resolved; send-email answered JSON { success: boolean, error?: string }.
+  // Anything that is not an EXPLICIT success is treated as a failure — a 200
+  // with a malformed or missing body must never read as "email sent".
   const body = (data ?? {}) as { success?: boolean; error?: string };
-  if (body.success === false) {
+  if (body.success !== true) {
     if (isEmailNotConfigured(body.error)) {
       return {
         ok: false,
@@ -119,7 +133,7 @@ export function mapEmailDelivery(
     return {
       ok: false,
       userMessage: EMAIL_DELIVERY_FAILED,
-      logMessage: `send-email reported failure: ${body.error ?? 'unknown error'}`,
+      logMessage: `send-email reported failure: ${body.error ?? 'unknown or malformed response'}`,
     };
   }
 
