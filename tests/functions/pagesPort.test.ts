@@ -104,10 +104,10 @@ describe('Pages port routing contract (parity with Netlify /api/*)', () => {
         }
     });
 
-    it('scripts/pages-config.mjs generates _routes.json serving /api/* first and excluding static assets', () => {
+    it('scripts/pages-config.mjs generates _routes.json serving /api/* and excluding static assets', () => {
         const script = readFileSync(resolve(ROOT, 'scripts/pages-config.mjs'), 'utf8');
         expect(script).toContain("'/api/*'");           // functions invoked for API paths
-        expect(script).toContain("'/*'");               // SPA fallback included
+        expect(script).not.toContain("include: ['/api/*', '/*']"); // CF rejects overlapping splats
         expect(script).toContain('_headers');           // hardened security headers written
         expect(script).toContain('wildcardExcludes');   // hashed asset dirs excluded
     });

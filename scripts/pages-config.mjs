@@ -48,9 +48,11 @@ writeFileSync(join(dist, '_headers'), HEADERS);
 
 // ── _routes.json ────────────────────────────────────────────────────────────
 // Functions directory (functions/api/*) serves /api/<fn>. Everything static
-// is excluded so only API calls (and the SPA fallback, which HAS no matching
-// function but is included to be safe against future function collisions)
-// traverse the Functions invoker.
+// is excluded so only API calls traverse the Functions invoker.
+// NOTE: '/*' must NOT be added to include — Cloudflare rejects overlapping
+// splat rules ("/*" contains "/api/*"). Paths with no matching function fall
+// through to static assets automatically; Pages serves index.html as the SPA
+// fallback for unmatched navigations when no top-level 404.html exists.
 const staticExcludes = new Set();
 for (const name of readdirSync(dist)) {
     if (name.startsWith('_')) continue; // control files never listed
@@ -67,7 +69,7 @@ for (const name of readdirSync(dist)) {
 
 const routes = {
     version: 1,
-    include: ['/api/*', '/*'],
+    include: ['/api/*'],
     exclude: [...staticExcludes, ...wildcardExcludes].sort(),
 };
 
