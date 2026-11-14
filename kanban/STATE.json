@@ -4,21 +4,19 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 6,
-  "last_run_at": "2026-11-13T22:35:00Z",
-  "last_run_report": "kanban/RUNS/20261113T2232Z-run6.md",
+  "last_run": 7,
+  "last_run_at": "2026-11-14T17:35:21Z",
+  "last_run_report": "kanban/RUNS/20261114T1735Z-run7.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "SEC 2026-11-12 (UPDATED run 5): npm audit improved 2 critical + 19 high -> 1 critical + 16 high via PR #12 (dead Express server + zod removed); remaining = dev-chain debt on cards t_95d6a326 + t_3b38dbfd (vite major is the big one)",
-    "RLS 2026-11-11 (run 4 audit, CRITICAL): RLS enabled 13/13 but ALL policies Allow-all for anon+authenticated+service_role (001_full_schema.sql:478-489); grants give anon full DML incl TRUNCATE; live impact = any internet client with the public anon key reads/writes rows unless app code scopes every query. Owner-approved policy rewrite required (owner-only: RLS). See run 4 report for full evidence.",
-    "DEBT: pr-gate tsc step disabled - tsc -b baseline now 97 on merged staging (run 5 fixed one + corrected the count; run 4's '97' was actually 98 on merged code), enforce-by 2026-11-15; security/semgrep/pr-agent/release-verify workflows not yet created (P1-2/3/4/13)",
+    "RLS 2026-11-11 (run 4 audit, CRITICAL): RLS enabled 13/13 but ALL policies Allow-all for anon+authenticated+service_role (001_full_schema.sql:478-489); grants give anon full DML incl TRUNCATE; live impact = any internet client with the public anon key reads/writes rows unless app code scopes every query. Owner APPROVED scoped-policy design 2026-11-13 (D-018) -> buildable as lane L5 (rehearse on disposable copy; applying on prod stays owner-only).",
+    "DEBT: pr-gate tsc step disabled - tsc -b baseline now 97 on merged staging (run 5 fixed one + corrected the count; run 4's '97' was actually 98 on merged code), enforce-by 2026-11-15 moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent/release-verify workflows not yet created (P1-2/3/4/13, lanes L3/L7)",
     "INCIDENT 2026-11-10: kanban/ wipe at 22:48 UTC coinciding with hermes kanban comment call; restored same run, kanban/ now git-tracked (3a16a1a). Root cause not reproduced; mirror comments stay PAUSED. Escalate only on recurrence."
   ],
   "pending_escalations": [
-    "RLS DECISION 2026-11-11 (run 4 audit): all 13 tables have Allow-all policies (anon/authenticated/service_role, USING(true) WITH CHECK(true)) + anon has full DML incl TRUNCATE - app auth rides the anon key via custom sessions table, so anon policies ARE the app access control. Rewrite needs owner-approved policy design (owner-only: RLS).",
-    "DB DECISION 2026-11-11 (run 4 audit): completion_logs missing from supabase_realtime publication - client subscribes to it, events never arrive. Fix = ALTER PUBLICATION (prod DB change, owner-only). One command, prepared in run 4 report.",
-    "DB APPLY 2026-11-12 (run 5): database/vps-migration/003_consume_ai_usage_rpc.sql is ready + UNAPPLIED (owner-only: prod migration). Atomic consume_ai_usage RPC, proven under 10-way concurrency in disposable Postgres this run (counts 1..10 exactly once). Code on staging already calls it and falls back to legacy until applied. One command: docker exec -i momentum-db psql -U postgres -d postgres < database/vps-migration/003_consume_ai_usage_rpc.sql (verify db name before running).",
-    "F22 CHECK 2026-11-12 (run 5): n8n webhooks use headerAuth; which of x-momentum-secret / x_momentum_secret the credential expects is encrypted at rest. Owner 10-second check in n8n UI decides keep-both (harmless) or drop one."
+    "RLS DECISION RESOLVED 2026-11-13 (D-018): owner approved scoped-policy design (option a: anon policies join on sessions, functions use service_role). Build+rehearse on a disposable copy (lane L5), deliver SQL + rehearsal proof + rollback script; applying on prod = owner-only, separate go.",
+    "BACKUP TARGET DECISION RESOLVED 2026-11-13 (D-020): off-site target = Oracle Object Storage bucket in Riyadh (write-only pre-authenticated link, never R2). Owner creates the bucket; until the link exists, build+test the encrypt-and-upload script against a local folder (lane L8)."
   ],
   "in_review_items": [],
   "last_promote": {
@@ -28,6 +26,6 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run5 (2026-11-12): P1-7 SHIPPED - PR #11 merged (cd2ddac): F11 quota day fixed UTC (client TZ ignored), F4 atomic consume_ai_usage RPC with legacy fallback until owner applies 003, F5 server-side project increment (client confirm now a no-op success - reviewer caught the all-bundles double-count pre-merge), premium -1 header parity. PR #12 merged (dcb50e2): dead Express server/Dockerfile + express/zod removed, npm audit 2crit+19high -> 1crit+16high. Both squashed to staging, gates green (tsc 97 = one BETTER than baseline, zero new; tests 9 files/98; build 0; bundle clean), staging probes 400/401 stripped bodies, RPC proven 10-way concurrent. Next run: tsc baseline cleanup (enforce-by 2026-11-15) unless owner answers RLS/completion_logs/003/F22 first. branch_model: staging=work, main=release-only (owner-approved PR) | hosting: Netlify live; Cloudflare Pages target (P1); never R2 | cron: factory 22:30 daily; watchdog /150min; backup-verify 05:30; sweep Tue 10:30; digest Sun 18:00 | owner_go_p1 recorded 2026-11-08 (D-20261106-31); p1_preconditions_owner: main branch protection (t_ed96c8d0), SOUL.md.draft approval (t_0e249925)",
-  "updated_at": "2026-11-13T22:35:00Z"
+  "notes": "run7 (2026-11-14) STARTED 17:35 UTC, checkpoint-first. Lane pick: L1 factory part (auth-magic-link returns success:true even when send-email 500s -> real error + auth-screen message + unit test; owner part DONE 2026-11-13: MailJet keys set, real sign-in works on Cloudflare staging address). Run 6 shipped L0 (#13 merged: SW after first paint + CSS opacity floor + WebKit harness). Owner-session rows D-019..D-024 committed with this checkpoint. RESOLVED this week by owner session on prod (13:08 UTC 2026-11-13, dumps first): completion_logs added to supabase_realtime publication + 003_consume_ai_usage_rpc applied. F22 closed D-019 (keep both headers). Next: L1 fix, then L4 (OneSignal non-blocking) if budget allows. branch_model: staging=work, main=release-only (owner-approved PR) | hosting: Netlify live + Cloudflare Pages preview (staging, static-only); Pages cutover owner-gated | cron: factory 17:30+22:30 UTC; watchdog /150min; backup-verify 05:30; sweep Tue 10:30; digest Sun 18:00",
+  "updated_at": "2026-11-14T17:35:21Z"
 }
