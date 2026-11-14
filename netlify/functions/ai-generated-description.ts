@@ -1,4 +1,4 @@
-import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import type { Handler, HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import {
     verifyMagicLinkSession,
@@ -6,14 +6,13 @@ import {
     incrementUsage,
     getCorsHeaders,
     buildRateLimitResponse,
-    AI_USAGE_LIMITS,
     getTodayDate,
     type AIUsageType
 } from './shared/utils';
 
 const USAGE_TYPE: AIUsageType = 'description_generation';
 
-const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
+const handler: Handler = async (event: HandlerEvent) => {
     const headers = getCorsHeaders(event.headers['origin']);
 
     if (event.httpMethod === 'OPTIONS') {

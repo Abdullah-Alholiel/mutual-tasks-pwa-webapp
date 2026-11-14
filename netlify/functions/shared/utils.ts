@@ -196,9 +196,12 @@ export async function verifyMagicLinkSession(token: string): Promise<number | nu
 
 // Origins allowed to call these endpoints from a browser. Netlify itself serves
 // same-origin calls (Origin header absent), so the API paths need no wildcard.
-// NOTE: update when the Cloudflare Pages domain goes live (P1-9).
+// The pages.dev origins cover the Cloudflare Pages host (L2): the bare domain is
+// the future production origin, staging.* is the preview branch origin.
 const APP_ORIGIN_ALLOWLIST = [
     'https://social-momentum.netlify.app',
+    'https://social-momentum-8zq.pages.dev',
+    'https://staging.social-momentum-8zq.pages.dev',
     'http://localhost:5173',
     'http://localhost:4173',
     'http://localhost:3000',

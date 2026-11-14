@@ -15,7 +15,8 @@
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:email": "tsx tests/auth/email-test.ts"
+    "test:email": "tsx tests/auth/email-test.ts",
+    "pages:build": "PAGES_BUILD=1 vite build && node scripts/pages-config.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
