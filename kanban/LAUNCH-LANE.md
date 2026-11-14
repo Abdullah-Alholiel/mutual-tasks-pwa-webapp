@@ -47,7 +47,7 @@ production outranks the lane.
       unknown user → honest 404 (fail branch). Smoke 21/21 incl. mail keys. Client already showed
       toast.error(result.error) — no UI change needed. Real sign-in with a real inbox = owner
       session's 2026-11-13 16:42 staging sign-in + real MailJet send (keys owner-set).
-- [ ] L2 · Cloudflare Pages port (plan item A5): `functions/` (4 functions), `_headers`,
+- [x] L2 · Cloudflare Pages port (plan item A5): `functions/` (4 functions), `_headers`,
       `_redirects`, CSP without `unsafe-eval` and the n8n host, `sourcemap: false`; preview on
       `*.pages.dev` serving `staging`. Owner-only: create the Pages project (asked 2026-11-13).
       New origin must be added to the gateway CORS list and `APP_ORIGIN_ALLOWLIST` (ask Claude for
@@ -63,6 +63,19 @@ production outranks the lane.
       Still open for the factory: port the 4 functions to `functions/`, `_headers`, `_redirects`,
       CSP, `sourcemap: false`, `APP_ORIGIN_ALLOWLIST`; today `/api/*` on Pages returns the app's
       HTML, so AI generation and push do not work there yet.
+      DONE 2026-11-14 run 8: PR #15 merged (squash 61b0fdf, follow-ups df92e78 on staging) —
+      4 Pages Functions live under `functions/api/*` (import the Netlify handler modules
+      VERBATIM behind a Request bridge — parity is structural), hardened `_headers` (CSP without
+      unsafe-eval/n8n-host) + `_routes.json` generated into dist/ post-build, `PAGES_BUILD=1`
+      sourcemap:false, both pages.dev origins in APP_ORIGIN_ALLOWLIST. Deployed with wrangler
+      (--branch staging) and verified: /api probes answer exact handler JSON (400/401), hardened
+      CSP served, FULL SMOKE 11/11 PASS on https://staging.social-momentum-8zq.pages.dev
+      (incl. real-browser render + no rejected DB calls). Owner part still open (D-007): set the
+      Pages project env vars so AI/push work end-to-end on Pages. NOTE for future local builds:
+      never build with repo-`~/.env`/shell VITE_SUPABASE_* set — repo .env carries dev values
+      (http://145.241.109.213:8001 + a publishable key) that poison the bundle; build either with
+      the prod client config exported (anon key from the live bundle, never from repo .env) or on
+      Netlify/CF CI. Caught by the smoke test on the first deploy, fixed same run.
 - [ ] L3 · Release checks use the smoke test (Life OS D-20261113-35): `release-verify` and the
       post-promote probe run `momentum-smoke.py`; add a pr-gate bundle check for a key/address
       mismatch. Proof: workflow file + a red run on a deliberately wrong key.

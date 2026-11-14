@@ -58,3 +58,14 @@ AI limits owner-only · Level A until P3 conditions met.
   client confirm → no-op; RPC migration 003 ready but UNAPPLIED — owner-gated). PR #12 merged
   (dcb50e2): dead Express server/Dockerfile + express/zod removed → npm audit 2crit+19high →
   1crit+16high. Report: kanban/RUNS/20261112T2231Z-run5.md
+- Run 6 (2026-11-13): L0 shipped — PR #13 merged (259912b): sign-in screen invisible on iOS
+  Safari (opacity-0 framer-motion wrappers + SW stall). Report in kanban/RUNS/.
+- Run 7 (2026-11-14): L1 shipped — PR #14 merged (ad30096): magic-link fails honestly when the
+  email send fails (502 {success:false}); email-delivery mapper + 10 tests; deployed to the VPS
+  functions container. Report: kanban/RUNS/20261114T1735Z-run7.md
+- Run 8 (2026-11-14): **L2 SHIPPED** — PR #15 merged (61b0fdf): Cloudflare Pages port complete
+  (4 Pages Functions importing the Netlify handlers verbatim, hardened _headers/_routes.json
+  generated into dist/, PAGES_BUILD sourcemap:false, pages.dev origins allowlisted). Deployed
+  --branch staging; full smoke 11/11 PASS on staging.social-momentum-8zq.pages.dev; /api probes
+  exact JSON. Env-var pitfall (repo .env poisons local builds) documented in LAUNCH-LANE.
+  Report: kanban/RUNS/20261114T2231Z-run8.md

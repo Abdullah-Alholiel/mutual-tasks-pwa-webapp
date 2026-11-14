@@ -5,7 +5,7 @@
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
   "last_run": 8,
-  "last_run_at": "2026-11-14T22:31:30Z",
+  "last_run_at": "2026-11-14T23:45:00Z",
   "last_run_report": "kanban/RUNS/20261114T2231Z-run8.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
@@ -26,6 +26,11 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run7 (2026-11-14, 17:35-18:22 UTC): L1 SHIPPED - PR #14 merged (ad30096) + DEPLOYED LIVE to the VPS functions container: auth-magic-link request-login AND request-signup now return 502 {success:false,error} when the email send fails (never success:true again - the D-023 lie is gone); new _shared/email-delivery.ts mapper (10 vitest tests incl the REAL supabase-js v2 FunctionsHttpError shape); outer 500 no longer echoes error.message; user-facing network-failure copy fixed in src/lib/auth/auth.ts x3. Live probes: {} -> 400 Invalid action, unknown user -> honest 404; smoke 21/21 after deploy. Reviewer findings recorded for L5: edge function CORS * on session-creating endpoint (owner-scope with RLS sweep) + user-enumeration 404 message (product decision). L0 residual: opacity floor guards only ~0.6s (owner iPhone readout pending). OWNER-QUEUE now EMPTY (RLS->L5 via D-018, F22 closed D-019). Next: L2 Pages port (functions/_headers/_redirects/CSP/APP_ORIGIN_ALLOWLIST). branch_model: staging=work, main=release-only (owner-approved PR, D-017 rule) | hosting: Netlify live + Pages staging preview (static); APP_URL currently points at Pages staging address | cron: factory 17:30+22:30 UTC; watchdog /150min; backup-verify 05:30; sweep Tue 10:30; digest Sun 18:00",
-  "updated_at": "2026-11-14T22:31:30Z"
+  "notes": "run8 (2026-11-14, 22:31-23:46 UTC): L2 SHIPPED - PR #15 merged (squash 61b0fdf): 4 Cloudflare Pages Functions live under functions/api/* (import the Netlify handler modules VERBATIM behind a Request bridge - parity structural, zero client change); scripts/pages-config.mjs generates hardened _headers (CSP no unsafe-eval/no n8n host - F7/F14) + _routes.json into dist/ post-build (never public/ - Netlify would give _redirects precedence over netlify.toml /api/*); PAGES_BUILD=1 -> sourcemap:false; APP_ORIGIN_ALLOWLIST += both pages.dev origins. Deployed --branch staging (664045c7 deploy) and VERIFIED: /api probes exact handler JSON (400/401), hardened CSP served, FULL SMOKE 11/11 PASS on staging.social-momentum-8zq.pages.dev. INCIDENT same-run fixed: first deploy bundle was poisoned by repo .env dev values (http://145.241.109.213:8001 + publishable key) - local builds must export prod client config explicitly; smoke caught it pre-users; temp key files removed. Pitfalls recorded: CF rejects overlapping splats in _routes include; Response('',{204}) throws on workerd; 7 dead imports removed from AI functions (tsc baseline still 97). L2 residual owner-side (D-007): Pages project env vars. Next: L3 (release checks use smoke test). L0 residual: owner iPhone readout pending.",
+  "updated_at": "2026-11-14T23:45:00Z",
+  "last_run_commits": [
+    "61b0fdf (PR #15 squash: L2 Pages port)",
+    "df92e78 (_routes fix, deploy-recovery)",
+    "27a26cf (checkpoint)"
+  ]
 }
