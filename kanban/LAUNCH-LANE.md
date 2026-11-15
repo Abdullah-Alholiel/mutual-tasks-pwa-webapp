@@ -89,6 +89,34 @@ production outranks the lane.
       merge. Browser leg + mail-keys stay VPS-side (momentum-smoke.py), documented in-file.
 - [ ] L4 · Push script can never block the app (Life OS D-20261113-36): load OneSignal after first
       render with a timeout. Proof: browser test with `cdn.onesignal.com` hanging still renders.
+- [ ] L4b · HOSTING SWITCH pulled forward (owner decision 2026-11-15, Life OS D-20261115-11: "finalise the
+      migration to Cloudflare"). Production moves to Cloudflare Pages right after L3 and L4, not at the
+      end of the lane. Netlify cannot be reached on Saudi home/mobile networks and has no users, so
+      it protects nothing. Factory steps, in order:
+      (1) Short cutover report in kanban/RUNS (what differs Netlify -> Pages, smoke output on the
+          staging preview, a real AI description call and a sign-in on the preview, rollback steps).
+      (2) Life OS card "Promote Momentum to Cloudflare production?" is raised by Claude from that
+          report; the owner checks staging on the phone and answers in the portal.
+      (3) ONLY after the owner's yes lands in DECISIONS.md: PR staging -> main, merge, build with the
+          prod client config, `wrangler pages deploy dist --project-name social-momentum --branch main`,
+          full smoke on https://social-momentum-8zq.pages.dev, report.
+      (4) Ask Claude (VPS change) to switch functions APP_URL to the production address.
+      (5) Netlify stays untouched as fallback for 48 h; retiring it is a separate owner yes.
+      Pages function settings (secrets) are set by the owner with
+      `~/.hermes/profiles/momentum/scripts/set-pages-secrets.sh`; never read or print them.
+      Night rollback is pre-authorised (deploy-level only): redeploy the previous good deployment.
+      UPDATE 2026-11-15 13:30 UTC (Claude with the owner): Pages function settings are SET for preview
+      and production (9 each, via the owner's helper run). Staging redeployed with them. A real
+      `/api/ai-generated-description` call with a valid session returns 502 "AI service unavailable":
+      n8n answers 403 to a wrong `x-momentum-secret` and the owner no longer knows the value (n8n
+      admin login lost). Waiting on the owner's choice (rotate the secret on both sides, or reset the
+      n8n login). Do NOT try to read n8n credentials. Until fixed, AI generation fails on Pages; the
+      cutover report must say so.
+      DATA: the VPS database now holds the real accounts copied from the old cloud project
+      (16 users, 18 projects, 321 tasks). It is production data from now on: no test writes, no
+      truncation, staging-only rules for anything that mutates rows.
+      REAL-PHONE EVIDENCE for L4: on the owner's iPhone the deferred OneSignal script delayed the app's
+      start by 5.4 s on a first load (page parsed 5.42 s, first app content 5.45 s).
 - [ ] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
       scoped policies on the custom-session model, rehearsed on a disposable copy, rollback script.
       Applying on production is owner-only after Claude reviews the SQL.
@@ -99,8 +127,8 @@ production outranks the lane.
       folder until the owner supplies the bucket link) + first full restore drill.
 - [ ] L9 · Monitoring drill: injected failure reaches Telegram; external uptime probe (A10).
 - [ ] L10 · Core-loop browser proof on staging then production, EN + AR (A11).
-- [ ] L11 · Cutover verification report (A13) → owner approval → promote to Pages production (A14),
-       switch `APP_URL`, 48 h parallel run, retire Netlify.
+- [ ] L11 · Launch-readiness report against C1–C6 (the hosting switch itself moved to L4b); retire
+       Netlify after the owner's separate yes.
 
 ## Waiting on the owner (do not build around these; remind once per report)
 
