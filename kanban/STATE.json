@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 8,
-  "last_run_at": "2026-11-14T23:45:00Z",
-  "last_run_report": "kanban/RUNS/20261114T2231Z-run8.md",
+  "last_run": 9,
+  "last_run_at": "2026-11-15T17:32:00Z",
+  "last_run_report": "kanban/RUNS/20261115T1732Z-run9.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "SEC 2026-11-12 (UPDATED run 5): npm audit improved 2 critical + 19 high -> 1 critical + 16 high via PR #12 (dead Express server + zod removed); remaining = dev-chain debt on cards t_95d6a326 + t_3b38dbfd (vite major is the big one)",
@@ -27,7 +27,7 @@
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
   "notes": "run8 (2026-11-14, 22:31-23:46 UTC): L2 SHIPPED - PR #15 merged (squash 61b0fdf): 4 Cloudflare Pages Functions live under functions/api/* (import the Netlify handler modules VERBATIM behind a Request bridge - parity structural, zero client change); scripts/pages-config.mjs generates hardened _headers (CSP no unsafe-eval/no n8n host - F7/F14) + _routes.json into dist/ post-build (never public/ - Netlify would give _redirects precedence over netlify.toml /api/*); PAGES_BUILD=1 -> sourcemap:false; APP_ORIGIN_ALLOWLIST += both pages.dev origins. Deployed --branch staging (664045c7 deploy) and VERIFIED: /api probes exact handler JSON (400/401), hardened CSP served, FULL SMOKE 11/11 PASS on staging.social-momentum-8zq.pages.dev. INCIDENT same-run fixed: first deploy bundle was poisoned by repo .env dev values (http://145.241.109.213:8001 + publishable key) - local builds must export prod client config explicitly; smoke caught it pre-users; temp key files removed. Pitfalls recorded: CF rejects overlapping splats in _routes include; Response('',{204}) throws on workerd; 7 dead imports removed from AI functions (tsc baseline still 97). L2 residual owner-side (D-007): Pages project env vars. Next: L3 (release checks use smoke test). L0 residual: owner iPhone readout pending.",
-  "updated_at": "2026-11-14T23:45:00Z",
+  "updated_at": "2026-11-15T17:32:00Z",
   "last_run_commits": [
     "61b0fdf (PR #15 squash: L2 Pages port)",
     "df92e78 (_routes fix, deploy-recovery)",
