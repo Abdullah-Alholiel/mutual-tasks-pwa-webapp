@@ -21,6 +21,9 @@ name: Release Verify
 on:
   push:
     branches: [main]
+  # Pre-promote rehearsal (owner says go -> run this before merging the promote
+  # PR): same checks against the SAME production target the promote will serve.
+  workflow_dispatch:
 
 permissions:
   contents: read

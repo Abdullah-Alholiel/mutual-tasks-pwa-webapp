@@ -27,6 +27,26 @@ const SMOKE = join(ROOT, 'scripts/run-release-smoke.py');
 const PROFILE_SMOKE = '/home/ubuntu/.hermes/profiles/momentum/scripts/momentum-smoke.py';
 const GATE = join(ROOT, 'scripts/check-bundle-config.mjs');
 
+// scripts/run-release-smoke.py must at least be executable Python — a syntax
+// error would zero the release check in CI while every parity assertion
+// (string-based) still passes.
+function smokeRunnerCompiles(): boolean {
+    const r = spawnSync('python3', ['-m', 'py_compile', SMOKE], { encoding: 'utf8' });
+    return r.status === 0;
+}
+
+// Parity with the operator profile smoke test can only run where that file
+// exists (operator VPS / dev machine). GitHub runners do not have it; the
+// factory run re-proves parity on the VPS every cycle.
+const profileAvailable = existsSync(PROFILE_SMOKE);
+
+describe('run-release-smoke runner sanity (all environments)', () => {
+    it('compiles as Python (a syntax error would zero the release check in CI)', () => {
+        expect(smokeRunnerCompiles()).toBe(true);
+    });
+});
+
+
 // ---- synthetic JWT builders (public test material; signs nothing real) ----
 function b64url(obj: object): string {
     return Buffer.from(JSON.stringify(obj)).toString('base64url');
@@ -76,6 +96,31 @@ describe('bundle config gate — passing bundles', () => {
             const r = runGate(dir);
             expect(r.status).toBe(0);
             expect(r.stdout).toContain('cloud ref=bgusewuzjobjkvcqjndn');
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('EXCLUDES n8n hosts (parity with the smoke test): n8n.sslip.io is not a database address', () => {
+        const dir = makeDist({
+            'index-aaa.js': `const u="${VPS_URL}";const k="${VPS_KEY}";const hook="https://n8n.145.241.109.213.sslip.io/webhook/ai";`,
+        });
+        try {
+            const r = runGate(dir);
+            expect(r.status).toBe(0);
+            expect(r.stdout).toContain('clean');
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('REQUIRES a dot in the host (bare https://supabase.co must not silently match)', () => {
+        const dir = makeDist({
+            'index-aaa.js': `const doc="read https://supabase.co/docs";const u="${VPS_URL}";const k="${VPS_KEY}";`,
+        });
+        try {
+            const r = runGate(dir);
+            expect(r.status).toBe(0);
         } finally {
             rmSync(dir, { recursive: true, force: true });
         }
@@ -205,11 +250,6 @@ describe('bundle config gate — incident classes must FAIL', () => {
         }
     });
 });
-
-// Parity with the operator profile smoke test can only run where that file
-// exists (operator VPS / dev machine). GitHub runners do not have it; the
-// factory run re-proves parity on the VPS every cycle.
-const profileAvailable = existsSync(PROFILE_SMOKE);
 
 describe.runIf(profileAvailable)('run-release-smoke parity with the profile smoke test', () => {
     it('profile smoke script exists on the operator VPS', () => {

@@ -50,7 +50,10 @@ jobs:
       # stale-chunk mix, non-anon key role, or a cloud/VPS class mismatch
       # between the key's JWT `ref` claim and the URL's host.
       - name: Bundle config gate (key must match its database)
-        run: node scripts/check-bundle-config.mjs dist
+        # --ci: GitHub builds carry no repo .env (untracked), so zero-config is
+        # the CI norm there; everything visible (multi-address/key, chunk mix,
+        # key role, cloud/VPS class mismatch) is still enforced.
+        run: node scripts/check-bundle-config.mjs dist --ci
 
       - name: Bundle secret gate (service-role key must never ship)
         run: |

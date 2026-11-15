@@ -16,6 +16,10 @@
 //   5. host-class match: cloud keys (JWT with a `ref` claim) belong to
 //      *.supabase.co URLs; self-hosted key shapes (no `ref`) belong to
 //      non-supabase.co URLs. This is the exact 2026-11-13 discriminator.
+// 6. RESIDUAL RISK (documented, accepted at D-023 scope): two DIFFERENT
+//    self-hosted projects (two no-ref keys / two sslip.io hosts) are
+//    class-identical, so a cross-project self-hosted mix is not detectable by
+//    shape alone — the smoke test's live data-call covers the deployed site.
 //
 // Modes:
 //   default (STRICT — deploy/local builds): "no config in the bundle" FAILS.
@@ -52,7 +56,7 @@ if (jsFiles.length === 0) {
   process.exit(1);
 }
 
-const urlRe = /https:\/\/[a-z0-9.-]*(?:supabase\.co|sslip\.io)/g;
+const urlRe = /https:\/\/[a-z0-9.-]+\.(?:supabase\.co|sslip\.io)/g;
 const jwtRe = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
 const pubRe = /sb_publishable_[A-Za-z0-9_-]+/g;
 
@@ -62,7 +66,10 @@ const urlChunk = new Map();
 const keyChunk = new Map();
 for (const f of jsFiles) {
   const text = readFileSync(join(assetsDir, f), "utf8");
-  for (const m of text.matchAll(urlRe)) if (!urlChunk.has(m[0])) urlChunk.set(m[0], f);
+  for (const m of text.matchAll(urlRe)) {
+    if (m[0].includes("n8n")) continue; // n8n host parity with the smoke test
+    if (!urlChunk.has(m[0])) urlChunk.set(m[0], f);
+  }
   for (const m of text.matchAll(jwtRe)) if (!keyChunk.has(m[0])) keyChunk.set(m[0], f);
   for (const m of text.matchAll(pubRe)) if (!keyChunk.has(m[0])) keyChunk.set(m[0], f);
 }
