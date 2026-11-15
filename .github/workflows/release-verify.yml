@@ -1,0 +1,61 @@
+name: Release Verify
+
+# D-023 leg 1 / lane L3 (Life OS worker request): release checks must run the
+# Momentum smoke test, not just page-200 probes. Production was reported
+# "verified live" for weeks while nobody could sign in (2026-11-13): the old
+# checks probed page 200 and a function 401 and called that verified.
+#
+# This workflow runs on every push to `main` (= every owner-approved promote,
+# the ONLY path to production) and executes the smoke test's HTTP legs against
+# PRODUCTION from CI: page 200, bundle has exactly one database address and
+# one public key, the key's host class matches the address, the database
+# accepts that key, the gateway allows the site's origin, sign-in and email
+# functions answer. The browser leg (visible render, no rejected gateway
+# calls) plus the mail-keys check run on the operator VPS via
+# momentum-smoke.py — GitHub runners cannot hold that trust; CI covers the
+# HTTP surface with the same pass/fail semantics (scripts/run-release-smoke.py).
+#
+# ENFORCING: any FAIL fails the run (no || true, no report-only).
+# Full docs: kanban/DECISIONS.md D-023.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-verify-main
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Guard the guard: a release-verify against a broken checkout is
+      # meaningless. Fail loudly instead of reporting a hollow green.
+      - name: Release target sanity
+        run: |
+          test -f package.json || { echo "::error::checkout broken (no package.json)"; exit 1; }
+          test -f scripts/run-release-smoke.py || { echo "::error::smoke runner missing"; exit 1; }
+          echo "release-verify target: $(git log --oneline -1)"
+
+      - name: Smoke test production (sign-in path, not just page 200)
+        run: python3 scripts/run-release-smoke.py https://social-momentum.netlify.app
+
+      - name: Post-promote probe result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "release-verify: PASS — production serves a usable app (bundle/key/database/functions consistent)"
+          else
+            echo "::error::release-verify: FAIL — the last promote left production in a state users cannot use. Roll back or hotfix; a red release-verify returns the loop to Level A."
+          fi

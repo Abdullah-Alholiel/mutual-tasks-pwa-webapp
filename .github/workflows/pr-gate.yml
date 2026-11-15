@@ -43,6 +43,15 @@ jobs:
       - name: Production build
         run: npm run build
 
+      # D-023 leg 2 / lane L3: the 2026-11-13 incident shipped a bundle with the
+      # old cloud project's anon key against the VPS database — page 200, key
+      # JWT-shaped, everything else green. This gate derives URL+key FROM dist/
+      # (no secrets in git) and fails on: no config, multiple addresses/keys,
+      # stale-chunk mix, non-anon key role, or a cloud/VPS class mismatch
+      # between the key's JWT `ref` claim and the URL's host.
+      - name: Bundle config gate (key must match its database)
+        run: node scripts/check-bundle-config.mjs dist
+
       - name: Bundle secret gate (service-role key must never ship)
         run: |
           # F2: secret VALUES in shipped JS. Sourcemaps excluded: supabase-js's own
