@@ -76,9 +76,17 @@ production outranks the lane.
       (http://145.241.109.213:8001 + a publishable key) that poison the bundle; build either with
       the prod client config exported (anon key from the live bundle, never from repo .env) or on
       Netlify/CF CI. Caught by the smoke test on the first deploy, fixed same run.
-- [ ] L3 · Release checks use the smoke test (Life OS D-20261113-35): `release-verify` and the
+- [x] L3 · Release checks use the smoke test (Life OS D-20261113-35): `release-verify` and the
       post-promote probe run `momentum-smoke.py`; add a pr-gate bundle check for a key/address
       mismatch. Proof: workflow file + a red run on a deliberately wrong key.
+      DONE 2026-11-15 run 9: PR #16 merged (squash d6b3b2b) — release-verify.yml (push to main +
+      workflow_dispatch) runs the smoke HTTP legs against production from CI via
+      scripts/run-release-smoke.py; pr-gate bundle step scripts/check-bundle-config.mjs dist --ci
+      (fails on multi-address/key, chunk mix, non-anon role, cloud/VPS class mismatch = the
+      2026-11-13 incident). Red proof: poisoned local build (cloud key vs VPS address) → gate
+      exit 1 + 4 synthetic unit red proofs; CI gate PASS on the PR; CI smoke runner 14/14 live
+      vs production + pages preview; vitest 131/131; tsc 97 = baseline; full smoke 21/21 after
+      merge. Browser leg + mail-keys stay VPS-side (momentum-smoke.py), documented in-file.
 - [ ] L4 · Push script can never block the app (Life OS D-20261113-36): load OneSignal after first
       render with a timeout. Proof: browser test with `cdn.onesignal.com` hanging still renders.
 - [ ] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
