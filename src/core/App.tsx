@@ -9,6 +9,7 @@ import ProjectDetail from "../features/projects/ProjectDetail";
 import Auth from "../features/auth/Auth";
 import FriendProfile from "../features/friends/pages/FriendProfile";
 import NotFound from "../features/pages/NotFound";
+import LegalPage from "../features/pages/LegalPage";
 import Premium from "../features/pages/Premium";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { AuthProvider } from "@/features/auth/AuthContext";
@@ -139,6 +140,8 @@ const App = () => {
                       {/* Public routes - no authentication required */}
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/auth/verify" element={<Auth />} />
+                      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+                      <Route path="/terms" element={<LegalPage kind="terms" />} />
 
                       {/* Test routes - accessible in development */}
                       <Route path="/test/toasts" element={<ToastTest />} />
