@@ -24,7 +24,27 @@
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:site" content="@Momentum" />
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<!--
+  OneSignal SDK is NOT loaded here: a hanging cdn.onesignal.com must never delay or blank
+  the app (D-024). The SDK is lazy-loaded from app code after first render with a timeout
+  (see src/lib/onesignal/oneSignalService.ts).
+-->
+  <script>
+    // Opt-in on-screen diagnostics (D-029, run 11): ?diag=1 / ?diag=prof activates it and
+    // it stays on for the session (sessionStorage) until ?diag=off or CLOSE. Inert for
+    // normal visits. Same guard contract as the file itself; kept in sync manually.
+    (function () {
+      var s = sessionStorage;
+      if (/[?&]diag=off/.test(location.search)) { s.removeItem('mdMode'); return; }
+      if (/[?&]diag=(prof|1|auto)/.test(location.search)) s.setItem('mdMode', 'prof');
+      if (s.getItem('mdMode') === 'prof') {
+        var el = document.createElement('script');
+        el.src = '/diag-panel.js';
+        document.head.appendChild(el);
+      }
+    })();
+  </script>
+
 </head>
 
 <body>
