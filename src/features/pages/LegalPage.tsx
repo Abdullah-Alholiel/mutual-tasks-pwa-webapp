@@ -10,12 +10,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
  * No data queries; no first-paint animation (L0 lesson); anti-slop styling.
  */
 export default function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
-  const [lang, setLang] = useState<Lang>(() =>
-    typeof navigator !== "undefined" &&
-    (navigator.language || "").toLowerCase().startsWith("ar")
+  // Language: explicit ?lang= URL param (linkable, QA-friendly) → browser language → en.
+  const [lang, setLang] = useState<Lang>(() => {
+    const q = new URLSearchParams(window.location.search).get("lang");
+    if (q === "ar" || q === "en") return q;
+    return (navigator.language || "").toLowerCase().startsWith("ar")
       ? "ar"
-      : "en"
-  );
+      : "en";
+  });
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const t = LEGAL_DOCS[kind][lang];
