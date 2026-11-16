@@ -69,3 +69,22 @@ AI limits owner-only · Level A until P3 conditions met.
   --branch staging; full smoke 11/11 PASS on staging.social-momentum-8zq.pages.dev; /api probes
   exact JSON. Env-var pitfall (repo .env poisons local builds) documented in LAUNCH-LANE.
   Report: kanban/RUNS/20261114T2231Z-run8.md
+- Run 9 (2026-11-15): **L3 SHIPPED** — PR #16 merged (d6b3b2b): release-verify runs the smoke
+  HTTP legs from CI; pr-gate bundle config gate (fails on key/address mismatch = the
+  2026-11-13 incident class); red proof on a poisoned build. Full smoke 21/21.
+- Run 10 (2026-11-15): DIED before checkpoint (lock found stale ~19h later) — its uncommitted
+  L4 slice was adopted and completed by run 11. No commits survived.
+- Run 11 (2026-11-16): **L4 SHIPPED** — PR #17 merged (14309c4): OneSignal non-blocking load
+  (dynamic import + 2s cap + sticky failure; hanging-CDN browser proof 0.81s render; reachable
+  proof OneSignal @0.8s) + D-029 diag panel shipped in-repo. PR #18 merged (e30b75d): D-031 DB
+  diagnostic dev-only (was shippable to every visitor; with open RLS it is an anon write path).
+  Staging preview redeployed 3× with pinned env (URL+anon key+OneSignal app id); full smoke
+  21/21 twice; 2 glm-5.3-flash reviewers (all findings MINOR/P2; fixes applied).
+  Report: kanban/RUNS/20261116T1733Z-run11.md
+
+## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
+
+- src/hooks/useOneSignalPush.ts is dead code (zero consumers; duplicates init outside the
+  idle-scheduled path) — reviewer A finding, run 11. Delete in a hardening slot (L6 area).
+- diag-panel.js banner says "v4 run x/3" while the file header + summary say v6/2 runs —
+  cosmetic, fix when touching the panel next.

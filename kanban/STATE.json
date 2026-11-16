@@ -26,11 +26,11 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run11 (2026-11-16, 17:33- UTC, IN PROGRESS): adopted run-10 uncommitted L4 slice (OneSignal non-blocking load, D-024) + D-029 diag-panel carry. Checkpoint committed; gates next.",
-  "updated_at": "2026-11-16T17:33:00Z",
+  "notes": "run11 (2026-11-16, 17:33-19:0x UTC): L4 SHIPPED (PR #17, 14309c4) OneSignal non-blocking load + D-029 diag panel in-repo; D-031 SHIPPED (PR #18, e30b75d) DB diagnostic dev-only. Staging preview redeployed with pinned env (URL+anon key+app id). Smoke 21/21 twice. Reviewers: 2x glm-5.3-flash, findings MINOR/P2, fixes applied (diag=off clears all keys; init re-entry doc). Run 10 died pre-checkpoint; its WIP adopted. Env-var lesson: local Pages builds need VITE_ONESIGNAL_APP_ID too.",
+  "updated_at": "2026-11-16T18:55:00Z",
   "last_run_commits": [
-    "d6b3b2b (PR #16 squash: L3 release checks + bundle config gate)",
-    "06a7aad (review fixes: --ci, n8n exclusion, dot-host, dispatch, syntax test)",
-    "1c80056 (run 9 checkpoint: D-025/D-026 rows + report skeleton)"
+    "14309c4 (PR #17 squash: L4 OneSignal non-blocking + D-029 diag panel)",
+    "e30b75d (PR #18 squash: D-031 DB diagnostic dev-only + review fixes)",
+    "c145a6c (review fixes on PR #18 branch, folded into e30b75d)"
   ]
 }

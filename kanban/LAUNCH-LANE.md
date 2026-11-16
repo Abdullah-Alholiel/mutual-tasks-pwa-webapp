@@ -87,8 +87,18 @@ production outranks the lane.
       exit 1 + 4 synthetic unit red proofs; CI gate PASS on the PR; CI smoke runner 14/14 live
       vs production + pages preview; vitest 131/131; tsc 97 = baseline; full smoke 21/21 after
       merge. Browser leg + mail-keys stay VPS-side (momentum-smoke.py), documented in-file.
-- [ ] L4 · Push script can never block the app (Life OS D-20261113-36): load OneSignal after first
+- [x] L4 · Push script can never block the app (Life OS D-20261113-36): load OneSignal after first
       render with a timeout. Proof: browser test with `cdn.onesignal.com` hanging still renders.
+      DONE 2026-11-16 run 11: PR #17 merged (squash 14309c4) — OneSignal <script defer> removed
+      from index.html; react-onesignal reachable ONLY via dynamic import (sdkLoader.ts), load+init
+      raced against a 2s cap, sticky per-visit failure, scheduleOneSignalInit on idle (4s cap);
+      11 unit tests incl. the hanging-CDN contract. Real-browser proof on the staging preview:
+      hanging CDN → sign-in visible at 0.81s/1.57s (two deploys), reachable CDN → window.OneSignal
+      @0.7-0.8s (push keeps working); full smoke 21/21 twice. Companion: D-029 diag panel now
+      ships in the repo (public/diag-panel.js + diag-worker.js, ?diag=1 opt-in) so factory
+      deploys can no longer delete it. NOTE: local Pages builds must also export
+      VITE_ONESIGNAL_APP_ID (public app id, extractable from the live prod bundle) — without it
+      push silently stays "not configured" on that build.
 - [ ] L4b · HOSTING SWITCH pulled forward (owner decision 2026-11-15, Life OS D-20261115-11: "finalise the
       migration to Cloudflare"). Production moves to Cloudflare Pages right after L3 and L4, not at the
       end of the lane. Netlify cannot be reached on Saudi home/mobile networks and has no users, so

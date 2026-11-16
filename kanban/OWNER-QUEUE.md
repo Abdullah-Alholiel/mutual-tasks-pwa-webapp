@@ -6,7 +6,9 @@ and strike the line by moving it to the resolved section below — never delete 
 
 ## Open
 
-- (none — reminders for Abdullah: old cloud data copy-or-fresh (D-20261113-34), staging database project (A6), Oracle bucket link (L8), lawyer review of privacy/terms (C6) — tracked in LAUNCH-LANE.md "Waiting on the owner")
+- 2026-11-16 · Confirm the Pages project env vars include VITE_ONESIGNAL_APP_ID (public app id; it was set for Netlify prod) — without it push silently stays off after the cutover · run 11 (L4 finding; factory cannot read Pages settings)
+- 2026-11-16 · iPhone ?diag=1 readout of the L0 sign-in visibility issue (open https://staging.social-momentum-8zq.pages.dev/?diag=1, tap COPY THIS TEXT, paste to chat) · L0 lane item, panel now ships from the repo (D-029)
+- standing · old cloud data: copy or start fresh (Life OS D-20261113-34) · staging database project (A6) · Oracle bucket link (L8) · lawyer review of privacy and terms (C6) — tracked in LAUNCH-LANE.md "Waiting on the owner"
 
 ## Resolved
 
