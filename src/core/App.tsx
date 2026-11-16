@@ -21,9 +21,8 @@ import { DataIntegrityGuard } from "@/components/DataIntegrityGuard";
 import { GlobalErrorBoundary } from "@/components/ui/GlobalErrorBoundary";
 import { PWAUpdateBanner } from "@/components/PWAUpdateBanner";
 import { useEffect } from "react";
-import { initializeOneSignal } from "@/lib/onesignal/oneSignalService";
+import { scheduleOneSignalInit } from "@/lib/onesignal/oneSignalService";
 import { PERFORMANCE_CONFIG } from "@/config/appConfig";
-import { logger } from "@/lib/monitoring/logger";
 import { initializeSentry } from "@/lib/sentry";
 import { PageErrorBoundary } from "@/components/ui/error-boundary";
 /**
@@ -32,10 +31,10 @@ import { PageErrorBoundary } from "@/components/ui/error-boundary";
  */
 function OneSignalInitializer() {
   useEffect(() => {
-    // Initialize OneSignal in background
-    initializeOneSignal().catch((err) => {
-      logger.warn('[OneSignal] Initialization error (non-fatal):', err);
-    });
+    // Load OneSignal AFTER first paint / idle (D-024): a hanging or blocked
+    // cdn.onesignal.com must never delay or blank the app. scheduleOneSignalInit
+    // is timeout-bounded and resolves even when the CDN never answers.
+    scheduleOneSignalInit();
   }, []);
 
   return null;
