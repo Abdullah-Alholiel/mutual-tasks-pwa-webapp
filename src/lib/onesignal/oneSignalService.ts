@@ -144,7 +144,9 @@ export async function initializeOneSignal(opts?: { loadTimeoutMs?: number }): Pr
 
 
             // Step 2: init, also raced — if it does not settle in time, treat
-            // the visit as failed but leave non-sticky so a later call retries.
+            // this attempt as failed but leave NON-sticky so a later call
+            // retries. OneSignal tolerates re-init, so a late-settling first
+            // init followed by a retry is safe (review finding, run 11).
             const initResult = await withLoadTimeout(
                 sdk.init({
                     appId: appId(),

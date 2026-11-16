@@ -35,7 +35,7 @@
     // normal visits. Same guard contract as the file itself; kept in sync manually.
     (function () {
       var s = sessionStorage;
-      if (/[?&]diag=off/.test(location.search)) { s.removeItem('mdMode'); return; }
+      if (/[?&]diag=off/.test(location.search)) { s.removeItem('mdMode'); s.removeItem('mdStep'); s.removeItem('mdRes'); return; }
       if (/[?&]diag=(prof|1|auto)/.test(location.search)) s.setItem('mdMode', 'prof');
       if (s.getItem('mdMode') === 'prof') {
         var el = document.createElement('script');

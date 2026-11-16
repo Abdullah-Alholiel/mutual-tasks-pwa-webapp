@@ -4,8 +4,13 @@ import "./core/index.css";
 import "./pwaRegister";
 import { GlobalErrorBoundary } from "./components/ui/GlobalErrorBoundary";
 
-// Import diagnostic utility for browser console debugging
-import './lib/dbDiagnostic';
+// Browser-console DB diagnostic — DEV ONLY (D-031, run 11): the module reads ALL
+// tasks/projects and can create+delete a test row when invoked, so it must never
+// ship: with open RLS every visitor's console could trigger it against real data.
+// Dynamic import under DEV keeps it out of production builds entirely.
+if (import.meta.env.DEV) {
+  import('./lib/dbDiagnostic');
+}
 
 // ============================================================================
 // Dynamic Viewport Height Handler for Mobile PWA
