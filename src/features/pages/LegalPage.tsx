@@ -43,7 +43,7 @@ export default function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
             <button
               type="button"
               onClick={() => navigate("/auth")}
-              className="inline-flex items-center gap-1 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors min-h-[44px] min-w-[44px] px-2 -mx-2"
               aria-label={t.backLabel}
             >
               <ArrowLeft
@@ -59,7 +59,7 @@ export default function LegalPage({ kind }: { kind: "privacy" | "terms" }) {
               <button
                 type="button"
                 onClick={() => setLang(isAr ? "en" : "ar")}
-                className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors min-h-[44px] px-2"
               >
                 {t.langToggle}
               </button>
