@@ -722,7 +722,7 @@ const Auth = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
-                By continuing, you agree to our <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Terms of Service</span> and <span className="underline underline-offset-2 hover:text-foreground cursor-pointer transition-colors">Privacy Policy</span>
+                By continuing, you agree to our <a href="/terms" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms of Service</a> and <a href="/privacy" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
               </motion.p>
             </motion.div>
           </div>
