@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { getDatabaseClient } from '@/db';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from '@/components/ui/sonner';
+import { getSessionToken } from '@/lib/auth/sessionStorage';
 import { Task } from '@/types';
 
 interface IntegrityIssue {
@@ -132,6 +133,15 @@ export function useDataIntegrityGuard(options = { enabled: true, intervalMs: 300
 
     useEffect(() => {
         if (!options.enabled) return;
+
+        // Privacy gate (run 12 / D-031 class): this check reads ALL tasks and ALL
+        // projects. With the custom-session model there is no authenticated
+        // supabase-js session, so a signed-out visitor's request hits the same
+        // anon-key path — meaning the app downloaded everyone's rows before
+        // sign-in (smoke check "signed-out visitor downloads no user data").
+        // The cache-vs-DB comparison is meaningless without a signed-in user:
+        // skip entirely when no session token exists.
+        if (!getSessionToken()) return;
 
         let isMounted = true;
 
