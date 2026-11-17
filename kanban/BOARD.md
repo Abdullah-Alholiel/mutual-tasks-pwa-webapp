@@ -81,6 +81,15 @@ AI limits owner-only · Level A until P3 conditions met.
   Staging preview redeployed 3× with pinned env (URL+anon key+OneSignal app id); full smoke
   21/21 twice; 2 glm-5.3-flash reviewers (all findings MINOR/P2; fixes applied).
   Report: kanban/RUNS/20261116T1733Z-run11.md
+- Run 12 (2026-11-16): **D-025 SHIPPED + PROD SMOKE FAIL FIXED ON STAGING** — PR #19 (7844c45)
+  /privacy + /terms DRAFT pages EN+AR (auth links + og:image, twitter:site removed); PR #20
+  (d7270a5) ?lang= override; PR #21 (835b80e) DataIntegrityGuard no longer fetches ALL
+  tasks/projects for signed-out visitors (the smoke FAIL found on production this run — prod
+  still exposed until promote/ownership decision, see OWNER-QUEUE); PR #22 (921b8b0) reviewer
+  IMPORTANTs (absolute og:image, 44px targets). Staging preview final deploy 5047501f: full
+  smoke 12/12 PASS; AR proof: html lang=ar dir=rtl, screenshots in cron/output/run12-shots/.
+  Process slip: one follow-up commit landed direct on staging, recovered via PR #20.
+  Report: kanban/RUNS/20261116T2232Z-run12.md
 
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 
@@ -88,3 +97,6 @@ AI limits owner-only · Level A until P3 conditions met.
   idle-scheduled path) — reviewer A finding, run 11. Delete in a hardening slot (L6 area).
 - diag-panel.js banner says "v4 run x/3" while the file header + summary say v6/2 runs —
   cosmetic, fix when touching the panel next.
+- run 12 reviewer MINORs (none user-blocking): LegalPage unmount resets html lang/dir
+  unconditionally; auth legal links do full page reloads (SPA-nav nit);
+  checkIntegrity export lacks its own token guard (sole caller is gated today).

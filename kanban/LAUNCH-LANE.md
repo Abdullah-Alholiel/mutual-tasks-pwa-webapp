@@ -127,6 +127,23 @@ production outranks the lane.
       truncation, staging-only rules for anything that mutates rows.
       REAL-PHONE EVIDENCE for L4: on the owner's iPhone the deferred OneSignal script delayed the app's
       start by 5.4 s on a first load (page parsed 5.42 s, first app content 5.45 s).
+- [ ] L4c · AI without n8n: the two AI calls run on Cloudflare Workers AI through the Pages binding
+      `AI` (owner 2026-11-16; Life OS D-20261115-13 has the full spec). Preview binding is attached.
+      DO THIS BEFORE L4b's cutover report (owner wants AI working at the switch): right after the
+      'signed-out visitor downloads no user data' fix. It is de-risked: Claude ran the real prompts on
+      Workers AI on 2026-11-16 (valid project JSON on three models, good EN + AR descriptions).
+      READ FIRST: ~/.hermes/profiles/momentum/plans/ai-port/README.md (results, model picks, recipe)
+      and n8n-workflows.json next to it (the prompts to port; no credentials).
+      ADDED 2026-11-16 20:10 UTC (owner): L4c now includes (a) an OpenRouter free-model backup, used
+      only when Workers AI fails or its free daily allowance is spent (`OPENROUTER_API_KEY` is saved
+      on Pages for preview and production; never read it), (b) a clear "AI help is back tomorrow"
+      message in EN + AR when everything is exhausted, (c) measured neurons per call and calls per
+      day in the report. Details: README steps 7, 9 and 10. Proof: staging description + project
+      generation work with n8n stopped, and a forced Workers AI failure is answered by the backup.
+      The `AI` binding is attached to PRODUCTION as well (owner go, 2026-11-16 20:11 UTC); it applies
+      from the next production deployment.
+- [ ] L4d · Scheduled acceptance tests on staging + RELEASE-CANDIDATE.md for the owner's promote card
+      (owner 2026-11-16; spec in the DECISIONS.md row "Scheduled acceptance tests on staging").
 - [ ] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
       scoped policies on the custom-session model, rehearsed on a disposable copy, rollback script.
       Applying on production is owner-only after Claude reviews the SQL.
@@ -139,6 +156,15 @@ production outranks the lane.
 - [ ] L10 · Core-loop browser proof on staging then production, EN + AR (A11).
 - [ ] L11 · Launch-readiness report against C1–C6 (the hosting switch itself moved to L4b); retire
        Netlify after the owner's separate yes.
+
+## Growth lane (owner 2026-11-16; build AFTER L5 access rules, except G1 which may ride any run)
+
+- [ ] G1 · Sign-in logo without the square background (small).
+- [ ] G2 · Public landing page for signed-out visitors (no data queries, EN + AR).
+- [ ] G3 · Plans and paywall without payment code: limits from one config, usage meter, upgrade
+      screen that records interest. Numbers come from the owner's pricing card; never invent them.
+Specs: the matching DECISIONS.md rows dated 2026-11-16. Order overall: L4b → L4c → L4d → L5 → G2 → G3,
+then L6 onward. Reason: access rules (L5) must be in place before the product is advertised or sold.
 
 ## Waiting on the owner (do not build around these; remind once per report)
 

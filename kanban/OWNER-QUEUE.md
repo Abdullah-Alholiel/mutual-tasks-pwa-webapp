@@ -6,9 +6,10 @@ and strike the line by moving it to the resolved section below — never delete 
 
 ## Open
 
-- 2026-11-16 · Confirm the Pages project env vars include VITE_ONESIGNAL_APP_ID (public app id; it was set for Netlify prod) — without it push silently stays off after the cutover · run 11 (L4 finding; factory cannot read Pages settings)
+- 2026-11-16 · **Promote/production decision**: Netlify production (last promote 2026-11-11) FAILs the smoke check "signed-out visitor downloads no user data" — every prod visitor downloads all tasks/projects at boot (DataIntegrityGuard, fixed on staging by PR #21, verified smoke 12/12 on the Pages preview). Options: (a) promote staging→main to Netlify (host being retired at L4b), or (b) go straight to the L4b Cloudflare cutover (its report comes after L4c AI port per lane order). Owner-only either way · run 12
+- 2026-11-16 · Confirm the Pages project env vars include VITE_ONESIGNAL_APP_ID (public app id; it was set for Netlify prod) — without it push silently stays off after the cutover · run 11 (L4 finding; factory cannot read Pages settings). UPDATE run 12: the id (fa9620b0-…) is now pinned into every factory staging deploy from the live bundle, so staging push keeps working regardless
 - 2026-11-16 · iPhone ?diag=1 readout of the L0 sign-in visibility issue (open https://staging.social-momentum-8zq.pages.dev/?diag=1, tap COPY THIS TEXT, paste to chat) · L0 lane item, panel now ships from the repo (D-029)
-- standing · old cloud data: copy or start fresh (Life OS D-20261113-34) · staging database project (A6) · Oracle bucket link (L8) · lawyer review of privacy and terms (C6) — tracked in LAUNCH-LANE.md "Waiting on the owner"
+- standing · old cloud data: copy or start fresh (Life OS D-20261113-34) · staging database project (A6) · Oracle bucket link (L8) · lawyer review of privacy and terms (C6) — tracked in LAUNCH-LANE.md "Waiting on the owner". UPDATE run 12 (D-025 SHIPPED): draft /privacy + /terms EN+AR now exist on staging (PRs #19/#20/#22) — the lawyer can start reviewing; expected lawyer asks already listed in the run report (data-controller identity, client-side storage disclosure, processor names, cookie statement, eligibility clause)
 
 ## Resolved
 

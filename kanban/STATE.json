@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 12,
-  "last_run_at": "2026-11-16T23:17:00Z",
-  "last_run_report": "kanban/RUNS/20261116T2232Z-run12.md",
+  "last_run": 13,
+  "last_run_at": "2026-11-17T17:35:28Z",
+  "last_run_report": "kanban/RUNS/20261117T1735Z-run13.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "SEC 2026-11-17 (sweep re-confirmed, static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only), runtime-tree exposure = ws via supabase realtime (browser uses native WS) + lodash via recharts (no template path); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one); port-drift alarm 2026-11-17 verified benign (Syncthing on tailscale IP + Chrome loopback DevTools, zero public binds)",
