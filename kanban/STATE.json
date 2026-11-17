@@ -5,11 +5,11 @@
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
   "last_run": 12,
-  "last_run_at": "2026-11-16T22:32:00Z",
+  "last_run_at": "2026-11-16T23:17:00Z",
   "last_run_report": "kanban/RUNS/20261116T2232Z-run12.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
-    "SEC 2026-11-12 (UPDATED run 5): npm audit improved 2 critical + 19 high -> 1 critical + 16 high via PR #12 (dead Express server + zod removed); remaining = dev-chain debt on cards t_95d6a326 + t_3b38dbfd (vite major is the big one)",
+    "SEC 2026-11-17 (sweep re-confirmed, static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only), runtime-tree exposure = ws via supabase realtime (browser uses native WS) + lodash via recharts (no template path); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one); port-drift alarm 2026-11-17 verified benign (Syncthing on tailscale IP + Chrome loopback DevTools, zero public binds)",
     "RLS 2026-11-11 (run 4 audit, CRITICAL): RLS enabled 13/13 but ALL policies Allow-all for anon+authenticated+service_role (001_full_schema.sql:478-489); grants give anon full DML incl TRUNCATE; live impact = any internet client with the public anon key reads/writes rows unless app code scopes every query. Owner APPROVED scoped-policy design 2026-11-13 (D-018) -> buildable as lane L5 (rehearse on disposable copy; applying on prod stays owner-only).",
     "DEBT: pr-gate tsc step disabled - tsc -b baseline now 97 on merged staging (run 5 fixed one + corrected the count; run 4's '97' was actually 98 on merged code), enforce-by 2026-11-15 moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent/release-verify workflows not yet created (P1-2/3/4/13, lanes L3/L7)",
     "INCIDENT 2026-11-10: kanban/ wipe at 22:48 UTC coinciding with hermes kanban comment call; restored same run, kanban/ now git-tracked (3a16a1a). Root cause not reproduced; mirror comments stay PAUSED. Escalate only on recurrence."
@@ -26,11 +26,12 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run11 (2026-11-16, 17:33-19:0x UTC): L4 SHIPPED (PR #17, 14309c4) OneSignal non-blocking load + D-029 diag panel in-repo; D-031 SHIPPED (PR #18, e30b75d) DB diagnostic dev-only. Staging preview redeployed with pinned env (URL+anon key+app id). Smoke 21/21 twice. Reviewers: 2x glm-5.3-flash, findings MINOR/P2, fixes applied (diag=off clears all keys; init re-entry doc). Run 10 died pre-checkpoint; its WIP adopted. Env-var lesson: local Pages builds need VITE_ONESIGNAL_APP_ID too.",
-  "updated_at": "2026-11-16T18:55:00Z",
+  "notes": "run12 (2026-11-16, 22:32-23:17 UTC): D-025 SHIPPED (PRs #19/#20/#22: legal DRAFT pages EN+AR, auth links, absolute og:image, 44px targets, ?lang override) + signed-out data-fetch fix on staging (PR #21 DataIntegrityGuard gate) after the full smoke FAILED that check on production; production still exposed until the owner's promote/cutover decision (OWNER-QUEUE top line). Staging final deploy 5047501f, smoke 12/12 PASS. Skill patched (D-043 small-request-first). Process slip: 1 direct-to-staging commit, recovered via PR #20. Env-poison caught pre-deploy again (pinned-env builds only).",
+  "updated_at": "2026-11-16T23:17:00Z",
   "last_run_commits": [
-    "14309c4 (PR #17 squash: L4 OneSignal non-blocking + D-029 diag panel)",
-    "e30b75d (PR #18 squash: D-031 DB diagnostic dev-only + review fixes)",
-    "c145a6c (review fixes on PR #18 branch, folded into e30b75d)"
+    "7844c45 (PR #19 squash: D-025 legal pages EN+AR + auth links + og:image)",
+    "d7270a5 (PR #20 squash: ?lang= override)",
+    "835b80e (PR #21 squash: signed-out data-fetch privacy fix)",
+    "921b8b0 (PR #22 squash: reviewer IMPORTANT fixes)"
   ]
 }
