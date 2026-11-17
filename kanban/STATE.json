@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 13,
-  "last_run_at": "2026-11-17T17:35:28Z",
-  "last_run_report": "kanban/RUNS/20261117T1735Z-run13.md",
+  "last_run": 14,
+  "last_run_at": "2026-11-17T22:31:00Z",
+  "last_run_report": "kanban/RUNS/20261117T2231Z-run14.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "SEC 2026-11-17 (sweep re-confirmed, static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only), runtime-tree exposure = ws via supabase realtime (browser uses native WS) + lodash via recharts (no template path); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one); port-drift alarm 2026-11-17 verified benign (Syncthing on tailscale IP + Chrome loopback DevTools, zero public binds)",
@@ -26,8 +26,8 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run12 (2026-11-16, 22:32-23:17 UTC): D-025 SHIPPED (PRs #19/#20/#22: legal DRAFT pages EN+AR, auth links, absolute og:image, 44px targets, ?lang override) + signed-out data-fetch fix on staging (PR #21 DataIntegrityGuard gate) after the full smoke FAILED that check on production; production still exposed until the owner's promote/cutover decision (OWNER-QUEUE top line). Staging final deploy 5047501f, smoke 12/12 PASS. Skill patched (D-043 small-request-first). Process slip: 1 direct-to-staging commit, recovered via PR #20. Env-poison caught pre-deploy again (pinned-env builds only).",
-  "updated_at": "2026-11-16T23:17:00Z",
+  "notes": "run14 (2026-11-17, 22:31 UTC start): RECOVERY of run 13 (died post-checkpoint, pre-commit; worktree run13-rls held uncommitted 004 SQL + rollback + rehearsal script). Item: L5 RLS scoped policies (D-049, pinned first). Checkpoint-first per D-050.",
+  "updated_at": "2026-11-17T22:31:00Z",
   "last_run_commits": [
     "7844c45 (PR #19 squash: D-025 legal pages EN+AR + auth links + og:image)",
     "d7270a5 (PR #20 squash: ?lang= override)",
