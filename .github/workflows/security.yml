@@ -1,0 +1,52 @@
+name: Security
+
+# D-050 / D-052 (worker request; built run 16).
+# Two jobs:
+#   1. gitleaks — BLOCKING. Secret patterns in the full git history or the
+#      current tree fail the job.
+#   2. npm audit --audit-level=high — REPORT-ONLY by owner decision (dev-chain
+#      debt 1 critical + 16 high, static since run 5, fix = vite-major lane L6).
+#      It prints findings but never fails the job until the debt clears.
+
+on:
+  push:
+    branches: [staging, main]
+  pull_request:
+    branches: [staging, main]
+  schedule:
+    - cron: "20 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: gitleaks (blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  npm-audit:
+    name: npm audit high (report-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: npm audit (high+ report-only)
+        run: |
+          echo "REPORT-ONLY (owner decision): dev-chain debt 1 critical + 16 high;"
+          echo "turns enforcing after the vite major bump (L6). Findings below:"
+          npm audit --audit-level=high || true
