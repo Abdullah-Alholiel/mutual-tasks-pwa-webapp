@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 15,
-  "last_run_at": "2026-11-18T18:42:00Z",
-  "last_run_report": "kanban/RUNS/20261118T1732Z-run15.md",
+  "last_run": 16,
+  "last_run_at": "2026-11-18T22:31:33Z",
+  "last_run_report": "kanban/RUNS/20261118T2231Z-run16.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "RLS 2026-11-18 (UPDATED in run 15): scoped policies BUILT + REHEARSED (PR #23, bbcc1f7, rehearsal 52/52) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback script restores Allow-all verbatim.",
@@ -27,8 +27,8 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run15 (2026-11-18, 17:32-18:42 UTC): L5 SHIPPED - PR #23 merged (bbcc1f7). 004 scoped policies (D-018) + x-momentum-session per-request header + ON DELETE CASCADE on 4 child FKs (rehearsal-proven FK-trap fix) + in-memory notif dedup. Rehearsal 52/52 on disposable PG15 (kanban/RUNS/rehearsal-004.txt); staging preview pinned-env deploy, full smoke 12/12. GitGuardian caught the throwaway-password literal mid-run; fixed + squashed. PROD APPLY = OWNER-ONLY go; Realtime live-update loss needs owner decision. Next: D-050 small request first.",
-  "updated_at": "2026-11-18T18:42:00Z",
+  "notes": "run16 (2026-11-18, 22:31 UTC, IN PROGRESS): picked D-050/D-052 small worker request (deferred runs 7-15): scripts/deploy-pages-preview.sh + .github/workflows/security.yml + pr-gate tsc re-arm vs baseline 96. No open PRs; probe 200.",
+  "updated_at": "2026-11-18T22:31:33Z",
   "last_run_commits": [
     "bbcc1f7 (PR #23 squash: 004 scoped RLS + session header + task-delete cascades + rehearsal 52/52)"
   ]
