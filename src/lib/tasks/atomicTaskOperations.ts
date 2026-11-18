@@ -6,6 +6,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
+import { momentumFetch } from '@/lib/supabaseFetch';
 import type { Task } from '@/types';
 import { transformTaskRow, type TaskRow } from '@/db/transformers';
 import { notifyTaskCreated } from '@/lib/tasks/taskEmailNotifications';
@@ -19,7 +20,8 @@ function getSupabaseClient() {
         throw new Error('Supabase configuration missing');
     }
 
-    return createClient(url, key);
+    // L5 RLS: per-request session header (x-momentum-session) via momentumFetch
+    return createClient(url, key, { global: { fetch: momentumFetch } });
 }
 
 export interface AtomicTaskInput {
@@ -150,41 +152,27 @@ export async function deleteTaskAtomic(taskId: number): Promise<boolean> {
 
     console.log('[AtomicTask] Deleting task:', taskId);
 
-    // STEP 1: Fetch notification IDs BEFORE any deletes
-    // This is critical because ON DELETE SET NULL might fire when we delete the task
-    const { data: notificationData } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('task_id', taskId);
+    // STEP 1 (L5 RLS): delete child rows by task_id directly, hard-failing on
+    // any cleanup error BEFORE the task delete. Under scoped policies, other
+    // users' notification/completion rows are invisible to SELECT, so the old
+    // pre-fetch-the-ids flow returned a partial list and the deletes silently
+    // skipped foreign rows. 004 puts ON DELETE CASCADE on all four child FKs:
+    // the task DELETE removes every participant's rows; these explicit
+    // deletes are belt-and-braces for the caller's own rows.
+    for (const table of ['task_statuses', 'completion_logs', 'notifications', 'task_recurrence'] as const) {
+        const { error } = await supabase.from(table).delete().eq('task_id', taskId);
+        if (error) {
+            console.error(`[AtomicTask] ${table} cleanup failed for task ${taskId}:`, error);
+            throw new Error(`Failed to clean up ${table} for task ${taskId}: ${error.message}`);
+        }
+    }
 
-    const notificationIds = notificationData?.map(n => n.id) || [];
-    console.log('[AtomicTask] Found', notificationIds.length, 'notifications to delete for task', taskId);
-
-    // STEP 2: Delete related records first (in case CASCADE not set up)
-    await supabase.from('task_statuses').delete().eq('task_id', taskId);
-    await supabase.from('completion_logs').delete().eq('task_id', taskId);
-    await supabase.from('task_recurrence').delete().eq('task_id', taskId);
-
-    // STEP 3: Delete the task itself
+    // STEP 2: Delete the task itself
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);
 
     if (error) {
         console.error('[AtomicTask] Delete failed:', error);
         throw new Error(`Failed to delete task: ${error.message}`);
-    }
-
-    // STEP 4: Delete notifications BY ID (not by task_id, which may now be null)
-    if (notificationIds.length > 0) {
-        const { error: notifError } = await supabase
-            .from('notifications')
-            .delete()
-            .in('id', notificationIds);
-
-        if (notifError) {
-            console.warn('[AtomicTask] Failed to delete notifications:', notifError);
-        } else {
-            console.log('[AtomicTask] ✅ Deleted', notificationIds.length, 'notifications');
-        }
     }
 
     console.log('[AtomicTask] ✅ Task deleted (with statuses, logs, and notifications):', taskId);
@@ -243,27 +231,17 @@ export async function deleteTaskSeriesAtomic(taskId: number): Promise<number> {
     const taskIds = seriesTasks.map(t => t.id);
     console.log(`[AtomicTask] Found ${taskIds.length} tasks in series to delete.`);
 
-    // 3. Delete related resources for ALL tasks in series
-    // Notifications
-    const { data: notificationData } = await supabase
-        .from('notifications')
-        .select('id')
-        .in('task_id', taskIds);
-
-    const notificationIds = notificationData?.map(n => n.id) || [];
-
-    if (notificationIds.length > 0) {
-        await supabase.from('notifications').delete().in('id', notificationIds);
+    // 3. Delete related resources for ALL tasks in series.
+    // L5 RLS: direct task_id deletes with explicit error checks; 004's
+    // ON DELETE CASCADE on the child FKs removes rows invisible to the
+    // caller (other participants') when the tasks themselves are deleted.
+    for (const table of ['notifications', 'task_statuses', 'completion_logs', 'task_recurrence'] as const) {
+        const { error } = await supabase.from(table).delete().in('task_id', taskIds);
+        if (error) {
+            console.error(`[AtomicTask] ${table} series cleanup failed:`, error);
+            throw new Error(`Failed to clean up ${table} for the task series: ${error.message}`);
+        }
     }
-
-    // Task Statuses
-    await supabase.from('task_statuses').delete().in('task_id', taskIds);
-
-    // Completion Logs
-    await supabase.from('completion_logs').delete().in('task_id', taskIds);
-
-    // Task Recurrence
-    await supabase.from('task_recurrence').delete().in('task_id', taskIds);
 
     // 4. Delete the tasks themselves
     const { error: deleteError, count } = await supabase

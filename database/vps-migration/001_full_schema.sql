@@ -62,8 +62,49 @@ END $$;
 -- ============================================================
 -- 2. TABLES (exact match to remote schema)
 -- ============================================================
+-- RUN-13 NOTE: sequences must exist BEFORE the tables that default to them
+-- (a fresh database failed with "relation users_id_seq does not exist").
+-- Prelude creates all ten in one idempotent block.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'users_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.users_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'projects_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.projects_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'tasks_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.tasks_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'task_statuses_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.task_statuses_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'completion_logs_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.completion_logs_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'notifications_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.notifications_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'task_recurrence_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.task_recurrence_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'magic_links_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.magic_links_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'sessions_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.sessions_id_seq;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'ai_usage_logs_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.ai_usage_logs_id_seq;
+  END IF;
+END $$;
 
 -- Users
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'users_id_seq' AND relnamespace = 'public'::regnamespace) THEN
+    CREATE SEQUENCE public.users_id_seq;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS public.users (
   id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
   name text NOT NULL,
@@ -452,6 +493,25 @@ END $$;
 -- ============================================================
 -- 6. RLS (Row Level Security)
 -- ============================================================
+-- RUN-13 NOTE: a plain postgres:15 container has no supabase roles; create
+-- them so the policy DDL is exercisable outside the Supabase stack too.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon NOLOGIN NOINHERIT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN NOINHERIT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+  END IF;
+END $$;
+
+-- Grant the roles the table rights Supabase's default privileges would give
+-- (fresh non-Supabase databases grant none), matching the production posture:
+-- anon/authenticated get full DML (policy-scoped), service_role bypasses RLS.
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_stats ENABLE ROW LEVEL SECURITY;
