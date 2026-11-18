@@ -7,6 +7,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseUrl, getSupabaseAnonKey } from './env';
+import { momentumFetch } from './supabaseFetch';
 
 // Add global type definition for development HMR
 declare global {
@@ -42,7 +43,12 @@ export function getSharedSupabaseClient(): SupabaseClient {
     );
   }
 
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  // L5 RLS: scoped policies resolve the caller via the x-momentum-session
+  // header. momentumFetch injects it per request at request time (never
+  // stale); Realtime (WebSocket) is unaffected and disclosed in 004.
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { fetch: momentumFetch },
+  });
 
   // Store in global window for HMR support
   if (import.meta.env.DEV) {

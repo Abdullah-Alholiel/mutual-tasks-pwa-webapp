@@ -14,6 +14,26 @@ import {
 export class NotificationsRepository {
   constructor(private supabase: SupabaseClient) { }
 
+  // L5 RLS: the 10s dedup pre-check is a SELECT on the RECIPIENT's rows.
+  // Under scoped policies (004) the actor cannot read another user's
+  // notifications, so for cross-user sends that query can never match.
+  // This in-memory cache restores the guard the DB dedup used to provide
+  // within one browser session (double-click / rapid double-send); the
+  // DB dedup below still covers self-addressed notifications. Cross-device
+  // duplicates remain possible under scoped RLS — disclosed in the PR and
+  // run report; a server-side dedup is part of the follow-up design.
+  private static recentSends: { key: string; ts: number }[] = [];
+  private static RECENT_WINDOW_MS = 10000;
+
+  private static isRecentDuplicate(userId: number | string, type: string, message: string, projectId?: number | null, taskId?: number | null): boolean {
+    const key = `${userId}|${type}|${projectId ?? '-'}|${taskId ?? '-'}|${message ?? ''}`;
+    const now = Date.now();
+    NotificationsRepository.recentSends = NotificationsRepository.recentSends.filter(r => now - r.ts < NotificationsRepository.RECENT_WINDOW_MS);
+    if (NotificationsRepository.recentSends.some(r => r.key === key)) return true;
+    NotificationsRepository.recentSends.push({ key, ts: now });
+    return false;
+  }
+
   /**
    * Get a notification by ID
    */
@@ -90,6 +110,16 @@ export class NotificationsRepository {
     const nowIso = now.toISOString();
     const tenSecondsAgo = new Date(now.getTime() - 10000).toISOString();
 
+    // In-memory guard first (works for cross-user sends under scoped RLS —
+    // see the recentSends note on the class).
+    if (NotificationsRepository.isRecentDuplicate(notificationData.userId, notificationData.type, notificationData.message ?? '', notificationData.projectId ?? null, notificationData.taskId ?? null)) {
+      console.debug('[NotificationsRepo] Skipping in-session duplicate notification:', {
+        userId: notificationData.userId,
+        type: notificationData.type,
+      });
+      return null;
+    }
+
     // Deduplication: Check for a recent duplicate
     let query = this.supabase
       .from('notifications')
@@ -128,17 +158,19 @@ export class NotificationsRepository {
       return null; // Return null to indicate skipped duplicate
     }
 
-    const { data, error } = await this.supabase
+    const { error } = await this.supabase
       .from('notifications')
       .insert({
         ...row,
         created_at: nowIso,
-      })
-      .select()
-      .single();
+      });
 
+    // NOTE (L5 RLS): no `.select()` here. Notifications are written for OTHER
+    // users; with RETURNING, Postgres also applies the SELECT policy to the
+    // new row, which is invisible to the actor -> hard failure. Callers
+    // (sendNotification, createInAppNotification) ignore the returned row.
     if (error) throw error;
-    return transformNotificationRow(data as NotificationRow);
+    return null;
   }
 
   /**
@@ -217,40 +249,20 @@ export class NotificationsRepository {
 
     console.log('[NotificationsRepo] createMany - Input rows:', JSON.stringify(rows, null, 2));
 
-    const { data, error } = await this.supabase
+    const { error } = await this.supabase
       .from('notifications')
-      .insert(rows)
-      .select();
+      .insert(rows);
 
-    console.log('[NotificationsRepo] createMany - Supabase response:', {
-      hasError: !!error,
-      errorMessage: error?.message,
-      errorCode: error?.code,
-      dataLength: data?.length ?? 'null',
-      data: data,
-    });
-
+    // NOTE (L5 RLS): no `.select()` here — same reason as create(): rows are
+    // written for OTHER users and would fail the SELECT-policy leg of
+    // RETURNING. Callers ignore the returned rows.
     if (error) {
       console.error('[NotificationsRepo] createMany - ERROR:', error);
       throw error;
     }
 
-    // CRITICAL: Check for RLS silent failure (insert succeeds but select returns empty)
-    if (!data || data.length === 0) {
-      console.error('[NotificationsRepo] ❌ CRITICAL: Insert succeeded but SELECT returned no data!');
-      console.error('[NotificationsRepo] This indicates an RLS policy issue on the notifications table.');
-      console.error('[NotificationsRepo] Check that the INSERT and SELECT policies are correctly configured.');
-      console.error('[NotificationsRepo] Attempted to insert:', rows.length, 'notifications');
-      throw new Error('RLS policy error: INSERT succeeded but SELECT returned no data. Check notifications table RLS policies.');
-    }
-
-    if (data.length !== rows.length) {
-      console.warn('[NotificationsRepo] ⚠️ WARNING: Inserted', rows.length, 'but only got', data.length, 'back');
-      console.warn('[NotificationsRepo] Some notifications may have been filtered by RLS');
-    }
-
-    console.log('[NotificationsRepo] ✅ createMany succeeded:', data.length, 'notifications created');
-    return data.map((row: NotificationRow) => transformNotificationRow(row));
+    console.log('[NotificationsRepo] ✅ createMany succeeded:', rows.length, 'notifications created');
+    return [];
   }
 
   /**
