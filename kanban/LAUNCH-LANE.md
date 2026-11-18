@@ -144,9 +144,19 @@ production outranks the lane.
       from the next production deployment.
 - [ ] L4d · Scheduled acceptance tests on staging + RELEASE-CANDIDATE.md for the owner's promote card
       (owner 2026-11-16; spec in the DECISIONS.md row "Scheduled acceptance tests on staging").
-- [ ] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
+- [x] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
       scoped policies on the custom-session model, rehearsed on a disposable copy, rollback script.
       Applying on production is owner-only after Claude reviews the SQL.
+      DONE 2026-11-18 run 15: PR #23 merged (bbcc1f7) — 004 scoped policies (D-018 design:
+      x-momentum-session header -> app_current_user_id(), SECURITY DEFINER helpers, TRUNCATE
+      revoked, magic_links anon-zero, sessions SELECT-only) + ON DELETE CASCADE on the four
+      child FKs of tasks (rehearsal-proven necessity) + client per-request session header
+      (supabaseFetch.ts) + task_id-keyed deletes + in-memory dedup for cross-user notifications.
+      Rehearsal 52/52 PASS on disposable postgres:15 (kanban/RUNS/rehearsal-004.txt); gates green;
+      staging preview redeployed pinned-env, full smoke 12/12. KNOWN IMPACT for owner decision:
+      Realtime postgres_changes delivery stops under header-scoped policies (app stays usable via
+      optimistic updates + refetch-on-focus); prod apply = owner-only, separate go; post-apply
+      live PostgREST header probe listed in the run report rollout steps.
 - [ ] L6 · Type errors to zero and the tsc gate back on (A1; the 2026-11-15 enforce-by date moves
       behind L1–L2 by owner decision).
 - [ ] L7 · Remaining CI workflows: security (gitleaks, npm audit high), semgrep, pr-agent (A2–A4).

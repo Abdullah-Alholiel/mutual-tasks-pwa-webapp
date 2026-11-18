@@ -5,14 +5,15 @@
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
   "last_run": 15,
-  "last_run_at": "2026-11-18T17:32:00Z",
+  "last_run_at": "2026-11-18T18:42:00Z",
   "last_run_report": "kanban/RUNS/20261118T1732Z-run15.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
-    "SEC 2026-11-17 (sweep re-confirmed, static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only), runtime-tree exposure = ws via supabase realtime (browser uses native WS) + lodash via recharts (no template path); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one); port-drift alarm 2026-11-17 verified benign (Syncthing on tailscale IP + Chrome loopback DevTools, zero public binds)",
-    "RLS 2026-11-11 (run 4 audit, CRITICAL): RLS enabled 13/13 but ALL policies Allow-all for anon+authenticated+service_role (001_full_schema.sql:478-489); grants give anon full DML incl TRUNCATE; live impact = any internet client with the public anon key reads/writes rows unless app code scopes every query. Owner APPROVED scoped-policy design 2026-11-13 (D-018) -> buildable as lane L5 (rehearse on disposable copy; applying on prod stays owner-only).",
-    "DEBT: pr-gate tsc step disabled - tsc -b baseline now 97 on merged staging (run 5 fixed one + corrected the count; run 4's '97' was actually 98 on merged code), enforce-by 2026-11-15 moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent/release-verify workflows not yet created (P1-2/3/4/13, lanes L3/L7)",
-    "INCIDENT 2026-11-10: kanban/ wipe at 22:48 UTC coinciding with hermes kanban comment call; restored same run, kanban/ now git-tracked (3a16a1a). Root cause not reproduced; mirror comments stay PAUSED. Escalate only on recurrence."
+    "RLS 2026-11-18 (UPDATED in run 15): scoped policies BUILT + REHEARSED (PR #23, bbcc1f7, rehearsal 52/52) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback script restores Allow-all verbatim.",
+    "REALTIME 2026-11-18 (run 15 disclosure, needs owner decision): under scoped policies live postgres_changes delivery stops (policies evaluate without request headers). App usable via optimistic updates + refetch-on-focus. Options: accept short-term, or approve authorized-subscriber/signed-claims follow-up build.",
+    "SEC 2026-11-17 (static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one).",
+    "DEBT: pr-gate tsc step disabled - tsc -b baseline now 96 on merged staging (run 15 re-measured); enforce-by moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent workflows not yet created (D-050 small request pinned next).",
+    "INCIDENT 2026-11-10: kanban/ wipe root cause unknown; kanban/ git-tracked; mirror comments stay PAUSED. Escalate only on recurrence."
   ],
   "pending_escalations": [
     "RLS DECISION RESOLVED 2026-11-13 (D-018): owner approved scoped-policy design (option a: anon policies join on sessions, functions use service_role). Build+rehearse on a disposable copy (lane L5), deliver SQL + rehearsal proof + rollback script; applying on prod = owner-only, separate go.",
@@ -26,12 +27,9 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run15 (2026-11-18, 17:32 UTC start): D-051 pinned FIRST \u2014 finish run 13's uncommitted L5 RLS work in worktree run13-rls: WIP commit, client session header, cross-user write fixes, rehearse-004, PR with Realtime note. Run 14 died post-checkpoint with zero commits.",
-  "updated_at": "2026-11-18T17:32:00Z",
+  "notes": "run15 (2026-11-18, 17:32-18:42 UTC): L5 SHIPPED - PR #23 merged (bbcc1f7). 004 scoped policies (D-018) + x-momentum-session per-request header + ON DELETE CASCADE on 4 child FKs (rehearsal-proven FK-trap fix) + in-memory notif dedup. Rehearsal 52/52 on disposable PG15 (kanban/RUNS/rehearsal-004.txt); staging preview pinned-env deploy, full smoke 12/12. GitGuardian caught the throwaway-password literal mid-run; fixed + squashed. PROD APPLY = OWNER-ONLY go; Realtime live-update loss needs owner decision. Next: D-050 small request first.",
+  "updated_at": "2026-11-18T18:42:00Z",
   "last_run_commits": [
-    "7844c45 (PR #19 squash: D-025 legal pages EN+AR + auth links + og:image)",
-    "d7270a5 (PR #20 squash: ?lang= override)",
-    "835b80e (PR #21 squash: signed-out data-fetch privacy fix)",
-    "921b8b0 (PR #22 squash: reviewer IMPORTANT fixes)"
+    "bbcc1f7 (PR #23 squash: 004 scoped RLS + session header + task-delete cascades + rehearsal 52/52)"
   ]
 }
