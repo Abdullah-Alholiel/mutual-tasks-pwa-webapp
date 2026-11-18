@@ -159,7 +159,19 @@ production outranks the lane.
       live PostgREST header probe listed in the run report rollout steps.
 - [ ] L6 · Type errors to zero and the tsc gate back on (A1; the 2026-11-15 enforce-by date moves
       behind L1–L2 by owner decision).
-- [ ] L7 · Remaining CI workflows: security (gitleaks, npm audit high), semgrep, pr-agent (A2–A4).
+- [x] D-050+D-052 · CI security workflow + pinned-env deploy script + tsc ratchet
+      (Life OS worker requests D-20261117-09 / D-20261118-07; deferred since runs 7-15).
+      DONE 2026-11-18 run 16: PR #24 merged (3bc4669) — .github/workflows/security.yml
+      (gitleaks BLOCKING full-history + npm audit high REPORT-ONLY, weekly + manual),
+      scripts/deploy-pages-preview.sh (pins url/key/OneSignal id from the live deployed
+      bundle — never repo .env — strict bundle gate + secret sweep before wrangler
+      --branch staging, full smoke after, refuses main/dirty trees, OneSignal-pin drift
+      guard), pr-gate tsc re-armed as a ratchet (fails only above baseline 97 on
+      tsc -b; live gate printed 97=97 on the PR). Red proof: PR #25, gitleaks FAILED
+      in 6s on an injected fake secret, closed+deleted. Verification: tsc 97=baseline,
+      vitest 13/145, build exit 0, bundle secret-grep clean.
+- [ ] L7 · Remaining CI workflows: semgrep, pr-agent (A2–A4; security.yml landed in
+      run 16, tsc ratchet live).
 - [ ] L8 · Off-site backup script to the shared Oracle bucket (A9; build and test against a local
       folder until the owner supplies the bucket link) + first full restore drill.
 - [ ] L9 · Monitoring drill: injected failure reaches Telegram; external uptime probe (A10).
