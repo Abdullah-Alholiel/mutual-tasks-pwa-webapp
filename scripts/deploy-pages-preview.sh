@@ -56,16 +56,16 @@ for LIVE_BUNDLE in "${KEY_SOURCES[@]}"; do
   if curl -fsS --max-time 20 "$LIVE_BUNDLE" -o "$TMPDIR_OT/index.html" 2>/dev/null; then
     INDEX_JS=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' "$TMPDIR_OT/index.html" | head -1)
     [ -n "$INDEX_JS" ] || continue
-    curl -fsS --max-time 30 "$LIVE_BUNDLE$INDEX_JS" -o "$TMPDIR_OT/bundle.js" 2>/dev/null || continue
+    curl -fsS --max-time 30 "${LIVE_BUNDLE}${INDEX_JS}" -o "$TMPDIR_OT/bundle.js" 2>/dev/null || continue
     PIN_URL=$(grep -oE 'https://[a-z0-9.-]+\.(supabase\.co|sslip\.io)' "$TMPDIR_OT/bundle.js" \
-              | grep -v n8n | sort -u | head -1)
+              | grep -v n8n | sort -u | head -1 || true)
     # The anon key is JWT-shaped (eyJ…): distinct JWTs; exactly one is correct.
     PIN_KEY=$(grep -oE 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' "$TMPDIR_OT/bundle.js" \
-              | sort -u | head -1)
+              | sort -u | head -1 || true)
     # The OneSignal app id is inlined as VITE_ONESIGNAL_APP_ID:"<uuid>"; a bare
     # UUID grep also matches the Sentry debug id, so anchor on the env inline.
     PIN_ONESIGNAL=$(grep -oE 'VITE_ONESIGNAL_APP_ID[":= ]+[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
-                    "$TMPDIR_OT/bundle.js" | grep -oE '[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}' | head -1)
+                    "$TMPDIR_OT/bundle.js" | grep -oE '[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}' | head -1 || true)
     [ -n "$PIN_URL" ] && [ -n "$PIN_KEY" ] && break
   fi
 done
@@ -73,6 +73,11 @@ done
 [ -n "$PIN_URL" ] || die "no Supabase address found in the live bundle"
 [ -n "$PIN_KEY" ] || die "no public key found in the live bundle"
 [ -n "$PIN_ONESIGNAL" ] || die "no OneSignal app id found in the live bundle (push would silently stay off)"
+# D-052 pins the OneSignal app id constant (public value, D-044): a mismatch
+# means the deployed bundle drifted — refuse rather than propagate it.
+if [ "$PIN_ONESIGNAL" != "fa9620b0-7c86-49c0-a7e5-1430e32a923d" ]; then
+  die "OneSignal app id drift: bundle carries a different id than the D-052 pin — investigate before deploying"
+fi
 log "pins: url=$PIN_URL key=$(fp "$PIN_KEY") onesignal=$(fp "$PIN_ONESIGNAL")"
 
 # ── export the pins (highest precedence — beats any repo .env value) ────────
@@ -83,8 +88,8 @@ unset VITE_SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY 2>/dev/null || tr
 
 # ── deps + build ────────────────────────────────────────────────────────────
 if [ ! -d node_modules ]; then
-  log "installing dependencies (fresh checkout)"
-  npm install --no-audit --no-fund
+  log "installing dependencies (fresh checkout, lockfile-pinned)"
+  npm ci --no-audit --no-fund
 fi
 
 log "building (PAGES_BUILD=1, hardened headers/routes generated into dist/)"

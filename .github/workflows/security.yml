@@ -15,6 +15,7 @@ on:
     branches: [staging, main]
   schedule:
     - cron: "20 4 * * 1"
+  workflow_dispatch: {}   # manual runs: the D-050 red-proof (fake secret) needs no push
 
 permissions:
   contents: read
