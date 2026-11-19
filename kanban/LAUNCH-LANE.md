@@ -170,6 +170,19 @@ production outranks the lane.
       tsc -b; live gate printed 97=97 on the PR). Red proof: PR #25, gitleaks FAILED
       in 6s on an injected fake secret, closed+deleted. Verification: tsc 97=baseline,
       vitest 13/145, build exit 0, bundle secret-grep clean.
+- [x] D-054 · Pages control files in the repo (cutover prereq; Life OS worker request
+      D-20261119-06, built run 18 per the small-request-first rule).
+      DONE 2026-11-19 run 18: PR #27 merged (squash 217930e) — public/_headers (hardened CSP:
+      no unsafe-eval [F7], no n8n host [F14]) copied by vite into EVERY build (deploy-invariant);
+      pages-config.mjs verifies the copy instead of generating; NO public/_redirects (Netlify
+      file-over-toml precedence would shadow the 4 /api rules in Netlify prod; Pages SPA-falls
+      back natively — live /privacy 200) and NO wrangler.toml (CF: file with
+      pages_build_output_dir becomes config source of truth; next deploy would drop the
+      owner-set 10 env vars incl 4 secrets + the AI binding) — both guarded by
+      tests/functions/pagesControlFiles.test.ts. FIXED live bug: staging preview served NO
+      security headers before this (plain vite build + wrangler ships no control files).
+      Gates: tsc 97=97, vitest 152/152, reviewer MERGE 0C/0I. Deploy: pinned-env script,
+      smoke 12/12, all 6 headers verified live via curl.
 - [ ] L7 · Remaining CI workflows: semgrep, pr-agent (A2–A4; security.yml landed in
       run 16, tsc ratchet live).
 - [ ] L8 · Off-site backup script to the shared Oracle bucket (A9; build and test against a local

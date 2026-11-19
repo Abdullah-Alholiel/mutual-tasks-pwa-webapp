@@ -27,10 +27,10 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run17 (2026-11-19, 17:33-18:05 UTC): D-053 SHIPPED - PR #26 merged (ec700a8): 3 self-escalation holes closed in 004 BEFORE owner prod apply (participants self-join role-locked to participant; users UPDATE column-locked vs is_premium flips, grant list = toUserRow write set; ai_usage_logs anon SELECT-only, client increment path proven zero-caller). Rollback restores pre-tightening grants verbatim. Rehearsal 65/65 (13 new proofs; kanban/RUNS/rehearsal-004.txt). Gates: tsc 97=97, vitest 145/145, build clean, CI green (gate+gitleaks+npm-audit), reviewer glm-5.3-flash MERGE 0C/0I (re-ran rehearsal independently). Staging smoke 12/12; prod 22/23 (known pre-promote gap). PITFALL: worktree .env symlink poisoned first build - removed, clean rebuild verified. Next: D-054 (Pages headers/redirects/wrangler.toml, small) then L4c (AI without n8n, full run).",
-  "updated_at": "2026-11-19T18:05:00Z",
+  "notes": "run18 (2026-11-19, 22:31-23:05 UTC): D-054 SHIPPED (adapted) - PR #27 merged (squash 217930e): public/_headers hardened CSP (F7 unsafe-eval + F14 n8n host removed) now deploy-invariant via vite public/ copy on EVERY build; pages-config.mjs verifies the copy instead of generating. TWO REFUSALS with guard tests: no public/_redirects (Netlify file-over-toml precedence would shadow the 4 /api rules in Netlify prod) and no wrangler.toml (CF source-of-truth rule would drop owner-set 10 env vars incl 4 secrets + AI binding on next deploy; secrets owner-only). FIXED LIVE BUG: staging preview served NO security headers (plain vite build + wrangler ships no control files; functions kept answering so smoke missed it) - now all 6 headers verified live via curl post-deploy. Gates: tsc 97=97, vitest 152/152 (+7), reviewer MERGE 0C/0I (3 MINOR). Pinned-env deploy + smoke 12/12. Next: L4c (AI without n8n, full run) then L4b cutover report.",
+  "updated_at": "2026-11-19T23:05:00Z",
   "last_run_commits": [
-    "ec700a8 (PR #26 squash: D-053 RLS self-escalation fixes, rehearsal 65/65)",
-    "6de9265 (docs: rehearsal-004.txt proof + run 17 report)"
+    "217930e (PR #27 squash: D-054 public/_headers deploy-invariant, refusals documented)",
+    "f1de415 (docs: run 18 report mid-run)"
   ]
 }

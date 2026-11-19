@@ -111,6 +111,19 @@ AI limits owner-only · Level A until P3 conditions met.
   disposable PG15 (13 new proofs; kanban/RUNS/rehearsal-004.txt). Gates: tsc 97=97,
   vitest 145/145, build clean, CI green, reviewer MERGE (0 C/0 I). Staging smoke 12/12;
   prod still 22/23 (known pre-promote gap, owner queue). Report: kanban/RUNS/20261119T1733Z-run17.md
+- Run 18 (2026-11-19): **D-054 SHIPPED (adapted)** — PR #27 merged (217930e):
+  public/_headers (hardened CSP: no unsafe-eval [F7], no n8n host [F14]) is now
+  deploy-invariant — vite copies it into EVERY build; pages-config.mjs verifies the copy
+  instead of generating. TWO REFUSALS vs the worker request, both guard-tested
+  (tests/functions/pagesControlFiles.test.ts): NO public/_redirects (Netlify
+  file-over-toml precedence would shadow the 4 /api rules in Netlify prod; Pages
+  SPA-falls-back natively — /privacy 200 live) and NO wrangler.toml (CF source-of-truth
+  rule would drop the owner-set 10 env vars incl 4 secrets + the AI binding on next
+  deploy). FIXED LIVE BUG found this run: the staging preview served NO security headers
+  (plain vite build + wrangler upload ships no control files; functions kept answering,
+  so the smoke test missed it) — all 6 headers verified live via curl after the pinned-env
+  redeploy (smoke 12/12). Gates: tsc 97=97, vitest 152/152 (+7), reviewer MERGE 0C/0I.
+  Prod smoke 22/23 (same known pre-promote gap). Report: kanban/RUNS/20261119T2231Z-run18.md
 
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 
