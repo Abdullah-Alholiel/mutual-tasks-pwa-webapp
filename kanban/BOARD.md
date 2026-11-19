@@ -90,6 +90,27 @@ AI limits owner-only · Level A until P3 conditions met.
   smoke 12/12 PASS; AR proof: html lang=ar dir=rtl, screenshots in cron/output/run12-shots/.
   Process slip: one follow-up commit landed direct on staging, recovered via PR #20.
   Report: kanban/RUNS/20261116T2232Z-run12.md
+- Runs 13-14 (2026-11-16/17/18): DIED before checkpoint (stale-lock recovery); no commits
+  survived; their L4/L5 work was adopted and completed by runs 15-17.
+- Run 15 (2026-11-18): **L5 SHIPPED** — PR #23 merged (bbcc1f7): 004 scoped RLS policies
+  (x-momentum-session header → app_current_user_id(), SECURITY DEFINER helpers, TRUNCATE
+  revoked, magic_links anon-zero) + ON DELETE CASCADE on the four tasks child FKs + client
+  per-request session header. Rehearsal 52/52 (disposable PG15). Prod apply = owner-only;
+  Realtime impact disclosed (owner decision pending). Report: kanban/RUNS/ run 15.
+- Run 16 (2026-11-18): **D-050/D-052 SHIPPED** — PR #24 merged (3bc4669): CI security.yml
+  (gitleaks BLOCKING full-history + npm audit report-only), scripts/deploy-pages-preview.sh
+  (pinned-env staging deploys, never repo .env), pr-gate tsc re-armed as a ratchet vs
+  baseline 97. Red proof: PR #25 fake secret → gitleaks red in 6s, closed+deleted.
+  Report: kanban/RUNS/20261118T2231Z-run16.md
+- Run 17 (2026-11-19): **D-053 SHIPPED** — PR #26 merged (ec700a8): 3 self-escalation holes
+  closed in 004 scoped policies BEFORE the owner's prod apply — (1) participants self-join
+  requires role='participant' (no self-manager/owner), (2) users UPDATE column-locked
+  (is_premium/premium_since/premium_note untouchable by anon; profile columns granted),
+  (3) ai_usage_logs anon SELECT-only (client increment path = zero callers; RPC is the sole
+  writer). Rollback restores pre-tightening grants verbatim. Rehearsal 65/65 PASS on
+  disposable PG15 (13 new proofs; kanban/RUNS/rehearsal-004.txt). Gates: tsc 97=97,
+  vitest 145/145, build clean, CI green, reviewer MERGE (0 C/0 I). Staging smoke 12/12;
+  prod still 22/23 (known pre-promote gap, owner queue). Report: kanban/RUNS/20261119T1733Z-run17.md
 
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 

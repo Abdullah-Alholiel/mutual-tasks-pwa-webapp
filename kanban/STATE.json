@@ -5,11 +5,11 @@
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
   "last_run": 17,
-  "last_run_at": "2026-11-19T17:34:00Z",
+  "last_run_at": "2026-11-19T18:05:00Z",
   "last_run_report": "kanban/RUNS/20261119T1733Z-run17.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
-    "RLS 2026-11-18 (UPDATED in run 15): scoped policies BUILT + REHEARSED (PR #23, bbcc1f7, rehearsal 52/52) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback script restores Allow-all verbatim.",
+    "RLS 2026-11-19 (UPDATED in run 17): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback restores pre-tightening state verbatim.",
     "REALTIME 2026-11-18 (run 15 disclosure, needs owner decision): under scoped policies live postgres_changes delivery stops (policies evaluate without request headers). App usable via optimistic updates + refetch-on-focus. Options: accept short-term, or approve authorized-subscriber/signed-claims follow-up build.",
     "SEC 2026-11-17 (static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one).",
     "DEBT: pr-gate tsc step disabled - tsc -b baseline now 96 on merged staging (run 15 re-measured); enforce-by moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent workflows not yet created (D-050 small request pinned next).",
@@ -27,9 +27,10 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run16 (2026-11-18, 22:31-23:06 UTC): D-050/D-052 SHIPPED - PR #24 merged (3bc4669): scripts/deploy-pages-preview.sh (pinned-env from live bundle, never repo .env; strict bundle gate + secret sweep + smoke; staging-only) + security.yml (gitleaks BLOCKING, npm audit report-only, weekly+manual) + pr-gate tsc RATCHET vs baseline 97 (tsc -b method; app-only=96; live gate printed 97=97). D-050 red proof DELIVERED: PR #25 fake secret -> gitleaks FAILED in 6s, closed+deleted. Reviewer fixes applied pre-merge (pipefail greps, OneSignal drift guard, npm ci). Post-merge full smoke 22/23 - FAIL is the known PROD pre-promote gap (#21 fix on staging, not main; staging passes). Next: L4c AI-without-n8n (owner wants AI before cutover report).",
-  "updated_at": "2026-11-18T23:06:00Z",
+  "notes": "run17 (2026-11-19, 17:33-18:05 UTC): D-053 SHIPPED - PR #26 merged (ec700a8): 3 self-escalation holes closed in 004 BEFORE owner prod apply (participants self-join role-locked to participant; users UPDATE column-locked vs is_premium flips, grant list = toUserRow write set; ai_usage_logs anon SELECT-only, client increment path proven zero-caller). Rollback restores pre-tightening grants verbatim. Rehearsal 65/65 (13 new proofs; kanban/RUNS/rehearsal-004.txt). Gates: tsc 97=97, vitest 145/145, build clean, CI green (gate+gitleaks+npm-audit), reviewer glm-5.3-flash MERGE 0C/0I (re-ran rehearsal independently). Staging smoke 12/12; prod 22/23 (known pre-promote gap). PITFALL: worktree .env symlink poisoned first build - removed, clean rebuild verified. Next: D-054 (Pages headers/redirects/wrangler.toml, small) then L4c (AI without n8n, full run).",
+  "updated_at": "2026-11-19T18:05:00Z",
   "last_run_commits": [
-    "3bc4669 (PR #24 squash: deploy-pages-preview.sh + security.yml + tsc ratchet 97)"
+    "ec700a8 (PR #26 squash: D-053 RLS self-escalation fixes, rehearsal 65/65)",
+    "6de9265 (docs: rehearsal-004.txt proof + run 17 report)"
   ]
 }
