@@ -1,3 +1,8 @@
+# rehearsal-004.txt — scoped RLS rehearsal proof (scripts/rehearse-004.sh)
+# Run 17 (2026-11-19): D-053 hardened 004 (3 self-escalation holes closed) — 65/65 PASS
+# Previous run-15 proof (52/52) preserved in git history (kanban/RUNS/rehearsal-004.txt @ bbcc1f7).
+# Disposable postgres:15-alpine container; 001 -> 002_premium -> 003 -> 004; all probes SET ROLE anon.
+
 == 1. Starting disposable Postgres 15 ==
 PASS: container ready
 == 2. Applying schema chain 001 -> 002_premium -> 003 ==
@@ -72,6 +77,21 @@ PASS: Alice removes her outgoing friend edge
 PASS: owner/manager changes a member role
 PASS: member inserts a recurrence row
 PASS: authenticated role sees 0 rows (deny-all posture)
+== 6c. PROOF: D-053 self-escalation holes are CLOSED (run 17) ==
+PASS: own-row is_premium flip REJECTED (column privilege)
+PASS: premium_since/premium_note write REJECTED
+PASS: profile columns (timezone, notification_preferences) still writable
+PASS: self-insert as manager on public project REJECTED
+PASS: self-insert as owner on public project REJECTED
+PASS: normal participant self-join still works
+PASS: anon DELETE of own ai_usage row REJECTED
+PASS: anon counter-zeroing UPDATE on ai_usage REJECTED
+PASS: anon INSERT into ai_usage REJECTED
+PASS: Alice still reads her usage row (SELECT survived)
+PASS: consume_ai_usage RPC still increments (seed 1 -> 2)
+== 6d. PROOF: participants UPDATE cannot cross the policy line ==
+PASS: Bob cannot self-promote via UPDATE (row still role=participant)
+PASS: legitimate manager role-change still works
 == 7. PROOF: Bob's view is scoped to Bob ==
 PASS: Bob sees exactly his 1 accessible task
 PASS: Bob sees none of Alice's completion logs
@@ -100,10 +120,7 @@ PASS: no Allow-all policies remain after re-apply
 == 9. Policy inventory (post re-apply) ==
       tablename       |             policyname              |  cmd   
 ----------------------+-------------------------------------+--------
- ai_usage_logs        | ai_usage_delete_own                 | DELETE
- ai_usage_logs        | ai_usage_insert_own                 | INSERT
  ai_usage_logs        | ai_usage_select_own                 | SELECT
- ai_usage_logs        | ai_usage_update_own                 | UPDATE
  completion_logs      | completion_logs_delete_own          | DELETE
  completion_logs      | completion_logs_insert_own          | INSERT
  completion_logs      | completion_logs_select_own          | SELECT
@@ -144,7 +161,7 @@ PASS: no Allow-all policies remain after re-apply
  users                | users_delete_self                   | DELETE
  users                | users_select_signed_in              | SELECT
  users                | users_update_self                   | UPDATE
-(44 rows)
+(41 rows)
 
 
 REHEARSAL RESULT: ALL PROOFS PASS
