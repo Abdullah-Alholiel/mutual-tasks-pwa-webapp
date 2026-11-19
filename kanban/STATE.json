@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 16,
-  "last_run_at": "2026-11-18T23:06:00Z",
-  "last_run_report": "kanban/RUNS/20261118T2231Z-run16.md",
+  "last_run": 17,
+  "last_run_at": "2026-11-19T17:34:00Z",
+  "last_run_report": "kanban/RUNS/20261119T1733Z-run17.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "RLS 2026-11-18 (UPDATED in run 15): scoped policies BUILT + REHEARSED (PR #23, bbcc1f7, rehearsal 52/52) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback script restores Allow-all verbatim.",
