@@ -30,7 +30,15 @@ describe('/api/* route contract', () => {
         }
     });
 
-    it('no public/_redirects duplicate SPA fallback (single source: netlify.toml)', () => {
+    // D-054 (run 18): NO public/_redirects, deliberately. Two facts:
+    //  - Netlify (production today, 16 real users) gives a _redirects FILE
+    //    precedence over netlify.toml [[redirects]] — a splat in public/_redirects
+    //    would shadow the four /api/* function rules in Netlify production.
+    //  - Cloudflare Pages needs no SPA-fallback redirect: unmatched navigations
+    //    serve index.html natively (live-verified 2026-11-19: /privacy -> 200 on
+    //    the preview), and Pages Functions keep answering /api/* regardless
+    //    (default _routes include /*; _redirects rules apply to static responses).
+    it('no public/_redirects anywhere (Netlify would shadow /api redirects; Pages SPA-falls-back natively)', () => {
         expect(existsSync(resolve(ROOT, 'public/_redirects'))).toBe(false);
     });
 
