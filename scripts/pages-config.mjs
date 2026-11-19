@@ -17,34 +17,31 @@ if (!existsSync(dist)) {
 }
 
 // ── _headers ────────────────────────────────────────────────────────────────
+// Since D-054 (run 18) the canonical _headers lives in public/_headers (committed)
+// and vite copies it into dist/ on EVERY build — no longer generated here. That
+// makes the security headers deploy-invariant: a plain `vite build` + manual
+// wrangler upload (runs 15-18 did exactly that) previously shipped NO headers at
+// all (live preview verified headerless 2026-11-19; functions still answered via
+// the default /* include, so the gap was invisible to the smoke test).
 // Same policy as netlify.toml production headers, hardened per plan A5:
 //  - 'unsafe-eval' REMOVED from script-src (F7)
 //  - n8n host REMOVED from connect-src (F14 — the browser never calls n8n;
 //    the server-side functions do)
 // Everything else is byte-parity with netlify.toml.
-const CSP = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://cdn.onesignal.com https://api.onesignal.com https://cdn.jsdelivr.net",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: https: blob:",
-    "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
-    "connect-src 'self' https://*.supabase.co https://sb.145.241.109.213.sslip.io wss://sb.145.241.109.213.sslip.io https://*.onesignal.com wss://*.supabase.co wss://*.onesignal.com",
-    "frame-src 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-].join('; ');
-
-const HEADERS = `/*
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  X-XSS-Protection: 1; mode=block
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: ${CSP}
-`;
-
-writeFileSync(join(dist, '_headers'), HEADERS);
+const PUBLIC_HEADERS = resolve(process.cwd(), 'public', '_headers');
+const DIST_HEADERS = join(dist, '_headers');
+if (!existsSync(PUBLIC_HEADERS)) {
+    console.error('pages-config: public/_headers missing — it is the canonical security headers (D-054)');
+    process.exit(1);
+}
+if (!existsSync(DIST_HEADERS)) {
+    console.error('pages-config: dist/_headers missing — vite did not copy public/_headers into dist/');
+    process.exit(1);
+}
+if (readFileSync(PUBLIC_HEADERS, 'utf8') !== readFileSync(DIST_HEADERS, 'utf8')) {
+    console.error('pages-config: dist/_headers drifted from public/_headers — the vite public/ copy is broken');
+    process.exit(1);
+}
 
 // ── _routes.json ────────────────────────────────────────────────────────────
 // Functions directory (functions/api/*) serves /api/<fn>. Everything static
@@ -90,4 +87,4 @@ for (const fn of CLIENT_API) {
     }
 }
 
-console.log('pages-config: wrote _headers and _routes.json to dist/ (routes excludes:', routes.exclude.length + ')');
+console.log('pages-config: verified _headers (from public/) + wrote _routes.json to dist/ (routes excludes:', routes.exclude.length + ')');
