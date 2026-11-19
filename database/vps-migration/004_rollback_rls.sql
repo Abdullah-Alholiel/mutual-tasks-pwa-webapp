@@ -38,7 +38,16 @@ BEGIN
   EXECUTE 'GRANT INSERT, UPDATE, DELETE ON public.sessions TO anon';
   EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON public.magic_links TO anon';
 
-  -- 2b. Undo 004's FK cascades (run 15): recreate 001's constraint
+  -- 2b. Undo the D-053 (run 17) column/privilege lockdowns, restoring the
+  --     pre-004 state verbatim: anon full-table UPDATE on users (001 granted
+  --     full DML on all tables) and anon INSERT/UPDATE/DELETE on ai_usage_logs
+  --     (run-15-era 004 kept the 001 grants — its own-row policies relied on
+  --     them). GRANTs are additive/idempotent, so this exactly reproduces the
+  --     insecure state this rollback exists to reproduce.
+  EXECUTE 'GRANT UPDATE ON public.users TO anon';
+  EXECUTE 'GRANT INSERT, UPDATE, DELETE ON public.ai_usage_logs TO anon';
+
+  -- 2c. Undo 004's FK cascades (run 15): recreate 001's constraint
   --     definitions with NO ON DELETE action.
   EXECUTE 'ALTER TABLE public.task_statuses DROP CONSTRAINT task_statuses_task_id_fkey';
   EXECUTE 'ALTER TABLE public.task_statuses ADD CONSTRAINT task_statuses_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id)';
