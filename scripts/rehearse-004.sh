@@ -228,6 +228,66 @@ n=$(docker exec -i -e PGPASSWORD="$PGPASSWORD_SUPER" "$CONTAINER" psql -U postgr
   -c "SET ROLE authenticated; SELECT count(*) FROM public.tasks;" 2>&1)
 [ "$n" = "0" ] && echo "PASS: authenticated role sees 0 rows (deny-all posture)" || { echo "FAIL: authenticated role sees $n tasks"; blocked=1; }
 
+echo "== 6c. PROOF: D-053 self-escalation holes are CLOSED (run 17) =="
+# (1) Signed-in user PATCHes their OWN row to flip premium columns -> must
+#     fail on the COLUMN privilege (002_premium added is_premium/premium_since/
+#     premium_note; the client profile path only writes name/handle/email/
+#     avatar/timezone/notification_preferences/updated_at — verified from
+#     toUserRow in src/db/transformers.ts).
+r=$(run_as "alice-session-token" "UPDATE public.users SET is_premium = true WHERE id = 1 RETURNING id;" 2>&1)
+echo "$r" | grep -qi "ERROR" && echo "PASS: own-row is_premium flip REJECTED (column privilege)" || { echo "FAIL: anon could flip is_premium: $r"; blocked=1; }
+r=$(run_as "alice-session-token" "UPDATE public.users SET premium_since = now(), premium_note = 'self-granted' WHERE id = 1 RETURNING id;" 2>&1)
+echo "$r" | grep -qi "ERROR" && echo "PASS: premium_since/premium_note write REJECTED" || { echo "FAIL: anon could write premium audit columns: $r"; blocked=1; }
+# ...while the profile screen's columns keep working (column-level GRANT).
+r=$(run_as "alice-session-token" "UPDATE public.users SET timezone = 'Asia/Riyadh', notification_preferences = '{\"push\":true}' WHERE id = 1 RETURNING id;" 2>&1)
+echo "$r" | grep -q '^1$' && echo "PASS: profile columns (timezone, notification_preferences) still writable" || { echo "FAIL: legitimate profile write broke: $r"; blocked=1; }
+
+# (2) Self-insert as manager/owner on a public project -> must fail; the
+#     self-join branch is join-only (role = 'participant'). Section 6 already
+#     gave Bob a participant row: remove it first (admin) so every proof below
+#     exercises the POLICY, not the (project_id, user_id) PK.
+docker exec -i -e PGPASSWORD="$PGPASSWORD_SUPER" "$CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q \
+  -c "DELETE FROM public.project_participants WHERE project_id = 2 AND user_id = 2;" >/dev/null
+r=$(run_as "bob-session-token" "INSERT INTO public.project_participants (project_id, user_id, role) VALUES (2, 2, 'manager') RETURNING user_id;" 2>&1)
+echo "$r" | grep -qi "ERROR" && echo "PASS: self-insert as manager on public project REJECTED" || { echo "FAIL: anon self-promoted to manager: $r"; blocked=1; }
+r=$(run_as "bob-session-token" "INSERT INTO public.project_participants (project_id, user_id, role) VALUES (2, 2, 'owner') RETURNING user_id;" 2>&1)
+echo "$r" | grep -qi "ERROR" && echo "PASS: self-insert as owner on public project REJECTED" || { echo "FAIL: anon self-promoted to owner: $r"; blocked=1; }
+# ...while the plain participant self-join still works (re-run of the section-6 proof).
+r=$(run_as "bob-session-token" "INSERT INTO public.project_participants (project_id, user_id, role) VALUES (2, 2, 'participant') RETURNING user_id;" 2>&1)
+echo "$r" | grep -q '^2$' && echo "PASS: normal participant self-join still works" || { echo "FAIL: join flow broke: $r"; blocked=1; }
+# (Bob is a participant again — sections 7/7b expect his membership.)
+
+# (3) ai_usage_logs is anon SELECT-only: the legacy client increment path has
+#     zero callers (src/db/aiUsage.ts is dead code; every real increment runs
+#     through consume_ai_usage(), service_role). All anon writes must fail.
+r=$(run_as "alice-session-token" "DELETE FROM public.ai_usage_logs WHERE user_id = 1 RETURNING id;" 2>&1)
+echo "$r" | grep -qi "ERROR" && echo "PASS: anon DELETE of own ai_usage row REJECTED" || { echo "FAIL: anon deleted a usage row: $r"; blocked=1; }
+r=$(run_as "alice-session-token" "UPDATE public.ai_usage_logs SET count = 0 WHERE user_id = 1 RETURNING id;" 2>&1)
+echo "$r" | grep -qi "ERROR" && echo "PASS: anon counter-zeroing UPDATE on ai_usage REJECTED" || { echo "FAIL: anon forged a usage counter: $r"; blocked=1; }
+r=$(run_as "alice-session-token" "INSERT INTO public.ai_usage_logs (user_id, usage_type, usage_date, count) VALUES (1, 'description_generation', CURRENT_DATE, 999) RETURNING id;" 2>&1)
+echo "$r" | grep -qi "ERROR" && echo "PASS: anon INSERT into ai_usage REJECTED" || { echo "FAIL: anon inserted a usage row: $r"; blocked=1; }
+# ...while the read path and the atomic RPC keep working.
+n=$(run_as "alice-session-token" "SELECT count(*) FROM public.ai_usage_logs WHERE user_id = 1;")
+[ "$n" = "1" ] && echo "PASS: Alice still reads her usage row (SELECT survived)" || { echo "FAIL: usage read broke ($n rows)"; blocked=1; }
+n=$(docker exec -i -e PGPASSWORD="$PGPASSWORD_SUPER" "$CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q -t -A \
+  -c "SELECT public.consume_ai_usage(1, 'description_generation');" 2>&1)
+[ "$n" = "2" ] && echo "PASS: consume_ai_usage RPC still increments (seed 1 -> 2)" || { echo "FAIL: RPC broken after 004 changes: $n"; blocked=1; }
+
+echo "== 6d. PROOF: participants UPDATE cannot cross the policy line =="
+# A role change must stay within what the actor already manages. Bob is a
+# participant of project 2 (re-joined in 6c); his UPDATE on his OWN row has a
+# USING clause that fails (he is not a manager) -> RLS denial = 0 rows,
+# silently. Assert on the RESULTING STATE, not on an error.
+r=$(run_as "bob-session-token" "UPDATE public.project_participants SET role = 'manager' WHERE project_id = 2 AND user_id = 2 RETURNING role;" 2>&1)
+echo "$r" | grep -q "ERROR" && { echo "FAIL: UPDATE should fail silently (0 rows), not error: $r"; blocked=1; } || true
+n=$(run_as "bob-session-token" "SELECT count(*) FROM public.project_participants WHERE project_id = 2 AND user_id = 2 AND role = 'manager';")
+[ "$n" = "0" ] && echo "PASS: Bob cannot self-promote via UPDATE (row still role=participant)" || { echo "FAIL: Bob escalated via UPDATE ($n manager rows)"; blocked=1; }
+# And the legitimate manager path still works (re-run of section 6b's proof
+# under the tightened file: Alice promotes Carol).
+r=$(run_as "alice-session-token" "UPDATE public.project_participants SET role = 'manager' WHERE project_id = 2 AND user_id = 3 RETURNING role;" 2>&1)
+echo "$r" | grep -q '^manager$' && echo "PASS: legitimate manager role-change still works" || { echo "FAIL: manager role-change broke: $r"; blocked=1; }
+psql_admin -c "UPDATE public.project_participants SET role = 'participant' WHERE project_id = 2 AND user_id = 3;" >/dev/null
+
 echo "== 7. PROOF: Bob's view is scoped to Bob =="
 n=$(run_as "bob-session-token" "SELECT count(*) FROM public.tasks;")
 [ "$n" = "1" ] && echo "PASS: Bob sees exactly his 1 accessible task" || { echo "FAIL: Bob sees $n tasks (want 1)"; blocked=1; }

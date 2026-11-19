@@ -37,6 +37,16 @@
 --       users; sessions get SELECT-only (token resolution probes).
 --     * magic_links: never touched client-side -> NO anon access at all.
 --
+-- REVISION run 17 (D-053, Life OS worker request 2026-11-19): three
+-- self-escalation holes closed —
+--   (1) participants self-join branch now requires role='participant'
+--       (nobody inserts themselves as manager/owner on a public project);
+--   (2) users UPDATE is column-locked (anon cannot flip is_premium /
+--       premium_since / premium_note; profile columns granted explicitly);
+--   (3) ai_usage_logs is anon SELECT-only (the client increment path is dead
+--       code; consume_ai_usage() RPC is the only writer, service_role).
+-- Rollback restores the pre-tightening grants verbatim (2b block).
+--
 -- REALTIME IMPACT (disclosed to the owner in the run report — NOT silently
 -- shipped): Realtime evaluates policies per subscriber WITHOUT request headers,
 -- so header-scoped policies stop live postgres_changes delivery entirely. The
@@ -201,6 +211,18 @@ CREATE POLICY users_select_signed_in ON public.users
   FOR SELECT TO anon
   USING (public.app_current_user_id() IS NOT NULL);
 
+-- D-053 (run 17): UPDATE is column-locked. 002_premium added is_premium /
+-- premium_since / premium_note to this table — under a row-only policy a
+-- signed-in user could PATCH their own row and flip is_premium (free premium).
+-- anon loses UPDATE entirely; the profile columns the client actually writes
+-- (toUserRow in src/db/transformers.ts: name, handle, email, avatar, timezone,
+-- notification_preferences + updated_at) are re-granted column-wise. Every
+-- other write path (sign-up rows, premium flips, admin edits) runs in
+-- auth-magic-link / owner sessions with service_role.
+REVOKE UPDATE ON public.users FROM anon;
+GRANT UPDATE (name, handle, email, avatar, timezone, notification_preferences, updated_at)
+  ON public.users TO anon;
+
 CREATE POLICY users_update_self ON public.users
   FOR UPDATE TO anon
   USING (id = public.app_current_user_id())
@@ -268,7 +290,13 @@ CREATE POLICY participants_insert_join_or_manager ON public.project_participants
   FOR INSERT TO anon
   WITH CHECK (
     (
+      -- D-053 (run 17): the self-join branch is for the JOIN flow only.
+      -- The client inserts role='participant' exclusively (useProjectMembers);
+      -- requiring it here blocks anyone from inserting THEMSELVES as
+      -- owner/manager on a public project (privilege escalation via the
+      -- is_project_manager() helper this table feeds).
       user_id = public.app_current_user_id()
+      AND role = 'participant'::project_role
       AND EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = project_id AND p.is_public
@@ -465,24 +493,21 @@ CREATE POLICY friends_delete_either ON public.friends
   );
 
 -- ----------------------------------------------------------------------------
--- 14. ai_usage_logs — own rows (client reads + legacy increment path); the
---     atomic consume_ai_usage() RPC (003) is SECURITY DEFINER, bypasses RLS.
+-- 14. ai_usage_logs — anon SELECT-only (D-053, run 17).
+--     Run 15 shipped anon INSERT/UPDATE/DELETE own-row policies here to keep
+--     the legacy client-side increment path alive. That path has ZERO callers
+--     (src/db/aiUsage.ts incrementUsage / usageLimits.incrementUsage are dead
+--     code; every real increment runs through the SECURITY DEFINER
+--     consume_ai_usage() RPC, EXECUTE granted to service_role ONLY by 003).
+--     Anon-writable usage rows = users could forge their own usage counters
+--     (0 the counter to evade caps, or inflate others'). SELECT stays for the
+--     client's usage read. Tightening the RPC's TO service_role path is
+--     unchanged; rollback restores the run-15 grants verbatim.
 -- ----------------------------------------------------------------------------
+REVOKE INSERT, UPDATE, DELETE ON public.ai_usage_logs FROM anon;
+
 CREATE POLICY ai_usage_select_own ON public.ai_usage_logs
   FOR SELECT TO anon
-  USING (user_id = public.app_current_user_id());
-
-CREATE POLICY ai_usage_insert_own ON public.ai_usage_logs
-  FOR INSERT TO anon
-  WITH CHECK (user_id = public.app_current_user_id());
-
-CREATE POLICY ai_usage_update_own ON public.ai_usage_logs
-  FOR UPDATE TO anon
-  USING (user_id = public.app_current_user_id())
-  WITH CHECK (user_id = public.app_current_user_id());
-
-CREATE POLICY ai_usage_delete_own ON public.ai_usage_logs
-  FOR DELETE TO anon
   USING (user_id = public.app_current_user_id());
 
 -- ----------------------------------------------------------------------------
