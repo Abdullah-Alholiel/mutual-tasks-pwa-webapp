@@ -29,6 +29,9 @@ export async function generateAIDescription(
 
         console.log('[AI Description] Calling API:', { type, titleLength: title.length, timezone: userTimezone });
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45_000);
+
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
@@ -40,8 +43,9 @@ export async function generateAIDescription(
                 title: title.trim(),
                 type: type,
             }),
-            cache: 'no-store'
-        });
+            cache: 'no-store',
+            signal: controller.signal,
+        }).finally(() => clearTimeout(timeoutId));
 
         console.log('[AI Description] Response status:', response.status);
 
@@ -63,6 +67,12 @@ export async function generateAIDescription(
             // Check for timeout errors - encourage retry
             if (response.status === 504 || response.status === 408) {
                 return { success: false, error: 'timeout' };
+            }
+
+            // L4c: 503 AI_EXHAUSTED — free allowance spent everywhere; the hook
+            // shows the localized "AI help is back tomorrow" message (EN + AR).
+            if (response.status === 503 && errorText.includes('AI_EXHAUSTED')) {
+                return { success: false, error: 'AI_EXHAUSTED' };
             }
 
             throw new Error(`Service error: ${response.status}`);

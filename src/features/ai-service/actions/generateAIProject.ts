@@ -9,6 +9,8 @@ import { getSessionToken } from '@/lib/auth/sessionStorage';
 // Rate limit error type for specific handling
 export const RATE_LIMIT_ERROR = 'RATE_LIMIT_EXCEEDED';
 export const TIMEOUT_ERROR = 'TIMEOUT_ERROR';
+/** 503 AI_EXHAUSTED: Workers AI free allowance spent + fallback failed (L4c). */
+export const AI_EXHAUSTED_ERROR = 'AI_EXHAUSTED';
 
 /**
  * Generate a complete project with tasks from a natural language description.
@@ -66,12 +68,19 @@ export async function generateAIProject(
             headers['Authorization'] = `Bearer ${sessionToken}`;
         }
 
+        // 45 s client timeout (L4c / README step 6): Workers AI project generation
+        // legitimately takes 9-22 s; a hung provider must surface as TIMEOUT_ERROR,
+        // never an endless spinner.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45_000);
+
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify({ description: description.trim() }),
             cache: 'no-store',
-        });
+            signal: controller.signal,
+        }).finally(() => clearTimeout(timeoutId));
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Unknown error');
@@ -93,6 +102,12 @@ export async function generateAIProject(
             // Handle timeout errors (Netlify default timeout, gateway timeout)
             if (response.status === 504 || response.status === 408) {
                 return { success: false, error: TIMEOUT_ERROR };
+            }
+
+            // L4c: 503 AI_EXHAUSTED — free allowance spent everywhere; the hook
+            // shows the localized "AI help is back tomorrow" message (EN + AR).
+            if (response.status === 503 && errorText.includes('AI_EXHAUSTED')) {
+                return { success: false, error: AI_EXHAUSTED_ERROR };
             }
 
             // Handle auth errors

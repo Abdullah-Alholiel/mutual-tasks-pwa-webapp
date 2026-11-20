@@ -10,6 +10,7 @@ import { getSessionToken } from '@/lib/auth/sessionStorage';
 import {
     AI_ERROR_MESSAGES,
     getAIErrorMessage,
+    getAiExhaustedMessage,
 } from '@/features/ai-service/utils';
 
 type AIGenType = 'task' | 'project';
@@ -80,6 +81,15 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
                             onClick: () => { window.location.href = '/premium'; },
                         },
                     });
+                    return null;
+                }
+
+                // L4c: free allowance spent everywhere — localized "AI help is back
+                // tomorrow" (EN + AR), auto-reset to idle.
+                if (result.error === 'AI_EXHAUSTED') {
+                    setAiState('idle');
+                    const m = getAiExhaustedMessage();
+                    toast.error(m.title, { description: m.description });
                     return null;
                 }
 
