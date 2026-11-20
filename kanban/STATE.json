@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 19,
-  "last_run_at": "2026-11-20T17:32:03Z",
-  "last_run_report": "kanban/RUNS/20261120T1732Z-run19.md",
+  "last_run": 20,
+  "last_run_at": "2026-11-20T22:32:36Z",
+  "last_run_report": "kanban/RUNS/20261120T2230Z-run20.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "RLS 2026-11-19 (UPDATED in run 17): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback restores pre-tightening state verbatim.",
@@ -27,8 +27,8 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run19 IN PROGRESS (started 2026-11-20T17:32:03Z UTC): L4c AI-off-n8n (D-055 lane-first). Checkpoint-first housekeeping.",
-  "updated_at": "2026-11-20T17:32:03Z",
+  "notes": "run20 IN PROGRESS (started 2026-11-20T22:32:36Z UTC): verify run19 L4c (PR #28) deploy+smoke, then D-056 legal draft fixes. Checkpoint-first.",
+  "updated_at": "2026-11-20T22:32:36Z",
   "last_run_commits": [
     "217930e (PR #27 squash: D-054 public/_headers deploy-invariant, refusals documented)",
     "f1de415 (docs: run 18 report mid-run)"
