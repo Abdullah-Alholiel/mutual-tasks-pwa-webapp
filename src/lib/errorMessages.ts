@@ -129,6 +129,19 @@ export const AI_ERROR_MESSAGES = {
         title: 'Something Went Wrong',
         description: 'An unexpected error occurred. Please try again later.',
     },
+
+    // L4c (run 19): the AI free allowance is spent and the fallback failed.
+    // Distinct server code 503 AI_EXHAUSTED → these localized strings
+    // ("AI help is back tomorrow"). EN + AR, browser-language pick (same
+    // navigator.language mechanism as LegalPage — the app has no i18n framework).
+    AI_EXHAUSTED: {
+        title: 'AI Help Is Back Tomorrow',
+        description: "Today's AI help is used up. Please come back tomorrow (after midnight UTC).",
+    },
+    AI_EXHAUSTED_AR: {
+        title: 'سيعود الذكاء الاصطناعي غدًا',
+        description: 'تم استخدام مساعد الذكاء الاصطناعي بالكامل لهذا اليوم. عودةً غدًا (بعد منتصف الليل بتوقيت UTC).',
+    },
 } as const;
 
 /**
@@ -277,6 +290,15 @@ export function getAIErrorMessage(
 
     // Default
     return AI_ERROR_MESSAGES.UNKNOWN;
+}
+
+/**
+ * L4c: localized "AI help is back tomorrow" message for the 503 AI_EXHAUSTED
+ * response (Workers AI free allowance spent + fallback unavailable).
+ */
+export function getAiExhaustedMessage(): AIErrorMessage {
+    const isAr = (navigator.language || '').toLowerCase().startsWith('ar');
+    return isAr ? AI_ERROR_MESSAGES.AI_EXHAUSTED_AR : AI_ERROR_MESSAGES.AI_EXHAUSTED;
 }
 
 /**

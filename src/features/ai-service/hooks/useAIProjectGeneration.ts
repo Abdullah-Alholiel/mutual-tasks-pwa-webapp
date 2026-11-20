@@ -5,11 +5,12 @@
 import { useState, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import type { AIProjectState, AIGeneratedProject } from '../types';
-import { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR } from '../actions';
+import { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR, AI_EXHAUSTED_ERROR } from '../actions';
 import {
     aiLogger,
     AI_ERROR_MESSAGES,
     getAIErrorMessage,
+    getAiExhaustedMessage,
 } from '../utils';
 import { useAuth } from '@/features/auth/useAuth';
 
@@ -122,6 +123,16 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
                     description: AI_ERROR_MESSAGES.TIMEOUT.description,
                 });
 
+                return null;
+            }
+
+            // L4c: free allowance spent everywhere — localized "AI help is back
+            // tomorrow" (EN + AR), auto-reset to idle (it clears at midnight UTC,
+            // not by retrying).
+            if (result.error === AI_EXHAUSTED_ERROR) {
+                setAiState('idle');
+                const m = getAiExhaustedMessage();
+                toast.error(m.title, { description: m.description });
                 return null;
             }
 

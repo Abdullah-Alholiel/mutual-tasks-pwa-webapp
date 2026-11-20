@@ -9,8 +9,19 @@ import {
     getTodayDate,
     type AIUsageType
 } from './shared/utils';
+import { generateDescriptionWithAI, useN8n, type ProviderDeps } from './shared/aiProviders';
 
 const USAGE_TYPE: AIUsageType = 'description_generation';
+
+/** The Pages bridge installs the workerd `AI` binding into process.env (object). */
+function getAiBinding(): unknown {
+    const v = (process.env as Record<string, unknown> | undefined)?.AI;
+    return v !== null && typeof v === 'object' ? v : undefined;
+}
+
+function aiDeps(): ProviderDeps {
+    return { aiBinding: getAiBinding(), env: process.env, fetchImpl: fetch, timeoutMs: 22_000 };
+}
 
 const handler: Handler = async (event: HandlerEvent) => {
     const headers = getCorsHeaders(event.headers['origin']);
@@ -32,7 +43,7 @@ const handler: Handler = async (event: HandlerEvent) => {
             try {
                 const body = JSON.parse(event.body);
                 title = body.title;
-                type = body.type || 'task';
+                type = body.type === 'project' ? 'project' : 'task';
             } catch {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid JSON body' }) };
             }
@@ -77,6 +88,74 @@ const handler: Handler = async (event: HandlerEvent) => {
             return buildRateLimitResponse(headers, rateLimit.limit);
         }
 
+        // L4c: Workers AI (Pages `AI` binding) → OpenRouter fallback, n8n kept for
+        // Netlify production (auto mode) and AI_PROVIDER_MODE=n8n.
+        if (!useN8n(aiDeps())) {
+            const outcome = await generateDescriptionWithAI(aiDeps(), title.trim(), type);
+
+            if (outcome.ok) {
+                console.log('[AI Description] provider chain OK:', {
+                    provider: outcome.provider,
+                    model: outcome.model,
+                    usage: outcome.usage ?? null,
+                    attempts: outcome.attempts,
+                });
+
+                // ONLY increment usage if we have valid content (kept). Premium users
+                // are exempt server-side (checkRateLimit returns -1).
+                if (rateLimit.remaining !== -1) {
+                    try {
+                        await incrementUsage(supabaseAdmin, userId, USAGE_TYPE);
+                        console.log('[AI Description] Usage incremented for userId:', userId, 'date:', usageDate);
+                    } catch (e) {
+                        console.error('[AI Description] Failed to increment usage:', e);
+                        // We still return the content even if usage logging fails
+                    }
+                }
+
+                const remainingHeader = rateLimit.remaining === -1 ? -1 : Math.max(0, rateLimit.remaining - 1);
+                const aiHeaders: Record<string, string> = {
+                    'X-AI-Provider': outcome.provider,
+                    'X-AI-Model': outcome.model,
+                };
+                if (outcome.usage) {
+                    aiHeaders['X-AI-Usage'] = JSON.stringify(outcome.usage);
+                }
+
+                // Body: {description} — the client's FIRST parse branch
+                // (ai/actions.ts data.description). Plain text also parses today.
+                return {
+                    statusCode: 200,
+                    headers: {
+                        ...headers,
+                        ...aiHeaders,
+                        'X-RateLimit-Limit': String(rateLimit.limit),
+                        'X-RateLimit-Remaining': String(remainingHeader),
+                        'X-RateLimit-Reset': String(Date.now() + 86400000),
+                    },
+                    body: JSON.stringify({ description: outcome.text }),
+                };
+            }
+
+            if (outcome.exhausted) {
+                console.error('[AI Description] AI exhausted:', outcome.attempts);
+                return {
+                    statusCode: 503,
+                    headers,
+                    body: JSON.stringify({ error: 'AI_EXHAUSTED' }),
+                };
+            }
+
+            // F19: attempt detail logged server-side only.
+            console.error('[AI Description] provider chain failed:', outcome.attempts, outcome.error);
+            return {
+                statusCode: 502,
+                headers,
+                body: JSON.stringify({ error: 'AI service unavailable' }),
+            };
+        }
+
+        // ---------------- Legacy n8n path (Netlify production; unchanged) ----------------
         const n8nUrl = process.env.N8N_DESCRIPTION_WEBHOOK_URL;
         if (!n8nUrl) {
             console.error('[AI Description] Missing N8N_DESCRIPTION_WEBHOOK_URL');

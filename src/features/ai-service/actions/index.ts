@@ -2,4 +2,4 @@
 // AI Service Actions - Re-exports
 // ============================================================================
 
-export { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR } from './generateAIProject';
+export { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR, AI_EXHAUSTED_ERROR } from './generateAIProject';

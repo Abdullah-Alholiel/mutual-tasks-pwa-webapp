@@ -11,6 +11,9 @@
 // from shadowing the binding.
 //
 // Service-role keys arrive ONLY via bindings (env.*), never VITE_-prefixed (F2).
+// OBJECT bindings pass through too (run 19): the Workers AI binding (`env.AI`, an
+// object with .run()) must reach the handlers — installEnv previously copied strings
+// only, which would silently downgrade every AI call to the legacy n8n path.
 type RecordUnknown = Record<string, unknown>;
 
 export function installEnv(env: unknown): void {
@@ -21,8 +24,8 @@ export function installEnv(env: unknown): void {
     }
     if (!env || typeof env !== 'object') return;
     for (const [k, v] of Object.entries(env as RecordUnknown)) {
-        if (typeof v === 'string') {
-            g.process!.env[k] = v;
+        if (typeof v === 'string' || typeof v === 'object') {
+            g.process!.env[k] = v as never;
         }
     }
 }
