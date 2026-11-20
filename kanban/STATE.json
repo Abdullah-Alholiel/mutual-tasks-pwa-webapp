@@ -27,10 +27,10 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run20 IN PROGRESS (started 2026-11-20T22:32:36Z UTC): verify run19 L4c (PR #28) deploy+smoke, then D-056 legal draft fixes. Checkpoint-first.",
-  "updated_at": "2026-11-20T22:32:36Z",
+  "notes": "run20 DONE (2026-11-20T22:32Z UTC, ~95 min): run19 L4c tail completed (pinned-env deploy + smoke 12/12 + live wiring probes), D-056 legal draft fixes shipped (PR #29 squash 83338bf: real support address, named processors EN+AR, storage/lookup/localStorage disclosures, softened AI-training claim, Premium mailto honest 'opened' state; +11 tests, tsc 97=97, reviewer MERGE), /privacy EN+AR screenshots verified. L4c ticked in LAUNCH-LANE. factory-loop skill rule 3 patched per D-055. NEXT: L4d (qa-bot unlocks live AI proof). Owner waits: promote (50 commits), 004 prod apply, realtime disclosure.",
+  "updated_at": "2026-11-20T23:55:00Z",
   "last_run_commits": [
-    "217930e (PR #27 squash: D-054 public/_headers deploy-invariant, refusals documented)",
-    "f1de415 (docs: run 18 report mid-run)"
+    "83338bf (PR #29 squash: D-056 legal draft fixes + Premium mailto honesty)",
+    "e00261f (docs: run 20 checkpoint-first)"
   ]
 }

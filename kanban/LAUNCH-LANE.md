@@ -127,7 +127,7 @@ production outranks the lane.
       truncation, staging-only rules for anything that mutates rows.
       REAL-PHONE EVIDENCE for L4: on the owner's iPhone the deferred OneSignal script delayed the app's
       start by 5.4 s on a first load (page parsed 5.42 s, first app content 5.45 s).
-- [ ] L4c · AI without n8n: the two AI calls run on Cloudflare Workers AI through the Pages binding
+- [x] L4c · AI without n8n: the two AI calls run on Cloudflare Workers AI through the Pages binding
       `AI` (owner 2026-11-16; Life OS D-20261115-13 has the full spec). Preview binding is attached.
       DO THIS BEFORE L4b's cutover report (owner wants AI working at the switch): right after the
       'signed-out visitor downloads no user data' fix. It is de-risked: Claude ran the real prompts on
@@ -142,6 +142,17 @@ production outranks the lane.
       generation work with n8n stopped, and a forced Workers AI failure is answered by the backup.
       The `AI` binding is attached to PRODUCTION as well (owner go, 2026-11-16 20:11 UTC); it applies
       from the next production deployment.
+      DONE 2026-11-20 runs 19-20: PR #28 merged (squash 14bdbf9, run 19): aiProviders.ts chain
+      (Workers AI binding primary → OpenRouter free-model fallback behind AI_FALLBACK_ENABLED/
+      AI_FALLBACK_MODEL → legacy n8n preserved byte-for-byte for Netlify prod), prompts ported
+      verbatim + same-language line, server-side validation/clamping, F5 increment kept,
+      AI_EXHAUSTED → 503 + localized EN/AR message, 45s client timeout, workerd object-binding
+      passthrough fix; 21 unit tests, reviewer fixes (chain deadline 40s < client 45s, icon/color
+      allowlist, exhaust matcher). Run 20 tail (run 19 died before closeout): pinned-env deploy of
+      the L4c build to the staging preview, full smoke 12/12, live probes (401 unauth on the AI
+      endpoint; env.AI + openrouter.ai present in the served function bundle). STILL OPEN (moves to
+      L4d + the L4b cutover report): signed-in generation proof with measured neurons + forced-
+      fallback drill — needs the qa-bot test account (L4d) or an owner-session sign-in.
 - [ ] L4d · Scheduled acceptance tests on staging + RELEASE-CANDIDATE.md for the owner's promote card
       (owner 2026-11-16; spec in the DECISIONS.md row "Scheduled acceptance tests on staging").
 - [x] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):

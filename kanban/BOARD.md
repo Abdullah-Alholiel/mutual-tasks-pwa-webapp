@@ -124,6 +124,22 @@ AI limits owner-only · Level A until P3 conditions met.
   so the smoke test missed it) — all 6 headers verified live via curl after the pinned-env
   redeploy (smoke 12/12). Gates: tsc 97=97, vitest 152/152 (+7), reviewer MERGE 0C/0I.
   Prod smoke 22/23 (same known pre-promote gap). Report: kanban/RUNS/20261119T2231Z-run18.md
+- Run 19 (2026-11-20): **L4c CODE MERGED, run died before closeout** — PR #28 merged
+  (squash 14bdbf9): AI generation off n8n → Workers AI binding primary + OpenRouter
+  fallback (D-055), 21 tests, gates green. Report file left as an empty skeleton; no
+  deploy, no smoke, lock not released (pre-run script cleared it). Run 20 completed
+  the tail and verified the claims.
+- Run 20 (2026-11-20): **D-056 SHIPPED + L4c deploy verified** — PR #29 merged (squash
+  83338bf): legal draft fixes for the lawyer (real support address momentum.pwa@gmail.com,
+  named processors EN+AR, storage location Riyadh+Pages+localStorage, user-lookupability
+  disclosure, AI-training claim softened to what is verified, terms→privacy pointer);
+  Premium mailto honesty ('sent' → 'opened' role=status, no delivery promise). +11 tests,
+  gates green (tsc 97=97, vitest 183/183, build clean, CI green), reviewer MERGE.
+  Pinned-env deploy #2, smoke 12/12 (one transient paint-check FAIL re-passed, L0 class),
+  /privacy EN+AR real-browser screenshots DOM-asserted + vision-verified
+  (kanban/RUNS/run20-privacy-en.png / -ar.png). L4c ticked in LAUNCH-LANE (proof above);
+  momentum-factory-loop skill rule 3 patched per D-055 (worker requests jump the lane
+  only if they block it). Report: kanban/RUNS/20261120T2230Z-run20.md
 
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 
