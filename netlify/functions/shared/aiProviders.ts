@@ -47,6 +47,12 @@ interface AiBinding {
     run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
 }
 
+/** Reviewer-A IMPORTANT fix (run 19): the chain carries ONE deadline budget
+ *  (default 40s < the client's 45s AbortController), so a slow chain surfaces as
+ *  a timeout instead of running past the client's window. Exhaustion errors are
+ *  instant throws, so the realistic exhaustion path still reaches the fallback. */
+const CHAIN_BUDGET_MS = 40_000;
+
 export interface ProviderDeps {
     aiBinding: unknown;
     fetchImpl?: typeof fetch;
@@ -175,6 +181,10 @@ const PROJECT_PRIMARY = { label: 'primary', model: '@cf/meta/llama-3.3-70b-instr
 const PROJECT_BACKUP = { label: 'backup', model: '@cf/openai/gpt-oss-120b', maxTokens: 4000 };
 const DESCRIPTION_PRIMARY = { label: 'primary', model: '@cf/mistralai/mistral-small-3.1-24b-instruct', maxTokens: 300 };
 
+// The exact allowlists from the prompt (single source with validateProject).
+const ALLOWED_ICONS = ['Target', 'Rocket', 'Zap', 'Star', 'Flag', 'Briefcase', 'Presentation', 'Building2', 'Laptop', 'Code', 'Dumbbell', 'Coffee', 'Book', 'Music', 'Home', 'Plane', 'Users', 'Heart', 'Smile', 'PartyPopper', 'PiggyBank', 'CreditCard', 'GraduationCap', 'Palette', 'Camera', 'Gamepad2', 'Gift'];
+const ALLOWED_COLORS = ['hsl(199, 89%, 48%)', 'hsl(142, 76%, 36%)', 'hsl(32, 95%, 58%)', 'hsl(280, 70%, 50%)', 'hsl(340, 75%, 55%)', 'hsl(180, 70%, 45%)'];
+
 // ---------------------------------------------------------------------------
 // Provider calls — each returns ProviderOutcome with `attempts` accumulated
 // ---------------------------------------------------------------------------
@@ -262,15 +272,15 @@ async function callOpenRouter(
     }
 }
 
-/** Free-allowance / rate-limit / quota markers (README step 10). */
+/** Free-allowance / rate-limit / quota markers (README step 10). Deliberately NOT
+ *  matching bare '429' (reviewer MINOR: a model id or trace in an error body would
+ *  misclassify); real exhaustion errors name the allowance/quota/rate limit. */
 export function isExhaustionText(s: string): boolean {
     const l = s.toLowerCase();
     return (
         l.includes('free allowance') ||
         l.includes('free allocations') ||
         l.includes('neurons') && (l.includes('exceeded') || l.includes('insufficient') || l.includes('limit')) ||
-        l.includes('429') ||
-        l.includes('daily limit') ||
         l.includes('rate limit') ||
         l.includes('quota') ||
         l.includes('insufficient')
@@ -296,8 +306,8 @@ export function validateProject(data: unknown): ValidatedProject | undefined {
     const project: ValidatedProject = {
         name: obj.name.trim().slice(0, 50),
         description: typeof obj.description === 'string' ? obj.description.trim().slice(0, 200) : '',
-        icon: typeof obj.icon === 'string' ? obj.icon : 'Folder',
-        color: typeof obj.color === 'string' ? obj.color : 'hsl(199, 89%, 48%)',
+        icon: typeof obj.icon === 'string' && ALLOWED_ICONS.includes(obj.icon) ? obj.icon : 'Target',
+        color: typeof obj.color === 'string' && ALLOWED_COLORS.includes(obj.color) ? obj.color : 'hsl(199, 89%, 48%)',
         isPublic: typeof obj.isPublic === 'boolean' ? obj.isPublic : true,
         tasks: [],
     };
@@ -354,6 +364,8 @@ async function runChain(
     const env = deps.env ?? (typeof process !== 'undefined' ? process.env : undefined);
     const timeoutMs = deps.timeoutMs ?? 30_000;
     const texts: Array<{ ok: true; text: string }> = [];
+    const chainDeadline = Date.now() + Math.min(CHAIN_BUDGET_MS, timeoutMs * 2);
+    const remainingBudget = () => Math.max(0, chainDeadline - Date.now());
 
     if (useN8n(deps)) {
         return { ok: false, error: 'N8N_MODE', exhausted: false, attempts: ['mode=n8n'] };
@@ -365,7 +377,9 @@ async function runChain(
     let exhausted = false;
     for (const a of cfAttempts) {
         if (!hasAiBinding(deps)) { attempts.push(`${a.label}:skipped-no-binding`); continue; }
-        const r = await callWorkersAi(deps.aiBinding as AiBinding, a.model, messages, a.maxTokens, timeoutMs);
+        const budget = remainingBudget();
+        if (budget <= 0) { attempts.push(`${a.label}:skipped-chain-budget`); continue; }
+        const r = await callWorkersAi(deps.aiBinding as AiBinding, a.model, messages, a.maxTokens, Math.min(timeoutMs, budget));
         if (r.ok) {
             attempts.push(`${a.label}:ok`);
             texts.push({ ok: true, text: r.text });
@@ -382,10 +396,14 @@ async function runChain(
         }
     }
 
-    // OpenRouter fallback (README step 7) — only when enabled + key present.
+    // OpenRouter fallback (README step 7) — only when enabled + key present + budget left.
     if (fallbackEnabled(env) && typeof env?.OPENROUTER_API_KEY === 'string' && env.OPENROUTER_API_KEY.length > 0) {
+        const budget = remainingBudget();
+        if (budget <= 0) {
+            attempts.push('openrouter:skipped-chain-budget');
+        } else {
         const model = openRouterModel(env);
-        const r = await callOpenRouter(deps.fetchImpl ?? fetch, env.OPENROUTER_API_KEY, model, messages, fallbackMaxTokens, timeoutMs);
+        const r = await callOpenRouter(deps.fetchImpl ?? fetch, env.OPENROUTER_API_KEY, model, messages, fallbackMaxTokens, Math.min(timeoutMs, budget));
         if (r.ok) {
             attempts.push(`openrouter:${model}:ok`);
             texts.push({ ok: true, text: r.text });
@@ -398,6 +416,7 @@ async function runChain(
         } else {
             attempts.push(`openrouter:${model}:${r.reason}`);
             if (r.reason === 'exhausted') exhausted = true;
+        }
         }
     } else {
         attempts.push('openrouter:skipped-disabled-or-no-key');

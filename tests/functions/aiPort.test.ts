@@ -289,9 +289,34 @@ describe('L4c helpers', () => {
 
     it('isExhaustionText catches allowance/quota markers, not generic errors', () => {
         expect(isExhaustionText('Free allowance exceeded')).toBe(true);
-        expect(isExhaustionText('Error 429 too many requests')).toBe(true);
-        expect(isExhaustionText('daily limit reached')).toBe(true);
+        expect(isExhaustionText('Rate limit exceeded: free-models-per-day')).toBe(true);
+        expect(isExhaustionText('you exceeded your quota')).toBe(true);
+        // Reviewer MINOR fix: bare '429' inside an unrelated error body must NOT
+        // classify as exhaustion (model ids / trace ids can contain it).
+        expect(isExhaustionText('Error 429 upstream: model trace abc429')).toBe(false);
         expect(isExhaustionText('network hiccup')).toBe(false);
+    });
+
+    it('chain budget: exhaustion → fallback → AI_EXHAUSTED within the chain deadline (≤ client 45s)', async () => {
+        const binding = cfBinding([], { throwOn: [new Error('Free allowance exceeded')] });
+        const fetchMock = vi.fn(async (_u: string | URL | Request, _i?: RequestInit) =>
+            new Response('{"choices":[{"message":{"content":""}}]}', { status: 200 }));
+        const t0 = Date.now();
+        const out = await generateProjectWithAI(fastDeps(binding, { OPENROUTER_API_KEY: 'k' }, fetchMock as unknown as typeof fetch), 'x');
+        const elapsed = Date.now() - t0;
+        expect(out.ok).toBe(false);
+        if (out.ok) return;
+        expect(out.error).toBe('AI_EXHAUSTED');
+        expect(elapsed).toBeLessThan(45_000);
+    });
+
+    it('validateProject coerces off-list icon/color to allowed values (server-side)', () => {
+        const v = validateProject({ name: 'n', tasks: [{ title: 't' }], icon: 'NotAnIcon', color: 'rgb(1,2,3)' });
+        expect(v?.icon).toBe('Target');
+        expect(v?.color).toBe('hsl(199, 89%, 48%)');
+        const v2 = validateProject({ name: 'n', tasks: [{ title: 't' }], icon: 'Rocket', color: 'hsl(32, 95%, 58%)' });
+        expect(v2?.icon).toBe('Rocket');
+        expect(v2?.color).toBe('hsl(32, 95%, 58%)');
     });
 
     it('validateProject clamps and rejects empty task lists / bad names', () => {
