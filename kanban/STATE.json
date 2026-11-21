@@ -9,7 +9,7 @@
   "last_run_report": "kanban/RUNS/20261121T1734Z-run21.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
-    "RLS 2026-11-19 (UPDATED in run 17): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback restores pre-tightening state verbatim.",
+    "RLS 2026-11-19 (UPDATED run 21 D-057): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only AND order-gated: the promote staging->main must go LIVE FIRST (new client sends x-momentum-session, src/lib/supabaseFetch.ts), THEN fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Applying 004 before the promote locks out every current prod user. Rollback restores pre-tightening state verbatim.",
     "REALTIME 2026-11-18 (run 15 disclosure, needs owner decision): under scoped policies live postgres_changes delivery stops (policies evaluate without request headers). App usable via optimistic updates + refetch-on-focus. Options: accept short-term, or approve authorized-subscriber/signed-claims follow-up build.",
     "SEC 2026-11-17 (static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one).",
     "DEBT: pr-gate tsc step disabled - tsc -b baseline now 96 on merged staging (run 15 re-measured); enforce-by moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent workflows not yet created (D-050 small request pinned next).",

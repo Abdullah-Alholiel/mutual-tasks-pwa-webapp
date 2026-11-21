@@ -157,7 +157,10 @@ production outranks the lane.
       (owner 2026-11-16; spec in the DECISIONS.md row "Scheduled acceptance tests on staging").
 - [x] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
       scoped policies on the custom-session model, rehearsed on a disposable copy, rollback script.
-      Applying on production is owner-only after Claude reviews the SQL.
+      Applying on production is owner-only after Claude reviews the SQL — and ONLY AFTER the
+      promote staging→main is live (D-057 run 21 order): 004's policies key on the
+      x-momentum-session header, which today's prod client does not send yet; applying 004
+      first would lock out every current prod user. Order: promote → 004.
       DONE 2026-11-18 run 15: PR #23 merged (bbcc1f7) — 004 scoped policies (D-018 design:
       x-momentum-session header -> app_current_user_id(), SECURITY DEFINER helpers, TRUNCATE
       revoked, magic_links anon-zero, sessions SELECT-only) + ON DELETE CASCADE on the four
