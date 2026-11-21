@@ -27,10 +27,10 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run20 DONE (2026-11-20T22:32Z UTC, ~95 min): run19 L4c tail completed (pinned-env deploy + smoke 12/12 + live wiring probes), D-056 legal draft fixes shipped (PR #29 squash 83338bf: real support address, named processors EN+AR, storage/lookup/localStorage disclosures, softened AI-training claim, Premium mailto honest 'opened' state; +11 tests, tsc 97=97, reviewer MERGE), /privacy EN+AR screenshots verified. L4c ticked in LAUNCH-LANE. factory-loop skill rule 3 patched per D-055. NEXT: L4d (qa-bot unlocks live AI proof). Owner waits: promote (50 commits), 004 prod apply, realtime disclosure.",
-  "updated_at": "2026-11-20T23:55:00Z",
+  "notes": "run21 DONE (2026-11-21T17:34Z UTC, ~35 min, docs run): D-057 shipped \u2014 (1) L4b cutover report written (kanban/RUNS/20261121T1734Z-run21-L4b-cutover-report.md) with FRESH smoke 12/12 on the Pages preview re-run this run, rollback steps, honest gap (signed-in AI proof needs L4d qa-bot or owner sign-in); (2) 004 apply ORDER-GATED on the promote going live first \u2014 order written into OWNER-QUEUE, LAUNCH-LANE L5 and STATE open_blockers[0] (commit c9abc32, grep-verified). No code PR (lane item was a docs deliverable; stop-building line honored). L4d sized 2-4 h across two runs: WebKit playwright image (2.8GB) NOT on VPS yet, @qa-bot account does not exist (16 users, checked read-only) \u2014 run 22 builds L4d step 1 (qa-bot + acceptance skeleton + Chromium leg), run 23 WebKit/EN-AR/realtime + RELEASE-CANDICATE rule + cron. G1 rides when a gap appears. Run 20 claims re-verified (/privacy EN+AR 200, legalContent.ts:5). Owner waits: promote (53 commits now), 004 order-gated apply, realtime disclosure, WebKit pull heads-up.",
+  "updated_at": "2026-11-21T17:41:59Z",
   "last_run_commits": [
-    "83338bf (PR #29 squash: D-056 legal draft fixes + Premium mailto honesty)",
-    "e00261f (docs: run 20 checkpoint-first)"
+    "c9abc32 (docs: D-057 cutover report + 004 order gated on promote)",
+    "1fcf151 (docs: run 21 checkpoint-first)"
   ]
 }

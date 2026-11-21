@@ -140,6 +140,18 @@ AI limits owner-only · Level A until P3 conditions met.
   (kanban/RUNS/run20-privacy-en.png / -ar.png). L4c ticked in LAUNCH-LANE (proof above);
   momentum-factory-loop skill rule 3 patched per D-055 (worker requests jump the lane
   only if they block it). Report: kanban/RUNS/20261120T2230Z-run20.md
+- Run 21 (2026-11-21): **D-057 SHIPPED (docs run)** — (1) L4b cutover report written
+  (kanban/RUNS/20261121T1734Z-run21-L4b-cutover-report.md): Netlify->Pages diff, FRESH full
+  smoke 12/12 on the staging preview re-run this run, pre-authorised rollback steps, honest
+  gap noted (signed-in AI proof still needs qa-bot/L4d or an owner sign-in); L4b stays
+  unchecked — steps 2-5 need the owner go. (2) 004 ORDER TRAP fenced: apply is now gated on
+  the promote going live FIRST (new client sends x-momentum-session, supabaseFetch.ts) —
+  order written into OWNER-QUEUE + LAUNCH-LANE L5 + STATE blocker (commit c9abc32, grep
+  proof in all three). L4d sized honestly: 2-4 h across two runs (WebKit container 2.8 GB
+  not yet pulled; @qa-bot account does not exist yet) — deferred to run 22 with a plan,
+  not skipped silently. No code PR this run (lane item was a docs deliverable; stop-building
+  line honored). Run 20 claims re-verified: /privacy EN+AR 200, legalContent.ts:5 real
+  address, smoke reproduced. Report: kanban/RUNS/20261121T1734Z-run21.md
 
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 
