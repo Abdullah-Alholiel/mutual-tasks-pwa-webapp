@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 20,
-  "last_run_at": "2026-11-20T22:32:36Z",
-  "last_run_report": "kanban/RUNS/20261120T2230Z-run20.md",
+  "last_run": 21,
+  "last_run_at": "2026-11-21T17:34:04Z",
+  "last_run_report": "kanban/RUNS/20261121T1734Z-run21.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "RLS 2026-11-19 (UPDATED in run 17): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only: fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback restores pre-tightening state verbatim.",
