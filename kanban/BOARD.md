@@ -152,6 +152,24 @@ AI limits owner-only · Level A until P3 conditions met.
   not skipped silently. No code PR this run (lane item was a docs deliverable; stop-building
   line honored). Run 20 claims re-verified: /privacy EN+AR 200, legalContent.ts:5 real
   address, smoke reproduced. Report: kanban/RUNS/20261121T1734Z-run21.md
+- Run 23 (2026-11-22): **L4b steps 1–3 DONE — CLOUDFLARE PAGES IS PRODUCTION** — (run 22 died at
+  its checkpoint: skeleton committed 6d709d6, lock cleared by the pre-run script; this run picked
+  the lane up). Owner answered a 11-row decision batch (D-059…D-069, committed from the dirty
+  tree in checkpoint 14a5c7a); D-064 = the promote go, D-066 = order (new app version first,
+  004 right after). PR #30 promote (merge commit a639872, merge commit NOT squash — one
+  revertible unit): CI gate + gitleaks + GitGuardian green on the PR, release-verify +
+  security PASS on main post-merge. Production deploy to Pages --branch main from an isolated
+  merge-commit worktree with the pinned-env build (pins from the live bundle, never repo .env):
+  deployment 8dc06f40, STRICT bundle gate clean (chunk index-BWrObEOX.js, self-hosted address,
+  anon role), secret sweep clean, served-bundle grep 0 secrets / 0 netlify hosts, security
+  headers served (repo _headers match). FULL SMOKE 12/12 PASS on
+  https://social-momentum-8zq.pages.dev incl. signed-out-visitor-downloads-no-user-data (the
+  Netlify prod FAIL since 2026-11-11) + probes: unauth push 401 JSON, AI 400 function JSON,
+  served hash stable across polls. Gates re-run fresh this run: tsc -b 0 errors (97 baseline),
+  vitest 183/183, build exit 0. Local dist n8n/netlify host-grep hits inspected and ruled
+  BENIGN (legal-page prose naming past processors D-056 + legacy-n8n log string kept for
+  Netlify parity D-055; no hosts). L4b ticked (steps 4-5 remain: APP_URL switch = Claude/VPS,
+  Netlify 48 h fallback then owner-yes retirement). Report: kanban/RUNS/20261122T1735Z-run23.md
 
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 

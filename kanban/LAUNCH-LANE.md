@@ -99,7 +99,7 @@ production outranks the lane.
       deploys can no longer delete it. NOTE: local Pages builds must also export
       VITE_ONESIGNAL_APP_ID (public app id, extractable from the live prod bundle) — without it
       push silently stays "not configured" on that build.
-- [ ] L4b · HOSTING SWITCH pulled forward (owner decision 2026-11-15, Life OS D-20261115-11: "finalise the
+- [x] L4b · HOSTING SWITCH pulled forward (owner decision 2026-11-15, Life OS D-20261115-11: "finalise the
       migration to Cloudflare"). Production moves to Cloudflare Pages right after L3 and L4, not at the
       end of the lane. Netlify cannot be reached on Saudi home/mobile networks and has no users, so
       it protects nothing. Factory steps, in order:
@@ -127,6 +127,19 @@ production outranks the lane.
       truncation, staging-only rules for anything that mutates rows.
       REAL-PHONE EVIDENCE for L4: on the owner's iPhone the deferred OneSignal script delayed the app's
       start by 5.4 s on a first load (page parsed 5.42 s, first app content 5.45 s).
+      DONE 2026-11-22 run 23 (steps 1–3; owner go D-064 "do it" + D-066 order): (1) cutover report
+      written run 21. (2) owner decision D-064 landed 2026-11-22. (3) PR #30 (merge commit a639872)
+      merged staging→main — CI green, release-verify + security PASS on main post-merge; production
+      deployed to Cloudflare Pages --branch main with the pinned-env build (deployment 8dc06f40,
+      chunk index-BWrObEOX.js): STRICT bundle gate clean, secret sweep clean, served-bundle grep
+      0 secrets / 0 netlify hosts, FULL SMOKE 12/12 PASS on https://social-momentum-8zq.pages.dev
+      INCLUDING "signed-out visitor downloads no user data" (the check Netlify prod has been
+      failing since 2026-11-11) + behavioral probes (unauth push 401 JSON, AI endpoint 400
+      function JSON, served hash stable). Cloudflare Pages IS production as of 2026-11-22
+      17:45 UTC. STILL OPEN here: step 4 (functions APP_URL → production address, Claude/VPS
+      change) and step 5 (Netlify untouched as fallback 48 h; retirement = separate owner yes).
+      NEXT after this item per D-066: apply 004 on prod right after (owner-only: fresh dump →
+      quiet window → 004 → live gateway header probe → 24 h watch).
 - [x] L4c · AI without n8n: the two AI calls run on Cloudflare Workers AI through the Pages binding
       `AI` (owner 2026-11-16; Life OS D-20261115-13 has the full spec). Preview binding is attached.
       DO THIS BEFORE L4b's cutover report (owner wants AI working at the switch): right after the

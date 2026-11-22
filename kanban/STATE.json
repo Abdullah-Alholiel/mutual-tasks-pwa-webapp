@@ -9,8 +9,8 @@
   "last_run_report": "kanban/RUNS/20261122T1735Z-run23.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
-    "RLS 2026-11-19 (UPDATED run 21 D-057): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only AND order-gated: the promote staging->main must go LIVE FIRST (new client sends x-momentum-session, src/lib/supabaseFetch.ts), THEN fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Applying 004 before the promote locks out every current prod user. Rollback restores pre-tightening state verbatim.",
-    "REALTIME 2026-11-18 (run 15 disclosure, needs owner decision): under scoped policies live postgres_changes delivery stops (policies evaluate without request headers). App usable via optimistic updates + refetch-on-focus. Options: accept short-term, or approve authorized-subscriber/signed-claims follow-up build.",
+    "RLS 2026-11-22 (run 23 UPDATE — UNBLOCKED, owner go still required to EXECUTE): scoped policies BUILT + HARDENED (PR #23 + PR #26, rehearsal 65/65) and the D-066 order is now SATISFIED — the promote went live 2026-11-22 (PR #30, a639872; Pages production deployment 8dc06f40, smoke 12/12) so the new client (x-momentum-session, src/lib/supabaseFetch.ts) is in users' hands. Apply is still OWNER-ONLY (Claude/owner session): fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback restores pre-tightening state verbatim.",
+    "REALTIME 2026-11-22 (run 23): RESOLVED by owner decision D-065 — accept the loss of live postgres_changes delivery under scoped policies for now; app works via optimistic updates + refetch-on-focus; signed live updates are built AFTER launch. Kept here as a watch item until 004 is applied on prod.",
     "SEC 2026-11-17 (static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one).",
     "DEBT: pr-gate tsc step disabled - tsc -b baseline now 96 on merged staging (run 15 re-measured); enforce-by moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent workflows not yet created (D-050 small request pinned next).",
     "INCIDENT 2026-11-10: kanban/ wipe root cause unknown; kanban/ git-tracked; mirror comments stay PAUSED. Escalate only on recurrence."
@@ -21,16 +21,18 @@
   ],
   "in_review_items": [],
   "last_promote": {
-    "date": "2026-11-11",
-    "merge_sha": "04222f7",
-    "pr": 9,
-    "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
-    "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
+    "date": "2026-11-22",
+    "merge_sha": "a639872",
+    "pr": 30,
+    "decision": "D-064 owner-approved 'do it' (2026-11-22) + D-066 order: new app version first, then 004 right after",
+    "verified": "Pages PRODUCTION deploy 8dc06f40 (chunk index-BWrObEOX.js): full smoke 12/12 on social-momentum-8zq.pages.dev incl signed-out-no-user-data; unauth push 401 JSON; AI endpoint 400 function JSON; served-bundle grep 0 secrets / 0 netlify hosts; release-verify + security PASS on main",
+    "green_streak": 1,
+    "last_promote_outcome": "green"
   },
-  "notes": "run23 IN PROGRESS (started 2026-11-22T17:34Z): lane pick = L4b step 3 PROMOTE (owner go D-064 'do it' + D-066 order 'new app version first, then 004 right after'). Plan: commit owner rows D-059..D-069 from the dirty tree -> promote PR staging->main -> CI green -> merge -> Pages production deploy (pinned-env build, --branch main) -> full smoke on https://social-momentum-8zq.pages.dev -> closeout. Previous: run22 DIED at its checkpoint (report skeleton only, lock cleared by pre-run script). Run21 notes: D-057 shipped (L4b cutover report + 004 order-gated on promote).",
-  "updated_at": "2026-11-21T17:41:59Z",
+  "notes": "run23 DONE (2026-11-22, ~24 min): L4b steps 1-3 SHIPPED — CLOUDFLARE PAGES IS PRODUCTION. Owner decision batch D-059..D-069 committed (14a5c7a); D-064 = promote go, D-065 = realtime accepted, D-066 = 004 after promote. PR #30 merged as merge-commit a639872 (CI gate/gitleaks/GitGuardian green; release-verify + security PASS on main). Pages production deploy 8dc06f40 from an isolated merge-commit worktree, pinned-env build (pins from the live bundle, D-052 OneSignal guard): STRICT bundle gate clean, secret sweep clean. FULL SMOKE 12/12 on https://social-momentum-8zq.pages.dev incl signed-out-visitor-downloads-no-user-data (the Netlify prod FAIL since 11-11 — closed). Probes: unauth push 401 JSON, AI 400 function JSON, served hash stable, served CSP = repo _headers. Fresh gates: tsc -b 0 errors, vitest 183/183, build exit 0. L4b ticked (steps 4-5 remain: APP_URL switch = Claude/VPS; Netlify 48 h fallback then owner-yes retirement). OWNER-QUEUE: 004 apply UNBLOCKED (owner-only execution, dump -> quiet window -> 004 -> probe -> 24h watch); realtime RESOLVED (D-065); Pages env vars RESOLVED; Oracle bucket now actionable (D-067). Next run: L4d part 1 (qa-bot + acceptance skeleton + Chromium leg; WebKit image 2.8 GB pull heads-up); G1 rides if a gap. Tool note: execute_code blocked on this cron profile — all work via normal tools.",
+  "updated_at": "2026-11-22T17:56:00Z",
   "last_run_commits": [
-    "c9abc32 (docs: D-057 cutover report + 004 order gated on promote)",
-    "1fcf151 (docs: run 21 checkpoint-first)"
+    "a639872 (PR #30 merge staging->main — THE PROMOTE; Pages production deploy 8dc06f40 followed)",
+    "14a5c7a (docs: run 23 checkpoint-first, owner rows D-059..D-069)"
   ]
 }
