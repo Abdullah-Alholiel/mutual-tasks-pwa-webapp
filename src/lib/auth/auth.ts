@@ -328,7 +328,7 @@ export async function requestLogin(email: string): Promise<{ success: boolean; m
   } catch (error) {
     console.error('Failed to request login:', error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      return { success: false, error: 'Network error. Please check your connection and ensure the Edge Function is deployed.' };
+      return { success: false, error: "Can't reach the sign-in service. Check your connection and try again." };
     }
     const errorMessage = error instanceof Error ? error.message : 'Failed to send magic link';
     return { success: false, error: errorMessage };
@@ -386,7 +386,7 @@ export async function requestSignup(
   } catch (error) {
     console.error('Failed to request signup:', error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      return { success: false, error: 'Network error. Please check your connection and ensure the Edge Function is deployed.' };
+      return { success: false, error: "Can't reach the sign-in service. Check your connection and try again." };
     }
     const errorMessage = error instanceof Error ? error.message : 'Failed to send magic link';
     return { success: false, error: errorMessage };
@@ -456,7 +456,7 @@ export async function verifyMagicLink(token: string): Promise<{
   } catch (error) {
     console.error('Failed to verify magic link:', error);
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      return { success: false, error: 'Network error. Please check your connection and ensure the Edge Function is deployed.' };
+      return { success: false, error: "Can't reach the sign-in service. Check your connection and try again." };
     }
     const errorMessage = error instanceof Error ? error.message : 'Verification failed';
     return { success: false, error: errorMessage };

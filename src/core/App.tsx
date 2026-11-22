@@ -9,6 +9,7 @@ import ProjectDetail from "../features/projects/ProjectDetail";
 import Auth from "../features/auth/Auth";
 import FriendProfile from "../features/friends/pages/FriendProfile";
 import NotFound from "../features/pages/NotFound";
+import LegalPage from "../features/pages/LegalPage";
 import Premium from "../features/pages/Premium";
 import { ProtectedRoute } from "@/features/auth/ProtectedRoute";
 import { AuthProvider } from "@/features/auth/AuthContext";
@@ -21,9 +22,8 @@ import { DataIntegrityGuard } from "@/components/DataIntegrityGuard";
 import { GlobalErrorBoundary } from "@/components/ui/GlobalErrorBoundary";
 import { PWAUpdateBanner } from "@/components/PWAUpdateBanner";
 import { useEffect } from "react";
-import { initializeOneSignal } from "@/lib/onesignal/oneSignalService";
+import { scheduleOneSignalInit } from "@/lib/onesignal/oneSignalService";
 import { PERFORMANCE_CONFIG } from "@/config/appConfig";
-import { logger } from "@/lib/monitoring/logger";
 import { initializeSentry } from "@/lib/sentry";
 import { PageErrorBoundary } from "@/components/ui/error-boundary";
 /**
@@ -32,10 +32,10 @@ import { PageErrorBoundary } from "@/components/ui/error-boundary";
  */
 function OneSignalInitializer() {
   useEffect(() => {
-    // Initialize OneSignal in background
-    initializeOneSignal().catch((err) => {
-      logger.warn('[OneSignal] Initialization error (non-fatal):', err);
-    });
+    // Load OneSignal AFTER first paint / idle (D-024): a hanging or blocked
+    // cdn.onesignal.com must never delay or blank the app. scheduleOneSignalInit
+    // is timeout-bounded and resolves even when the CDN never answers.
+    scheduleOneSignalInit();
   }, []);
 
   return null;
@@ -140,6 +140,8 @@ const App = () => {
                       {/* Public routes - no authentication required */}
                       <Route path="/auth" element={<Auth />} />
                       <Route path="/auth/verify" element={<Auth />} />
+                      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+                      <Route path="/terms" element={<LegalPage kind="terms" />} />
 
                       {/* Test routes - accessible in development */}
                       <Route path="/test/toasts" element={<ToastTest />} />

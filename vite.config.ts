@@ -36,7 +36,9 @@ export default defineConfig(({ mode }) => {
     build: {
       target: 'esnext',
       minify: 'terser',
-      sourcemap: isProduction ? 'hidden' : true,
+      // Cloudflare Pages builds (PAGES_BUILD=1) must not ship sourcemaps (plan A5);
+      // Netlify keeps 'hidden' so Sentry symbolication keeps working.
+      sourcemap: process.env.PAGES_BUILD ? false : (isProduction ? 'hidden' : true),
       chunkSizeWarningLimit: 600,
       rollupOptions: {
         output: {

@@ -1,15 +1,14 @@
-import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
+import type { Handler, HandlerEvent } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import {
     verifyMagicLinkSession,
     incrementUsage,
     getCorsHeaders,
-    AI_USAGE_LIMITS,
     getTodayDate,
     type AIUsageType
 } from './shared/utils';
 
-const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
+const handler: Handler = async (event: HandlerEvent) => {
     const headers = getCorsHeaders(event.headers['origin']);
 
     if (event.httpMethod === 'OPTIONS') {
@@ -61,10 +60,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
             { global: { headers: { 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY! } } }
         );
 
-        const usageDate = getTodayDate(userTimezone);
+        const usageDate = getTodayDate();
         console.log('[AI Confirm Usage] About to increment usage:', { userId, usageType, usageDate, userTimezone });
 
-        await incrementUsage(supabaseAdmin, userId, usageType, userTimezone);
+        await incrementUsage(supabaseAdmin, userId, usageType);
 
         console.log('[AI Confirm Usage] Usage recorded successfully:', { userId, usageType, usageDate });
 

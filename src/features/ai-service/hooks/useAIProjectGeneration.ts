@@ -5,14 +5,14 @@
 import { useState, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import type { AIProjectState, AIGeneratedProject } from '../types';
-import { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR } from '../actions';
+import { generateAIProject, RATE_LIMIT_ERROR, TIMEOUT_ERROR, AI_EXHAUSTED_ERROR } from '../actions';
 import {
     aiLogger,
     AI_ERROR_MESSAGES,
     getAIErrorMessage,
+    getAiExhaustedMessage,
 } from '../utils';
 import { useAuth } from '@/features/auth/useAuth';
-import { getSessionToken } from '@/lib/auth/sessionStorage';
 
 /**
  * Hook result interface for AI project generation
@@ -126,6 +126,16 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
                 return null;
             }
 
+            // L4c: free allowance spent everywhere — localized "AI help is back
+            // tomorrow" (EN + AR), auto-reset to idle (it clears at midnight UTC,
+            // not by retrying).
+            if (result.error === AI_EXHAUSTED_ERROR) {
+                setAiState('idle');
+                const m = getAiExhaustedMessage();
+                toast.error(m.title, { description: m.description });
+                return null;
+            }
+
             // Update remaining count from API response
             if (result.rateLimitInfo) {
                 setRemainingToday(result.rateLimitInfo.remaining);
@@ -184,78 +194,14 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
             return false;
         }
 
-        try {
-            const sessionToken = getSessionToken();
-            if (!sessionToken) {
-                aiLogger.error('Session token missing in confirmProjectCreation');
-                toast.error('Your session expired.', {
-                    description: 'Please sign in again to continue.'
-                });
-                return false;
-            }
-
-            const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            aiLogger.info('Confirming project creation usage', {
-                userId: user.id,
-                timezone: userTimezone,
-                projectName: generatedProject.name
-            });
-
-            const response = await fetch('/api/ai-confirm-usage', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'authorization': `Bearer ${sessionToken}`,
-                    'x-user-timezone': userTimezone,
-                },
-                body: JSON.stringify({
-                    usageType: 'project_generation',
-                    userTimezone: userTimezone,
-                }),
-            });
-
-            const responseText = await response.text();
-            let responseData: Record<string, unknown>;
-            try {
-                responseData = JSON.parse(responseText);
-            } catch {
-                responseData = { raw: responseText };
-            }
-
-            aiLogger.info('ai-confirm-usage response', {
-                status: response.status,
-                ok: response.ok,
-                data: responseData
-            });
-
-            if (!response.ok) {
-                aiLogger.error('Failed to record usage - API returned error', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    error: responseData
-                });
-                toast.error('Failed to record usage', {
-                    description: responseData?.error || 'Please try again',
-                });
-                return false;
-            }
-
-            aiLogger.info('Project generation usage confirmed successfully');
-
-            // Update remaining count (-1 = premium/unlimited, don't decrement)
-            if (remainingToday !== null && remainingToday > 0) {
-                setRemainingToday(remainingToday - 1);
-            }
-
-            return true;
-        } catch (error) {
-            aiLogger.error('confirmProjectCreation failed with exception', error);
-            toast.error('Failed to record usage', {
-                description: 'Network error - please try again',
-            });
-            return false;
-        }
-    }, [user?.id, generatedProject, remainingToday]);
+        // P1-7: usage is now counted SERVER-SIDE by /api/ai-generate-project on
+        // successful generation (F5), so this confirm call would DOUBLE-count
+        // every project generation. Kept as a no-op success so bundles released
+        // before the P1-7 deploy keep working (old code treats failure as
+        // "block creation" — see AIProjectModal.handleCreate).
+        aiLogger.info('Skipping usage confirm — counted server-side at generation (P1-7)');
+        return true;
+    }, [user?.id, generatedProject]);
 
     /**
      * Reset the hook state

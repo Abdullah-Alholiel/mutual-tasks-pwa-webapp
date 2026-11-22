@@ -12,7 +12,8 @@ import { getSharedSupabaseClient } from '@/lib/supabaseClient';
  * by design.
  *
  * UX states: loading (checking status) / premium (already active) /
- * form (request ready to send) / sending / sent (confirmation).
+ * form (request ready to send) / sending / opened (mailto handoff done —
+ * the app cannot know whether the email was actually sent).
  */
 
 const PREMIUM_EMAIL = 'momentum.pwa@gmail.com';
@@ -22,7 +23,7 @@ type PremiumState =
   | { s: 'premium' }
   | { s: 'form' }
   | { s: 'sending' }
-  | { s: 'sent' };
+  | { s: 'opened' };
 
 export default function Premium() {
   const { user } = useAuth();
@@ -53,7 +54,9 @@ export default function Premium() {
       `Hi Momentum team,\n\nI'd like to activate Premium.\n\nMy handle: ${user?.handle ?? 'unknown'}\nMy email: ${user?.email ?? 'unknown'}\n\n${message ? `Message:\n${message}\n\n` : ''}Thanks!`
     );
     window.location.href = `mailto:${PREMIUM_EMAIL}?subject=${subject}&body=${body}`;
-    setState({ s: 'sent' });
+    // D-056: a mailto handoff cannot confirm anything was sent — show only what
+    // the user can verify (the mail app opened) plus a manual fallback address.
+    setState({ s: 'opened' });
   };
 
   if (state.s === 'loading') {
@@ -105,11 +108,28 @@ export default function Premium() {
         ))}
       </ul>
 
-      {state.s === 'sent' ? (
-        <div className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 text-center text-sm">
-          Your email app should be open with a pre-filled request. We'll
-          activate Premium as soon as we confirm your payment — usually within
-          a day.
+      {state.s === 'opened' ? (
+        <div
+          className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 text-center text-sm space-y-3"
+          role="status"
+        >
+          <p>
+            Your email app should have opened with the request pre-filled.
+            If it didn't, email us yourself at{' '}
+            <a
+              href={`mailto:${PREMIUM_EMAIL}`}
+              className="underline font-medium"
+            >
+              {PREMIUM_EMAIL}
+            </a>{' '}
+            with your handle.
+          </p>
+          <button
+            onClick={() => setState({ s: 'form' })}
+            className="text-xs underline text-muted-foreground"
+          >
+            Open your email app again
+          </button>
         </div>
       ) : (
         <div className="w-full space-y-4">

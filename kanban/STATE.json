@@ -4,21 +4,33 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 3,
-  "last_run_at": "2026-11-10T23:55:00Z",
-  "last_run_report": "kanban/RUNS/20261110T2359Z-run3.md",
+  "last_run": 23,
+  "last_run_at": "2026-11-22T17:34:40Z",
+  "last_run_report": "kanban/RUNS/20261122T1735Z-run23.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
-    "SEC 2026-11-10: npm audit debt static - 2 critical + 19 high in repo deps (unchanged since 2026-11-05); criticals verified zero prod exposure (express/zod/vitest not shipped; netlify ships dist+functions only). Cards t_95d6a326 (audit fix), t_b133b484 (remove zod), t_3b38dbfd (vite major)",
-    "SEC 2026-11-10: security-sweep.sh aborts at port-diff (sort -nu vs comm lex order) under set -e - host-bound exposure check skipped; manual completion clean. gitleaks+trivy not installed. Card t_f4ee1721",
-    "DECISION 2026-11-10: staging is 3 security commits ahead of main (fc0b4c1, 089cb59, bef8197); prod still serves Oct-25 build - awaiting owner-approved promote PR staging->main",
-    "DEBT: pr-gate tsc step disabled - 98 pre-existing tsc -b errors on staging (enforce-by 2026-11-15); security/semgrep/pr-agent/release-verify workflows not yet created (P1-2/3/4/13)",
-    "INCIDENT 2026-11-10: kanban/ dir files (BOARD/DECISIONS/STATE/OWNER-QUEUE/LOCK) wiped at 22:48 UTC, coinciding exactly with a 'hermes kanban comment' CLI call; reviewer child cleared (event predates dispatch). Restored this run from /tmp Life-OS mirror + run context. Root cause not yet reproduced - see RUNS report."
+    "RLS 2026-11-19 (UPDATED run 21 D-057): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only AND order-gated: the promote staging->main must go LIVE FIRST (new client sends x-momentum-session, src/lib/supabaseFetch.ts), THEN fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Applying 004 before the promote locks out every current prod user. Rollback restores pre-tightening state verbatim.",
+    "REALTIME 2026-11-18 (run 15 disclosure, needs owner decision): under scoped policies live postgres_changes delivery stops (policies evaluate without request headers). App usable via optimistic updates + refetch-on-focus. Options: accept short-term, or approve authorized-subscriber/signed-claims follow-up build.",
+    "SEC 2026-11-17 (static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one).",
+    "DEBT: pr-gate tsc step disabled - tsc -b baseline now 96 on merged staging (run 15 re-measured); enforce-by moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent workflows not yet created (D-050 small request pinned next).",
+    "INCIDENT 2026-11-10: kanban/ wipe root cause unknown; kanban/ git-tracked; mirror comments stay PAUSED. Escalate only on recurrence."
   ],
   "pending_escalations": [
-    "Promote staging -> main (3 green security commits; owner yes/no per D-006 Level A)"
+    "RLS DECISION RESOLVED 2026-11-13 (D-018): owner approved scoped-policy design (option a: anon policies join on sessions, functions use service_role). Build+rehearse on a disposable copy (lane L5), deliver SQL + rehearsal proof + rollback script; applying on prod = owner-only, separate go.",
+    "BACKUP TARGET DECISION RESOLVED 2026-11-13 (D-020): off-site target = Oracle Object Storage bucket in Riyadh (write-only pre-authenticated link, never R2). Owner creates the bucket; until the link exists, build+test the encrypt-and-upload script against a local folder (lane L8)."
   ],
   "in_review_items": [],
-  "notes": "run3 (2026-11-10): P1-8/F19 done - 5 details leaks stripped on the 2 AI generation functions, 8 regression tests added (94/94), PR #8 squash-merged bef8197, staging deploy verified live serving bare {error} bodies. F12 allowlist verified present. ai-confirm-usage + push already clean. Express mirror already clean (run2). import.meta.env consumers recount: 14 code files (run2 claimed 7) - no live leak, bundle grep clean. F22 dual n8n secret header kept: compat shim, consumer JSON only in container DB (unverifiable without opening n8n container). Lock hygiene fixed: run2 stale lock released; LOCK.json + *.tsbuildinfo gitignored. kanban/ first git commit this run. Next run: re-verify bef8197, pick P1-11 RLS coverage + one hardening item (tsc baseline or t_f4ee1721 sweep fix). branch_model: staging=work, main=release-only (owner-approved PR) | hosting: Netlify live; Cloudflare Pages target (P1); never R2 | cron: factory 22:30 daily; watchdog /150min; backup-verify 05:30; sweep Tue 10:30; digest Sun 18:00 | owner_go_p1 recorded 2026-11-08 (D-20261106-31); p1_preconditions_owner: main branch protection (t_ed96c8d0), SOUL.md.draft approval (t_0e249925)",
-  "updated_at": "2026-11-10T23:55:00Z"
+  "last_promote": {
+    "date": "2026-11-11",
+    "merge_sha": "04222f7",
+    "pr": 9,
+    "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
+    "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
+  },
+  "notes": "run23 IN PROGRESS (started 2026-11-22T17:34Z): lane pick = L4b step 3 PROMOTE (owner go D-064 'do it' + D-066 order 'new app version first, then 004 right after'). Plan: commit owner rows D-059..D-069 from the dirty tree -> promote PR staging->main -> CI green -> merge -> Pages production deploy (pinned-env build, --branch main) -> full smoke on https://social-momentum-8zq.pages.dev -> closeout. Previous: run22 DIED at its checkpoint (report skeleton only, lock cleared by pre-run script). Run21 notes: D-057 shipped (L4b cutover report + 004 order-gated on promote).",
+  "updated_at": "2026-11-21T17:41:59Z",
+  "last_run_commits": [
+    "c9abc32 (docs: D-057 cutover report + 004 order gated on promote)",
+    "1fcf151 (docs: run 21 checkpoint-first)"
+  ]
 }

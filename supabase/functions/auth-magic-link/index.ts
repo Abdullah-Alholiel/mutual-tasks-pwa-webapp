@@ -6,13 +6,6 @@
 // in the IDE but will work correctly when deployed to Supabase Edge Functions.
 // ============================================================================
 
-interface ErrorWithContext extends Error {
-  context?: {
-    response?: { status: number; statusText: string };
-    [key: string]: unknown;
-  };
-}
-
 declare const Deno: {
   env: { get(key: string): string | undefined };
 };
@@ -21,6 +14,7 @@ declare function serve(fn: (req: Request) => Promise<Response>): void;
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { mapEmailDelivery } from '../_shared/email-delivery.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -157,12 +151,15 @@ serve(async (req) => {
 
       if (linkError) throw linkError;
 
-      // Call email function to send magic link
-      // Get app URL: check environment variable first, then detect from Supabase URL
+      // Invoke email function. If the send fails the whole request FAILS:
+      // answering success here is how sign-in looked "fine" for weeks while
+      // no email ever went out (lane L1, D-023). The magic link row stays
+      // stored and reusable within its 15-minute window, so a retry creates
+      // no duplicate accounts or dead links.
       const appUrl = getAppUrl();
       const magicLink = `${appUrl}/auth/verify?token=${token}`;
 
-      // Invoke email function
+      let delivery;
       try {
         const { data: emailData, error: emailError } = await supabaseClient.functions.invoke('send-email', {
           body: {
@@ -172,46 +169,22 @@ serve(async (req) => {
             userName: user.name,
           },
         });
-
-        if (emailError) {
-          // Try to extract response body for better error details
-          const errorDetails: Record<string, unknown> = {
-            message: emailError.message,
-            context: emailError.context,
-          };
-
-          // If context contains a Response, try to read its body
-          if (emailError.context?.response) {
-            try {
-              const responseBody = await emailError.context.response.text();
-              try {
-                errorDetails.responseBody = JSON.parse(responseBody);
-              } catch {
-                errorDetails.responseBody = responseBody;
-              }
-            } catch {
-              // Ignore if we can't read the response
-            }
-          }
-
-          console.error('Failed to send email:', errorDetails);
-          // Log the error but don't fail the request - magic link is still valid
-        } else {
-          console.log('Email sent successfully:', emailData);
-        }
+        delivery = mapEmailDelivery(emailData, emailError);
       } catch (emailErr: unknown) {
-        const errCtx = emailErr instanceof Error ? (emailErr as ErrorWithContext).context : undefined;
         console.error('Exception while sending email:', {
           error: emailErr,
           message: emailErr instanceof Error ? emailErr.message : String(emailErr),
           stack: emailErr instanceof Error ? emailErr.stack : undefined,
-          context: errCtx,
-          response: errCtx?.response ? {
-            status: errCtx.response.status,
-            statusText: errCtx.response.statusText,
-          } : undefined,
         });
-        // Don't fail the request if email fails - magic link is still valid
+        delivery = mapEmailDelivery(undefined, emailErr);
+      }
+
+      console.log(delivery.logMessage);
+      if (!delivery.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: delivery.userMessage }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       return new Response(
@@ -272,12 +245,12 @@ serve(async (req) => {
 
       if (linkError) throw linkError;
 
-      // Call email function to send magic link
-      // Get app URL: check environment variable first, then detect from Supabase URL
+      // Invoke email function. Same contract as request-login: a failed send
+      // fails the request (lane L1) — never answer success without an email.
       const appUrl = getAppUrl();
       const magicLink = `${appUrl}/auth/verify?token=${token}`;
 
-      // Invoke email function
+      let delivery;
       try {
         const { data: emailData, error: emailError } = await supabaseClient.functions.invoke('send-email', {
           body: {
@@ -287,46 +260,22 @@ serve(async (req) => {
             userName: name,
           },
         });
-
-        if (emailError) {
-          // Try to extract response body for better error details
-          const errorDetails: Record<string, unknown> = {
-            message: emailError.message,
-            context: emailError.context,
-          };
-
-          // If context contains a Response, try to read its body
-          if (emailError.context?.response) {
-            try {
-              const responseBody = await emailError.context.response.text();
-              try {
-                errorDetails.responseBody = JSON.parse(responseBody);
-              } catch {
-                errorDetails.responseBody = responseBody;
-              }
-            } catch {
-              // Ignore if we can't read the response
-            }
-          }
-
-          console.error('Failed to send email:', errorDetails);
-          // Log the error but don't fail the request - magic link is still valid
-        } else {
-          console.log('Email sent successfully:', emailData);
-        }
+        delivery = mapEmailDelivery(emailData, emailError);
       } catch (emailErr: unknown) {
-        const errCtx = emailErr instanceof Error ? (emailErr as ErrorWithContext).context : undefined;
         console.error('Exception while sending email:', {
           error: emailErr,
           message: emailErr instanceof Error ? emailErr.message : String(emailErr),
           stack: emailErr instanceof Error ? emailErr.stack : undefined,
-          context: errCtx,
-          response: errCtx?.response ? {
-            status: errCtx.response.status,
-            statusText: errCtx.response.statusText,
-          } : undefined,
         });
-        // Don't fail the request if email fails - magic link is still valid
+        delivery = mapEmailDelivery(undefined, emailErr);
+      }
+
+      console.log(delivery.logMessage);
+      if (!delivery.ok) {
+        return new Response(
+          JSON.stringify({ success: false, error: delivery.userMessage }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       return new Response(
@@ -465,7 +414,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
+      JSON.stringify({ error: 'Something went wrong. Please try again.' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
