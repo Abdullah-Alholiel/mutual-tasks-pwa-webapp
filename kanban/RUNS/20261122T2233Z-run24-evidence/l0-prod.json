@@ -1,0 +1,14 @@
+[
+ {
+  "phase": "cold-first-visit",
+  "visible_after_s": 8.01,
+  "screenshot": "prod-cold-first-visit.png",
+  "sw": "controller=true"
+ },
+ {
+  "phase": "sw-controlled-repeat-visit",
+  "visible_after_s": 1.92,
+  "screenshot": "prod-sw-controlled-repeat-visit.png",
+  "sw": "controlled"
+ }
+]

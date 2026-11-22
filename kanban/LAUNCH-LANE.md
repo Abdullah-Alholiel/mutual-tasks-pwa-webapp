@@ -24,9 +24,20 @@ production outranks the lane.
       Fix direction: first paint must not depend on a JS animation (no `initial={{opacity:0}}` on
       page-level wrappers, or a CSS fallback that forces opacity 1 after a short delay), and the
       service worker must not stall the page (register after first render / on idle).
-      Proof: time-to-visible under 2 s in WebKit with the service worker allowed, plus the owner's
-      phone. The preview currently carries an opt-in diagnostic panel (`?diag=1`, injected by
+      Proof: time-to-visible under 2 s in WebKit with the service worker allowed, plus the
+      owner's phone. The preview currently carries an opt-in diagnostic panel (`?diag=1`, injected by
       Claude into the deployed index.html only, not in the repo); the owner's readout goes here.
+      UPDATE 2026-11-22 run 24: CODE SIDE DONE on staging (PRs #31 + #32). WebKit against prod
+      measured the residual after PR #13 (DOM 0.93s, visible 7.83s — the load-time SW install
+      still froze the entrance window) and both fixes landed: SW now registers on TRUE IDLE
+      (#31: requestIdleCallback capped 2.5s / first interaction / fallback; 10 unit tests), and
+      the sign-in entrance no longer hides behind a JS animation (#32: opacity removed from the
+      4 entrance initial props). Proof on the staging preview: cold 1.09s, SW-controlled repeat
+      0.82s (2s bar), full smoke 12/12, JSON + screenshots in
+      kanban/RUNS/20261122T2233Z-run24-evidence/. REMAINING for the tick: owner-approved promote
+      (production still serves the pre-fix bundle), the owner's iPhone check, D-063 ?diag=1
+      readout. Follow-up noted: same opacity-initial pattern exists on post-sign-in screens
+      (harmless there today — SW registers before those render; bundle with L6 or a polish slot).
 
 - [x] L1 · Sign-in works end to end. Today `auth-magic-link` answers `success: true` while
       `send-email` fails with 500 (MailJet keys are empty in `~/momentum-supabase/.env`), so no

@@ -10,7 +10,7 @@ and strike the line by moving it to the resolved section below — never delete 
 - 2026-11-22 · **L4b step 4 — switch functions APP_URL to the production address** (Claude/VPS change, not factory): sign-in links still point at the staging preview until this lands (documented at L1, 2026-11-13 16:42) · run 23
 - 2026-11-22 · Netlify retirement: production is Cloudflare Pages since 2026-11-22 17:45 UTC; Netlify stays untouched as fallback for 48 h (until ≈2026-11-24), then retires on a separate owner yes · L4b step 5, run 23
 - 2026-11-22 · Oracle backup bucket link (D-067: "Later, after the cutover" — the cutover landed today, so this is now actionable; needed for launch condition C3 + the L8 restore drill) · run 23
-- 2026-11-16 · iPhone ?diag=1 readout of the L0 sign-in visibility issue (open https://staging.social-momentum-8zq.pages.dev/?diag=1, tap COPY THIS TEXT, paste to chat) · L0 lane item, panel now ships from the repo (D-029); re-raised by the owner 2026-11-22 (D-063)
+- 2026-11-16 · iPhone ?diag=1 readout of the L0 sign-in visibility issue (open https://staging.social-momentum-8zq.pages.dev/?diag=1, tap COPY THIS TEXT, paste to chat) · L0 lane item, panel now ships from the repo (D-029); re-raised by the owner 2026-11-22 (D-063). UPDATE run 24 2026-11-22: the fix is on staging (PRs #31/#32 — WebKit cold 1.09s); production gets it at the next promote, so the iPhone readout is most useful AFTER that promote lands
 - standing · lawyer review of privacy and terms (C6) — draft is current as of PR #29; tracked in LAUNCH-LANE.md "Waiting on the owner"
 
 ## Resolved

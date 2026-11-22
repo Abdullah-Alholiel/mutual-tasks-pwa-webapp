@@ -171,6 +171,26 @@ AI limits owner-only · Level A until P3 conditions met.
   Netlify parity D-055; no hosts). L4b ticked (steps 4-5 remain: APP_URL switch = Claude/VPS,
   Netlify 48 h fallback then owner-yes retirement). Report: kanban/RUNS/20261122T1735Z-run23.md
 
+- Run 24 (2026-11-22): **L0 residual FIX SHIPPED — sign-in first paint measured 8.56s → 1.09s** —
+  WebKit harness (Playwright 1.62.1 noble container, iPhone viewport, first time the 2.8 GB image
+  was actually pulled) against the LIVE PRODUCTION bundle measured the residual after PR #13:
+  DOM at 0.93s, sign-in visible only at 7.83s (SW install starting at `load` ≈0.3s still freezes
+  WebKit rAF through the entrance window); repeat visit 1.92s barely under the 2s bar. PR #31
+  (squash 7e90858, reviewer MERGE-WITH-FIXES, its 1 IMPORTANT — a vacuous race test — fixed
+  before merge): pwaRegister now registers the SW on TRUE IDLE (requestIdleCallback capped 2.5s /
+  first interaction / plain fallback, 8s register race kept), 9→10 new unit tests, vitest alias
+  for the virtual:pwa-register module. Staging re-measure after #31: cold STILL 8.56s → second
+  root cause proven: the mom-reveal CSS floor holds only 0.6s, then framer-motion inline
+  opacity:0 rules until its rAF loop runs. PR #32 (squash fdb02fc, reviewer MERGE, all MINOR):
+  opacity removed from the entrance initial props of the 4 sign-in wrappers (the lane's fix
+  direction (a): first paint must not depend on a JS animation). Post-merge pinned-env preview
+  deploy + FULL SMOKE 12/12 + WebKit: cold 1.09s, repeat 0.82s — BOTH <2s, PASS with margin.
+  Evidence JSON + screenshots: kanban/RUNS/20261122T2233Z-run24-evidence/. L0 stays UNCHECKED:
+  production still serves the pre-fix bundle (promote = owner decision); owner iPhone check +
+  D-063 diag readout remain. D-070 logged (default+48h-veto). Deferred worker requests (D-027,
+  no silence): D-068 production-plan refresh, D-069 Sentry CSP/setUser — not built, budget.
+  Report: kanban/RUNS/20261122T2233Z-run24.md
+
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 
 - src/hooks/useOneSignalPush.ts is dead code (zero consumers; duplicates init outside the
