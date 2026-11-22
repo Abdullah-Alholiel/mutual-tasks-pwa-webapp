@@ -162,12 +162,23 @@ describe('pwaRegister (L0 post-idle SW registration)', () => {
     expect(registerSW).toHaveBeenCalledTimes(1);
   });
 
-  it('a never-resolving registerSW promise must not throw or re-enter', async () => {
+  it('a never-resolving registerSW promise must not throw or re-enter (8s race)', async () => {
+    // One load only: resetModules inside loadModule re-evaluates the stub, so
+    // the implementation must be set on the instance the source actually bound.
     const { registerSW } = await loadModule();
     registerSW.mockImplementation(() => new Promise<void>(() => {}));
-    await loadModule();
     idleWindow.dispatchEvent(new Event('pointerdown'));
     await vi.advanceTimersByTimeAsync(REGISTER_RACE_MS + 1000);
     expect(registerSW).toHaveBeenCalledTimes(1);
+  });
+
+  it('interaction-wins cancels the pending idle callback', async () => {
+    const { registerSW } = await loadModule();
+    expect(ricCb).toBeTruthy();
+    idleWindow.dispatchEvent(new Event('pointerdown'));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(registerSW).toHaveBeenCalledTimes(1);
+    // The module must withdraw the idle request it no longer needs.
+    expect(idleWindow.cancelIdleCallback).toHaveBeenCalledWith(1);
   });
 });
