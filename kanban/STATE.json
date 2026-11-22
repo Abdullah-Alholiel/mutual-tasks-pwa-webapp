@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 22,
-  "last_run_at": "2026-11-21T22:36:19Z",
-  "last_run_report": "kanban/RUNS/20261121T2236-run22.md",
+  "last_run": 23,
+  "last_run_at": "2026-11-22T17:34:40Z",
+  "last_run_report": "kanban/RUNS/20261122T1735Z-run23.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "RLS 2026-11-19 (UPDATED run 21 D-057): scoped policies BUILT + HARDENED (PR #23 + PR #26 D-053: 3 self-escalation holes closed, rehearsal 65/65) but NOT APPLIED on prod - apply is owner-only AND order-gated: the promote staging->main must go LIVE FIRST (new client sends x-momentum-session, src/lib/supabaseFetch.ts), THEN fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Applying 004 before the promote locks out every current prod user. Rollback restores pre-tightening state verbatim.",
@@ -27,7 +27,7 @@
     "decision": "D-014 owner-approved \"Promote now\" (Life OS portal D-20261110-01)",
     "verified": "prod serving promoted build (hash B4LGflsC), POST /api/send-push-notification unauth=401 JSON, /api/ai-generated-description function-layer 400, served-bundle secret-grep 0 hits"
   },
-  "notes": "run21 DONE (2026-11-21T17:34Z UTC, ~35 min, docs run): D-057 shipped \u2014 (1) L4b cutover report written (kanban/RUNS/20261121T1734Z-run21-L4b-cutover-report.md) with FRESH smoke 12/12 on the Pages preview re-run this run, rollback steps, honest gap (signed-in AI proof needs L4d qa-bot or owner sign-in); (2) 004 apply ORDER-GATED on the promote going live first \u2014 order written into OWNER-QUEUE, LAUNCH-LANE L5 and STATE open_blockers[0] (commit c9abc32, grep-verified). No code PR (lane item was a docs deliverable; stop-building line honored). L4d sized 2-4 h across two runs: WebKit playwright image (2.8GB) NOT on VPS yet, @qa-bot account does not exist (16 users, checked read-only) \u2014 run 22 builds L4d step 1 (qa-bot + acceptance skeleton + Chromium leg), run 23 WebKit/EN-AR/realtime + RELEASE-CANDICATE rule + cron. G1 rides when a gap appears. Run 20 claims re-verified (/privacy EN+AR 200, legalContent.ts:5). Owner waits: promote (53 commits now), 004 order-gated apply, realtime disclosure, WebKit pull heads-up.",
+  "notes": "run23 IN PROGRESS (started 2026-11-22T17:34Z): lane pick = L4b step 3 PROMOTE (owner go D-064 'do it' + D-066 order 'new app version first, then 004 right after'). Plan: commit owner rows D-059..D-069 from the dirty tree -> promote PR staging->main -> CI green -> merge -> Pages production deploy (pinned-env build, --branch main) -> full smoke on https://social-momentum-8zq.pages.dev -> closeout. Previous: run22 DIED at its checkpoint (report skeleton only, lock cleared by pre-run script). Run21 notes: D-057 shipped (L4b cutover report + 004 order-gated on promote).",
   "updated_at": "2026-11-21T17:41:59Z",
   "last_run_commits": [
     "c9abc32 (docs: D-057 cutover report + 004 order gated on promote)",
