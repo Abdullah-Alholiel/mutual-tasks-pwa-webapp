@@ -69,7 +69,7 @@ const FloatingBlobs = () => (
 const AuthHeader = () => (
   <motion.div
     className="mom-reveal text-center mb-6 relative z-10"
-    initial={{ opacity: 0, scale: 0.9, y: -30 }}
+    initial={{ scale: 0.9, y: -30 }}
     animate={{ opacity: 1, scale: 1, y: 0 }}
     transition={{
       type: "spring",
@@ -109,7 +109,7 @@ const SuccessScreen = ({
 
       <motion.div
         className="mom-reveal"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
@@ -474,7 +474,7 @@ const Auth = () => {
 
             <motion.div
               className="mom-reveal"
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, type: "spring", stiffness: 100, damping: 20 }}
             >
@@ -718,7 +718,6 @@ const Auth = () => {
 
               <motion.p
                 className="mom-reveal text-center text-xs text-muted-foreground/70 mt-8 font-medium px-4"
-                initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
