@@ -34,9 +34,11 @@ const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000;
  * Priority:
  * 1. APP_URL environment variable (set in Supabase Edge Function secrets) - recommended
  * 2. VITE_APP_URL environment variable (fallback for compatibility)
- * 3. Auto-detect from Supabase URL (fallback for development)
- * 
- * Production: https://social-momentum.netlify.app
+ * 3. Pages production URL for local/dev; in production an unset URL FAILS LOUDLY (500):
+ *    a silent Netlify fallback is how sign-in links pointed at the retiring host
+ *    (run 25, worker request D-20261123-11(3)).
+ *
+ * Production: https://social-momentum-8zq.pages.dev
  * Development: http://localhost:8080
  */
 function getAppUrl(): string {
@@ -52,7 +54,7 @@ function getAppUrl(): string {
     return viteAppUrl;
   }
 
-  // Priority 3: Auto-detect from Supabase URL (fallback for local development)
+  // Priority 3: No URL configured.
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 
   // If Supabase URL is a production URL (contains .supabase.co and not localhost)
@@ -60,10 +62,16 @@ function getAppUrl(): string {
     !supabaseUrl.includes('localhost') &&
     !supabaseUrl.includes('127.0.0.1');
 
-  // Return production URL if in production, otherwise development URL
-  return isProduction
-    ? 'https://social-momentum.netlify.app'
-    : 'http://localhost:8080';
+  // Production must have APP_URL/VITE_APP_URL set explicitly (owner+Claude switch,
+  // D-20261123-02): fail closed instead of silently issuing Netlify links.
+  if (isProduction) {
+    throw new Error(
+      'APP_URL is not configured: refusing to build sign-in links against a guessed host'
+    );
+  }
+
+  // Local/dev default (the VPS functions container sets APP_URL itself)
+  return 'https://social-momentum-8zq.pages.dev';
 }
 
 serve(async (req) => {

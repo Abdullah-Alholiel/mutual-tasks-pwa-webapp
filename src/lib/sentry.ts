@@ -55,9 +55,12 @@ export const captureMessage = (message: string, level: Sentry.SeverityLevel = 'i
   }
 };
 
+// Privacy (PDPL): identity goes to Sentry as the user id ONLY. Email and other
+// PII must never reach a third party (worker request D-20261122-08, run 25).
 export const setUser = (user: { id: string; email?: string; username?: string }) => {
   if (SENTRY_DSN) {
-    Sentry.setUser(user);
+    // Accept legacy callers that pass email/username, but send id only.
+    Sentry.setUser({ id: user.id });
   }
 };
 

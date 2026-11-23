@@ -110,7 +110,18 @@ serve(async (req) => {
     const apiSecret = Deno.env.get('MailJet_API_Secret') || Deno.env.get('MAILJET_API_SECRET') || '';
     const fromEmail = Deno.env.get('MailJet_From_Email') || Deno.env.get('MAILJET_FROM_EMAIL') || 'momentum.pwa@gmail.com';
     const fromName = 'Momentum';
-    const appUrl = Deno.env.get('VITE_APP_URL') || Deno.env.get('APP_URL') || 'https://social-momentum.netlify.app';
+    // App URL for links inside emails: APP_URL (or legacy VITE_APP_URL) must be set.
+    // No silent Netlify fallback (run 25, worker request D-20261123-11(3)): an unset
+    // URL in production now FAILS LOUDLY instead of emailing links to the retiring host.
+    const _appUrl = Deno.env.get('VITE_APP_URL') || Deno.env.get('APP_URL');
+    if (!_appUrl) {
+      console.error('send-email: APP_URL/VITE_APP_URL is not configured');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Email service misconfigured: app URL missing' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const appUrl = _appUrl;
 
     if (!apiKey || !apiSecret) {
       return new Response(
