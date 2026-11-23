@@ -73,7 +73,15 @@ export const TaskForm = ({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('Daily');
   const [showRecurrenceIndex, setShowRecurrenceIndex] = useState(false);
-  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
+  // Default due = end of TODAY, not the creation moment: the submit button
+  // disables on dueDate < now (line ~672), so a "now" default bricks the
+  // button for any user who hesitates (caught by the L4d acceptance suite).
+  const endOfToday = () => {
+    const d = new Date();
+    d.setHours(23, 59, 0, 0);
+    return d;
+  };
+  const [dueDate, setDueDate] = useState<Date | undefined>(endOfToday);
 
   // Custom recurrence settings
   const [customRecurrence, setCustomRecurrence] = useState<{
@@ -113,7 +121,7 @@ export const TaskForm = ({
         setIsRecurring(initialTask.type === 'habit');
         setRecurrencePattern(initialTask.recurrencePattern || 'Daily');
         setShowRecurrenceIndex(initialTask.showRecurrenceIndex || false);
-        setDueDate(initialTask.dueDate ? new Date(initialTask.dueDate) : new Date());
+        setDueDate(initialTask.dueDate ? new Date(initialTask.dueDate) : endOfToday());
         setSelectedProjectId(initialTask.projectId);
       } else {
         // Only reset if not editing
@@ -122,7 +130,7 @@ export const TaskForm = ({
         setIsRecurring(false);
         setRecurrencePattern('Daily');
         setShowRecurrenceIndex(false);
-        setDueDate(new Date());
+        setDueDate(endOfToday());
         if (!initialProject) {
           setSelectedProjectId('');
         }
@@ -207,7 +215,7 @@ export const TaskForm = ({
     setIsRecurring(false);
     setRecurrencePattern('Daily');
     setShowRecurrenceIndex(false);
-    setDueDate(new Date());
+    setDueDate(endOfToday());
     setCustomRecurrence({
       frequency: 'days',
       interval: 1,

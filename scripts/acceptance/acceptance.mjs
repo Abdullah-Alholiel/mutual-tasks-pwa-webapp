@@ -20,7 +20,7 @@
 //   proves zero leftover rows (D-045 requirement).
 // ============================================================================
 
-import { chromium, webkit } from 'playwright';
+import { chromium, webkit } from '/deps/node_modules/playwright/index.mjs';
 
 const ENGINE = process.env.ACCEPTANCE_ENGINE || 'chromium';
 const STAGING_URL = process.env.ACCEPTANCE_URL || 'https://staging.social-momentum-8zq.pages.dev';
@@ -51,6 +51,20 @@ const step = async (name, fn) => {
   }
 };
 
+// The app renders hidden <section> placeholders (#root > * matches them while
+// INVISIBLE), so "an element exists" proves nothing. Wait for real VISIBLE
+// text instead.
+const waitAppVisible = (page) =>
+  page.waitForFunction(() => ((document.querySelector('#root')?.innerText) || '').trim().length > 10, null, { timeout: 30000 });
+// Project page's create-task button: desktop variant is a text button "New",
+// mobile icon-only variant carries title="New Task" (accessible name via
+// title). .or() matches whichever variant is rendered; .first() takes it.
+const addTaskButton = (page) =>
+  page.getByRole('button', { name: 'New', exact: true })
+    .or(page.getByRole('button', { name: 'New Task' }))
+    .or(page.getByRole('button', { name: /Add Task/i }))
+    .first();
+
 const browser = await (ENGINE === 'webkit' ? webkit : chromium).launch();
 const result = {
   phase: 'browser', engine: ENGINE, url: STAGING_URL, time: STAMP,
@@ -72,7 +86,7 @@ try {
     await page.evaluate(() => navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister()))));
     await page.evaluate(() => caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))));
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#root > *', { timeout: 30000 });
+    await waitAppVisible(page);
     if (errors.length) throw new Error(`page errors: ${errors[0]}`);
     await shot('01-signed-out');
   });
@@ -104,10 +118,10 @@ try {
   await step('add a task to the project', async () => {
     await page.getByText(PROJECT_NAME).first().click();
     await page.waitForURL(/project/, { timeout: 20000 });
-    await page.getByRole('button', { name: /New Task|Add Task/i }).first().click();
+    await addTaskButton(page).click();
     await page.locator('#title').fill(TASK_TITLES[0]);
     await shot('04-task-form');
-    await page.getByRole('button', { name: /^Create|Add Task|Create Task/i }).last().click();
+    await page.getByRole('button', { name: 'Create Task' }).click();
     await page.getByText(TASK_TITLES[0]).first().waitFor({ timeout: 20000 });
   });
 
@@ -127,10 +141,12 @@ try {
   await step('realtime update visible in a second tab', async () => {
     const page2 = await context.newPage();
     await page2.goto(`${STAGING_URL}/`, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await page2.getByText('qa-bot').first().waitFor({ timeout: 30000 });
-    await page.getByRole('button', { name: /New Task|Add Task/i }).first().click();
+    await waitAppVisible(page2);
+    await page2.getByText(PROJECT_NAME).first().click();
+    await page2.waitForURL(/project/, { timeout: 20000 });
+    await addTaskButton(page).click();
     await page.locator('#title').fill(TASK_TITLES[1]);
-    await page.getByRole('button', { name: /^Create|Add Task|Create Task/i }).last().click();
+    await page.getByRole('button', { name: 'Create Task' }).click();
     await page.getByText(TASK_TITLES[1]).first().waitFor({ timeout: 20000 });
     let delivered = true;
     try {
@@ -157,7 +173,7 @@ try {
   // 8. AR leg: /privacy?lang=ar renders Arabic with dir=rtl (the app's real AR surface)
   await step('AR: legal page renders Arabic with dir=rtl', async () => {
     await page.goto(`${STAGING_URL}/privacy?lang=ar`, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await page.waitForSelector('#root > *', { timeout: 30000 });
+    await waitAppVisible(page);
     const dir = await page.evaluate(() => document.documentElement.dir);
     const lang = await page.evaluate(() => document.documentElement.lang);
     if (dir !== 'rtl' || lang !== 'ar') throw new Error(`dir=${dir} lang=${lang}`);
