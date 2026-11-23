@@ -39,7 +39,8 @@ const MAGIC_LINK_EXPIRY_MS = 15 * 60 * 1000;
  *    (run 25, worker request D-20261123-11(3)).
  *
  * Production: https://social-momentum-8zq.pages.dev
- * Development: http://localhost:8080
+ * Development: also the Pages URL today (the VPS functions container sets APP_URL itself;
+ * a bare local dev run with no env gets the Pages URL as a harmless default).
  */
 function getAppUrl(): string {
   // Priority 1: Check APP_URL (recommended - set in Supabase secrets)
