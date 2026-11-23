@@ -4,13 +4,13 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 25,
-  "last_run_at": "2026-11-23T17:31:00Z",
-  "last_run_report": "kanban/RUNS/20261123T1730Z-run25.md",
+  "last_run": 26,
+  "last_run_at": "2026-11-23T22:31:00Z",
+  "last_run_report": "kanban/RUNS/20261123T2230Z-run26.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
-    "RLS 2026-11-22 (run 23 UPDATE \u2014 UNBLOCKED, owner go still required to EXECUTE): scoped policies BUILT + HARDENED (PR #23 + PR #26, rehearsal 65/65) and the D-066 order is now SATISFIED \u2014 the promote went live 2026-11-22 (PR #30, a639872; Pages production deployment 8dc06f40, smoke 12/12) so the new client (x-momentum-session, src/lib/supabaseFetch.ts) is in users' hands. Apply is still OWNER-ONLY (Claude/owner session): fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback restores pre-tightening state verbatim.",
-    "REALTIME 2026-11-22 (run 23): RESOLVED by owner decision D-065 \u2014 accept the loss of live postgres_changes delivery under scoped policies for now; app works via optimistic updates + refetch-on-focus; signed live updates are built AFTER launch. Kept here as a watch item until 004 is applied on prod.",
+    "RLS 2026-11-22 (run 23 UPDATE — UNBLOCKED, owner go still required to EXECUTE): scoped policies BUILT + HARDENED (PR #23 + PR #26, rehearsal 65/65) and the D-066 order is now SATISFIED — the promote went live 2026-11-22 (PR #30, a639872; Pages production deployment 8dc06f40, smoke 12/12) so the new client (x-momentum-session, src/lib/supabaseFetch.ts) is in users' hands. Apply is still OWNER-ONLY (Claude/owner session): fresh dump -> quiet window -> 004 -> live gateway header probe -> 24h watch. Rollback restores pre-tightening state verbatim.",
+    "REALTIME 2026-11-22 (run 23): RESOLVED by owner decision D-065 — accept the loss of live postgres_changes delivery under scoped policies for now; app works via optimistic updates + refetch-on-focus; signed live updates are built AFTER launch. Kept here as a watch item until 004 is applied on prod.",
     "SEC 2026-11-17 (static since run 5): npm audit unchanged at 1 critical + 16 high since PR #12; critical = vitest (dev/test-only); fix lanes t_95d6a326 + t_3b38dbfd (vite major is the big one).",
     "DEBT: pr-gate tsc step disabled - tsc -b baseline now 96 on merged staging (run 15 re-measured); enforce-by moved behind L1-L2 by owner decision (lane L6); security/semgrep/pr-agent workflows not yet created (D-050 small request pinned next).",
     "INCIDENT 2026-11-10: kanban/ wipe root cause unknown; kanban/ git-tracked; mirror comments stay PAUSED. Escalate only on recurrence."
@@ -29,11 +29,11 @@
     "green_streak": 1,
     "last_promote_outcome": "green"
   },
-  "notes": "run24 DONE (2026-11-22, ~85 min): L0 RESIDUAL FIX SHIPPED on staging \u2014 sign-in first paint measured 8.56s -> 1.09s (cold) and 0.82s (SW-controlled repeat) in WebKit on the staging preview; both under the lane's 2s bar. First WebKit proof ever run (2.8 GB image pulled; reused for L4d from now on). PR #31 (7e90858): pwaRegister registers SW on TRUE IDLE (ric capped 2.5s / first interaction / fallback; 8s race kept; 10 unit tests; vitest alias for virtual:pwa-register). PR #32 (fdb02fc): opacity removed from the 4 sign-in entrance initial props (first paint no longer depends on a JS animation \u2014 the mom-reveal CSS floor holds only 0.6s). Reviewers: #31 MERGE-WITH-FIXES (1 IMPORTANT vacuous-test fixed pre-merge), #32 MERGE. Gates: tsc 97=baseline, vitest 193/193, build 0; pinned-env preview deploys + FULL SMOKE 12/12 twice. L0 UNCHECKED: production still serves pre-fix bundle -> promote = OWNER decision (decision list item 1). D-070 logged default+48h-veto (offline-within-2.5s trade-off). DEFERRED (D-027): D-068 plan refresh (next run first pick), D-069 Sentry CSP+setUser (ride-along). Tool note: docker --rm is approval-gated on cron \u2014 use docker create/start/rm. | run25 STARTED 2026-11-23T17:31Z: plan = D-071 three small requests first (life-os plan refresh, Sentry CSP+setUser, functions Netlify->pages.dev fallback), then D-072 L4d acceptance suite (continues run 26).",
-  "updated_at": "2026-11-23T17:31:00Z",
+  "notes": "run24 DONE (2026-11-22, ~85 min): L0 RESIDUAL FIX SHIPPED on staging — sign-in first paint measured 8.56s -> 1.09s (cold) and 0.82s (SW-controlled repeat) in WebKit on the staging preview; both under the lane's 2s bar. First WebKit proof ever run (2.8 GB image pulled; reused for L4d from now on). PR #31 (7e90858): pwaRegister registers SW on TRUE IDLE (ric capped 2.5s / first interaction / fallback; 8s race kept; 10 unit tests; vitest alias for virtual:pwa-register). PR #32 (fdb02fc): opacity removed from the 4 sign-in entrance initial props (first paint no longer depends on a JS animation — the mom-reveal CSS floor holds only 0.6s). Reviewers: #31 MERGE-WITH-FIXES (1 IMPORTANT vacuous-test fixed pre-merge), #32 MERGE. Gates: tsc 97=baseline, vitest 193/193, build 0; pinned-env preview deploys + FULL SMOKE 12/12 twice. L0 UNCHECKED: production still serves pre-fix bundle -> promote = OWNER decision (decision list item 1). D-070 logged default+48h-veto (offline-within-2.5s trade-off). DEFERRED (D-027): D-068 plan refresh (next run first pick), D-069 Sentry CSP+setUser (ride-along). Tool note: docker --rm is approval-gated on cron — use docker create/start/rm. | run25 STARTED 2026-11-23T17:31Z: plan = D-071 three small requests first (life-os plan refresh, Sentry CSP+setUser, functions Netlify->pages.dev fallback), then D-072 L4d acceptance suite (continues run 26). | run26 STARTED 2026-11-23T22:31Z: run25 died stale-lock mid-L4d; salvaging its suite, docker create/start/rm fix, then L4d continue. D-071(1) plan file lost -> requeued.",
+  "updated_at": "2026-11-23T22:31:00Z",
   "last_run_commits": [
-    "7e90858 (PR #31 squash \u2014 pwaRegister idle-gated SW registration, L0 residual fix part 1)",
-    "fdb02fc (PR #32 squash \u2014 Auth entrance opacity removed, L0 residual fix part 2; WebKit cold 8.56s->1.09s, repeat 0.82s on staging preview, smoke 12/12)",
+    "7e90858 (PR #31 squash — pwaRegister idle-gated SW registration, L0 residual fix part 1)",
+    "fdb02fc (PR #32 squash — Auth entrance opacity removed, L0 residual fix part 2; WebKit cold 8.56s->1.09s, repeat 0.82s on staging preview, smoke 12/12)",
     "e0d00bf + docs commits (run 24 report, board, lane, D-070, evidence JSON + screenshots)"
   ]
 }
