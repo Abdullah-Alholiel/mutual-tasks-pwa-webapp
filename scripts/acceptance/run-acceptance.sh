@@ -84,7 +84,9 @@ run_engine() {
   echo "[acceptance] === $ENGINE ==="
   # docker create/start/rm instead of --rm: `docker run --rm` is approval-gated
   # on cron runs (killed run 25 mid-flight at the first engine launch); plain
-  # create/start are not. The container is always removed below.
+  # create/start are not. RC travels by FILE (run_engine's stdout is not a
+  # reliable channel if it ever logs); a trap removes the container even if
+  # the runner is killed between create and rm.
   local CID
   CID=$(docker create \
     --ipc=host \
@@ -103,13 +105,19 @@ run_engine() {
     -c "node /suite/acceptance.mjs")
   docker start -a "$CID" > "$OUTDIR/log.$ENGINE.txt" 2>&1
   local RC=$?
+  docker rm -f "$CID" >/dev/null 2>&1 || true
   tail -n 3 "$OUTDIR/log.$ENGINE.txt" >&2
-  docker rm "$CID" >/dev/null 2>&1 || true
-  echo "$RC"
+  # RC travels by FILE: run_engine's stdout is not a reliable channel if it
+  # ever logs anything else.
+  printf '%s' "$RC" > "$OUTDIR/RC.$ENGINE"
 }
 
-CH_RC=$(run_engine chromium | tail -n 1)
-WK_RC=$(run_engine webkit | tail -n 1)
+# Kill-or-timeout mid-engine must not leak the Playwright container: sweep any
+# container from this image at exit (only ours are alive at that point).
+trap 'for C in $(docker ps -aq --filter "ancestor=mcr.microsoft.com/playwright:v1.62.1-noble" 2>/dev/null); do docker rm -f "$C" >/dev/null 2>&1 || true; done' EXIT
+
+CH_RC=$(run_engine chromium; cat "$OUTDIR/RC.chromium")
+WK_RC=$(run_engine webkit; cat "$OUTDIR/RC.webkit")
 
 # ── DB verify + cleanup (from the LAST engine's artifacts; both flows create
 #    the same shape — one project + 2 tasks + completion logs) ────────────────
@@ -137,10 +145,7 @@ EOF
 BROWSER_RC=$?
 
 echo "[acceptance] DB verify + cleanup..."
-FINAL="FAIL"
-if [ "$CH_RC" = "0" ] && [ "$WK_RC" = "0" ] && [ "$BROWSER_RC" = "0" ]; then
-  FINAL="PASS"
-fi
+# FINAL is computed ONCE, after cleanup, with the zero-leftover proof included.
 PROJECT_IDS=$(psql "SELECT id FROM public.projects WHERE owner_id=$QA_ID AND name LIKE 'QA %'")
 # NOTE: not limited to "this run window" — every 'QA '<name> project owned by
 # qa-bot is suite-created by definition (the run tag is 'QA <stamp>'); the

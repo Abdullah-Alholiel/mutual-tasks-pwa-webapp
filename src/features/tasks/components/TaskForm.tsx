@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { endOfToday } from '@/lib/dateUtils';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -73,14 +74,10 @@ export const TaskForm = ({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('Daily');
   const [showRecurrenceIndex, setShowRecurrenceIndex] = useState(false);
-  // Default due = end of TODAY, not the creation moment: the submit button
-  // disables on dueDate < now (line ~672), so a "now" default bricks the
-  // button for any user who hesitates (caught by the L4d acceptance suite).
-  const endOfToday = () => {
-    const d = new Date();
-    d.setHours(23, 59, 0, 0);
-    return d;
-  };
+  // Default due = end of TODAY (23:59:59.999 local, src/lib/dateUtils.ts), not
+  // the creation moment: the submit button disables on dueDate < now, so a
+  // "now" default bricks the button for any user who hesitates (caught by the
+  // L4d acceptance suite, run 26; helper shared with its tests).
   const [dueDate, setDueDate] = useState<Date | undefined>(endOfToday);
 
   // Custom recurrence settings
