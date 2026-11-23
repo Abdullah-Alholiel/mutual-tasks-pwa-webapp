@@ -40,3 +40,8 @@ dist-ssr
 
 # factory run artifacts
 kanban/LOCK.json
+
+# acceptance suite run artifacts
+scripts/acceptance/.out/
+scripts/acceptance/.pw/
+__pycache__/
