@@ -35,5 +35,7 @@
     "7e90858 (PR #31 squash \u2014 pwaRegister idle-gated SW registration, L0 residual fix part 1)",
     "fdb02fc (PR #32 squash \u2014 Auth entrance opacity removed, L0 residual fix part 2; WebKit cold 8.56s->1.09s, repeat 0.82s on staging preview, smoke 12/12)",
     "e0d00bf + docs commits (run 24 report, board, lane, D-070, evidence JSON + screenshots)"
-  ]
+  ],
+  "failure_reason": "run 27 died mid-run: report had SECTIONS_IN_PROGRESS (automated close-out 2026-11-24T22:30Z)",
+  "job_failed": true
 }

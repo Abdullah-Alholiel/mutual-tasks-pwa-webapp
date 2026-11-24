@@ -42,3 +42,5 @@ and strike the line by moving it to the resolved section below — never delete 
 - 2026-11-16 · Confirm the Pages project env vars include VITE_ONESIGNAL_APP_ID … · run 11 → RESOLVED run 23 (see Resolved)
 - 2026-11-16 · iPhone ?diag=1 readout … · run 12 → still open (D-063), moved to Open above
 - standing · old cloud data: copy or start fresh · staging database project (A6) · Oracle bucket link (L8) · lawyer review (C6) → old-cloud-data decision overtaken by events (the VPS DB holds the real accounts and IS production since 2026-11-15); Oracle bucket re-raised 2026-11-22 (D-067, now actionable); A6/lawyer still open
+
+- automated close-out 2026-11-24T22:30Z: run 27 died mid-run; report 20261124T1730Z-run27.md had SECTIONS_IN_PROGRESS; informational, no owner decision needed
