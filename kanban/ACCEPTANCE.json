@@ -1,0 +1,129 @@
+{
+  "time": "2026-11-23T23:16:38.788Z",
+  "url": "https://staging.social-momentum-8zq.pages.dev",
+  "engines": {
+    "chromium": {
+      "phase": "browser",
+      "engine": "chromium",
+      "url": "https://staging.social-momentum-8zq.pages.dev",
+      "time": "2026-11-23T23:13:36.923Z",
+      "projectName": "QA 2026-11-23T23:13 project",
+      "taskTitles": [
+        "QA 2026-11-23T23:13 task one",
+        "QA 2026-11-23T23:13 task rt"
+      ],
+      "steps": [
+        {
+          "name": "app loads signed-out",
+          "pass": true,
+          "ms": 1610
+        },
+        {
+          "name": "sign in as @qa-bot (session token from DB)",
+          "pass": true,
+          "ms": 680
+        },
+        {
+          "name": "create a project",
+          "pass": true,
+          "ms": 1898
+        },
+        {
+          "name": "add a task to the project",
+          "pass": false,
+          "ms": 20808,
+          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-23T23:13 task one').first() to be visible\n"
+        },
+        {
+          "name": "complete the task",
+          "pass": false,
+          "ms": 30000,
+          "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Mark task as completed: QA 2026-11-23T23:13 task one' })\n"
+        },
+        {
+          "name": "realtime update visible in a second tab",
+          "pass": false,
+          "ms": 21377,
+          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-23T23:13 task rt').first() to be visible\n"
+        },
+        {
+          "name": "delete the project via UI",
+          "pass": true,
+          "ms": 4593
+        },
+        {
+          "name": "AR: legal page renders Arabic with dir=rtl",
+          "pass": true,
+          "ms": 227
+        }
+      ],
+      "browserPass": false
+    },
+    "webkit": {
+      "phase": "browser",
+      "engine": "webkit",
+      "url": "https://staging.social-momentum-8zq.pages.dev",
+      "time": "2026-11-23T23:14:59.710Z",
+      "projectName": "QA 2026-11-23T23:14 project",
+      "taskTitles": [
+        "QA 2026-11-23T23:14 task one",
+        "QA 2026-11-23T23:14 task rt"
+      ],
+      "steps": [
+        {
+          "name": "app loads signed-out",
+          "pass": true,
+          "ms": 2220
+        },
+        {
+          "name": "sign in as @qa-bot (session token from DB)",
+          "pass": true,
+          "ms": 516
+        },
+        {
+          "name": "create a project",
+          "pass": true,
+          "ms": 9738
+        },
+        {
+          "name": "add a task to the project",
+          "pass": false,
+          "ms": 22983,
+          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-23T23:14 task one').first() to be visible\n"
+        },
+        {
+          "name": "complete the task",
+          "pass": false,
+          "ms": 30001,
+          "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Mark task as completed: QA 2026-11-23T23:14 task one' })\n"
+        },
+        {
+          "name": "realtime update visible in a second tab",
+          "pass": false,
+          "ms": 25801,
+          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-23T23:14 task rt').first() to be visible\n"
+        },
+        {
+          "name": "delete the project via UI",
+          "pass": true,
+          "ms": 5188
+        },
+        {
+          "name": "AR: legal page renders Arabic with dir=rtl",
+          "pass": true,
+          "ms": 546
+        }
+      ],
+      "browserPass": false
+    }
+  },
+  "cleanup": {
+    "before": "projects=0\ntasks=0\ntask_statuses=0\ncompletion_logs=0\nnotifications=0\nstats=0|0|0",
+    "after": "projects=0\ntasks=0\ntask_statuses=0\ncompletion_logs=0\nnotifications=0\nstats=0|0|0",
+    "proof": "ZERO",
+    "statsRestored": true
+  },
+  "sessionCreated": 0,
+  "pass": false,
+  "commit": "a7cf9f9"
+}

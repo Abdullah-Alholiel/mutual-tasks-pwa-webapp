@@ -1,0 +1,12 @@
+[
+  {
+    "time": "2026-11-23T23:16:38.788Z",
+    "commit": "a7cf9f9",
+    "pass": false,
+    "url": "https://staging.social-momentum-8zq.pages.dev",
+    "engines": {
+      "chromium": false,
+      "webkit": false
+    }
+  }
+]
