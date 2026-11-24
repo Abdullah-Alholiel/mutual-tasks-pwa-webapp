@@ -1,119 +1,118 @@
 {
-  "time": "2026-11-24T17:41:12.783Z",
+  "time": "2026-11-24T18:06:28.799Z",
   "url": "https://staging.social-momentum-8zq.pages.dev",
   "engines": {
     "chromium": {
       "phase": "browser",
       "engine": "chromium",
       "url": "https://staging.social-momentum-8zq.pages.dev",
-      "time": "2026-11-24T17:38:06.217Z",
-      "projectName": "QA 2026-11-24T17:38 project",
+      "time": "2026-11-24T18:05:27.673Z",
+      "projectName": "QA 2026-11-24T18:05 project",
       "taskTitles": [
-        "QA 2026-11-24T17:38 task one",
-        "QA 2026-11-24T17:38 task rt"
+        "QA 2026-11-24T18:05 task one",
+        "QA 2026-11-24T18:05 task rt"
       ],
       "steps": [
         {
           "name": "app loads signed-out",
           "pass": true,
-          "ms": 2478
+          "ms": 1818
         },
         {
           "name": "sign in as @qa-bot (session token from DB)",
           "pass": true,
-          "ms": 785
+          "ms": 833
         },
         {
           "name": "create a project",
           "pass": true,
-          "ms": 1846
+          "ms": 1807
         },
         {
           "name": "add a task to the project",
-          "pass": false,
-          "ms": 20806,
-          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-24T17:38 task one').first() to be visible\n"
+          "pass": true,
+          "ms": 1015
         },
         {
           "name": "complete the task",
-          "pass": false,
-          "ms": 30000,
-          "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Mark task as completed: QA 2026-11-24T17:38 task one' })\n"
+          "pass": true,
+          "ms": 3850
         },
         {
           "name": "realtime update visible in a second tab",
-          "pass": false,
-          "ms": 21280,
-          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-24T17:38 task rt').first() to be visible\n"
+          "pass": true,
+          "ms": 3247
         },
         {
           "name": "delete the project via UI",
-          "pass": true,
-          "ms": 4587
+          "pass": false,
+          "ms": 4808,
+          "error": "Error: project still visible after delete"
         },
         {
           "name": "AR: legal page renders Arabic with dir=rtl",
           "pass": true,
-          "ms": 273
+          "ms": 235
         }
       ],
+      "realtime": "delivered",
       "browserPass": false
     },
     "webkit": {
       "phase": "browser",
       "engine": "webkit",
       "url": "https://staging.social-momentum-8zq.pages.dev",
-      "time": "2026-11-24T17:39:31.189Z",
-      "projectName": "QA 2026-11-24T17:39 project",
+      "time": "2026-11-24T18:05:47.423Z",
+      "projectName": "QA 2026-11-24T18:05 project",
       "taskTitles": [
-        "QA 2026-11-24T17:39 task one",
-        "QA 2026-11-24T17:39 task rt"
+        "QA 2026-11-24T18:05 task one",
+        "QA 2026-11-24T18:05 task rt"
       ],
       "steps": [
         {
           "name": "app loads signed-out",
           "pass": true,
-          "ms": 2984
+          "ms": 2800
         },
         {
           "name": "sign in as @qa-bot (session token from DB)",
           "pass": true,
-          "ms": 761
+          "ms": 702
         },
         {
           "name": "create a project",
           "pass": true,
-          "ms": 10191
+          "ms": 13165
         },
         {
           "name": "add a task to the project",
-          "pass": false,
-          "ms": 22881,
-          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-24T17:39 task one').first() to be visible\n"
+          "pass": true,
+          "ms": 2692
         },
         {
           "name": "complete the task",
-          "pass": false,
-          "ms": 30002,
-          "error": "TimeoutError: locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: 'Mark task as completed: QA 2026-11-24T17:39 task one' })\n"
+          "pass": true,
+          "ms": 5617
         },
         {
           "name": "realtime update visible in a second tab",
-          "pass": false,
-          "ms": 25323,
-          "error": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByText('QA 2026-11-24T17:39 task rt').first() to be visible\n"
+          "pass": true,
+          "ms": 6962
         },
         {
           "name": "delete the project via UI",
-          "pass": true,
-          "ms": 5040
+          "pass": false,
+          "ms": 5996,
+          "error": "Error: project still visible after delete"
         },
         {
           "name": "AR: legal page renders Arabic with dir=rtl",
-          "pass": true,
-          "ms": 483
+          "pass": false,
+          "ms": 236,
+          "error": "Error: dir= lang=ar"
         }
       ],
+      "realtime": "delivered",
       "browserPass": false
     }
   }
