@@ -141,14 +141,77 @@ export class ProjectsRepository {
 
   /**
    * Delete a project
+   *
+   * Delete order matters: the live schema's FKs are ON DELETE NO ACTION
+   * (migrations 001-003; 004's CASCADE is built but owner-apply is pending),
+   * so grandchildren must be cleared before tasks, and tasks before the
+   * project. The previous order (participants -> tasks -> project) left
+   * task_statuses/completion_logs rows behind, so ANY project containing a
+   * completed task failed to delete with 23503 (L4d acceptance suite, run 28;
+   * live-probed via REST before the fix). Errors on the child clears are
+   * thrown now — a silently half-deleted project is worse than a loud failure.
    */
   async delete(id: number): Promise<void> {
-    // Delete related records first (cascade should handle this, but being explicit)
-    await this.supabase.from('project_participants').delete().eq('project_id', toStringId(id));
-    await this.supabase.from('tasks').delete().eq('project_id', toStringId(id));
+    const sid = toStringId(id);
 
-    const { error } = await this.supabase.from('projects').delete().eq('id', toStringId(id));
+    // 0. This project's task ids (children of the project, parents of the
+    //    grandchildren cleared below).
+    const { data: taskRows, error: idsErr } = await this.supabase
+      .from('tasks')
+      .select('id')
+      .eq('project_id', sid);
+    if (idsErr) throw idsErr;
+    const taskIds = (taskRows ?? []).map((r: { id: number | string }) => r.id);
 
+    // 1. Grandchildren of tasks (deepest first: logs/statuses/recurrence).
+    //    Post-004 the DB cascade makes these no-ops; pre-004 (today) they are
+    //    required for rows the caller can see. NOT a full safety net: under
+    //    004 scoped policies a multi-member project still hides other
+    //    participants' rows from this client (the deletes silently skip
+    //    them) — only 004's task-child CASCADE removes those, at the tasks
+    //    delete below. Under today's allow-all prod policies every clear
+    //    reaches every row, so the order alone fixes the 23503.
+    if (taskIds.length > 0) {
+      const { error: logsErr } = await this.supabase
+        .from('completion_logs')
+        .delete()
+        .in('task_id', taskIds);
+      if (logsErr) throw logsErr;
+
+      const { error: statusErr } = await this.supabase
+        .from('task_statuses')
+        .delete()
+        .in('task_id', taskIds);
+      if (statusErr) throw statusErr;
+
+      const { error: recErr } = await this.supabase
+        .from('task_recurrence')
+        .delete()
+        .in('task_id', taskIds);
+      if (recErr) throw recErr;
+
+      const { error: notifTaskErr } = await this.supabase
+        .from('notifications')
+        .delete()
+        .in('task_id', taskIds);
+      if (notifTaskErr) throw notifTaskErr;
+    }
+
+    // 2. Notifications referencing the project directly
+    const { error: notifProjErr } = await this.supabase
+      .from('notifications')
+      .delete()
+      .eq('project_id', sid);
+    if (notifProjErr) throw notifProjErr;
+
+    // 3. Tasks, then participants, then the project itself
+    const { error: tasksErr } = await this.supabase.from('tasks').delete().eq('project_id', sid);
+    if (tasksErr) throw tasksErr;
+
+    const { error: partErr } = await this.supabase.from('project_participants').delete().eq('project_id', sid);
+    if (partErr) throw partErr;
+
+    const { error } = await this.supabase.from('projects').delete().eq('id', sid);
     if (error) throw error;
   }
 

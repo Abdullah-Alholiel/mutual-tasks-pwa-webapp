@@ -178,10 +178,30 @@ export class TasksRepository {
    * Delete a task
    */
   async delete(id: number): Promise<void> {
-    // Delete related records first
+    // Delete related records first — every step error-checked. The live
+    // schema's notifications_task_id_fkey is ON DELETE NO ACTION until 004 is
+    // applied on prod (pre-004: a task that ever raised a notification cannot
+    // be deleted standalone — L4d suite, run 28), so notifications must be
+    // cleared explicitly here; the other children are cleared for standalone
+    // safety too (callers' atomic ops also clean up — belt and braces).
+    // Silent child failures would surface later as a bare 23503 on the task
+    // delete, masking the real cause.
     await this.taskStatusRepo.deleteByTaskId(id);
-    await this.supabase.from('task_recurrence').delete().eq('task_id', toStringId(id));
-    await this.supabase.from('completion_logs').delete().eq('task_id', toStringId(id));
+    const { error: recErr } = await this.supabase
+      .from('task_recurrence')
+      .delete()
+      .eq('task_id', toStringId(id));
+    if (recErr) throw recErr;
+    const { error: notifErr } = await this.supabase
+      .from('notifications')
+      .delete()
+      .eq('task_id', toStringId(id));
+    if (notifErr) throw notifErr;
+    const { error: logsErr } = await this.supabase
+      .from('completion_logs')
+      .delete()
+      .eq('task_id', toStringId(id));
+    if (logsErr) throw logsErr;
 
     const { error } = await this.supabase.from('tasks').delete().eq('id', toStringId(id));
 
