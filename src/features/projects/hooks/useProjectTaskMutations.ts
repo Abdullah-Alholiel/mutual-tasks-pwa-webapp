@@ -424,7 +424,13 @@ export const useProjectTaskMutations = ({
     if (!projectWithParticipants || !user) return;
 
     const userId = normalizeId(user.id);
-    const defaultDueDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
+    // Keep the user's chosen TIME-OF-DAY. Zeroing the due date to 00:00
+    // (normalizeToStartOfDay) made every default-due task instantly "past":
+    // useCreateTask/useCreateTaskWithStatuses reject dueDate < now-60s, so
+    // creation threw "Cannot create a task with a past due date/time" before
+    // any network call (L4d acceptance suite, run 27). Index.tsx's own
+    // handler never zeroed it — this restores parity.
+    const defaultDueDate = taskData.dueDate ?? new Date();
 
     // Get all participant user IDs (creator + all active project members)
     const participantUserIds = getParticipatingUserIds(projectWithParticipants, userId);
@@ -454,8 +460,11 @@ export const useProjectTaskMutations = ({
       }
 
       if (taskData.type === 'habit' && taskData.dueDate && taskData.recurrencePattern) {
-        // Handle habit tasks (multiple recurring tasks)
-        const startDate = normalizeToStartOfDay(taskData.dueDate);
+        // Handle habit tasks (multiple recurring tasks).
+        // Time-of-day is PRESERVED (same past-date guard applies to occurrence
+        // 1 — see the defaultDueDate comment above); addDays/addWeeks keep the
+        // time across occurrences.
+        const startDate = taskData.dueDate;
 
         // Calculate end date based on recurrence pattern
         let endDate: Date | undefined;
@@ -504,13 +513,13 @@ export const useProjectTaskMutations = ({
             recurrencePattern: taskData.recurrencePattern,
             title: taskData.title,
             description: taskData.description,
-            dueDate: normalizeToStartOfDay(dueDate),
+            dueDate,
             recurrenceIndex: index + 1,
             recurrenceTotal: taskData.customRecurrence?.endType === 'count' ? maxOccurrences : undefined,
             showRecurrenceIndex: taskData.showRecurrenceIndex,
           },
           participantUserIds,
-          dueDate: normalizeToStartOfDay(dueDate),
+          dueDate,
         }));
 
         // Create all habit tasks in the database
@@ -726,7 +735,8 @@ export const useProjectTaskMutations = ({
         });
 
         // Generate additional occurrences using utility function
-        const startDate = normalizeToStartOfDay(taskData.dueDate ?? new Date());
+        // (time-of-day preserved — parity with handleCreateTask above)
+        const startDate = taskData.dueDate ?? new Date();
 
         // Calculate end date based on recurrence pattern
         let endDate: Date | undefined;
@@ -777,13 +787,13 @@ export const useProjectTaskMutations = ({
               recurrencePattern: recurrencePattern,
               title: taskData.title,
               description: taskData.description,
-              dueDate: normalizeToStartOfDay(dDate),
+              dueDate: dDate,
               recurrenceIndex: index + 2, // Start from 2 since first occurrence is already updated
               recurrenceTotal: taskData.customRecurrence?.endType === 'count' ? maxOccurrences : undefined,
               showRecurrenceIndex: taskData.showRecurrenceIndex,
             },
             participantUserIds,
-            dueDate: normalizeToStartOfDay(dDate),
+            dueDate: dDate,
           }));
 
         // Create additional recurring tasks with rollback on failure
