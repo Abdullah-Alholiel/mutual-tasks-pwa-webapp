@@ -21,3 +21,14 @@ export function endOfToday(): Date {
 export function dueDateDisablesSubmit(dueDate: Date | undefined, now: number): boolean {
   return dueDate ? dueDate.getTime() < now : false;
 }
+
+/**
+ * The task-creation past-date guard's accepted window (run 27): a due date is
+ * accepted when it is at "now" or later minus a 60-second clock-skew buffer.
+ * Exported so useTasks's guards and the acceptance tests pin ONE expression —
+ * the L4d suite caught this exact contract being duplicated in a copy that
+ * zeroed it away (reviewer finding, PR #35).
+ */
+export function isDueDateAccepted(dueDate: Date | undefined | null, now: number = Date.now()): boolean {
+  return !dueDate || dueDate.getTime() >= now - 60_000;
+}

@@ -18,6 +18,7 @@ import { TASK_KEYS, PROJECT_KEYS, USER_KEYS, COMPLETION_LOG_KEYS, TASK_STATUS_KE
 // Import atomic operations at top level to avoid dynamic require issues
 import { createTaskAtomic, type AtomicTaskInput } from '@/lib/tasks/atomicTaskOperations';
 import { perf } from '@/lib/monitoring/performance';
+import { isDueDateAccepted } from '@/lib/dateUtils';
 
 /**
  * Hook to fetch all tasks with optional filters
@@ -148,8 +149,10 @@ export const useCreateTask = () => {
         throw new Error('User must be authenticated to create a task');
       }
 
-      // Validation: Prevent creating tasks with past due times (with 1 min buffer)
-      if (data.dueDate && new Date(data.dueDate).getTime() < new Date().getTime() - 60000) {
+      // Validation: Prevent creating tasks with past due times (60s skew buffer;
+      // the shared predicate lives in src/lib/dateUtils.ts — one expression for
+      // both guards and the acceptance tests)
+      if (!isDueDateAccepted(data.dueDate)) {
         throw new Error('Cannot create a task with a past due date/time. Please select a future date/time.');
       }
 
@@ -194,8 +197,9 @@ export const useCreateTaskWithStatuses = () => {
         throw new Error('User must be authenticated to create a task');
       }
 
-      // Validation: Prevent creating tasks with past due times (with 1 min buffer)
-      if (input.dueDate && new Date(input.dueDate).getTime() < new Date().getTime() - 60000) {
+      // Validation: Prevent creating tasks with past due times (60s skew buffer;
+      // shared predicate — see useCreateTask above)
+      if (!isDueDateAccepted(input.dueDate)) {
         throw new Error('Cannot create a task with a past due date/time. Please select a future date/time.');
       }
 
