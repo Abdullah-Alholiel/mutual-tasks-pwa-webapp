@@ -1,118 +1,116 @@
 {
-  "time": "2026-11-24T23:04:15.485Z",
+  "time": "2026-11-24T23:12:19.867Z",
   "url": "https://staging.social-momentum-8zq.pages.dev",
   "engines": {
     "chromium": {
       "phase": "browser",
       "engine": "chromium",
       "url": "https://staging.social-momentum-8zq.pages.dev",
-      "time": "2026-11-24T23:03:15.629Z",
-      "projectName": "QA 2026-11-24T23:03 project",
+      "time": "2026-11-24T23:11:23.561Z",
+      "projectName": "QA 2026-11-24T23:11 project",
       "taskTitles": [
-        "QA 2026-11-24T23:03 task one",
-        "QA 2026-11-24T23:03 task rt"
+        "QA 2026-11-24T23:11 task one",
+        "QA 2026-11-24T23:11 task rt"
       ],
       "steps": [
         {
           "name": "app loads signed-out",
           "pass": true,
-          "ms": 1424
+          "ms": 1350
         },
         {
           "name": "sign in as @qa-bot (session token from DB)",
           "pass": true,
-          "ms": 920
+          "ms": 996
         },
         {
           "name": "create a project",
           "pass": true,
-          "ms": 1914
+          "ms": 1763
         },
         {
           "name": "add a task to the project",
           "pass": true,
-          "ms": 1069
+          "ms": 958
         },
         {
           "name": "complete the task",
           "pass": true,
-          "ms": 3854
+          "ms": 3853
         },
         {
           "name": "realtime update visible in a second tab",
           "pass": true,
-          "ms": 3270
+          "ms": 2631
         },
         {
           "name": "delete the project via UI",
-          "pass": false,
-          "ms": 4697,
-          "error": "Error: project still visible after delete"
+          "pass": true,
+          "ms": 4903
         },
         {
           "name": "AR: legal page renders Arabic with dir=rtl",
           "pass": true,
-          "ms": 236
+          "ms": 221
         }
       ],
       "realtime": "delivered",
-      "browserPass": false
+      "browserPass": true
     },
     "webkit": {
       "phase": "browser",
       "engine": "webkit",
       "url": "https://staging.social-momentum-8zq.pages.dev",
-      "time": "2026-11-24T23:03:34.551Z",
-      "projectName": "QA 2026-11-24T23:03 project",
+      "time": "2026-11-24T23:11:41.491Z",
+      "projectName": "QA 2026-11-24T23:11 project",
       "taskTitles": [
-        "QA 2026-11-24T23:03 task one",
-        "QA 2026-11-24T23:03 task rt"
+        "QA 2026-11-24T23:11 task one",
+        "QA 2026-11-24T23:11 task rt"
       ],
       "steps": [
         {
           "name": "app loads signed-out",
           "pass": true,
-          "ms": 2237
+          "ms": 2786
         },
         {
           "name": "sign in as @qa-bot (session token from DB)",
           "pass": true,
-          "ms": 535
+          "ms": 691
         },
         {
           "name": "create a project",
           "pass": true,
-          "ms": 12430
+          "ms": 10776
         },
         {
           "name": "add a task to the project",
           "pass": true,
-          "ms": 2696
+          "ms": 3288
         },
         {
           "name": "complete the task",
           "pass": true,
-          "ms": 5464
+          "ms": 7798
         },
         {
           "name": "realtime update visible in a second tab",
           "pass": true,
-          "ms": 7903
+          "ms": 5719
         },
         {
           "name": "delete the project via UI",
-          "pass": false,
-          "ms": 6406,
-          "error": "Error: project still visible after delete"
+          "pass": true,
+          "ms": 5551
         },
         {
           "name": "AR: legal page renders Arabic with dir=rtl",
           "pass": true,
-          "ms": 359
+          "ms": 384
         }
       ],
       "realtime": "delivered",
-      "browserPass": false
+      "browserPass": true
     }
   },
   "cleanup": {
@@ -123,5 +121,5 @@
   },
   "sessionCreated": 0,
   "pass": false,
-  "commit": "d85566d"
+  "commit": "519e128"
 }
