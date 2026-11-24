@@ -116,8 +116,15 @@ run_engine() {
 # container from this image at exit (only ours are alive at that point).
 trap 'for C in $(docker ps -aq --filter "ancestor=mcr.microsoft.com/playwright:v1.62.1-noble" 2>/dev/null); do docker rm -f "$C" >/dev/null 2>&1 || true; done' EXIT
 
-CH_RC=$(run_engine chromium; cat "$OUTDIR/RC.chromium")
-WK_RC=$(run_engine webkit; cat "$OUTDIR/RC.webkit")
+# Run engines WITHOUT capturing stdout: run_engine logs progress ("[acceptance]
+# === engine ===") to stdout, and command substitution would glue that onto the
+# RC — CH_RC could never equal "0" (every run died at `FINAL: unbound variable`,
+# run 28: even an all-green suite recorded pass:false). The RC file is the only
+# channel (run_engine writes it last).
+run_engine chromium
+CH_RC=$(cat "$OUTDIR/RC.chromium")
+run_engine webkit
+WK_RC=$(cat "$OUTDIR/RC.webkit")
 
 # ── DB verify + cleanup (from the LAST engine's artifacts; both flows create
 #    the same shape — one project + 2 tasks + completion logs) ────────────────
