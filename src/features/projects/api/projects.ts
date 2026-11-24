@@ -165,7 +165,12 @@ export class ProjectsRepository {
 
     // 1. Grandchildren of tasks (deepest first: logs/statuses/recurrence).
     //    Post-004 the DB cascade makes these no-ops; pre-004 (today) they are
-    //    required. Policy-filtered deletes never throw — safe under both.
+    //    required for rows the caller can see. NOT a full safety net: under
+    //    004 scoped policies a multi-member project still hides other
+    //    participants' rows from this client (the deletes silently skip
+    //    them) — only 004's task-child CASCADE removes those, at the tasks
+    //    delete below. Under today's allow-all prod policies every clear
+    //    reaches every row, so the order alone fixes the 23503.
     if (taskIds.length > 0) {
       const { error: logsErr } = await this.supabase
         .from('completion_logs')

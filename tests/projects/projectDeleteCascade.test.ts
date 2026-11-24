@@ -19,7 +19,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { ProjectsRepository } from '../../src/features/projects/api/projects';
 
 type Rec = { table: string; kind: 'select' | 'delete' };
-
 /**
  * Recording supabase mock.
  * - Every statement (one await per from()-chain) is recorded as
@@ -65,8 +64,6 @@ function makeClient(taskIds: number[], script: Partial<Record<string, (unknown |
     const client = { from: vi.fn(from) } as unknown as any;
     return { client, rec };
 }
-
-const NO_ERROR_FLOW = (ids: number[]) => makeClient(ids).rec;
 
 describe('ProjectsRepository.delete — FK-safe order (pre-004 live schema)', () => {
     it('clears grandchildren before tasks, tasks before participants, participants before the project', async () => {
@@ -135,9 +132,5 @@ describe('ProjectsRepository.delete — FK-safe order (pre-004 live schema)', ()
         const { client } = makeClient([41, 42]);
         const repo = new ProjectsRepository(client as never);
         await expect(repo.delete(7)).resolves.toBeUndefined();
-    });
-
-    it('regression shape: NO_ERROR_FLOW helper stays consistent with makeClient', () => {
-        expect(NO_ERROR_FLOW([1]).length).toBe(0);
     });
 });
