@@ -178,9 +178,15 @@ export class TasksRepository {
    * Delete a task
    */
   async delete(id: number): Promise<void> {
-    // Delete related records first
+    // Delete related records first. The live schema's notifications_task_id_fkey
+    // is ON DELETE NO ACTION until 004 is applied on prod (pre-004: a task that
+    // ever raised a notification cannot be deleted — L4d suite, run 28), so
+    // notifications must be cleared explicitly here. task_statuses/completion_logs/
+    // task_recurrence were already handled by the callers; this keeps the repo
+    // method safe as a standalone entry point too.
     await this.taskStatusRepo.deleteByTaskId(id);
     await this.supabase.from('task_recurrence').delete().eq('task_id', toStringId(id));
+    await this.supabase.from('notifications').delete().eq('task_id', toStringId(id));
     await this.supabase.from('completion_logs').delete().eq('task_id', toStringId(id));
 
     const { error } = await this.supabase.from('tasks').delete().eq('id', toStringId(id));
