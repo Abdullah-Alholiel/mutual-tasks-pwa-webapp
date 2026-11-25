@@ -44,3 +44,15 @@ and strike the line by moving it to the resolved section below — never delete 
 - standing · old cloud data: copy or start fresh · staging database project (A6) · Oracle bucket link (L8) · lawyer review (C6) → old-cloud-data decision overtaken by events (the VPS DB holds the real accounts and IS production since 2026-11-15); Oracle bucket re-raised 2026-11-22 (D-067, now actionable); A6/lawyer still open
 
 - automated close-out 2026-11-24T22:30Z: run 27 died mid-run; report 20261124T1730Z-run27.md had SECTIONS_IN_PROGRESS; informational, no owner decision needed
+
+- run 29 (2026-11-25): OWNER ACTION — AI binding re-attach. The D-075 acceptance AI proof
+  (first live run) found /api/ai-generated-description → 204-empty and /api/ai-generate-project
+  → 200-empty on BOTH Pages environments: the Workers-AI `AI` binding is not reaching the
+  functions (legacy n8n branch answers; n8n returns empty). Re-attach `AI` + OPENROUTER_API_KEY
+  via scripts/set-pages-secrets.sh to preview AND production, redeploy. AI generation is
+  broken for Pages users until then. Blocking: L4d finish (acceptance AI proof), forced-
+  fallback drill. Informational: no data loss; usage rows still increment on empty answers.
+- run 29 (2026-11-25): run-28 close-out record — run 28 (2026-11-24 22:30Z) built PR #37 +
+  twice-green acceptance + wrote RELEASE-CANDIDATE.md but died before its report; this run
+  recovered the state, WITHDREW the RC (it certified 5414526 while staging moved on), and the
+  D-075 guard now refuses that drift mechanically.
