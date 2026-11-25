@@ -16,7 +16,8 @@ export const AuthLogo = () => (
     >
         <img
             src="/icons/icon-transparent-512.png"
-            alt="Momentum"
+            alt=""
+            aria-hidden="true"
             className="w-40 h-40 md:w-48 md:h-48 dark:hidden"
         />
         <img

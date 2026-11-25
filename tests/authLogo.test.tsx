@@ -37,15 +37,26 @@ describe('AuthLogo (D-046 no-tile sign-in logo)', () => {
         expect(dark.getAttribute('src')).toBe('/icons/icon-transparent-dark-512.png');
         expect(dark.className).toContain('hidden');
         expect(dark.className).toContain('dark:block');
-        expect(dark.getAttribute('aria-hidden')).toBe('true');
     });
 
-    it('labels the mark for screen readers once (alt on the light image only)', () => {
+    it('does not announce itself: the adjacent <h1>Momentum</h1> (Auth.tsx:81) already names the screen', () => {
         const { container } = render(<AuthLogo />);
         const imgs = container.querySelectorAll('img');
-        expect(imgs[0].getAttribute('alt')).toBe('Momentum');
-        // The dark twin must not announce itself: alt="" + aria-hidden.
-        expect(imgs[1].getAttribute('alt')).toBe('');
-        expect(imgs[1].getAttribute('aria-hidden')).toBe('true');
+        for (const img of imgs) {
+            expect(img.getAttribute('alt')).toBe('');
+            expect(img.getAttribute('aria-hidden')).toBe('true');
+        }
+    });
+
+    it('ships two DIFFERENT assets (dark variant is a real file, not a copy-paste slip)', async () => {
+        const { readFile } = await import('node:fs/promises');
+        const { createHash } = await import('node:crypto');
+        // public/ is not served in jsdom; resolve from the repo root (tests run at cwd).
+        const { resolve } = await import('node:path');
+        const light = await readFile(resolve(__dirname, '../public/icons/icon-transparent-512.png'));
+        const dark = await readFile(resolve(__dirname, '../public/icons/icon-transparent-dark-512.png'));
+        const lh = createHash('sha256').update(light).digest('hex');
+        const dh = createHash('sha256').update(dark).digest('hex');
+        expect(lh).not.toEqual(dh);
     });
 });
