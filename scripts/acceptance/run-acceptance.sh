@@ -252,6 +252,7 @@ echo "cleanup proof: $ZERO"
 
 # D-075: the signed-in AI proof is part of the acceptance contract (both
 # engines' UI flows + a real signed-in AI call against the deployed build).
+FINAL=FAIL
 if [ "$CH_RC" = "0" ] && [ "$WK_RC" = "0" ] && [ "$BROWSER_RC" = "0" ] && [ "$ZERO" = "ZERO" ] && [ "$AI_PROOF_PASS" = "1" ]; then
   FINAL=PASS
 fi
