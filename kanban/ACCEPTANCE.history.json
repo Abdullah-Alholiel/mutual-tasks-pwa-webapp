@@ -88,5 +88,15 @@
       "chromium": true,
       "webkit": true
     }
+  },
+  {
+    "time": "2026-11-25T22:49:40.000Z",
+    "commit": "28675be",
+    "pass": false,
+    "url": "https://staging.social-momentum-8zq.pages.dev",
+    "engines": {
+      "chromium": true,
+      "webkit": true
+    }
   }
 ]

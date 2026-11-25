@@ -1,57 +1,57 @@
 {
-  "time": "2026-11-25T18:01:12.585Z",
+  "time": "2026-11-25T22:49:40.000Z",
   "url": "https://staging.social-momentum-8zq.pages.dev",
   "engines": {
     "chromium": {
       "phase": "browser",
       "engine": "chromium",
       "url": "https://staging.social-momentum-8zq.pages.dev",
-      "time": "2026-11-25T18:00:13.239Z",
-      "projectName": "QA 2026-11-25T18:00 project",
+      "time": "2026-11-25T22:48:44.105Z",
+      "projectName": "QA 2026-11-25T22:48 project",
       "taskTitles": [
-        "QA 2026-11-25T18:00 task one",
-        "QA 2026-11-25T18:00 task rt"
+        "QA 2026-11-25T22:48 task one",
+        "QA 2026-11-25T22:48 task rt"
       ],
       "steps": [
         {
           "name": "app loads signed-out",
           "pass": true,
-          "ms": 2159
+          "ms": 1553
         },
         {
           "name": "sign in as @qa-bot (session token from DB)",
           "pass": true,
-          "ms": 780
+          "ms": 825
         },
         {
           "name": "create a project",
           "pass": true,
-          "ms": 1890
+          "ms": 1876
         },
         {
           "name": "add a task to the project",
           "pass": true,
-          "ms": 1044
+          "ms": 949
         },
         {
           "name": "complete the task",
           "pass": true,
-          "ms": 3874
+          "ms": 3836
         },
         {
           "name": "realtime update visible in a second tab",
           "pass": true,
-          "ms": 3429
+          "ms": 3497
         },
         {
           "name": "delete the project via UI",
           "pass": true,
-          "ms": 4843
+          "ms": 4787
         },
         {
           "name": "AR: legal page renders Arabic with dir=rtl",
           "pass": true,
-          "ms": 225
+          "ms": 426
         }
       ],
       "realtime": "delivered",
@@ -61,52 +61,52 @@
       "phase": "browser",
       "engine": "webkit",
       "url": "https://staging.social-momentum-8zq.pages.dev",
-      "time": "2026-11-25T18:00:34.096Z",
-      "projectName": "QA 2026-11-25T18:00 project",
+      "time": "2026-11-25T22:49:03.293Z",
+      "projectName": "QA 2026-11-25T22:49 project",
       "taskTitles": [
-        "QA 2026-11-25T18:00 task one",
-        "QA 2026-11-25T18:00 task rt"
+        "QA 2026-11-25T22:49 task one",
+        "QA 2026-11-25T22:49 task rt"
       ],
       "steps": [
         {
           "name": "app loads signed-out",
           "pass": true,
-          "ms": 2197
+          "ms": 3031
         },
         {
           "name": "sign in as @qa-bot (session token from DB)",
           "pass": true,
-          "ms": 550
+          "ms": 680
         },
         {
           "name": "create a project",
           "pass": true,
-          "ms": 10169
+          "ms": 9186
         },
         {
           "name": "add a task to the project",
           "pass": true,
-          "ms": 3381
+          "ms": 3840
         },
         {
           "name": "complete the task",
           "pass": true,
-          "ms": 6282
+          "ms": 6044
         },
         {
           "name": "realtime update visible in a second tab",
           "pass": true,
-          "ms": 5849
+          "ms": 5006
         },
         {
           "name": "delete the project via UI",
           "pass": true,
-          "ms": 5551
+          "ms": 6329
         },
         {
           "name": "AR: legal page renders Arabic with dir=rtl",
           "pass": true,
-          "ms": 343
+          "ms": 334
         }
       ],
       "realtime": "delivered",
