@@ -81,7 +81,11 @@ QA_USER_JSON=$(psql "SELECT json_build_object('id',id,'name',name,'handle',handl
 # ACCEPTANCE.json must never say "verified at commit X" while the deployed
 # bundle was built from another tree (the run-28 RC shipped on exactly that
 # ambiguity). version.json is stamped into every Pages build by vite.config.ts.
-LOCAL_HEAD=$(git rev-parse --short HEAD)
+# Compared against origin/staging (the deploy comes FROM the staging branch),
+# not whatever checkout the runner was invoked from (reviewer MINOR, run 29:
+# a worktree at a lane commit must not produce a false FATAL).
+git fetch -q origin staging 2>/dev/null || true
+LOCAL_HEAD=$(git rev-parse --short origin/staging)
 VERSION_JSON=$(curl -fsS --max-time 20 "$URL/version.json" 2>/dev/null || true)
 DEPLOYED_COMMIT=$(printf '%s' "$VERSION_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit",""))' 2>/dev/null || true)
 VERSION_DRIFT="none"
@@ -103,18 +107,26 @@ echo "[acceptance] deploy freshness OK: version.json commit $DEPLOYED_COMMIT == 
 # primary chain and records provider/model/usage headers as evidence.
 ai_proof() {
   local TITLE="QA $(date -u +%Y-%m-%dT%H:%M) ai proof"
-  local BODY RESPONSE CODE PROVIDER USAGE
+  local BODY RESPONSE HDRS CODE PROVIDER USAGE attempt
   BODY=$(python3 -c 'import json,sys; print(json.dumps({"title":sys.argv[1],"type":"task"}))' "$TITLE")
-  RESPONSE=$(curl -sS --max-time 50 -w '\n%{http_code}' -X POST "$URL/api/ai-generated-description" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -H "Origin: $URL" \
-    -d "$BODY") || { echo "aiProof: fetch-failed"; return 1; }
-  CODE=$(printf '%s' "$RESPONSE" | tail -1)
-  PROVIDER=$(printf '%s' "$RESPONSE" | grep -i '^x-ai-provider:' | tr -d '\r' | cut -d' ' -f2 || true)
-  USAGE=$(printf '%s' "$RESPONSE" | grep -i '^x-ai-usage:' | tr -d '\r' | cut -d' ' -f2- || true)
+  # Headers travel by file: curl -D dumps response headers; -o keeps the body
+  # clean so the JSON parse never sees status/header text (reviewer CRITICAL,
+  # run 29: without -D the X-AI-Provider grep could never match).
+  local HDRFILE="$OUTDIR/ai-proof-headers.txt"
+  for attempt in 1 2; do
+    CODE=$(curl -sS --max-time 50 -o "$OUTDIR/ai-proof-body.json" -D "$HDRFILE" -w '%{http_code}' \
+      -X POST "$URL/api/ai-generated-description" \
+      -H "Authorization: Bearer $TOKEN" \
+      -H "Content-Type: application/json" \
+      -H "Origin: $URL" \
+      -d "$BODY") || CODE="000"
+    [ "$CODE" = "200" ] && break
+    [ "$attempt" = "1" ] && sleep 5   # one retry: a transient provider 5xx must not fail the suite
+  done
+  PROVIDER=$(grep -i '^x-ai-provider:' "$HDRFILE" 2>/dev/null | tr -d '\r' | cut -d' ' -f2 | head -1 || true)
+  USAGE=$(grep -i '^x-ai-usage:' "$HDRFILE" 2>/dev/null | tr -d '\r' | cut -d' ' -f2- | head -1 || true)
   local DESC
-  DESC=$(printf '%s' "$RESPONSE" | sed '$d' | python3 -c 'import json,sys; print(json.load(sys.stdin).get("description","")[:120])' 2>/dev/null || true)
+  DESC=$(python3 -c 'import json; print(json.load(open(sys.argv[1])).get("description","")[:120])' "$OUTDIR/ai-proof-body.json" 2>/dev/null || true)
   if [ "$CODE" = "200" ] && [ -n "$DESC" ] && [ -n "$PROVIDER" ]; then
     echo "aiProof: PASS provider=$PROVIDER usage=${USAGE:-n/a} desc=${DESC:0:80}"
     return 0

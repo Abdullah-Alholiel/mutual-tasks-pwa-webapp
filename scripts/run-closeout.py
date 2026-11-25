@@ -104,7 +104,11 @@ def audit_repo() -> list[str]:
         state_run = 0
     try:
         heads = subprocess.run(
-            ["git", "log", "--all", "--no-merges", "-40", "-E", "--grep=r[u]n \\d+"],
+            # POSIX ERE has no \d — [0-9]+ is the only portable form (reviewer
+            # IMPORTANT, run 29: '\d+' matched literally and returned nothing).
+            # -120 widens the window: a dead run's start commit can sit deep in
+            # history when active lanes land many commits per day.
+            ["git", "log", "--all", "--no-merges", "-120", "-E", "--grep=r[u]n [0-9]+"],
             cwd=REPO, capture_output=True, text=True, timeout=20,
         ).stdout
         nums = [int(n) for n in re.findall(r"run[ #](\d+)", heads, re.IGNORECASE)]
