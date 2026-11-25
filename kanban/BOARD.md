@@ -188,15 +188,28 @@ AI limits owner-only · Level A until P3 conditions met.
   Evidence JSON + screenshots: kanban/RUNS/20261122T2233Z-run24-evidence/. L0 stays UNCHECKED:
   production still serves the pre-fix bundle (promote = owner decision); owner iPhone check +
   D-063 diag readout remain. D-070 logged (default+48h-veto). Deferred worker requests (D-027,
-  no silence): D-068 production-plan refresh, D-069 Sentry CSP/setUser — not built, budget.
+  no silence): D-068 production-plan refresh, D-069 Sentry CSP+setUser — not built, budget.
   Report: kanban/RUNS/20261122T2233Z-run24.md
+
+- Run 30 (2026-11-25): **G1 SHIPPED (first growth-lane item) + AI break re-confirmed on two
+  fresh deploys** — PR #39 merged (squash 28675be, reviewer MERGE, 2 real MINORs fixed
+  pre-merge in cf81702): sign-in logo without tile (D-046) — glow/shadow/sheen/plate removed
+  (anti-slop), transparent assets mechanically derived from the brand icon
+  (scripts/derive-transparent-logo.py; dark variant recolors the near-black wordmark light for
+  the dark auth screen), 4 unit tests incl. byte-hash dark≠light. Real-browser proof on the
+  deployed preview (d73bdf1b, head d1b5633): light/dark/forced-rtl phone screenshots, NO tile,
+  wordmark readable both themes, old plate asset 0 hits
+  (kanban/RUNS/20261125T2231Z-run30-evidence/). PR #40 merged (48a5b0d): dead
+  useOneSignalPush hook deleted + diag banner v6 fix (both run-11 factory candidates CLOSED).
+  L4d twice-green attempt on final head d1b5633: engines 8/8 BOTH engines + cleanup ZERO +
+  freshness OK on both runs, aiProof FAIL http=204 BOTH runs — the Workers-AI binding is still
+  not attached (owner action from run 29 pending; 204-empty = legacy n8n branch answering,
+  netlify/functions/ai-generated-description.ts:205-207). RC correctly withheld; L4d stays
+  open, mechanically owner-blocked. Full smoke 12/12 twice. Gates fresh: vitest 210/210,
+  tsc 97=baseline, build 0. Report: kanban/RUNS/20261125T2231Z-run30.md
 
 ## Factory candidates (small, pre-scored; next runs pick from LAUNCH-LANE first)
 
-- src/hooks/useOneSignalPush.ts is dead code (zero consumers; duplicates init outside the
-  idle-scheduled path) — reviewer A finding, run 11. Delete in a hardening slot (L6 area).
-- diag-panel.js banner says "v4 run x/3" while the file header + summary say v6/2 runs —
-  cosmetic, fix when touching the panel next.
 - run 12 reviewer MINORs (none user-blocking): LegalPage unmount resets html lang/dir
   unconditionally; auth legal links do full page reloads (SPA-nav nit);
   checkIntegrity export lacks its own token guard (sole caller is gated today).

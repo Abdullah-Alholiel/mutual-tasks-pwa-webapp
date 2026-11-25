@@ -52,6 +52,9 @@ and strike the line by moving it to the resolved section below — never delete 
   via scripts/set-pages-secrets.sh to preview AND production, redeploy. AI generation is
   broken for Pages users until then. Blocking: L4d finish (acceptance AI proof), forced-
   fallback drill. Informational: no data loss; usage rows still increment on empty answers.
+  RE-CONFIRMED run 30 (2026-11-25): aiProof FAIL http=204 on BOTH acceptance runs vs two FRESH
+  deploys (40f52624, d73bdf1b) — the action is still outstanding; the RC auto-writes as soon as
+  this lands and two acceptance runs pass.
 - run 29 (2026-11-25): run-28 close-out record — run 28 (2026-11-24 22:30Z) built PR #37 +
   twice-green acceptance + wrote RELEASE-CANDIDATE.md but died before its report; this run
   recovered the state, WITHDREW the RC (it certified 5414526 while staging moved on), and the

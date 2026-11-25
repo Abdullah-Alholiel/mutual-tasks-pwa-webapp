@@ -179,6 +179,15 @@ production outranks the lane.
       fallback drill — needs the qa-bot test account (L4d) or an owner-session sign-in.
 - [ ] L4d · Scheduled acceptance tests on staging + RELEASE-CANDIDATE.md for the owner's promote card
       (owner 2026-11-16; spec in the DECISIONS.md row "Scheduled acceptance tests on staging").
+      UPDATE 2026-11-25 run 30 (owner-blocked, mechanically): the D-075 contract's signed-in AI
+      proof FAILS on BOTH acceptance runs this run (204-empty from the legacy n8n branch —
+      netlify/functions/ai-generated-description.ts:205-207 — meaning the Workers-AI `AI` binding
+      is STILL not reaching the Pages functions; the run-29 owner action is not done). Everything
+      else is green on the FINAL head d1b5633: engines 8/8 Chromium + 8/8 WebKit, cleanup ZERO,
+      freshness gate OK, smoke 12/12. The suite correctly withholds RELEASE-CANDIDATE.md
+      (last2green=false). The moment the owner re-attaches AI + OPENROUTER_API_KEY and staging is
+      redeployed, ONE more acceptance run that passes aiProof + one more 10 min later = RC
+      auto-writes and L4d ticks (runner logic already in place).
 - [x] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
       scoped policies on the custom-session model, rehearsed on a disposable copy, rollback script.
       Applying on production is owner-only after Claude reviews the SQL — and ONLY AFTER the
@@ -232,7 +241,18 @@ production outranks the lane.
 
 ## Growth lane (owner 2026-11-16; build AFTER L5 access rules, except G1 which may ride any run)
 
-- [ ] G1 · Sign-in logo without the square background (small).
+- [x] G1 · Sign-in logo without the square background. DONE 2026-11-25 run 30: PR #39 merged
+      (squash 28675be) — AuthLogo tile anatomy removed entirely (glow blob, 3D shadow, sheen,
+      rounded plate; anti-slop owner rule); transparent assets mechanically derived from the
+      brand icon (scripts/derive-transparent-logo.py color-keys the plate — no redraw); dark
+      variant recolors the near-black wordmark/outlines light for the dark auth screen
+      (hsl(215 28% 12%)); theme swap via tailwind class strategy; both marks alt=""+aria-hidden
+      (the adjacent <h1>Momentum</h1> names the screen — reviewer MINOR fixed pre-merge).
+      Gates: vitest 210/210 (4 new incl. byte-hash pin dark≠light), tsc 97=baseline, build 0.
+      Real-browser proof on the deployed preview (deploy d73bdf1b, head d1b5633): light/dark/
+      forced-rtl phone screenshots — NO tile, wordmark readable in both themes, old plate asset
+      0 hits, layout intact (kanban/RUNS/20261125T2231Z-run30-evidence/g1-*.png). Installed-app
+      icons unchanged per D-046. Owner review at the next promote.
 - [ ] G2 · Public landing page for signed-out visitors (no data queries, EN + AR).
 - [ ] G3 · Plans and paywall without payment code: limits from one config, usage meter, upgrade
       screen that records interest. Numbers come from the owner's pricing card; never invent them.
