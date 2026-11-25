@@ -63,7 +63,7 @@
     var rootSeen=false,seen=false;
     function vis(){var root=document.getElementById('root');if(!root)return 0;if(!rootSeen&&root.children.length){rootSeen=true;mark('first app content in page')}var n=0;[].forEach.call(root.querySelectorAll('*'),function(e){if(e.children.length||!e.innerText||!e.innerText.trim())return;var r=e.getBoundingClientRect(),o=1,x=e;while(x&&x!==document.body){o*=parseFloat(getComputedStyle(x).opacity||'1');x=x.parentElement}if(r.width>1&&r.height>1&&o>0.5)n++});return n}
     var iv=setInterval(function(){if(!seen&&vis()>=3){seen=true;res.visibleAt=now().toFixed(1)+'s';mark('screen visible')}},100);
-    log('MOMENTUM DIAG v4 run '+(step+1)+'/3: '+STEPS[step]+' ... wait');
+    log('MOMENTUM DIAG v6 run '+(step+1)+'/'+STEPS.length+': '+STEPS[step]+' ... wait');
     oST.call(window,function(){clearInterval(iv);
       res.stall=(maxGap/1000).toFixed(1)+'s starting at '+(gapAt/1000).toFixed(1)+'s';
       try{var nv=performance.getEntriesByType('navigation')[0];if(nv)ms.push('[browser: response '+(nv.responseEnd/1000).toFixed(2)+' interactive '+(nv.domInteractive/1000).toFixed(2)+' parsed '+(nv.domContentLoadedEventEnd/1000).toFixed(2)+' load '+(nv.loadEventStart/1000).toFixed(2)+' type '+nv.type+']')}catch(e){}
