@@ -21,6 +21,7 @@ Repair actions (only when the newest kanban/RUNS/*.md is dirty):
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,6 +69,59 @@ def audit(text: str) -> list[str]:
     return dirty
 
 
+def audit_repo() -> list[str]:
+    """D-076: repo-level dead-run signals beyond the newest report.
+
+    1. LOCK.json older than 30 min held by a DEAD pid (or pid-null lock older
+       than 30 min — the owner cannot tell liveness from a null pid, and every
+       past incident ran with a null/dead pid well past the run's 90-min cap).
+    2. STATE.last_run lower than the highest run number in commit messages
+       (a run committed work but died before updating STATE.json).
+    """
+    dirty = []
+    lock = KANBAN / "LOCK.json"
+    if lock.exists():
+        age_min = (datetime.now(timezone.utc).timestamp() - lock.stat().st_mtime) / 60
+        pid = None
+        try:
+            pid = json.loads(lock.read_text()).get("pid")
+        except Exception:
+            pid = None
+        pid_alive = False
+        if pid:
+            try:
+                os.kill(int(pid), 0)
+                pid_alive = True
+            except (ProcessLookupError, TypeError, ValueError):
+                pid_alive = False
+            except PermissionError:
+                pid_alive = True
+        if age_min > 30 and not pid_alive:
+            dirty.append(f"LOCK_STALE_DEAD(pid={pid}, age={int(age_min)}m)")
+    try:
+        state_run = int(json.loads(STATE.read_text()).get("last_run") or 0)
+    except Exception:
+        state_run = 0
+    try:
+        heads = subprocess.run(
+            # POSIX ERE has no \d — [0-9]+ is the only portable form (reviewer
+            # IMPORTANT, run 29: '\d+' matched literally and returned nothing).
+            # -120 widens the window: a dead run's start commit can sit deep in
+            # history when active lanes land many commits per day.
+            ["git", "log", "--all", "--no-merges", "-120", "-E", "--grep=r[u]n [0-9]+"],
+            cwd=REPO, capture_output=True, text=True, timeout=20,
+        ).stdout
+        nums = [int(n) for n in re.findall(r"run[ #](\d+)", heads, re.IGNORECASE)]
+        # Only run numbers ABOVE the state's count count as drifted (a doc
+        # mentioning an old run number is not a dead-run signal).
+        drift = [n for n in nums if n > state_run]
+        if drift:
+            dirty.append(f"STATE_BEHIND_COMMITS(state={state_run}, commits_mention={sorted(set(drift))[:5]})")
+    except Exception:
+        pass  # git unavailable/mid-rebase: the report audit still ran
+    return dirty
+
+
 def fill_report(path: Path, text: str) -> str:
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     out = []
@@ -88,18 +142,20 @@ def main() -> int:
 
     text = report.read_text()
     dirty = audit(text)
+    repo_dirty = audit_repo()
     m = re.search(r"# Factory Run #(\d+)", text)
     run_no = int(m.group(1)) if m else 0
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
 
     if check_only:
-        if dirty:
-            print(f"CHECK DIRTY: run {run_no} report {report.name}: {', '.join(dirty)}")
+        if dirty or repo_dirty:
+            bits = dirty + repo_dirty
+            print(f"CHECK DIRTY: run {run_no} report {report.name}: {', '.join(bits)}")
             return 1
         print(f"CHECK CLEAN: run {run_no} report {report.name} closed out properly")
         return 0
 
-    if not dirty:
+    if not dirty and not repo_dirty:
         print(f"CLOSEOUT CLEAN: run {run_no} ({report.name}) — nothing to repair")
         lock = KANBAN / "LOCK.json"
         if lock.exists() and not lock_holds_live_run():
@@ -119,7 +175,7 @@ def main() -> int:
         )
         return 2
 
-    print(f"CLOSEOUT REPAIR: run {run_no} ({report.name}) — {', '.join(dirty)}")
+    print(f"CLOSEOUT REPAIR: run {run_no} ({report.name}) — {', '.join(dirty + repo_dirty)}")
 
     report.write_text(fill_report(report, text))
     print("  report: dirty sections filled with NOT CLOSED markers")
@@ -131,7 +187,8 @@ def main() -> int:
         state = None
     if state is not None:
         state["failure_reason"] = (
-            f"run {run_no} died mid-run: report had {', '.join(dirty)} (automated close-out {ts})"
+            f"run {run_no} died mid-run: report had {', '.join(dirty)}, repo signals "
+            f"{', '.join(repo_dirty) or 'none'} (automated close-out {ts})"
         )
         state["job_failed"] = True
         STATE.write_text(json.dumps(state, indent=2) + "\n")
@@ -141,7 +198,7 @@ def main() -> int:
         q = QUEUE.read_text() if QUEUE.exists() else "# Owner queue\n"
         entry = (
             f"- automated close-out {ts}: run {run_no} died mid-run; report {report.name} had "
-            f"{', '.join(dirty)}; informational, no owner decision needed"
+            f"{', '.join(dirty)}, repo signals {', '.join(repo_dirty) or 'none'}; informational, no owner decision needed"
         )
         if entry not in q:
             q = q.rstrip() + "\n\n" + entry + "\n"
