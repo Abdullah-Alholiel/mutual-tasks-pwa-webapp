@@ -77,6 +77,55 @@ if [ -z "$TOKEN" ]; then
 fi
 QA_USER_JSON=$(psql "SELECT json_build_object('id',id,'name',name,'handle',handle,'email',email,'avatar',coalesce(avatar,''),'timezone',coalesce(timezone,'UTC'),'createdAt',created_at,'updatedAt',updated_at) FROM public.users WHERE id=$QA_ID")
 
+# ── D-075: refuse to certify a DEPLOY that is not staging HEAD ──────────────
+# ACCEPTANCE.json must never say "verified at commit X" while the deployed
+# bundle was built from another tree (the run-28 RC shipped on exactly that
+# ambiguity). version.json is stamped into every Pages build by vite.config.ts.
+LOCAL_HEAD=$(git rev-parse --short HEAD)
+VERSION_JSON=$(curl -fsS --max-time 20 "$URL/version.json" 2>/dev/null || true)
+DEPLOYED_COMMIT=$(printf '%s' "$VERSION_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit",""))' 2>/dev/null || true)
+VERSION_DRIFT="none"
+if [ -z "$DEPLOYED_COMMIT" ]; then
+  VERSION_DRIFT="version.json-missing"
+elif [ "$DEPLOYED_COMMIT" != "$LOCAL_HEAD" ]; then
+  VERSION_DRIFT="deploy=$DEPLOYED_COMMIT vs HEAD=$LOCAL_HEAD"
+fi
+if [ "$VERSION_DRIFT" != "none" ]; then
+  echo "FATAL: acceptance refuses to run — $VERSION_DRIFT (D-075). Deploy staging HEAD first (scripts/deploy-pages-preview.sh), then re-run."
+  exit 3
+fi
+echo "[acceptance] deploy freshness OK: version.json commit $DEPLOYED_COMMIT == staging HEAD"
+
+# ── D-075: signed-in AI generation proof (L4c open item, folded into L4d) ────
+# Real POST /api/ai-generated-description as qa-bot against the DEPLOYED
+# preview: 200 {description} + X-AI-Provider header. The forced-fallback drill
+# (AI_PROVIDER_MODE) is a Pages env change = owner-side; the runner proves the
+# primary chain and records provider/model/usage headers as evidence.
+ai_proof() {
+  local TITLE="QA $(date -u +%Y-%m-%dT%H:%M) ai proof"
+  local BODY RESPONSE CODE PROVIDER USAGE
+  BODY=$(python3 -c 'import json,sys; print(json.dumps({"title":sys.argv[1],"type":"task"}))' "$TITLE")
+  RESPONSE=$(curl -sS --max-time 50 -w '\n%{http_code}' -X POST "$URL/api/ai-generated-description" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -H "Origin: $URL" \
+    -d "$BODY") || { echo "aiProof: fetch-failed"; return 1; }
+  CODE=$(printf '%s' "$RESPONSE" | tail -1)
+  PROVIDER=$(printf '%s' "$RESPONSE" | grep -i '^x-ai-provider:' | tr -d '\r' | cut -d' ' -f2 || true)
+  USAGE=$(printf '%s' "$RESPONSE" | grep -i '^x-ai-usage:' | tr -d '\r' | cut -d' ' -f2- || true)
+  local DESC
+  DESC=$(printf '%s' "$RESPONSE" | sed '$d' | python3 -c 'import json,sys; print(json.load(sys.stdin).get("description","")[:120])' 2>/dev/null || true)
+  if [ "$CODE" = "200" ] && [ -n "$DESC" ] && [ -n "$PROVIDER" ]; then
+    echo "aiProof: PASS provider=$PROVIDER usage=${USAGE:-n/a} desc=${DESC:0:80}"
+    return 0
+  fi
+  echo "aiProof: FAIL http=$CODE provider=${PROVIDER:-none} desc=${DESC:-none}"
+  return 1
+}
+AI_PROOF_LINE=$(ai_proof 2>&1) && AI_PROOF_PASS=1 || AI_PROOF_PASS=0
+export AI_PROOF_PASS AI_PROOF_LINE
+echo "[acceptance] AI proof: $AI_PROOF_LINE"
+
 run_engine() {
   local ENGINE="$1"
   local SHOTS="$OUTDIR/shots-$ENGINE"
@@ -189,10 +238,12 @@ echo "before: $BEFORE"
 echo "after:  $AFTER"
 echo "cleanup proof: $ZERO"
 
-if [ "$CH_RC" = "0" ] && [ "$WK_RC" = "0" ] && [ "$BROWSER_RC" = "0" ] && [ "$ZERO" = "ZERO" ]; then
+# D-075: the signed-in AI proof is part of the acceptance contract (both
+# engines' UI flows + a real signed-in AI call against the deployed build).
+if [ "$CH_RC" = "0" ] && [ "$WK_RC" = "0" ] && [ "$BROWSER_RC" = "0" ] && [ "$ZERO" = "ZERO" ] && [ "$AI_PROOF_PASS" = "1" ]; then
   FINAL=PASS
 fi
-export B="$BEFORE" A="$AFTER" Z="$ZERO" FINAL SESSION_CREATED="$CREATED_SESSION" SMOKE_OK="${SMOKE_OK:-0}"
+export B="$BEFORE" A="$AFTER" Z="$ZERO" FINAL SESSION_CREATED="$CREATED_SESSION" SMOKE_OK="${SMOKE_OK:-0}" VERSION_DEPLOYED="$DEPLOYED_COMMIT"
 node - <<'EOF'
 const { readFileSync, writeFileSync, unlinkSync } = require('fs');
 const { execSync } = require('child_process');
@@ -201,6 +252,9 @@ merged.cleanup = { before: process.env.B, after: process.env.A, proof: process.e
 merged.sessionCreated = Number(process.env.SESSION_CREATED);
 merged.pass = process.env.FINAL === 'PASS';
 merged.commit = execSync('git rev-parse --short HEAD').toString().trim();
+// D-075 evidence: the deploy this suite certified + the signed-in AI proof.
+merged.deployedCommit = process.env.VERSION_DEPLOYED || null;
+merged.aiProof = { pass: process.env.AI_PROOF_PASS === '1', detail: process.env.AI_PROOF_LINE || '' };
 writeFileSync('kanban/ACCEPTANCE.json', JSON.stringify(merged,null,2)+'\n');
 // Acceptance history (D-045 "last two acceptance runs green" rule): the last
 // 30 results, newest last. RELEASE-CANDIDATE.md is written ONLY when staging
@@ -229,7 +283,9 @@ if (ahead && last2.length === 2 && last2.every(h => h.pass) && smokeOK) {
     '',
     '- Time: ' + merged.time,
     '- Staging head: ' + merged.commit,
-    '- Acceptance: last two runs green (both engines, EN+AR, zero-leftover cleanup)',
+    '- Deployed build certified: version.json commit ' + (merged.deployedCommit || 'n/a') + ' (= staging HEAD, enforced by the runner)',
+    '- Signed-in AI proof: ' + (merged.aiProof && merged.aiProof.pass ? 'PASS — ' + (merged.aiProof.detail||'') : 'FAIL'),
+    '- Acceptance: last two runs green (both engines, EN+AR, zero-leftover cleanup, AI proof)',
     '- Smoke: green (the deploy script runs the full smoke before this runner)',
     '',
     '## Commit range (main..staging)',

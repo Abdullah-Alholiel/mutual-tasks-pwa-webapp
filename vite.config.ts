@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { execSync } from "node:child_process";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 import visualizer from 'rollup-plugin-visualizer';
@@ -11,6 +12,35 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProduction = mode === 'production';
   const isAnalyze = mode === 'analyze';
+
+  // D-075: stamp the deployed commit into every build as dist/version.json so an
+  // acceptance runner can verify it tested the deployed bundle, not another tree.
+  // Gated to PAGES_BUILD so local dev builds don't write repo-root artifacts.
+  const commitStamp = () => ({
+    name: 'momentum-version-stamp',
+    apply: 'build' as const,
+    generateBundle(this: import('vite').Rollup.PluginContext) {
+      let commit = process.env.PAGES_BUILD_COMMIT?.trim() || '';
+      if (!commit) {
+        try {
+          commit = execSync('git rev-parse --short HEAD', { cwd: process.cwd() })
+            .toString()
+            .trim();
+        } catch {
+          commit = 'unknown';
+        }
+      }
+      this.emitFile({
+        type: 'asset' as const,
+        fileName: 'version.json',
+        source: JSON.stringify({
+          commit,
+          builtAt: new Date().toISOString(),
+          pagesBuild: process.env.PAGES_BUILD ? true : false,
+        }) + '\n',
+      });
+    },
+  });
 
   return {
     envPrefix: ["VITE_", "ONESIGNAL_"],
@@ -194,7 +224,7 @@ export default defineConfig(({ mode }) => {
           ]
         }
       })
-    ].filter(Boolean),
+    ].filter(Boolean).concat(commitStamp()),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
