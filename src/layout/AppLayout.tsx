@@ -2,7 +2,6 @@ import { ReactNode } from 'react';
 import { useLocation, Outlet, matchPath } from 'react-router-dom';
 import { MobileNav } from './MobileNav';
 import { DesktopNav } from './DesktopNav';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { GlobalRealtimeSubscriptions } from '@/features/realtime/GlobalRealtimeSubscriptions';
 import { SyncStatusIndicator } from '@/components/SyncStatusIndicator';
 
@@ -11,7 +10,6 @@ interface AppLayoutProps {
 }
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
-  const isMobile = useIsMobile();
   const location = useLocation();
 
   return (

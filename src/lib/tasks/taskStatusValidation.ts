@@ -247,9 +247,9 @@ export const validateAndLogIssues = (
         // Use console.debug to reduce noise - these are data integrity checks
         // that are useful for debugging but shouldn't clutter normal development
         console.debug(`[${context}] Data inconsistency - ${issue.type}:`, {
+            ...issue,
             taskId,
             userId,
-            ...issue,
             taskStatus: taskStatus.status,
             taskRingColor: taskStatus.ringColor,
             recoveredAt: taskStatus.recoveredAt,

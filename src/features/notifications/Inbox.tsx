@@ -303,7 +303,7 @@ const NotificationList = ({
 const NotificationItem = ({
   notification,
   onClick,
-  onMarkAsRead,
+  onMarkAsRead: _onMarkAsRead,
   isRead
 }: {
   notification: Notification;

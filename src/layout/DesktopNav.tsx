@@ -111,7 +111,7 @@ export const DesktopNav = () => {
                 className="flex items-center gap-1.5 md:gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full transition-all duration-200 hover:bg-muted/50 whitespace-nowrap"
                 activeClassName="bg-primary/10 text-primary font-semibold"
               >
-                {({ isActive }) => (
+                {() => (
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}

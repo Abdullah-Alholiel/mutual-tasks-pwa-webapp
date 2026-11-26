@@ -8,7 +8,7 @@
 
 import { Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatDueDateTimeCompact, hasTimeComponent } from '@/lib/datetime/datetimeUtils';
+import { formatDueDateTimeCompact } from '@/lib/datetime/datetimeUtils';
 
 interface DueDateTimeDisplayProps {
     dueDate: Date;
@@ -36,7 +36,6 @@ export const DueDateTimeDisplay = ({
     size = 'sm',
     variant = 'default',
 }: DueDateTimeDisplayProps) => {
-    const hasTime = hasTimeComponent(dueDate);
     const displayText = formatDueDateTimeCompact(dueDate, showTimeIfSet);
 
     const sizeClasses = {

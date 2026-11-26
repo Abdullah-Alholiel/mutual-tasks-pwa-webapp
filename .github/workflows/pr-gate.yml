@@ -31,24 +31,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # BASELINE DEBT (board P1-1 / D-050 ratchet): the solution build
-      # (`npx tsc -b`) still fails with 97 PRE-EXISTING errors on merged
-      # staging (re-measured on the run-16 lane, 2026-11-18; the app project
-      # alone is 96). This step prints the count on every PR and FAILS ONLY
-      # when it grows past the baseline — the number can no longer silently
-      # rise. Clearing the baseline to 0 (lane L6) turns this step into a
-      # plain enforcing `npx tsc -b`.
-      - name: Type check (tsc -b, ratchet vs baseline 97)
-        run: |
-          npx tsc -b --pretty false > /tmp/tsc-output.txt || true
-          COUNT=$(grep -cE 'error TS' /tmp/tsc-output.txt || true)
-          BASELINE=97
-          echo "tsc errors: $COUNT (baseline $BASELINE)"
-          if [ "$COUNT" -gt "$BASELINE" ]; then
-            echo "::error::tsc error count grew: $COUNT > baseline $BASELINE - fix the new type errors in this PR"
-            head -40 /tmp/tsc-output.txt
-            exit 1
-          fi
+      # Lane L6 (run 32, PR #42): the 97-error baseline debt was CLEARED to zero
+      # — this is now a plain enforcing `npx tsc -b`. Any type error fails the PR.
+      - name: Type check (tsc -b, enforcing)
+        run: npx tsc -b --pretty false
 
       - name: Unit tests (vitest run)
         run: npm run test:run

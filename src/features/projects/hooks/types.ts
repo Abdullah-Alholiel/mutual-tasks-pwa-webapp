@@ -9,8 +9,6 @@ import type {
   CompletionLog,
   ProjectParticipant,
   User,
-  ProjectRole,
-  DifficultyRating
 } from '@/types';
 
 /**

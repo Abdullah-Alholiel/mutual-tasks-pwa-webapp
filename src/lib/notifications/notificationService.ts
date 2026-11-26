@@ -359,7 +359,7 @@ export const notificationService = {
     await Promise.all(promises);
   },
 
-  async notifyRoleChanged(projectId: number, updaterId: number, targetUserId: number, role: string) {
+  async notifyRoleChanged(projectId: number, _updaterId: number, targetUserId: number, role: string) {
     const db = getDatabaseClient();
     try {
       // Only fetch project as we don't need updater/targetUser details for this notification

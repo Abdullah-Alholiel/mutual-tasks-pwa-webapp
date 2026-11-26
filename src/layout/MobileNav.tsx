@@ -3,14 +3,11 @@ import { NavLink } from '@/components/NavLink';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/features/auth/useAuth';
-import { useLocation } from 'react-router-dom';
 
 import { useSmartScroll } from '@/hooks/useSmartScroll';
 
 export const MobileNav = () => {
   const { user } = useAuth();
-  const location = useLocation();
-
   // Smart scroll for mobile
   // Sensitivity: Hide after scrolling down past 30px
   // Show after scrolling UP by 40px (easier to trigger than desktop)
@@ -21,10 +18,7 @@ export const MobileNav = () => {
   });
 
   // Check active state for each route
-  const isActiveRoute = (path: string) => location.pathname === path;
-
   // Common tab styles
-  const tabBaseStyles = "flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300";
 
   return (
     <motion.nav

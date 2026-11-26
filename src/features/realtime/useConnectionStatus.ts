@@ -7,7 +7,7 @@
 // Replaces old RealtimeManager-based connection status hook.
 // ============================================================================
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import React from 'react';
 import { logger } from '@/lib/monitoring/logger';
 

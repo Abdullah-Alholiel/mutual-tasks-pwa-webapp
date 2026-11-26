@@ -11,7 +11,7 @@
 // - Cancellation support via AbortSignal
 // ============================================================================
 
-interface RetryOptions<T> {
+interface RetryOptions<_T> {
     maxRetries?: number;
     initialDelay?: number;
     maxDelay?: number;

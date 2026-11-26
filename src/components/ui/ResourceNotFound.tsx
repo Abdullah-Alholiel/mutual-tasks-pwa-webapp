@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { Button } from './button';
-import { AlertTriangle, FolderOpen, UserX, Home, RefreshCw } from 'lucide-react';
+import { AlertTriangle, FolderOpen, UserX, Home, RefreshCw, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type ResourceType = 'project' | 'friend' | 'page';
@@ -76,7 +76,7 @@ const ResourceNotFound = ({
   actionLabel: customActionLabel,
   className,
 }: ResourceNotFoundProps) => {
-  const config = resourceConfig[type][status];
+  const config = (resourceConfig[type] as Record<ResourceStatus, { icon: LucideIcon; title: string; description: string; actionLabel: string; defaultBackPath: string }>)[status] ?? resourceConfig[type].not_found;
   const Icon = config.icon;
   const displayTitle = entityName ? `${config.title}: ${entityName}` : config.title;
   const actionLabel = customActionLabel || config.actionLabel;

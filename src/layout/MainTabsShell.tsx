@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback, ReactNode } from 'react';
+import { useEffect, useState, useCallback, ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useEmblaCarousel from 'embla-carousel-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -6,7 +6,6 @@ import Index from '../features/pages/Index';
 import Projects from '../features/projects/Projects';
 import FriendsPage from '../features/friends/pages/FriendsPage';
 import Profile from '../features/profile/Profile';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { MobileHeader } from '@/components/layout/MobileHeader';
 
 const NAV_ORDER = ['/', '/projects', '/friends', '/profile'];

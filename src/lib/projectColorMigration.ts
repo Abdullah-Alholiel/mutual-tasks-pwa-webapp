@@ -6,7 +6,6 @@
 
 import { PROJECT_COLORS, DEFAULT_PROJECT_COLOR, type ProjectColor, isValidProjectColor } from '@/constants/projectColors';
 
-const VALID_COLOR_VALUES = new Set(PROJECT_COLORS.map((c) => c.value));
 
 export const migrateProjectColor = (color: string | null | undefined): ProjectColor => {
   if (!color) {

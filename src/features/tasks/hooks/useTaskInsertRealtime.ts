@@ -14,8 +14,8 @@ interface UseTaskInsertRealtimeParams {
 }
 
 export const useTaskInsertRealtime = ({
-    userId,
-    enabled = true,
+    userId: _userId,
+    enabled: _enabled = true,
 }: UseTaskInsertRealtimeParams) => {
     // All realtime updates now handled by useUnifiedRealtime at app level
     // This hook exists only for backward compatibility

@@ -63,7 +63,7 @@ import { logger } from '@/lib/monitoring/logger';
 export const GlobalRealtimeSubscriptions = () => {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
+  const [_connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
   // Extract numeric userId from auth state
   // Handles both string and numeric ID types from auth provider

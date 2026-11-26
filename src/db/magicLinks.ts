@@ -3,7 +3,6 @@
 // ============================================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { toStringId } from './transformers';
 
 export interface MagicLink {
   id: number;

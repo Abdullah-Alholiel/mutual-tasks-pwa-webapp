@@ -35,7 +35,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       richColors={false}
       expand={!isMobile}
       offset={16}
-      swipeDirections={['up', 'right']}
+      swipeDirections={['top', 'right']}
       {...props}
     />
   );

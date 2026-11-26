@@ -3,10 +3,10 @@ import {
     Briefcase, Presentation, Building2, Laptop,
     Coffee, Dumbbell, Plane, Music, Book, Home,
     Users, Heart, Smile, PartyPopper,
-    GraduationCap, Microscope,
+    GraduationCap,
     PiggyBank, CreditCard,
     Palette, Camera, Gamepad2, Gift,
-    Globe, Layout, Smartphone, Code
+    Code
 } from 'lucide-react';
 
 export const PROJECT_ICONS = [

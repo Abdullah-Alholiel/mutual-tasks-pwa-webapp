@@ -48,7 +48,7 @@ export const useProjectTaskData = ({
   // Fetch completion logs for all project tasks
   const {
     data: completionLogsFromDb = [],
-    isLoading: completionLogsLoading
+    isLoading: _completionLogsLoading
   } = useProjectCompletionLogs(taskIdsForLogs);
 
   // Sync tasks from database to local state when React Query data changes

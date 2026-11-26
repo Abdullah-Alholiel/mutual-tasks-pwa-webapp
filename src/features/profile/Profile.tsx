@@ -1,4 +1,3 @@
-import { AppLayout } from '@/layout/AppLayout';
 import { StreakCalendar } from './components/StreakCalendar';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,12 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Trophy, Target, Zap, TrendingUp, LogOut } from 'lucide-react';
 import { InlineLoader } from '@/components/ui/loader';
 import { useNavigate } from 'react-router-dom';
-import { getUserProjects } from '@/lib/projects/projectUtils';
 import { toast } from '@/components/ui/sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/features/auth/useAuth';
 import { useCurrentUser, useCurrentUserStats } from '../auth/useCurrentUser';
-import { useProjects, useUserProjectsWithStats } from '@/features/projects/hooks/useProjects';
+import { useUserProjectsWithStats } from '@/features/projects/hooks/useProjects';
 import { useMemo, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { calculateLevel } from '@/lib/users/userStatsUtils';
@@ -30,11 +28,11 @@ interface ProfileProps {
 const Profile = ({ isInternalSlide: _isInternalSlide, isActive: _isActive = true }: ProfileProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { user: authUser, logout } = useAuth();
+  const { logout } = useAuth();
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
-  const { data: userStats, isLoading: statsLoading } = useCurrentUserStats();
-  const { data: userProjects = [], isLoading: projectsLoading } = useUserProjectsWithStats();
+  const { data: userStats } = useCurrentUserStats();
+  const { data: userProjects = [] } = useUserProjectsWithStats();
 
   // Logout confirmation dialog state
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);

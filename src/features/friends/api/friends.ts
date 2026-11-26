@@ -45,7 +45,6 @@ export class FriendsRepository {
         const allFriends = [...(data || []), ...(inverseData || [])];
 
         // Deduplicate by friend ID (just in case)
-        const uniqueFriendsMap = new Map();
 
         // We need to fetch stats for these friends to show on the leaderboard
         const friendIds = allFriends.map(row => {

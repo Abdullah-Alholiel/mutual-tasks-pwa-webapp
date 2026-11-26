@@ -40,7 +40,7 @@ import { motion } from "framer-motion";
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : (motion.button as React.ComponentType<React.ComponentProps<typeof motion.button> & { ref?: React.Ref<HTMLButtonElement> }>);
+    const Comp = asChild ? Slot : (motion.button as unknown as React.FC<React.ComponentProps<'button'> & { ref?: React.Ref<HTMLButtonElement>; whileTap?: Record<string, unknown>; transition?: Record<string, unknown> }>);
 
     const motionProps = !asChild ? {
       whileTap: { scale: 0.97 },

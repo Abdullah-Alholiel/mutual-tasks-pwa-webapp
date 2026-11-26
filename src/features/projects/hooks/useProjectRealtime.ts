@@ -14,7 +14,7 @@ export const useProjectRealtime = () => {
     return null;
 };
 
-export const useProjectDetailRealtime = (projectId: string | number | undefined, userId?: number | null) => {
+export const useProjectDetailRealtime = (_projectId: string | number | undefined, _userId?: number | null) => {
     // All realtime updates now handled by useUnifiedRealtime at app level
     // This hook exists only for backward compatibility
     return null;

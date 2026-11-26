@@ -1,5 +1,5 @@
 import type { Project, User, ProjectRole } from '@/types';
-import { normalizeId, compareIds } from '@/lib/idUtils';
+import { compareIds } from '@/lib/idUtils';
 
 /**
  * ============================================================================
@@ -59,9 +59,6 @@ export function getProjectPermissions(
       canView: false,
     };
   }
-
-  const normalizedUserId = typeof userId === 'string' ? parseInt(userId) : userId;
-  const normalizedOwnerId = typeof project.ownerId === 'string' ? parseInt(project.ownerId) : project.ownerId;
 
   const isOwner = compareIds(project.ownerId, userId);
   const participant = participants.find(p => compareIds(p.userId, userId));
@@ -143,7 +140,7 @@ export function isUserParticipant(
  * getUserRoleInProject(project, userId, participants) // 'manager'
  */
 export function getUserRoleInProject(
-  project: Project | undefined,
+  _project: Project | undefined,
   userId: number | string,
   participants: Array<{ userId: User['id']; role?: ProjectRole }> | undefined
 ): ProjectRole | null {
