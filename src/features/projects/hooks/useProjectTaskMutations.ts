@@ -436,8 +436,7 @@ export const useProjectTaskMutations = ({
     const participantUserIds = getParticipatingUserIds(projectWithParticipants, userId);
 
     // Validate project for task creation
-    const allParticipants = participantUserIds.map(id => ({ id } as User));
-    const validation = validateProjectForTaskCreation(projectWithParticipants, allParticipants, 1);
+    const validation = validateProjectForTaskCreation(projectWithParticipants, 1);
     if (!validation.isValid) {
       toast.error('Cannot create task', {
         description: validation.error

@@ -126,7 +126,6 @@ export const createTaskStatusesForAllParticipants = (
  */
 export const validateProjectForTaskCreation = (
   project: Project,
-  _allUsers: unknown,
   minParticipants: number = 1
 ): { isValid: boolean; error?: string } => {
   // For public projects, skip participant validation
