@@ -83,7 +83,7 @@ fi
 # DSN is recorded on the VPS). Pin-if-present: extract the DSN from the live
 # bundle so a future Sentry-on deploy can never drift its key sources; missing
 # DSN is a logged warning, never a failure (we do not invent a value).
-PIN_SENTRY=$(grep -oE 'https://[0-9a-f]{32}@o[0-9]+\.ingest\.[a-z.]*sentry\.io/[0-9]+' \
+PIN_SENTRY=$(grep -oE 'https://[0-9a-zA-Z]{32}@o[0-9]+\.ingest\.[a-z.]*sentry\.io/[0-9]+' \
              "$TMPDIR_OT/bundle.js" | head -1 || true)
 if [ -n "$PIN_SENTRY" ]; then
   export VITE_SENTRY_DSN="$PIN_SENTRY"
