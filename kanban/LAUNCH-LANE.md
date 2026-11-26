@@ -215,8 +215,23 @@ production outranks the lane.
       Realtime postgres_changes delivery stops under header-scoped policies (app stays usable via
       optimistic updates + refetch-on-focus); prod apply = owner-only, separate go; post-apply
       live PostgREST header probe listed in the run report rollout steps.
-- [ ] L6 · Type errors to zero and the tsc gate back on (A1; the 2026-11-15 enforce-by date moves
+- [x] L6 · Type errors to zero and the tsc gate back on (A1; the 2026-11-15 enforce-by date moves
       behind L1–L2 by owner decision).
+      DONE 2026-11-26 run 32: PR #42 merged (squash decc52b) — `npx tsc -b` 97 → 0 errors:
+      81 unused-symbol errors removed via line-anchored scripted passes (dead imports/locals/
+      params/class members; each pass re-verified by the compiler), 14 real type errors fixed
+      (ResourceNotFound typed config fallback, button Slot/motion cast, sonner SwipeDirection
+      'up'→'top', FriendsRepository ctor arity, projects.ts UserRow map typing, logger MODE
+      narrowing, taskStatusValidation spread reorder, taskCreationUtils signatures + caller,
+      useSmartScroll listener-options cast, vite.config UserConfig/PluginOption casts),
+      tsconfig.app.json skipLibCheck=true (2 vendored .d.ts bugs: supabase-js, recharts;
+      reviewer IMPORTANT: blanket opt-out — revisit when the deps are bumped), pr-gate tsc
+      step re-armed as a PLAIN ENFORCING gate (ratchet 97 retired). Gates: tsc 0, vitest
+      210/210, build 0, reviewer glm-5.3 MERGE (1 IMPORTANT → follow-up fix commit a41fa81
+      dropped the dead allUsers param + caller mapping; 6 MINORs recorded in the run report),
+      CI gate pass on the PR. Staging redeployed pinned-env (deployment 1dc82cba) + FULL
+      SMOKE 12/12 PASS. The L0 follow-up note (same opacity-initial pattern on post-sign-in
+      screens) now has no tsc excuse — it needs a design-gate pass, not a gate waiver.
 - [x] D-050+D-052 · CI security workflow + pinned-env deploy script + tsc ratchet
       (Life OS worker requests D-20261117-09 / D-20261118-07; deferred since runs 7-15).
       DONE 2026-11-18 run 16: PR #24 merged (3bc4669) — .github/workflows/security.yml
