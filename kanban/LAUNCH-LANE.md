@@ -193,6 +193,12 @@ production outranks the lane.
       (last2green=false). The moment the owner re-attaches AI + OPENROUTER_API_KEY and staging is
       redeployed, ONE more acceptance run that passes aiProof + one more 10 min later = RC
       auto-writes and L4d ticks (runner logic already in place).
+      UPDATE 2026-11-26 run 31 (re-blocked WITH PRECISION): the owner's attach DID land (project
+      level, both envs, API-verified) but a fresh deploy carrying it (4cddc582, smoke 12/12)
+      still answers 204-empty on the signed-in probe — project-level ai_bindings does not reach
+      Direct Upload deployments of this project. Runner is NOT the blocker; three resolution
+      paths in OWNER-QUEUE.md (dashboard re-entry / wrangler.toml owner call / Cloudflare
+      question). One green acceptance run + one 10 min later after ANY of them lands = RC.
 - [x] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
       scoped policies on the custom-session model, rehearsed on a disposable copy, rollback script.
       Applying on production is owner-only after Claude reviews the SQL — and ONLY AFTER the

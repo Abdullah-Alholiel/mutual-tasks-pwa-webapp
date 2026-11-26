@@ -48,17 +48,26 @@ and strike the line by moving it to the resolved section below — never delete 
 - run 29 (2026-11-25): OWNER ACTION — AI binding re-attach. The D-075 acceptance AI proof
   (first live run) found /api/ai-generated-description → 204-empty and /api/ai-generate-project
   → 200-empty on BOTH Pages environments: the Workers-AI `AI` binding was not reaching the
-  functions (legacy n8n branch answers; n8n returns empty). UPDATE run 31 (2026-11-26): the
-  binding IS attached at PROJECT level on both environments now (Pages API: ai_bindings
-  {"AI":{}} on preview and production; OPENROUTER_API_KEY already saved) — but every
-  deployment made BEFORE it carries ai_bindings: null, so the fix is ONE REDEPLOY per
-  environment to inherit it: staging redeploys every factory run (deploy-pages-preview.sh);
-  production needs the owner's go. Helper: set-pages-secrets.sh --ai-binding
-  preview|production attaches the binding only (it never touches env_vars; the env-var
-  PATCH cannot set a binding — the old instruction here was wrong, D-077). AI generation is
-  broken for Pages users until the redeploys land. Blocking: L4d finish (acceptance AI
-  proof), forced-fallback drill. Informational: no data loss; usage rows still increment on
-  empty answers.
+  functions (legacy n8n branch answers; n8n returns empty).
+  UPDATE run 31 (2026-11-26, DIAGNOSIS SHARPENED — the earlier "one redeploy fixes it" note
+  here was DISPROVEN the same day): the binding IS attached at project level on both
+  environments (Pages API GET project: ai_bindings {"AI":{}} preview + production;
+  OPENROUTER_API_KEY present). Run 31 redeployed staging with the merged D-077 code
+  (deployment 4cddc582, smoke 12/12) and probed signed-in as qa-bot: STILL 204-empty, and
+  per-deployment configs show ai_bindings null on EVERY deployment including the fresh one.
+  Conclusion: project-level ai_bindings does not reach Direct Upload (wrangler) deployments
+  of this project — likely also why AI never worked on Pages since the 2026-11-16 attach
+  (run 20's check grepped the served bundle, it never made a real signed-in call).
+  OWNER/CLAUDE-SESSION RESOLUTION PATHS (pick one, staging first): (a) re-enter the binding
+  in the dashboard (Pages > social-momentum > Settings > Bindings > Workers AI) and
+  redeploy; (b) decide on a repo wrangler.toml (pages_build_output_dir + ai_bindings) —
+  WARNING: run 18's verified rule says toml config becomes source of truth and would
+  override/drop the owner-set env vars, so this needs the owner's explicit call and a
+  migration of all env vars into the toml or a CF support answer; (c) ask Cloudflare why
+  deployment_configs.ai_bindings does not apply to Direct Upload deployments.
+  AI generation is broken for Pages users until one of these lands. Blocking: L4d finish
+  (acceptance AI proof), forced-fallback drill, launch condition C2. Informational: no data
+  loss; usage rows still increment on empty answers.
   RE-CONFIRMED run 30 (2026-11-25): aiProof FAIL http=204 on BOTH acceptance runs vs two FRESH
   deploys (40f52624, d73bdf1b) — the action is still outstanding; the RC auto-writes as soon as
   this lands and two acceptance runs pass.
