@@ -78,6 +78,20 @@ done
 if [ "$PIN_ONESIGNAL" != "fa9620b0-7c86-49c0-a7e5-1430e32a923d" ]; then
   die "OneSignal app id drift: bundle carries a different id than the D-052 pin — investigate before deploying"
 fi
+# D-077: VITE_SENTRY_DSN travels the same pin path WHEN a DSN exists at all
+# (the live bundle today carries `void 0` — Sentry is off client-side and no
+# DSN is recorded on the VPS). Pin-if-present: extract the DSN from the live
+# bundle so a future Sentry-on deploy can never drift its key sources; missing
+# DSN is a logged warning, never a failure (we do not invent a value).
+PIN_SENTRY=$(grep -oE 'https://[0-9a-zA-Z]{32}@o[0-9]+\.ingest\.[a-z.]*sentry\.io/[0-9]+' \
+             "$TMPDIR_OT/bundle.js" | head -1 || true)
+if [ -n "$PIN_SENTRY" ]; then
+  export VITE_SENTRY_DSN="$PIN_SENTRY"
+  log "pins: sentry dsn=$(fp "$PIN_SENTRY")"
+else
+  unset VITE_SENTRY_DSN 2>/dev/null || true
+  log "pins: sentry dsn not published in the live bundle (VITE_SENTRY_DSN stays unset)"
+fi
 log "pins: url=$PIN_URL key=$(fp "$PIN_KEY") onesignal=$(fp "$PIN_ONESIGNAL")"
 
 # ── export the pins (highest precedence — beats any repo .env value) ────────

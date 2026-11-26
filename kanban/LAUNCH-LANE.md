@@ -124,7 +124,12 @@ production outranks the lane.
       (4) Ask Claude (VPS change) to switch functions APP_URL to the production address.
       (5) Netlify stays untouched as fallback for 48 h; retiring it is a separate owner yes.
       Pages function settings (secrets) are set by the owner with
-      `~/.hermes/profiles/momentum/scripts/set-pages-secrets.sh`; never read or print them.
+      `~/.hermes/profiles/momentum/scripts/set-pages-secrets.sh` (add a secret:
+      `--add NAME`; attach the Workers AI binding: `--ai-binding preview|production`
+      — the binding lives in deployment_configs.<env>.ai_bindings {"AI":{}}, NOT in
+      env_vars, so the plain env-var PATCH never sets it; dashboard: Pages > Settings
+      > Bindings); never read or print them. Binding/env changes apply from the NEXT
+      deployment of that environment.
       Night rollback is pre-authorised (deploy-level only): redeploy the previous good deployment.
       UPDATE 2026-11-15 13:30 UTC (Claude with the owner): Pages function settings are SET for preview
       and production (9 each, via the owner's helper run). Staging redeployed with them. A real

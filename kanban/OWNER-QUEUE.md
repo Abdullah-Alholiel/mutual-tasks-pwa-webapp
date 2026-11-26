@@ -47,11 +47,18 @@ and strike the line by moving it to the resolved section below — never delete 
 
 - run 29 (2026-11-25): OWNER ACTION — AI binding re-attach. The D-075 acceptance AI proof
   (first live run) found /api/ai-generated-description → 204-empty and /api/ai-generate-project
-  → 200-empty on BOTH Pages environments: the Workers-AI `AI` binding is not reaching the
-  functions (legacy n8n branch answers; n8n returns empty). Re-attach `AI` + OPENROUTER_API_KEY
-  via scripts/set-pages-secrets.sh to preview AND production, redeploy. AI generation is
-  broken for Pages users until then. Blocking: L4d finish (acceptance AI proof), forced-
-  fallback drill. Informational: no data loss; usage rows still increment on empty answers.
+  → 200-empty on BOTH Pages environments: the Workers-AI `AI` binding was not reaching the
+  functions (legacy n8n branch answers; n8n returns empty). UPDATE run 31 (2026-11-26): the
+  binding IS attached at PROJECT level on both environments now (Pages API: ai_bindings
+  {"AI":{}} on preview and production; OPENROUTER_API_KEY already saved) — but every
+  deployment made BEFORE it carries ai_bindings: null, so the fix is ONE REDEPLOY per
+  environment to inherit it: staging redeploys every factory run (deploy-pages-preview.sh);
+  production needs the owner's go. Helper: set-pages-secrets.sh --ai-binding
+  preview|production attaches the binding only (it never touches env_vars; the env-var
+  PATCH cannot set a binding — the old instruction here was wrong, D-077). AI generation is
+  broken for Pages users until the redeploys land. Blocking: L4d finish (acceptance AI
+  proof), forced-fallback drill. Informational: no data loss; usage rows still increment on
+  empty answers.
   RE-CONFIRMED run 30 (2026-11-25): aiProof FAIL http=204 on BOTH acceptance runs vs two FRESH
   deploys (40f52624, d73bdf1b) — the action is still outstanding; the RC auto-writes as soon as
   this lands and two acceptance runs pass.
