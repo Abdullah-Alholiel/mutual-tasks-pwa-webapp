@@ -5,7 +5,6 @@
 // and React Query for global state synchronization.
 // ============================================================================
 
-import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Notification } from '@/types';
 import { getDatabaseClient } from '@/db';
@@ -90,7 +89,7 @@ export const useNotifications = ({
 
       return { previousNotifications };
     },
-    onError: (err, newTodo, context) => {
+    onError: (err, _newTodo, context) => {
       if (userId && context?.previousNotifications) {
         queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
       }
@@ -125,7 +124,7 @@ export const useNotifications = ({
 
       return { previousNotifications };
     },
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       if (userId && context?.previousNotifications) {
         queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
       }
@@ -156,7 +155,7 @@ export const useNotifications = ({
 
       return { previousNotifications };
     },
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       if (userId && context?.previousNotifications) {
         queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
       }
@@ -191,7 +190,7 @@ export const useNotifications = ({
 
       return { previousNotifications };
     },
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       if (userId && context?.previousNotifications) {
         queryClient.setQueryData(NOTIFICATION_KEYS.lists(userId), context.previousNotifications);
       }

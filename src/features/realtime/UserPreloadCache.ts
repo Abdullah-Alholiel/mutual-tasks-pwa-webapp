@@ -16,8 +16,7 @@ class UserPreloadCache {
     private static instance: UserPreloadCache | null = null;
     private cache: Map<number, User> = new Map();
     private pendingFetches: Map<number, Promise<User | null>> = new Map();
-    private lastFullRefresh: number = 0;
-    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    
 
     private constructor() { }
 
@@ -108,7 +107,6 @@ class UserPreloadCache {
     clear(): void {
         this.cache.clear();
         this.pendingFetches.clear();
-        this.lastFullRefresh = 0;
     }
 
     /**

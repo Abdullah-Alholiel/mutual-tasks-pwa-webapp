@@ -7,8 +7,7 @@
 // Supports both string and number IDs for compatibility.
 // ============================================================================
 
-import type { Project, Task, CompletionLog, User, ProjectRole } from '@/types';
-import { PROJECT_ROLES } from '@/types';
+import type { Project, Task, CompletionLog, ProjectRole } from '@/types';
 import { normalizeId } from '../idUtils';
 
 /**

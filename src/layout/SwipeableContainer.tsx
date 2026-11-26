@@ -1,7 +1,7 @@
 import { ReactNode, useRef, useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { motion, useMotionValue, useSpring, animate } from 'framer-motion';
+import { motion, useMotionValue, animate } from 'framer-motion';
 
 interface SwipeableContainerProps {
   children: ReactNode;

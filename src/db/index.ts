@@ -17,7 +17,6 @@
 // ============================================================================
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createClient } from '@supabase/supabase-js';
 
 // Import repositories
 import { UsersRepository } from './users';
@@ -74,7 +73,7 @@ export class SupabaseDatabaseClient implements DatabaseClient {
   public readonly friends: FriendsRepository;
   public readonly aiUsage: AIUsageRepository;
 
-  constructor(private supabase: SupabaseClient) {
+  constructor(supabase: SupabaseClient) {
     // Initialize repositories
     this.taskStatus = new TaskStatusRepository(supabase);
     this.completionLogs = new CompletionLogsRepository(supabase);
@@ -84,7 +83,7 @@ export class SupabaseDatabaseClient implements DatabaseClient {
     this.notifications = new NotificationsRepository(supabase);
     this.magicLinks = new MagicLinksRepository(supabase);
     this.sessions = new SessionsRepository(supabase);
-    this.friends = new FriendsRepository(supabase, this.notifications);
+    this.friends = new FriendsRepository(supabase);
     this.aiUsage = new AIUsageRepository(supabase);
   }
 }
@@ -104,8 +103,6 @@ let dbClient: DatabaseClient | null = null;
  * Note: For better error handling, initialize the database at app startup
  * using initializeDatabase() instead of relying on lazy initialization.
  */
-import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/env';
-
 import { getSharedSupabaseClient } from '@/lib/supabaseClient';
 
 export function getDatabaseClient(): DatabaseClient {
@@ -131,8 +128,7 @@ export function getDatabaseClient(): DatabaseClient {
 // Note: Initialize Supabase client at app startup for better error handling
 // Example in main.tsx or App.tsx:
 // 
-// import { createClient } from '@supabase/supabase-js';
-// import { initializeDatabase } from '@/db';
+// // import { initializeDatabase } from '@/db';
 // 
 // const supabase = createClient(
 //   import.meta.env.NEXT_PUBLIC_SUPABASE_URL,

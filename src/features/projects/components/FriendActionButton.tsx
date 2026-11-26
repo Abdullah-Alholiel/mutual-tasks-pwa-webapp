@@ -10,7 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import React, { useState } from 'react';
+import React from 'react';
 import type { User } from '@/types';
 
 interface FriendActionButtonProps {
@@ -47,11 +47,6 @@ export const FriendActionButton = ({ user, className }: FriendActionButtonProps)
         if (user.handle) {
             addFriendMutation.mutate(user.handle);
         }
-    };
-
-    const handleCancelRequest = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        cancelRequestMutation.mutate(user.id);
     };
 
     const buttonContent = (

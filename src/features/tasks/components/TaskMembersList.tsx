@@ -5,7 +5,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import type { Task, User, TaskStatusEntity, CompletionLog } from '@/types';
+import type { Task, User, CompletionLog } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';

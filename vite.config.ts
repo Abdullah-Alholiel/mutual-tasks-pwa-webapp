@@ -8,7 +8,7 @@ import visualizer from 'rollup-plugin-visualizer';
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode }): import("vite").UserConfig => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProduction = mode === 'production';
   const isAnalyze = mode === 'analyze';
@@ -224,7 +224,7 @@ export default defineConfig(({ mode }) => {
           ]
         }
       })
-    ].filter(Boolean).concat(commitStamp()),
+    ].filter(Boolean).concat(commitStamp()) as import("vite").PluginOption[],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

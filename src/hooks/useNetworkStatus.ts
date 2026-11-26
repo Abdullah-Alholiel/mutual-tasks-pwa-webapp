@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 
 export function useNetworkStatus() {
     const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-    const [pendingMutations, setPendingMutations] = useState(0);
+    const [pendingMutations, _setPendingMutations] = useState(0);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;

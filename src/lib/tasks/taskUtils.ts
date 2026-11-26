@@ -7,8 +7,6 @@
 // ============================================================================
 
 import type { TaskStatusEntity, CompletionLog, RingColor, TaskStatus, Task } from '@/types';
-import { normalizeId } from '../idUtils';
-import { STATUS_COLORS } from '@/constants/statusColors';
 import {
   isPastDue,
   isDueToday,

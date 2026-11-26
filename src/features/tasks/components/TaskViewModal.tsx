@@ -19,7 +19,6 @@ import {
     X,
     Pencil,
     Trash2,
-    Calendar,
     Repeat,
     Users,
     FileText,

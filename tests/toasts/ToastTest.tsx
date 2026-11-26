@@ -12,9 +12,6 @@ import {
    Calendar,
    Sparkles,
    ArrowLeft,
-   Play,
-   Zap,
-   RotateCcw
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";

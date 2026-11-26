@@ -6,7 +6,7 @@
 // It supports timezone-aware operations and consistent formatting across the app.
 // ============================================================================
 
-import { format, isToday, isTomorrow, isPast } from 'date-fns';
+import { format, isToday, isTomorrow } from 'date-fns';
 
 /**
  * Check if a date has a meaningful time component (not midnight)

@@ -10,7 +10,7 @@ import { TaskStatCard } from '../../components/TaskStatCard';
 import { TaskCalendar } from '../../components/TaskCalendar';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
-import type { Task, User, ProjectParticipant, Project } from '../../types';
+import type { Task, User, ProjectParticipant } from '../../types';
 import {
   getNeedsActionTasks,
   getCompletedTasksForToday,

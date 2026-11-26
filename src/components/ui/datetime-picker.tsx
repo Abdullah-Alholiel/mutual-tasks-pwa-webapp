@@ -13,11 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CalendarIcon, Clock } from 'lucide-react';
-import { format, isToday, isTomorrow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
     formatDueDateTime,
-    hasTimeComponent,
     getTimeStringFromDate,
     combineDateTime,
 } from '@/lib/datetime/datetimeUtils';
@@ -90,7 +88,6 @@ export const DateTimePicker = ({
         setTimeInput('00:00');
     };
 
-    const hasTime = value ? hasTimeComponent(value) : false;
     const displayValue = value ? formatDueDateTime(value) : placeholder;
 
     return (

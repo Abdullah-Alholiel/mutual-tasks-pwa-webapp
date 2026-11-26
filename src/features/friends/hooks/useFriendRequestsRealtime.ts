@@ -14,8 +14,8 @@ interface UseFriendRequestsRealtimeParams {
 }
 
 export const useFriendRequestsRealtime = ({
-    userId,
-    enabled = true,
+    userId: _userId,
+    enabled: _enabled = true,
 }: UseFriendRequestsRealtimeParams) => {
     // All realtime updates now handled by useUnifiedRealtime at app level
     // This hook exists only for backward compatibility

@@ -1,4 +1,4 @@
-import { useRef, useCallback, memo } from 'react';
+import { useRef, memo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { Task, CompletionLog } from '@/types';
 import { TaskCard } from '@/features/tasks/components/TaskCard';

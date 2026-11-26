@@ -6,8 +6,7 @@
 // that should be used consistently across all components.
 // ============================================================================
 
-import type { Task, TaskStatusEntity, Project, User, TaskStatus } from '@/types';
-import { compareIds } from '../idUtils';
+import type { TaskStatusEntity, Project, TaskStatus } from '@/types';
 
 /**
  * Get all project participant IDs (including owner/creator)
@@ -17,8 +16,7 @@ import { compareIds } from '../idUtils';
  * @returns Array of user IDs that are participants in the project
  */
 export const getProjectParticipantIds = (
-  project: Project,
-  allUsers: User[]
+  project: Project
 ): number[] => {
   const participantIds = new Set<number>();
 
@@ -89,9 +87,7 @@ export const getParticipatingUserIds = (
 export const buildTaskStatus = (
   taskId: string,
   userId: number,
-  status: TaskStatus,
-  dueDate: Date,
-  timestamp: Date
+  status: TaskStatus
 ): TaskStatusEntity => ({
   id: Date.now(),
   taskId: Number(taskId),
@@ -111,15 +107,12 @@ export const buildTaskStatus = (
  */
 export const createTaskStatusesForAllParticipants = (
   taskId: string,
-  project: Project,
-  allUsers: User[],
-  dueDate: Date,
-  timestamp: Date
+  project: Project
 ): TaskStatusEntity[] => {
-  const participantIds = getProjectParticipantIds(project, allUsers);
+  const participantIds = getProjectParticipantIds(project);
 
   return participantIds.map(userId =>
-    buildTaskStatus(taskId, userId, 'active', dueDate, timestamp)
+    buildTaskStatus(taskId, userId, 'active')
   );
 };
 
@@ -133,7 +126,7 @@ export const createTaskStatusesForAllParticipants = (
  */
 export const validateProjectForTaskCreation = (
   project: Project,
-  allUsers: User[],
+  _allUsers: unknown,
   minParticipants: number = 1
 ): { isValid: boolean; error?: string } => {
   // For public projects, skip participant validation
@@ -144,7 +137,7 @@ export const validateProjectForTaskCreation = (
   }
 
   // For private projects, validate minimum participants
-  const participantIds = getProjectParticipantIds(project, allUsers);
+  const participantIds = getProjectParticipantIds(project);
 
   if (participantIds.length < minParticipants) {
     return {

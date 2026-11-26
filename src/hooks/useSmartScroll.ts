@@ -128,14 +128,14 @@ export const useSmartScroll = ({
         };
 
         // Use capture: true to catch scroll events from internal scrolling containers (divs)
-        window.addEventListener('scroll', throttledHandleScroll, { capture: true, passive: true });
+        window.addEventListener('scroll', throttledHandleScroll, { capture: true, passive: true } as AddEventListenerOptions);
 
         // Re-check scrollable state on resize
         const handleResize = () => updateScrollableState(document);
         window.addEventListener('resize', handleResize);
 
         return () => {
-            window.removeEventListener('scroll', throttledHandleScroll, { capture: true, passive: true });
+            window.removeEventListener('scroll', throttledHandleScroll, { capture: true, passive: true } as EventListenerOptions);
             window.removeEventListener('resize', handleResize);
         };
     }, [safeZone, scrollUpThreshold, enabled]);

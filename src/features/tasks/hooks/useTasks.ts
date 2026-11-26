@@ -9,12 +9,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDatabaseClient } from '@/db';
 import { useAuth } from '../../auth/useAuth';
-import type { Task, TaskStatusEntity, CompletionLog, DifficultyRating } from '@/types';
+import type { Task, TaskStatusEntity, CompletionLog } from '@/types';
 import { handleError } from '@/lib/errorUtils';
 import { toast } from '@/components/ui/sonner';
-import { getTodayTasks, getProjectTasks, getUserTasks } from '../../../lib/tasks/taskFilterUtils';
+import { getTodayTasks, getProjectTasks } from '../../../lib/tasks/taskFilterUtils';
 import { PERFORMANCE_CONFIG } from '@/config/appConfig';
-import { TASK_KEYS, PROJECT_KEYS, USER_KEYS, COMPLETION_LOG_KEYS, TASK_STATUS_KEYS } from '@/lib/queryKeys';
+import { TASK_STATUS_KEYS } from '@/lib/queryKeys';
 // Import atomic operations at top level to avoid dynamic require issues
 import { createTaskAtomic, type AtomicTaskInput } from '@/lib/tasks/atomicTaskOperations';
 import { perf } from '@/lib/monitoring/performance';

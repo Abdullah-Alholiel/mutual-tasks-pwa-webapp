@@ -33,16 +33,15 @@ class Logger {
     private environment: 'development' | 'production' | 'test';
     private enableStackTrace: boolean;
     private history: LogEntry[] = [];
-    private currentIndex: number = 0;  // For circular buffer
+    
     private readonly MAX_HISTORY: number;
 
     constructor(options: LoggerOptions = {}) {
         this.level = options.level ?? this.getLogLevelFromEnv();
         const envMode = import.meta.env.MODE;
         const validModes = ['development', 'production', 'test'] as const;
-        this.environment = options.environment ?? (envMode && validModes.includes(envMode) ? envMode : 'development');
+        this.environment = options.environment ?? (envMode && (validModes as readonly string[]).includes(envMode) ? (envMode as 'development' | 'production' | 'test') : 'development');
         this.enableStackTrace = options.enableStackTrace ?? true;
-        this.currentIndex = 0;  // For circular buffer
         this.history = [];
         this.MAX_HISTORY = options.maxHistory ?? 100;
     }
@@ -62,7 +61,7 @@ class Logger {
         return messageLevelIndex >= currentLevelIndex;
     }
 
-    private formatMessage(level: LogLevel, message: string, ...args: unknown[]): string {
+    private formatMessage(level: LogLevel, message: string, ..._args: unknown[]): string {
         const emoji = {
             debug: '🔍',
             info: 'ℹ️',
