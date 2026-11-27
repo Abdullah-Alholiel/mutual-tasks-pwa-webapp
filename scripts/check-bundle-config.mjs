@@ -64,6 +64,14 @@ const pubRe = /sb_publishable_[A-Za-z0-9_-]+/g;
 // test's "one database address and one public key" check)
 const urlChunk = new Map();
 const keyChunk = new Map();
+
+// D-080 sub-item: a DEV/LOCAL Supabase address (bare IPv4 host, e.g. the repo
+// .env's http://145.241.109.213:8001 dev project) must never reach a built
+// bundle — production deploys talk to the https sslip.io gateway, and the
+// smoke test's URL regex only matches hostnames with dots, so an IP-shaped
+// address would otherwise sail through every gate unnoticed.
+const ipUrlRe = /https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?/g;
+const ipChunk = new Map();
 for (const f of jsFiles) {
   const text = readFileSync(join(assetsDir, f), "utf8");
   for (const m of text.matchAll(urlRe)) {
@@ -72,17 +80,28 @@ for (const f of jsFiles) {
   }
   for (const m of text.matchAll(jwtRe)) if (!keyChunk.has(m[0])) keyChunk.set(m[0], f);
   for (const m of text.matchAll(pubRe)) if (!keyChunk.has(m[0])) keyChunk.set(m[0], f);
+  for (const m of text.matchAll(ipUrlRe)) if (!ipChunk.has(m[0])) ipChunk.set(m[0], f);
 }
 
 const problems = [];
 
+// D-080: IP-shaped addresses report FIRST (the root cause) — and they fail in
+// --ci mode too, unlike the tolerated zero-config CI norm.
+if (ipChunk.size > 0) {
+  for (const [ip, f] of ipChunk) {
+    problems.push(
+      `IP-shaped URL ${ip} in ${f} — a dev/local database address must never ship (repo .env poisoning class)`
+    );
+  }
+}
+
 if (urlChunk.size === 0) {
-  if (ciMode) {
+  if (ciMode && ipChunk.size === 0) {
     console.log(
       "bundle config gate (ci): no database address in the bundle — expected on GitHub CI " +
         "(repo .env is not committed); the STRICT gate runs at deploy time"
     );
-  } else {
+  } else if (!ciMode && ipChunk.size === 0) {
     problems.push(
       "no Supabase database address in the built bundle: the app ships with an " +
         "empty config and cannot load any data (inject the client config at build time)"

@@ -42,6 +42,7 @@ import {
     isExhaustionText,
     useN8n,
     hasAiBinding,
+    workersAiRestConfig,
     DEFAULT_OPENROUTER_MODEL,
     PROJECT_USER_TEMPLATE,
     DESCRIPTION_PROMPT,
@@ -341,5 +342,151 @@ describe('L4c helpers', () => {
         expect(process.env.SOMETHING).toBe('str');
         delete (process.env as Record<string, unknown>).AI;
         delete process.env.SOMETHING;
+    });
+});
+
+// ============================================================================
+// D-080 (run 34): Workers AI REST path — api.cloudflare.com/.../ai/run/{model}
+// with CF_ACCOUNT_ID + CF_AI_TOKEN when the env.AI binding is absent (Direct
+// Upload deployments never receive the binding). Mocked fetch only; the token
+// material must never leak into errors, logs, or attempt entries.
+// ============================================================================
+describe('D-080 Workers AI REST path', () => {
+    /** Mock fetch answering the REST envelope { success, result }. */
+    function cfRestFetch(result: unknown, status = 200) {
+        return vi.fn(async (_u: string | URL | Request, _i?: RequestInit) =>
+            status === 200
+                ? new Response(JSON.stringify({ success: true, result }), { status: 200 })
+                : new Response(JSON.stringify({ success: false, errors: [{ message: 'auth error' }] }), { status }));
+    }
+
+    afterEach(() => {
+        delete process.env.CF_ACCOUNT_ID;
+        delete process.env.CF_AI_TOKEN;
+    });
+
+    it('config gate: both secrets → config; either/both missing → undefined', () => {
+        expect(workersAiRestConfig({ CF_ACCOUNT_ID: 'acct', CF_AI_TOKEN: 'tok' })).toEqual({ accountId: 'acct', apiToken: 'tok' });
+        expect(workersAiRestConfig({ CF_ACCOUNT_ID: 'acct', CF_AI_TOKEN: '  tok  ' })).toEqual({ accountId: 'acct', apiToken: 'tok' });
+        expect(workersAiRestConfig({ CF_ACCOUNT_ID: 'acct' })).toBeUndefined();
+        expect(workersAiRestConfig({ CF_AI_TOKEN: 'tok' })).toBeUndefined();
+        expect(workersAiRestConfig({})).toBeUndefined();
+        expect(workersAiRestConfig(undefined)).toBeUndefined();
+    });
+
+    it('useN8n matrix: REST secrets → Workers AI (no binding needed); neither → n8n', () => {
+        expect(useN8n({ aiBinding: undefined, env: { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't' } })).toBe(false);
+        expect(useN8n({ aiBinding: cfBinding([]), env: { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't' } })).toBe(false);
+        expect(useN8n({ aiBinding: undefined, env: {} })).toBe(true); // legacy preserved
+        expect(useN8n({ aiBinding: undefined, env: { AI_PROVIDER_MODE: 'n8n', CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't' } })).toBe(true); // explicit n8n wins
+        expect(useN8n({ aiBinding: undefined, env: { AI_PROVIDER_MODE: 'workers' } })).toBe(false);
+    });
+
+    it('REST success: llama shape unwrapped from {result}, bearer token sent, provider reported', async () => {
+        const fetchMock = cfRestFetch({ response: GOOD_PROJECT_TEXT });
+        const out = await generateProjectWithAI(
+            fastDeps(undefined, { CF_ACCOUNT_ID: 'acct-1', CF_AI_TOKEN: 'tok-secret-value' }, fetchMock as unknown as typeof fetch),
+            'Learn guitar in 30 days',
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.project.name).toBe('Morning Routine');
+        expect(out.provider).toBe('workers-ai');
+        expect(out.model).toBe('@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+        expect(out.attempts.join(' ')).toContain('primary:ok');
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(String(url)).toBe('https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast');
+        expect((init as RequestInit).headers).toMatchObject({ Authorization: 'Bearer tok-secret-value' });
+    });
+
+    it('REST gpt-oss shape: OpenAI-style choices inside {result} parse via the same extractor', async () => {
+        const fetchMock = cfRestFetch(gptOssShape);
+        const out = await generateDescriptionWithAI(
+            fastDeps(undefined, { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't' }, fetchMock as unknown as typeof fetch),
+            'Learn guitar', 'task',
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.text).toContain('Morning');
+        expect(out.provider).toBe('workers-ai');
+    });
+
+    it('REST primary fails (4xx) → backup model tried over REST → OpenRouter untouched without its key', async () => {
+        const fetchMock = vi.fn(async (u: string | URL | Request, _i?: RequestInit) =>
+            String(u).includes('llama-3.3-70b-instruct-fp8-fast')
+                ? new Response('{"success":false,"errors":[{"message":"model unavailable"}]}', { status: 404 })
+                : new Response(JSON.stringify({ success: true, result: { response: GOOD_PROJECT_TEXT } }), { status: 200 }));
+        const out = await generateProjectWithAI(
+            fastDeps(undefined, { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't' }, fetchMock as unknown as typeof fetch),
+            'Learn guitar in 30 days',
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.model).toBe('@cf/openai/gpt-oss-120b');
+        expect(out.attempts.join(' ')).toContain('primary:error');
+        expect(out.attempts.join(' ')).toContain('backup:ok');
+        const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
+        expect(calledUrls.some((u) => u.includes('openrouter.ai'))).toBe(false);
+    });
+
+    it('REST 429 rate limit → exhaustion classification → AI_EXHAUSTED (free allowance spent)', async () => {
+        const fetchMock = vi.fn(async (_u: string | URL | Request, _i?: RequestInit) =>
+            new Response('{"success":false,"errors":[{"message":"free allowance exceeded"}]}', { status: 429 }));
+        const out = await generateProjectWithAI(
+            fastDeps(undefined, { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't', OPENROUTER_API_KEY: 'k' }, fetchMock as unknown as typeof fetch),
+            'Learn guitar in 30 days',
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok) return;
+        expect(out.error).toBe('AI_EXHAUSTED');
+        expect(out.exhausted).toBe(true);
+    });
+
+    it('REST failure messages never carry the token material (F19 sweep)', async () => {
+        const TOKEN = 'cf-super-secret-token-material';
+        const fetchMock = vi.fn(async (_u: string | URL | Request, i?: RequestInit) => {
+            // Echo the Authorization header into the error body, like a hostile
+            // upstream might — the caller must still not propagate it.
+            const auth = (i?.headers as Record<string, string>)?.Authorization ?? '';
+            return new Response(JSON.stringify({ errors: [{ message: `bad token ${auth}` }] }), { status: 403 });
+        });
+        const out = await generateProjectWithAI(
+            fastDeps(undefined, { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: TOKEN }, fetchMock as unknown as typeof fetch),
+            'Learn guitar in 30 days',
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok) return;
+        expect(JSON.stringify(out)).not.toContain(TOKEN);
+    });
+
+    it('missing secrets → REST skipped, chain falls to OpenRouter when its key exists', async () => {
+        const fetchMock = cfRestFetch({ response: GOOD_PROJECT_TEXT });
+        const out = await generateProjectWithAI(
+            fastDeps(undefined, { OPENROUTER_API_KEY: 'k' }, fetchMock as unknown as typeof fetch),
+            'Learn guitar in 30 days',
+        );
+        // No binding + no REST secrets → auto mode routes to n8n → chain refused.
+        expect(out.ok).toBe(false);
+        if (out.ok) return;
+        expect(out.error).toBe('N8N_MODE');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('REST 200 with malformed JSON body → invalid-content (no crash, no text)', async () => {
+        const fetchMock = vi.fn(async (_u: string | URL | Request, _i?: RequestInit) =>
+            new Response('not json at all {', { status: 200 }));
+        const out = await generateDescriptionWithAI(
+            fastDeps(undefined, { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't' }, fetchMock as unknown as typeof fetch),
+            'Learn guitar', 'task',
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok) return;
+        expect(out.error).toBe('AI_NO_VALID_RESPONSE');
+        expect(out.attempts.join(' ')).toContain('primary:invalid-content');
+    });
+
+    it('n8n legacy contract intact: auto mode without binding and without secrets routes to n8n', () => {
+        expect(useN8n({ aiBinding: undefined })).toBe(true);
+        expect(useN8n({ aiBinding: undefined, env: { CF_ACCOUNT_ID: 'a' } })).toBe(true); // token missing
     });
 });
