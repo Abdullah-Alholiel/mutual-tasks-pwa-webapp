@@ -73,6 +73,14 @@ and strike the line by moving it to the resolved section below — never delete 
   RE-CONFIRMED run 30 (2026-11-25): aiProof FAIL http=204 on BOTH acceptance runs vs two FRESH
   deploys (40f52624, d73bdf1b) — the action is still outstanding; the RC auto-writes as soon as
   this lands and two acceptance runs pass.
+  UPDATE run 34 (2026-11-27): FACTORY-SIDE FIX SHIPPED — PR #44 (squash 1caf0d1, deployed to
+  staging, smoke 12/12) adds the Workers-AI REST path to the provider chain (D-080). AI now
+  works on Direct Upload deploys WITHOUT the binding: set TWO Pages secrets, CF_ACCOUNT_ID and
+  CF_AI_TOKEN (scoped Workers-AI token), on preview AND production — the factory never sets
+  secrets, this is the owner's 5-minute step (set-pages-secrets.sh --add handles env vars).
+  Staging AI then works on the NEXT deploy after the secrets land; then L4d's aiProof +
+  forced-fallback drill can go green and the RC auto-writes. The three binding paths above
+  become optional (the REST path does not need the binding at all).
 - run 29 (2026-11-25): run-28 close-out record — run 28 (2026-11-24 22:30Z) built PR #37 +
   twice-green acceptance + wrote RELEASE-CANDIDATE.md but died before its report; this run
   recovered the state, WITHDREW the RC (it certified 5414526 while staging moved on), and the

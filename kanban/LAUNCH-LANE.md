@@ -199,6 +199,11 @@ production outranks the lane.
       Direct Upload deployments of this project. Runner is NOT the blocker; three resolution
       paths in OWNER-QUEUE.md (dashboard re-entry / wrangler.toml owner call / Cloudflare
       question). One green acceptance run + one 10 min later after ANY of them lands = RC.
+      UPDATE 2026-11-27 run 34: the blocker now has a factory-side fix — PR #44 shipped the
+      Workers-AI REST path (D-080): AI works on Direct Upload deploys once the owner sets two
+      Pages secrets (CF_ACCOUNT_ID + CF_AI_TOKEN, staging + production). After the secrets land
+      + one staging redeploy, ONE green acceptance run + one 10 min later = RC auto-writes and
+      L4d ticks. The three binding paths in OWNER-QUEUE become optional.
 - [x] L5 · Access rules (plan item A7, owner approved the design direction, Life OS D-20261112-01):
       scoped policies on the custom-session model, rehearsed on a disposable copy, rollback script.
       Applying on production is owner-only after Claude reviews the SQL — and ONLY AFTER the
