@@ -239,6 +239,34 @@ describe('bundle config gate — incident classes must FAIL', () => {
         }
     });
 
+    // D-080 sub-item: IP-shaped dev/local database addresses (repo .env poisoning
+    // class) are fatal in BOTH modes — the smoke test's URL regex cannot see them.
+    it('FAILS strict on an IP-shaped dev database address in the bundle', () => {
+        const dir = makeDist({
+            'index-aaa.js': `const u="http://145.241.109.213:8001";const k="${VPS_KEY}";`,
+        });
+        try {
+            const r = runGate(dir);
+            expect(r.status).toBe(1);
+            expect(r.stderr).toContain('IP-shaped');
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
+    it('FAILS --ci too on an IP-shaped address (never tolerated)', () => {
+        const dir = makeDist({
+            'index-aaa.js': `const dev="http://192.168.1.10:5432";`,
+        });
+        try {
+            const r = runGate(dir, ['--ci']);
+            expect(r.status).toBe(1);
+            expect(r.stderr).toContain('IP-shaped');
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
+
     it('FAILS on a missing dist directory (gate cannot be skipped silently)', () => {
         const dir = mkdtempSync(join(tmpdir(), 'l3-nodist-'));
         try {

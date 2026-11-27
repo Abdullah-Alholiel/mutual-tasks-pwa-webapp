@@ -1,6 +1,7 @@
 // AI providers for the two AI functions (L4c, D-20261115-13): Cloudflare Workers AI
-// primary (Pages `AI` binding), OpenRouter free-model fallback, legacy n8n kept for
-// Netlify production and explicit `AI_PROVIDER_MODE=n8n`.
+// primary (Pages `AI` binding, and since D-080 the REST API with CF_ACCOUNT_ID +
+// CF_AI_TOKEN when the binding is absent), OpenRouter free-model fallback, legacy
+// n8n kept for Netlify production and explicit `AI_PROVIDER_MODE=n8n`.
 //
 // Contract (docs/plans/2026-11-20-run19-l4c-ai-port/01-program-design.md):
 // - Responses use the client's ALREADY-ACCEPTED shapes: canonical project JSON and
@@ -61,6 +62,32 @@ export interface ProviderDeps {
     timeoutMs?: number;
 }
 
+/**
+ * D-080 (2026-11-27): Workers AI REST path. The Pages `AI` binding does NOT
+ * reach Direct Upload deployments on this project (run 31: project-level
+ * ai_bindings show null on every deployment), so signed-in AI calls 204-empty.
+ * This path calls the same models through api.cloudflare.com with a scoped
+ * token from Pages secrets (CF_ACCOUNT_ID + CF_AI_TOKEN), used when no
+ * env.AI binding exists, BEFORE the OpenRouter fallback. Secrets are read from
+ * env only, never logged, never returned (F2/F19). The owner sets the two
+ * secrets — the factory never sets them (D-080: "stop and list the secret
+ * names for the owner").
+ */
+export interface WorkersAiRestConfig {
+    accountId: string;
+    apiToken: string;
+}
+
+const CF_REST_BASE = 'https://api.cloudflare.com/client/v4';
+
+/** Both secrets present → REST config; either missing → undefined (skip the path). */
+export function workersAiRestConfig(env: Record<string, string | undefined> | undefined): WorkersAiRestConfig | undefined {
+    const accountId = env?.CF_ACCOUNT_ID?.trim();
+    const apiToken = env?.CF_AI_TOKEN?.trim();
+    if (!accountId || !apiToken) return undefined;
+    return { accountId, apiToken };
+}
+
 // ---------------------------------------------------------------------------
 // Env switches (README step 7: plain env vars, safe defaults in code)
 // ---------------------------------------------------------------------------
@@ -82,12 +109,15 @@ export function hasAiBinding(deps: ProviderDeps): boolean {
     return !!deps.aiBinding && typeof (deps.aiBinding as AiBinding).run === 'function';
 }
 
-/** True when the n8n webhook should be used (Netlify prod keeps working unchanged). */
+/** True when the n8n webhook should be used (Netlify prod keeps working unchanged).
+ *  Auto mode (D-080): object binding → Workers AI binding; no binding but both REST
+ *  secrets present → Workers AI REST; neither → legacy n8n. */
 export function useN8n(deps: ProviderDeps): boolean {
     const mode = providerMode(deps.env);
     if (mode === 'n8n') return true;
     if (mode === 'workers') return false;
-    return !hasAiBinding(deps); // auto: binding present → Workers AI; absent → n8n
+    if (hasAiBinding(deps)) return false;
+    return !workersAiRestConfig(deps.env); // auto: REST secrets → Workers AI; absent → n8n
 }
 
 // ---------------------------------------------------------------------------
@@ -267,8 +297,59 @@ async function callOpenRouter(
             : undefined;
         return { ok: true, text, usage };
     } catch (e) {
-        if (isExhaustionText(String((e as Error)?.message || e))) return { ok: false, reason: 'exhausted' };
-        return { ok: false, reason: 'error' }
+        const msg = String((e as Error)?.message || e);
+        if (isExhaustionText(msg)) return { ok: false, reason: 'exhausted' };
+        return { ok: false, reason: 'error' };
+    }
+}
+
+/** Workers AI REST caller (D-080): POST /client/v4/accounts/{account}/ai/run/{model}
+ *  with the scoped token from CF_AI_TOKEN. The REST endpoint accepts OpenAI-style
+ *  messages inputs and answers { success, result } — llama/mistral models return the
+ *  completion directly in `result` (a string), gpt-oss returns OpenAI-style choices,
+ *  and extractWorkersAiText already handles both shapes, so the REST raw feeds the
+ *  same extractor as the binding path. Failure messages carry status + a 200-char
+ *  body excerpt for exhaustion classification only; the token never enters any
+ *  message, log, or attempt entry (F2/F19/F22). */
+async function callWorkersAiRest(
+    config: WorkersAiRestConfig,
+    model: string,
+    messages: Array<{ role: string; content: string }>,
+    maxTokens: number,
+    timeoutMs: number,
+    fetchImpl: typeof fetch,
+): Promise<Attempt> {
+    const run = async (): Promise<unknown> => {
+        const resp = await fetchImpl(`${CF_REST_BASE}/accounts/${config.accountId}/ai/run/${model}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${config.apiToken}`,
+            },
+            body: JSON.stringify({ messages, max_tokens: maxTokens }),
+        });
+        if (!resp.ok) {
+            const bodyText = await resp.text().catch(() => '');
+            throw new Error(`CF REST ${resp.status} ${bodyText.slice(0, 200)}`);
+        }
+        return await resp.json().catch(() => undefined);
+    };
+    try {
+        const raw = (await Promise.race([
+            run(),
+            new Promise((_r, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs)),
+        ])) as unknown;
+        // REST envelope: { success, result, errors, messages } — the model output
+        // (llama {response} | gpt-oss {choices}) sits in `result`; the extractor
+        // reads those shapes, so unwrap result first (fall back to raw).
+        const inner = (raw as { result?: unknown } | undefined)?.result ?? raw;
+        const { text, usage } = extractWorkersAiText(inner);
+        if (typeof text !== 'string' || !text.trim()) return { ok: false, reason: 'invalid-content' };
+        return { ok: true, text, usage };
+    } catch (e) {
+        const msg = String((e as Error)?.message || e);
+        if (isExhaustionText(msg)) return { ok: false, reason: 'exhausted' };
+        return { ok: false, reason: 'error' };
     }
 }
 
@@ -370,16 +451,22 @@ async function runChain(
     if (useN8n(deps)) {
         return { ok: false, error: 'N8N_MODE', exhausted: false, attempts: ['mode=n8n'] };
     }
-    if (!hasAiBinding(deps) && providerMode(deps.env) !== 'workers') {
-        return { ok: false, error: 'N8N_MODE', exhausted: false, attempts: ['mode=n8n-no-binding'] };
+    // D-080: Workers AI now has TWO transports — the Pages `AI` binding (workerd)
+    // and the REST API (CF_ACCOUNT_ID + CF_AI_TOKEN, used when the binding is
+    // absent, e.g. Direct Upload deployments). With neither, auto mode already
+    // routed to n8n above; this catches workers-forced mode with no provider.
+    const rest = workersAiRestConfig(env);
+    if (!hasAiBinding(deps) && !rest) {
+        return { ok: false, error: 'N8N_MODE', exhausted: false, attempts: [`mode=${providerMode(deps.env)}-no-transport`] };
     }
 
     let exhausted = false;
     for (const a of cfAttempts) {
-        if (!hasAiBinding(deps)) { attempts.push(`${a.label}:skipped-no-binding`); continue; }
         const budget = remainingBudget();
         if (budget <= 0) { attempts.push(`${a.label}:skipped-chain-budget`); continue; }
-        const r = await callWorkersAi(deps.aiBinding as AiBinding, a.model, messages, a.maxTokens, Math.min(timeoutMs, budget));
+        const r = hasAiBinding(deps)
+            ? await callWorkersAi(deps.aiBinding as AiBinding, a.model, messages, a.maxTokens, Math.min(timeoutMs, budget))
+            : await callWorkersAiRest(rest!, a.model, messages, a.maxTokens, Math.min(timeoutMs, budget), deps.fetchImpl ?? fetch);
         if (r.ok) {
             attempts.push(`${a.label}:ok`);
             texts.push({ ok: true, text: r.text });
