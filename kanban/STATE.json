@@ -4,9 +4,9 @@
   "board": "momentum-factory",
   "phase": "P1",
   "phase_name": "Cloudflare Pages migration + hardening",
-  "last_run": 33,
-  "last_run_at": "2026-11-27T17:32:00Z",
-  "last_run_report": "kanban/RUNS/20261127T1731Z-run33.md",
+  "last_run": 34,
+  "last_run_at": "2026-11-27T22:31:52Z",
+  "last_run_report": "kanban/RUNS/20261127T2231Z-run34.md",
   "consecutive_skip_count": 0,
   "open_blockers": [
     "AI BINDING 2026-11-26 (run 31, supersedes the run-29 wording): the Workers-AI binding IS attached at project level on both Pages envs (API-verified) but does NOT reach Direct Upload deployments \u2014 fresh deploy 4cddc582 still answers 204-empty on the signed-in qa-bot probe; per-deployment configs show ai_bindings null on every deployment. Three resolution paths queued in kanban/OWNER-QUEUE.md (dashboard re-entry / wrangler.toml owner call / Cloudflare question). Blocks L4d aiProof, forced-fallback drill, launch C2.",
