@@ -91,8 +91,27 @@ rules:
       exclude:
         - "*test*"
     patterns:
-      - pattern-regex: 'fetch\s*\(\s*(?:process|import\.meta)\.env\.[A-Za-z0-9_]*N8N[A-Za-z0-9_]*'
+      # Full-statement span: fetch( through the statement's closing `);` — so the
+      # suppression below sees the WHOLE call including nested header objects.
+      - pattern-regex: '(?s)fetch\s*\(\s*(?:process|import\.meta)\.env\.[A-Za-z0-9_]*N8N[A-Za-z0-9_]*[\s\S]*?\);'
       - pattern-not-regex: 'x-momentum-secret'
+
+  # F22-adjacent (Reviewer A, run 33): a HARDCODED shared-secret value in client code —
+  # the header name with a string literal. Variable/expression values are fine.
+  - id: momentum.no-hardcoded-n8n-secret-in-client
+    message: >
+      x-momentum-secret header built with a string literal under src/ (client) —
+      the shared n8n secret would ship in the public bundle (F22 class). Read it
+      from env/config only, or better: never send it from the client at all.
+    severity: ERROR
+    languages: [generic]
+    paths:
+      include:
+        - "/src/**"
+      exclude:
+        - "*test*"
+    patterns:
+      - pattern-regex: '["'']x[_-]momentum[_-]secret["'']\s*(:|,)\s*(\[\s*)?["''][^''"][^''"]+["'']'
 
   # F1 class: a serverless function handler with no session-verification call in its
   # body. Every Momentum function must authenticate its caller (verifyMagicLinkSession).

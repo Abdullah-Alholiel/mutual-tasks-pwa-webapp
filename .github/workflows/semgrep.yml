@@ -4,8 +4,10 @@ name: Semgrep
 # SKILL.md CI-parity table; rules = the standing bug-class sweep (.semgrep/momentum-rules.yml).
 #
 # ADVISORY phase: findings are printed in the step summary and uploaded as a JSON
-# artifact; the job does NOT fail on findings yet. Enforce-by (flip `continue-on-error`
-# to false on the scan step) once the first triage lands — date tracked on the board.
+# artifact; the job does NOT fail on findings yet. ENFORCE-BY: 2026-12-11 (proposed
+# default+48h-veto on the board run 33; flip the scan step's continue-on-error to
+# false once the date passes with no owner veto — owner standard: no report-only
+# gate forever without a date).
 # Rules are scanned from the repo on every run — rule edits need no workflow change.
 
 on:
@@ -26,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container:
-      # Digest-pinned policy (KoraLink lesson): no floating tags. Bump = deliberate edit.
+      # Version-pinned (no floating tags, no @main drift — KoraLink lesson). Bump = deliberate edit.
       image: semgrep/semgrep:1.187.0
     env:
       SEMGREP_SEND_METRICS: "off"   # never send code/metrics off-repo (secrets guard)
@@ -34,7 +36,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: semgrep scan (local rules)
-        id: scan
         # exit 1 = findings exist (advisory here), exit 2 = config/internal error —
         # the summary step distinguishes them so a broken config never hides as "clean".
         continue-on-error: true
