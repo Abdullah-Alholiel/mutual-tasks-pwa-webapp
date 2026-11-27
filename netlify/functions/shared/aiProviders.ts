@@ -337,7 +337,12 @@ async function callWorkersAiRest(
     try {
         const raw = (await Promise.race([
             run(),
-            new Promise((_r, rej) => setTimeout(() => rej(new Error('timeout')), timeoutMs)),
+            new Promise((_r, rej) => {
+                const t = setTimeout(() => rej(new Error('timeout')), timeoutMs);
+                // Reviewer MINOR (run 34): unref the race timer so a settled call
+                // never keeps the isolate alive for the full timeout window.
+                (t as unknown as { unref?: () => void }).unref?.();
+            }),
         ])) as unknown;
         // REST envelope: { success, result, errors, messages } — the model output
         // (llama {response} | gpt-oss {choices}) sits in `result`; the extractor
@@ -454,10 +459,12 @@ async function runChain(
     // D-080: Workers AI now has TWO transports — the Pages `AI` binding (workerd)
     // and the REST API (CF_ACCOUNT_ID + CF_AI_TOKEN, used when the binding is
     // absent, e.g. Direct Upload deployments). With neither, auto mode already
-    // routed to n8n above; this catches workers-forced mode with no provider.
+    // routed to n8n above; this catches workers-forced mode with no provider
+    // (reviewer MINOR run 34: a distinct error code — N8N_MODE would be wrong
+    // here since the operator explicitly left n8n behind).
     const rest = workersAiRestConfig(env);
     if (!hasAiBinding(deps) && !rest) {
-        return { ok: false, error: 'N8N_MODE', exhausted: false, attempts: [`mode=${providerMode(deps.env)}-no-transport`] };
+        return { ok: false, error: 'NO_AI_TRANSPORT', exhausted: false, attempts: [`mode=${providerMode(deps.env)}-no-transport`] };
     }
 
     let exhausted = false;

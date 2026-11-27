@@ -472,6 +472,19 @@ describe('D-080 Workers AI REST path', () => {
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    it('REST 200 with malformed JSON body → invalid-content (no crash, no text)', async () => {
+        const fetchMock = vi.fn(async (_u: string | URL | Request, _i?: RequestInit) =>
+            new Response('not json at all {', { status: 200 }));
+        const out = await generateDescriptionWithAI(
+            fastDeps(undefined, { CF_ACCOUNT_ID: 'a', CF_AI_TOKEN: 't' }, fetchMock as unknown as typeof fetch),
+            'Learn guitar', 'task',
+        );
+        expect(out.ok).toBe(false);
+        if (out.ok) return;
+        expect(out.error).toBe('AI_NO_VALID_RESPONSE');
+        expect(out.attempts.join(' ')).toContain('primary:invalid-content');
+    });
+
     it('n8n legacy contract intact: auto mode without binding and without secrets routes to n8n', () => {
         expect(useN8n({ aiBinding: undefined })).toBe(true);
         expect(useN8n({ aiBinding: undefined, env: { CF_ACCOUNT_ID: 'a' } })).toBe(true); // token missing
