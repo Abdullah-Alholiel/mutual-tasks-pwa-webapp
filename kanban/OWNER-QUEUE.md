@@ -12,6 +12,8 @@ and strike the line by moving it to the resolved section below — never delete 
 - 2026-11-22 · Oracle backup bucket link (D-067: "Later, after the cutover" — the cutover landed today, so this is now actionable; needed for launch condition C3 + the L8 restore drill) · run 23
 - 2026-11-16 · iPhone ?diag=1 readout of the L0 sign-in visibility issue (open https://staging.social-momentum-8zq.pages.dev/?diag=1, tap COPY THIS TEXT, paste to chat) · L0 lane item, panel now ships from the repo (D-029); re-raised by the owner 2026-11-22 (D-063). UPDATE run 24 2026-11-22: the fix is on staging (PRs #31/#32 — WebKit cold 1.09s); production gets it at the next promote, so the iPhone readout is most useful AFTER that promote lands
 - standing · lawyer review of privacy and terms (C6) — draft is current as of PR #29; tracked in LAUNCH-LANE.md "Waiting on the owner"
+- 2026-11-27 · **semgrep enforce-by 2026-12-11 (default+48h-veto)**: the new advisory gate (PR #43) flips to ENFORCING on 2026-12-11 unless the owner vetoes in chat/board; baseline at flip = 0 findings on 252 files · run 33
+- 2026-11-27 · **pr-agent key (L7 remainder)**: the PR-review workflow needs an owner-provided CodiumAI/Qodo key before it can be built; factory cannot self-serve credentials. Spec ready: digest-pinned CLI, zai coding endpoint for the model, covers PRs to staging AND main, job success ≠ reviewed (verify the review BODY) · run 33
 
 ## Resolved
 

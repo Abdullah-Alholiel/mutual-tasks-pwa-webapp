@@ -258,6 +258,17 @@ production outranks the lane.
       smoke 12/12, all 6 headers verified live via curl.
 - [ ] L7 · Remaining CI workflows: semgrep, pr-agent (A2–A4; security.yml landed in
       run 16, tsc ratchet live).
+      UPDATE 2026-11-27 run 33: semgrep slice DONE — PR #43 merged (squash 95cf6a5,
+      reviewer fixes e162f7c): .semgrep/momentum-rules.yml (8 rules over the 6 standing
+      bug classes F1/F2/F19/F22; fixture matrix 10/10 fire, 0 clean hits; repo scan 0
+      findings; CI parity proven 7→8 rules on 252 files, 0 findings) + semgrep.yml
+      advisory workflow (version-pinned semgrep/semgrep:1.187.0, ENFORCE-BY 2026-12-11
+      in-file, default+48h-veto on the board; engine errors fail loudly). BONUS REAL
+      FIX: the new gate found generateAIProject.ts reading VITE_N8N_SECRET client-side
+      (F2 latent — verified absent from served prod chunks); now behind
+      import.meta.env.DEV so prod builds dead-code-eliminate it. Staging redeployed
+      (smoke 12/12), Pages prod smoke 12/12. REMAINS: pr-agent — needs an owner key
+      (CodiumAI/Qodo), see OWNER-QUEUE.
 - [ ] L8 · Off-site backup script to the shared Oracle bucket (A9; build and test against a local
       folder until the owner supplies the bucket link) + first full restore drill.
 - [ ] L9 · Monitoring drill: injected failure reaches Telegram; external uptime probe (A10).
