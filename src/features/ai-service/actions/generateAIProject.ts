@@ -55,7 +55,10 @@ export async function generateAIProject(
         // Add auth headers - different for local vs production
         if (isLocalDev) {
             // Local: Use N8N secret header (both formats for compatibility)
-            const secret = import.meta.env.VITE_N8N_SECRET;
+            // F2 guard (run 33 semgrep): import.meta.env.DEV is statically false in
+            // production builds, so this whole branch (and the VITE_N8N_SECRET value)
+            // is dead-code-eliminated — the secret can never be baked into a prod bundle.
+            const secret = import.meta.env.DEV ? import.meta.env.VITE_N8N_SECRET : undefined; // nosemgrep: momentum.no-vite-prefixed-secrets
             headers['x-momentum-secret'] = secret;
             headers['x_momentum_secret'] = secret; // N8N might use underscore format
 
