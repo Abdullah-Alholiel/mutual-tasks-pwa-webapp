@@ -1,0 +1,73 @@
+name: Semgrep
+
+# L7 (A3) — built run 33 (2026-11-27), PR #43. Spec: momentum-security-audit
+# SKILL.md CI-parity table; rules = the standing bug-class sweep (.semgrep/momentum-rules.yml).
+#
+# ADVISORY phase: findings are printed in the step summary and uploaded as a JSON
+# artifact; the job does NOT fail on findings yet. Enforce-by (flip `continue-on-error`
+# to false on the scan step) once the first triage lands — date tracked on the board.
+# Rules are scanned from the repo on every run — rule edits need no workflow change.
+
+on:
+  push:
+    branches: [staging, main]
+  pull_request:
+    branches: [staging, main]
+  schedule:
+    - cron: "40 4 * * 1"
+  workflow_dispatch: {}   # manual runs for triage/re-runs; needs no push
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: semgrep (advisory until triage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      # Digest-pinned policy (KoraLink lesson): no floating tags. Bump = deliberate edit.
+      image: semgrep/semgrep:1.187.0
+    env:
+      SEMGREP_SEND_METRICS: "off"   # never send code/metrics off-repo (secrets guard)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: semgrep scan (local rules)
+        id: scan
+        # exit 1 = findings exist (advisory here), exit 2 = config/internal error —
+        # the summary step distinguishes them so a broken config never hides as "clean".
+        continue-on-error: true
+        run: >
+          semgrep scan --config .semgrep/momentum-rules.yml
+          --json --output semgrep-findings.json
+
+      - name: findings summary
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          f = 'semgrep-findings.json'
+          if not os.path.exists(f):
+              print('NO findings file — semgrep errored (config bug), NOT a clean scan.')
+              raise SystemExit(1)
+          d = json.load(open(f))
+          errs = d.get('errors', [])
+          res = d.get('results', [])
+          print(f'semgrep findings: {len(res)} | engine errors: {len(errs)}')
+          for r in res[:30]:
+              print(f"  {r['check_id']}  {r['path']}:{r['start']['line']}")
+          for e in errs[:10]:
+              print(f"  [engine error] {e.get('message', e)}")
+          if errs:
+              raise SystemExit(1)
+          print('ADVISORY: findings do not block this PR yet (triage pending; enforce-by on the board).')
+          EOF
+
+      - name: upload findings artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-findings
+          path: semgrep-findings.json
+          if-no-files-found: ignore
