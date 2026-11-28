@@ -36,6 +36,6 @@
     "26c348a (reviewer fixes pre-merge: timer unref, NO_AI_TRANSPORT, malformed-JSON test)",
     "d79f905 (run 34 kanban docs; staging deployed twice, final deploy from reconciled head, smoke 12/12)"
   ],
-  "failure_reason": null,
-  "job_failed": false
+  "failure_reason": "run 34 died mid-run: report had SECTIONS_IN_PROGRESS, repo signals none (automated close-out 2026-11-28T17:30Z)",
+  "job_failed": true
 }

@@ -85,3 +85,5 @@ and strike the line by moving it to the resolved section below — never delete 
   twice-green acceptance + wrote RELEASE-CANDIDATE.md but died before its report; this run
   recovered the state, WITHDREW the RC (it certified 5414526 while staging moved on), and the
   D-075 guard now refuses that drift mechanically.
+
+- automated close-out 2026-11-28T17:30Z: run 34 died mid-run; report 20261127T2231Z-run34.md had SECTIONS_IN_PROGRESS, repo signals none; informational, no owner decision needed
