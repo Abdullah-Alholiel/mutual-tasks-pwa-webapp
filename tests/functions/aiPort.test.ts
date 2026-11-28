@@ -22,7 +22,7 @@ vi.mock('../../netlify/functions/shared/utils', () => ({
     buildRateLimitResponse: (headers: Record<string, string>, limit: number) => ({
         statusCode: 429, headers, body: JSON.stringify({ error: 'Rate limit exceeded', limit, remaining: 0 }),
     }),
-    AI_USAGE_LIMITS: { project_generation: 3, description_generation: 10 },
+    AI_USAGE_LIMITS: { project_generation: 3, description_generation: 20 },
     getTodayDate: () => '2026-11-20',
 }));
 

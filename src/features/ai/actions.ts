@@ -56,7 +56,7 @@ export async function generateAIDescription(
 
             // Check for rate limit
             if (response.status === 429) {
-                return { success: false, error: 'Daily limit reached. Try again tomorrow!' };
+                return { success: false, error: 'Monthly limit reached. Try again after the 1st!' };
             }
 
             // Check for auth errors
