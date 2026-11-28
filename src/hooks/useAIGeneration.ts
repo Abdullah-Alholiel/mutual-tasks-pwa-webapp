@@ -28,6 +28,7 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
     const [aiState, setAiState] = useState<AIState>('idle');
     const [remainingToday, setRemainingToday] = useState<number | null>(null);
     const { user } = useAuth();
+    const isAr = (navigator.language || '').toLowerCase().startsWith('ar');
 
     const generateDescription = useCallback(async (title: string): Promise<string | null> => {
         if (!user?.id) {
@@ -71,13 +72,15 @@ export const useAIGeneration = (type: AIGenType): UseAIGenerationResult => {
                     return null;
                 }
 
-                // Handle rate limit errors
-                if (result.error && result.error.includes('Daily limit reached')) {
+                // Handle rate limit errors (G3: monthly caps; message from the
+                // shared dictionary — no hardcoded numbers here)
+                if (result.error && result.error.includes('Monthly limit reached')) {
                     setAiState('error');
-                    toast.error('Daily Limit Reached', {
-                        description: 'You strictly have 10 description generations per day. Please try again tomorrow!',
+                    const m = AI_ERROR_MESSAGES.LIMIT_EXCEEDED_DESCRIPTION;
+                    toast.error(m.title, {
+                        description: m.description,
                         action: {
-                            label: 'Go Premium',
+                            label: isAr ? 'اشترك في بريميوم' : 'Go Premium',
                             onClick: () => { window.location.href = '/premium'; },
                         },
                     });

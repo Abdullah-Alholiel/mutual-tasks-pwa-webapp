@@ -8,20 +8,20 @@
 export const AI_ERROR_MESSAGES = {
     // Rate Limit Errors
     LIMIT_EXCEEDED_PROJECT: {
-        title: 'Daily Limit Reached',
-        description: "You've used all 3 AI project generations for today. Try again tomorrow!",
+        title: 'Monthly limit reached',
+        description: "You've used all 3 AI project generations for this month. Your allowance resets on the 1st.",
     },
     LIMIT_EXCEEDED_DESCRIPTION: {
-        title: 'Daily Limit Reached',
-        description: "You've used all 10 AI description generations for today. Try again tomorrow!",
+        title: 'Monthly limit reached',
+        description: "You've used all 20 AI description generations for this month. Your allowance resets on the 1st.",
     },
     LIMIT_WARNING_PROJECT: (remaining: number) => ({
         title: 'Limited Uses Remaining',
-        description: `You have ${remaining} AI project generation${remaining === 1 ? '' : 's'} left today.`,
+        description: `You have ${remaining} AI project generation${remaining === 1 ? '' : 's'} left this month.`,
     }),
     LIMIT_WARNING_DESCRIPTION: (remaining: number) => ({
         title: 'Limited Uses Remaining',
-        description: `You have ${remaining} AI description generation${remaining === 1 ? '' : 's'} left today.`,
+        description: `You have ${remaining} AI description generation${remaining === 1 ? '' : 's'} left this month.`,
     }),
 
     // Server/AI Service Errors

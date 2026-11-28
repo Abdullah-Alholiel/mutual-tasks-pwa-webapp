@@ -28,8 +28,10 @@ export interface UseAIProjectGenerationResult {
     resetState: () => void;
     /** Confirm project creation (increments usage) - returns true if successful */
     confirmProjectCreation: () => Promise<boolean>;
-    /** Remaining generations for today */
+    /** Remaining generations for this month (from the API's X-RateLimit headers) */
     remainingToday: number | null;
+    /** Monthly limit for the current user's plan (same source as remainingToday) */
+    limit: number | null;
 }
 
 /**
@@ -60,6 +62,7 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
     const [aiState, setAiState] = useState<AIProjectState>('idle');
     const [generatedProject, setGeneratedProject] = useState<AIGeneratedProject | null>(null);
     const [remainingToday, setRemainingToday] = useState<number | null>(null);
+    const [limit, setLimit] = useState<number | null>(null);
     const { user } = useAuth();
 
     /**
@@ -139,6 +142,7 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
             // Update remaining count from API response
             if (result.rateLimitInfo) {
                 setRemainingToday(result.rateLimitInfo.remaining);
+                setLimit(result.rateLimitInfo.limit);
             }
 
             if (result.success && result.project) {
@@ -218,5 +222,6 @@ export const useAIProjectGeneration = (): UseAIProjectGenerationResult => {
         resetState,
         confirmProjectCreation,
         remainingToday,
+        limit,
     };
 };

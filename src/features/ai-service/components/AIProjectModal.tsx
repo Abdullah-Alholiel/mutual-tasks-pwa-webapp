@@ -54,7 +54,13 @@ export const AIProjectModal = ({
 }: AIProjectModalProps) => {
     const [description, setDescription] = useState('');
     const [highlightInput, setHighlightInput] = useState(false);
-    const { aiState, generatedProject, generateProject, resetState, confirmProjectCreation, remainingToday } = useAIProjectGeneration();
+    const { aiState, generatedProject, generateProject, resetState, confirmProjectCreation, remainingToday, limit } = useAIProjectGeneration();
+
+    // Meter chip label: the real limit from the API headers (never a hardcoded
+    // 3). limitForDisplay caps at 99 so the chip stays compact for premium's
+    // 100/month; "left" is the only word on the chip (EN; numeric unit-free).
+    const limitForDisplay = limit !== null && limit > 0 && limit <= 99 ? limit : null;
+    const limitLabel = limitForDisplay !== null ? String(limitForDisplay) : '';
 
     // Initialize description from initialProject when modal opens
     useEffect(() => {
@@ -135,7 +141,7 @@ export const AIProjectModal = ({
                                     : 'bg-[#8B5CF6]/10 text-[#8B5CF6] border border-[#8B5CF6]/20'
                                 }`}>
                                 <Zap className="w-3.5 h-3.5" />
-                                <span>{remainingToday}/3 left</span>
+                                <span>{remainingToday}{limitLabel ? `/${limitLabel}` : ''} left</span>
                             </div>
                             )
                         )}

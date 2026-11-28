@@ -23,7 +23,7 @@ vi.mock('../../netlify/functions/shared/utils', () => ({
         headers,
         body: JSON.stringify({ error: 'Rate limit exceeded', limit, remaining: 0 }),
     }),
-    AI_USAGE_LIMITS: { project_generation: 3, description_generation: 10 },
+    AI_USAGE_LIMITS: { project_generation: 3, description_generation: 20 },
     getTodayDate: () => '2026-11-10',
 }));
 
@@ -74,13 +74,15 @@ describe('F19: AI function error bodies expose exactly {error}', () => {
         expect(res.headers['X-RateLimit-Remaining']).toBe('1');
     });
 
-    it('ai-generate-project: 200 premium path skips increment and reports -1 unlimited', async () => {
-        rateLimitMock.mockResolvedValue({ allowed: true, remaining: -1, limit: -1, used: 0 });
+    it('ai-generate-project: 200 premium path counts usage against its monthly cap', async () => {
+        // G3 (D-081): premium is a monthly CAP (100), not unlimited — the -1
+        // bypass is retired; usage increments like any plan.
+        rateLimitMock.mockResolvedValue({ allowed: true, remaining: 99, limit: 100, used: 1 });
         fetchMock.mockResolvedValue(okResponse('{"name":"Deep Work"}'));
         const res = await call(projectHandler as Handler, authedEvent({ description: 'x' }));
         expect(res.statusCode).toBe(200);
-        expect(incrementMock).not.toHaveBeenCalled();
-        expect(res.headers['X-RateLimit-Remaining']).toBe('-1');
+        expect(incrementMock).toHaveBeenCalledTimes(1);
+        expect(res.headers['X-RateLimit-Remaining']).toBe('98');
     });
 
     it('ai-generate-project: n8n fetch failure → 500, no details field, no upstream text', async () => {

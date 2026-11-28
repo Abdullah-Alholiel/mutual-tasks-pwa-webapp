@@ -40,6 +40,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/premium-interest"
+  to = "/.netlify/functions/premium-interest"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

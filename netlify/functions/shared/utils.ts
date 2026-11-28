@@ -1,16 +1,26 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { PLAN_LIMITS, type AIUsageType, type PlanTier } from '../../../src/lib/planLimits';
 
-export const AI_USAGE_LIMITS = {
-    project_generation: 3,
-    description_generation: 10,
-} as const;
+// G3 (D-081): the owner's monthly numbers live in ONE module (src/lib/planLimits.ts)
+// shared with the client so the upgrade screen can never drift from the caps.
+export { PLAN_LIMITS };
+export type { AIUsageType, PlanTier };
 
-export type AIUsageType = keyof typeof AI_USAGE_LIMITS;
-
-// F11: the quota day is ALWAYS UTC. Never derive it from a client-supplied
-// timezone — that let the daily bucket stretch by ±12h across timezones.
+// F11 (kept, now monthly): the quota window is ALWAYS a UTC calendar month.
+// Never derive it from a client-supplied timezone — that let the bucket
+// stretch by ±12h across timezones.
 export function getTodayDate(): string {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'UTC' });
+}
+
+/** UTC calendar-month window [start, endExclusive) as ISO dates, server-side only. */
+function monthRange(): { start: string; endExclusive: string } {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    const start = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+    const endExclusive = new Date(Date.UTC(y, m + 1, 1)).toISOString().slice(0, 10);
+    return { start, endExclusive };
 }
 
 export async function checkRateLimit(
@@ -18,37 +28,39 @@ export async function checkRateLimit(
     userId: number,
     usageType: AIUsageType
 ): Promise<{ allowed: boolean; remaining: number; limit: number; used: number }> {
-    const today = getTodayDate();
-    const limit = AI_USAGE_LIMITS[usageType];
+    const { start, endExclusive } = monthRange();
 
-    // Premium users bypass daily AI caps entirely (unlimited generations).
     const { data: userRow, error: premiumError } = await supabaseAdmin
         .from('users')
         .select('is_premium')
         .eq('id', userId)
         .maybeSingle();
 
-    if (!premiumError && userRow?.is_premium) {
-        console.log('[AI Rate Limit] Premium user — bypassing cap:', { userId, usageType });
-        // Convention: remaining/limit === -1 means "premium / unlimited"
-        return { allowed: true, remaining: -1, limit: -1, used: 0 };
+    // G3: premium is a monthly CAP now (100/1000), not unlimited. A failed
+    // premium read defaults to the free tier (stricter side, never a bypass).
+    const tier: PlanTier = !premiumError && userRow?.is_premium ? 'premium' : 'free';
+    const limit = PLAN_LIMITS[tier][usageType];
+    if (tier === 'premium') {
+        console.log('[AI Rate Limit] Premium user — monthly cap:', { userId, usageType, limit });
     }
 
+    // Month total = sum over the per-day rows in the UTC window (existing
+    // unique key stays per-day; no schema change needed for the caps).
     const { data, error } = await supabaseAdmin
         .from('ai_usage_logs')
         .select('count')
         .eq('user_id', userId)
         .eq('usage_type', usageType)
-        .eq('usage_date', today)
-        .maybeSingle();
+        .gte('usage_date', start)
+        .lt('usage_date', endExclusive);
 
     if (error) {
         console.error('[AI Rate Limit] Failed to check usage:', error.code, error.message);
         return { allowed: false, remaining: 0, limit, used: 0 };
     }
 
-    const used = data?.count ?? 0;
-    console.log('[AI Rate Limit] Usage check:', { userId, usageType, today, used, limit, remaining: Math.max(0, limit - used) });
+    const used = (data ?? []).reduce((sum, row) => sum + (row?.count ?? 0), 0);
+    console.log('[AI Rate Limit] Usage check:', { userId, usageType, tier, window: start, used, limit, remaining: Math.max(0, limit - used) });
 
     return {
         allowed: used < limit,
@@ -230,7 +242,7 @@ export function buildRateLimitResponse(
         headers: { ...headers, 'X-RateLimit-Remaining': '0', 'X-RateLimit-Limit': String(limit) },
         body: JSON.stringify({
             error: 'Rate limit exceeded',
-            message: `You've used all ${limit} AI generations for today. Try again tomorrow!`,
+            message: `You've used all ${limit} AI generations for this month. Your allowance resets on the 1st.`,
             limit,
             remaining: 0,
         }),
